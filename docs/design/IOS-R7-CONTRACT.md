@@ -593,7 +593,7 @@ Client (unit):
 **Implementation status (2026-11-08).** Server criteria 1–3 and 5–10 are covered by
 `tests/test_ios_workflow.py` and `tests/test_migration_0056.py`; the default suite, docs tests and
 `ruff` pass. The client is implemented with an **iOS 27.0 deployment target**, and built and
-unit-tested on the available iOS 27.2 simulator (iPhone 17): 96 tests, 0 failures, and the built app installs and launches to the pairing screen.
+unit-tested on the available iOS 27.2 simulator (iPhone 17): 97 tests, 0 failures, and the built app installs and launches to the pairing screen.
 Criteria 4 and 9 are exercised by the client unit tests (foreground reconciliation, lost response,
 supersession, expiry) rather than by a scripted live-server run.
 

@@ -8,14 +8,14 @@
 the Swift client in the separate StrengthApp repository has pairing, Today, History,
 Settings/Forget, readiness entry, Workout ready/start-by-id, active workout,
 completion/abandon, Progress, opt-in HealthKit HRV/RHR/bodyweight readiness, Keychain storage,
-Home/Away server routing by Home Wi-Fi name (Precise Location and the Access Wi-Fi Information
-entitlement), Settings Exercise Library with read-only configurations, e1RM and paginated
+Home/Away server routing by Home Server reachability with a Prefer Home manual override (no
+Wi-Fi SSID, Location or Access Wi-Fi Information entitlement), Settings Exercise Library with read-only configurations, e1RM and paginated
 working-set history,
-96 unit tests
+97 unit tests
 after R1/R3/R5/Phase 3A and optional live UI smoke tests. Phase 3A is closed 2026-11-08; physical
 HealthKit acceptance was owner-confirmed and Phase 3B is out of scope. R7 (asynchronous
 prescription request with session-type and minimum-session settings) is **implemented and closed
-2026-11-08**: the app builds with an iOS 27.0 deployment target and 96 client tests pass on the
+2026-11-08**: the app builds with an iOS 27.0 deployment target and 97 client tests pass on the
 available iOS 27.2 simulator; the app launches, and the live UI flow passed twice — once with the resolver off and once with it on against a copy of the
 real database. R2 is closed as absorbed by R7's `plans/current` read. R8 (active-workout plan editing) is **closed 2026-11-08**;
 its authenticated exercise-catalogue, online-only and no-solved-load decisions are recorded; R8 is
@@ -876,7 +876,7 @@ exercise swap, set-count change".
   deterministic Apple Watch classification, 48-hour HRV / current-day RHR / 30-day bodyweight
   selection, single-flight import, the healthkitReadiness mutation-journal kind, Settings opt-in
   and Today import/provenance display.
-- Verification: 1,681 server tests, 96 client tests, simulator build and the live UI workflow pass.
+- Verification: 1,681 server tests, 97 client tests, simulator build and the live UI workflow pass.
   Physical HealthKit acceptance with real samples remains pending.
 - Rollback: remove the client importer and canonical-merge integration, drop healthkit_readiness
   with the paired 0054/0055 migration rows, and leave readiness_day/readiness_entry untouched.
