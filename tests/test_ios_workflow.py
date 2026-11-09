@@ -1908,6 +1908,12 @@ def test_ios_execution_events_are_idempotent_and_analysable(ios):
     assert analytics["summary"]["active_lifting_s"] == 20
     assert analytics["summary"]["recorded_recovery_s"] == 5
 
+    status, web_analytics = _request(
+        ios["base"], f"/api/history/{workout['workout_id']}/execution"
+    )
+    assert status == 200, web_analytics
+    assert web_analytics["data_quality"]["event_count"] == 4
+
 
 def test_ios_execution_events_reject_bad_timestamps_atomically(ios):
     token, _ = _paired(ios)

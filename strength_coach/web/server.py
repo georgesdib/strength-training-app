@@ -2545,6 +2545,29 @@ class Handler(BaseHTTPRequestHandler):
                     start=query.get("start", [None])[0],
                     end=query.get("end", [None])[0],
                 )))
+            elif path.startswith("/api/history/") and path.endswith("/execution"):
+                session_id = path[len("/api/history/"):-len("/execution")].strip("/")
+                if not session_id:
+                    self._error(404, "not found")
+                    return
+                workout_id = session_id
+                try:
+                    session_detail = self._with_conn(
+                        lambda c: history.detail(c, session_id)
+                    )
+                except ValueError:
+                    session_detail = None
+                if session_detail is not None and session_detail.get("workout_id"):
+                    workout_id = str(session_detail["workout_id"])
+                payload = self._with_conn(
+                    lambda c: workout_execution.analytics(
+                        c, workout_id, require_owner=False
+                    )
+                )
+                if payload is None:
+                    self._error(404, "execution not available")
+                else:
+                    self._json(200, payload)
             elif path.startswith("/api/history/"):
                 session_id = path.rsplit("/", 1)[-1]
                 self._json(200, self._with_conn(

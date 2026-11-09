@@ -221,9 +221,14 @@ def _merge(intervals: list[tuple[float, float]]) -> list[tuple[float, float]]:
     return merged
 
 
-def analytics(conn, workout_id: str, device_id: str) -> dict[str, Any] | None:
+def analytics(
+    conn, workout_id: str, device_id: str | None = None, *,
+    require_owner: bool = True,
+) -> dict[str, Any] | None:
     workout = _workout_row(conn, workout_id)
-    if workout is None or not _owns_workout(conn, workout_id, device_id):
+    if workout is None:
+        return None
+    if require_owner and (not device_id or not _owns_workout(conn, workout_id, device_id)):
         return None
     events = []
     for row in conn.execute(

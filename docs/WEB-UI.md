@@ -293,9 +293,10 @@ behaviour still require a physical-device pass.
 - iPhone pairing and device revocation are CLI-only (`strength-coach ios ...`); managing phone
   credentials is a host-level security action, so the web UI does not expose it.
 - No delete/void action for a completed workout; only active-workout abandon and set removal/edit. See DATA-MODEL §17 for the recommended void design.
-- Execution telemetry (set/rest/exercise timing) is captured by the native iPhone client and shown
-  in its completed-workout History. This web UI has no execution-timeline panel; the underlying
-  read API is `/api/ios/v1/workouts/<id>/execution`.
+- Execution telemetry (set/rest/exercise timing) is captured by the native iPhone client.
+  Completed-workout **Details** in this web UI also shows a read-only graphical timeline, set
+  timing and prescribed-versus-actual rest via `/api/history/<id>/execution`. It is descriptive,
+  never a fatigue or compliance score.
 
 
 ## Related

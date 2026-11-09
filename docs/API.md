@@ -145,6 +145,7 @@ The authoritative interfaces are [IOS-PHASE-1-CONTRACT.md](design/IOS-PHASE-1-CO
 | `POST /api/ios/v1/workouts/<id>/abandon` | bearer + Idempotency-Key | `{}` -> abandoned workout detail |
 | `POST /api/ios/v1/workouts/<id>/execution-events` | bearer + Idempotency-Key | `{events:[{event_id, event_type, occurred_at, plan_item_index?, set_id?, local_set_id?, payload?}]}` -> `{workout_id, accepted, duplicates, received_at}`; 1-100 events, all-or-nothing, idempotent by event_id; unknown fields, bad timestamps, wrong ownership/status and conflicting event IDs are 400/404/409 |
 | `GET /api/ios/v1/workouts/<id>/execution` | bearer | read-only execution timeline and derived metrics; empty event coverage is valid and historical workouts are never backfilled |
+| `GET /api/history/<id>/execution` | none (local web UI) | the same read-only execution payload for a completed workout, keyed by session/workout id; imported sessions without a workout row are 404 |
 
 - **Pairing is CLI-only.** `strength-coach ios pair [--label LABEL] [--ttl 300]` prints a
   one-use 8-digit code (spaces/hyphens are ignored by the exchange); the default TTL is 300

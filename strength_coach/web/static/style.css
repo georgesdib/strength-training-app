@@ -254,6 +254,36 @@ details summary { cursor: pointer; color: var(--muted); }
 #history-details input[readonly] { background: var(--soft); color: var(--ink); }
 #history-details table { min-width: 760px; }
 
+/* Recorded execution: a proportional timeline, not a score or a prescription. */
+.execution-panel { margin: 8px 0 18px; }
+.execution-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
+  gap: 8px; margin: 8px 0 12px; }
+.execution-summary div { background: var(--soft); border: 1px solid var(--line);
+  border-radius: 8px; padding: 8px 10px; }
+.execution-summary strong { display: block; font-size: 19px; }
+.execution-summary span { color: var(--muted); font-size: 11px; }
+.execution-legend { display: flex; gap: 14px; flex-wrap: wrap; margin: 0 0 6px;
+  color: var(--muted); font-size: 11px; }
+.execution-legend span::before { content: ""; display: inline-block; width: 10px; height: 10px;
+  border-radius: 2px; margin-right: 4px; vertical-align: -1px; background: var(--accent); }
+.execution-legend .rest::before { background: var(--accent-2); }
+.execution-legend .exercise::before { background: var(--muted); }
+.execution-legend .marker::before { width: 2px; background: var(--ink); }
+.execution-timeline { border: 1px solid var(--line); border-radius: 8px; background: var(--paper);
+  padding: 8px 10px 4px; overflow: hidden; }
+.execution-track { position: relative; height: 48px; background: var(--soft);
+  border-radius: 4px; overflow: hidden; }
+.execution-block { position: absolute; top: 7px; height: 20px; border-radius: 3px;
+  background: var(--accent); opacity: .9; }
+.execution-block.rest { top: 31px; height: 8px; background: var(--accent-2); }
+.execution-block.rest.skipped { opacity: .45; }
+.execution-block.exercise { top: 31px; height: 3px; background: var(--muted); opacity: .55; }
+.execution-marker { position: absolute; top: 0; width: 1px; height: 100%;
+  background: var(--ink); opacity: .35; }
+.execution-axis { display: flex; justify-content: space-between; color: var(--muted);
+  font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; padding-top: 4px; }
+#history-execution h4 { margin: 14px 0 4px; }
+
 #longevity-summary, #longevity-details { overflow-x: auto; }
 #longevity-summary table, #longevity-details table { min-width: 620px; }
 

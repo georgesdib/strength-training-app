@@ -512,13 +512,135 @@ function openHistoryDetails(sessionId) {
         "<th>Note</th></tr></thead><tbody>" + forms + "</tbody></table>" +
         "<p class='muted'>Optional self-assessment; rubric input only, never a load or set.</p>" : "") +
       attributionBlock +
+      "<h3>Execution</h3><div id='history-execution' class='execution-panel'>" +
+      "<p class='muted'>Loading recorded execution…</p></div>" +
       "<h3>Exercises and sets</h3>" +
       (blocks || "<p class='muted'>No sets.</p>");
     panel.scrollIntoView({ behavior: "smooth", block: "start" });
+    loadHistoryExecution(sessionId);
   }).catch(function (error) {
     document.getElementById("history-details").innerHTML =
       "<p class='warnbox'>" + esc(error.message) + "</p>";
   });
+}
+
+function executionSeconds(value) {
+  if (value == null || !isFinite(value)) return "—";
+  var total = Math.max(0, Math.round(value));
+  return Math.floor(total / 60) + ":" + String(total % 60).padStart(2, "0");
+}
+
+function executionClock(value) {
+  var date = new Date(value);
+  if (isNaN(date.getTime())) return String(value || "—");
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
+function executionPct(value, start, span) {
+  var time = Date.parse(value);
+  if (isNaN(time) || span <= 0) return 0;
+  return Math.max(0, Math.min(100, ((time - start) / span) * 100));
+}
+
+function executionBlock(startValue, endValue, start, span, className, label) {
+  var left = executionPct(startValue, start, span);
+  var right = executionPct(endValue, start, span);
+  var width = Math.max(0.6, right - left);
+  return '<span class="execution-block ' + className + '" style="left:' +
+    left.toFixed(3) + '%;width:' + width.toFixed(3) + '%" title="' +
+    esc(label) + '"></span>';
+}
+
+function renderHistoryExecution(data) {
+  var events = data.events || [];
+  if (!events.length) {
+    return "<p class='muted'>No execution events were recorded for this workout. " +
+      "Set and rest timing is unavailable; historical sessions are not backfilled.</p>";
+  }
+  var start = Date.parse(data.started_at);
+  var end = data.ended_at ? Date.parse(data.ended_at) : start + (data.total_elapsed_s || 0) * 1000;
+  if (isNaN(start) || isNaN(end) || end <= start) {
+    return "<p class='warnbox'>Execution timestamps could not be interpreted.</p>";
+  }
+  var span = end - start;
+  var blocks = [];
+  (data.sets || []).forEach(function (item, index) {
+    blocks.push(executionBlock(item.started_at, item.completed_at, start, span,
+      "set", "Set " + (index + 1) + " · " + executionSeconds(item.duration_s)));
+  });
+  (data.rests || []).forEach(function (item, index) {
+    blocks.push(executionBlock(item.started_at, item.ended_at, start, span,
+      item.outcome === "skipped" ? "rest skipped" : "rest",
+      "Rest " + (index + 1) + " · " + executionSeconds(item.actual_rest_s) +
+      (item.prescribed_rest_s == null ? "" : " / prescribed " + executionSeconds(item.prescribed_rest_s))));
+  });
+  (data.exercises || []).forEach(function (item, index) {
+    blocks.push(executionBlock(item.started_at, item.ended_at, start, span,
+      "exercise", "Exercise interval " + (index + 1) + " · " + executionSeconds(item.duration_s)));
+  });
+  var markers = events.map(function (event) {
+    var left = executionPct(event.occurred_at, start, span);
+    return '<span class="execution-marker" style="left:' + left.toFixed(3) +
+      '%" title="' + esc(event.event_type + " · " + executionClock(event.occurred_at)) +
+      '"></span>';
+  }).join("");
+  var restRows = (data.rests || []).map(function (item) {
+    var deviation = item.deviation_s == null ? "—" :
+      (item.deviation_s > 0 ? "+" : "") + Math.round(item.deviation_s) + " s";
+    return "<tr><td>" + executionClock(item.started_at) + "</td><td>" +
+      executionSeconds(item.prescribed_rest_s) + "</td><td>" +
+      executionSeconds(item.actual_rest_s) + "</td><td>" + deviation + "</td><td>" +
+      esc(item.outcome || "—") + "</td></tr>";
+  }).join("");
+  var setRows = (data.sets || []).map(function (item, index) {
+    return "<tr><td>" + (index + 1) + "</td><td>" +
+      executionClock(item.started_at) + "</td><td>" +
+      executionClock(item.completed_at) + "</td><td>" +
+      executionSeconds(item.duration_s) + "</td></tr>";
+  }).join("");
+  var quality = data.data_quality || {};
+  var summary = data.summary || {};
+  var coverage = "<p class='muted'>" + (quality.event_count || 0) + " event(s) · " +
+    (quality.set_started_events == null ? "" :
+      quality.set_started_events + " set start(s), " + quality.set_completed_events + " completed · ") +
+    (quality.rest_started_events == null ? "" :
+      quality.rest_started_events + " rest start(s), " + quality.rest_ended_events + " ended · ") +
+    (quality.sets_with_duration || 0) + " set duration(s) measurable</p>";
+  return "<div class='execution-summary'>" +
+    "<div><strong>" + executionSeconds(summary.active_lifting_s) + "</strong><span>active lifting</span></div>" +
+    "<div><strong>" + executionSeconds(summary.recorded_recovery_s) + "</strong><span>recorded rest</span></div>" +
+    "<div><strong>" + executionSeconds(summary.exercise_transition_s) + "</strong><span>transitions</span></div>" +
+    "<div><strong>" + executionSeconds(summary.unclassified_s) + "</strong><span>unclassified</span></div>" +
+    "<div><strong>" + executionSeconds(data.total_elapsed_s) + "</strong><span>total elapsed</span></div>" +
+    "</div>" +
+    "<div class='execution-legend'><span class='set'>Set</span><span class='rest'>Rest</span>" +
+    "<span class='exercise'>Exercise interval</span><span class='marker'>Event</span></div>" +
+    "<div class='execution-timeline'><div class='execution-track'>" + blocks.join("") +
+    markers + "</div><div class='execution-axis'><span>" + executionClock(data.started_at) +
+    "</span><span>" + executionClock(data.ended_at || new Date(end).toISOString()) +
+    "</span></div></div>" +
+    coverage +
+    (setRows ? "<h4>Set timing</h4><div class='table-scroll'><table><thead><tr><th>#</th>" +
+      "<th>Started</th><th>Completed</th><th>Duration</th></tr></thead><tbody>" + setRows + "</tbody></table></div>" : "") +
+    (restRows ? "<h4>Prescribed versus actual rest</h4><div class='table-scroll'><table><thead><tr>" +
+      "<th>Started</th><th>Prescribed</th><th>Actual</th><th>Deviation</th><th>Outcome</th>" +
+      "</tr></thead><tbody>" + restRows + "</tbody></table></div>" : "") +
+    "<p class='muted'>Recorded observations, not fatigue, readiness or compliance scores. " +
+    "Missing starts or ends are not inferred.</p>";
+}
+
+async function loadHistoryExecution(sessionId) {
+  var target = document.getElementById("history-execution");
+  if (!target) return;
+  try {
+    var data = await api("/api/history/" + encodeURIComponent(sessionId) + "/execution");
+    if (target.isConnected) target.innerHTML = renderHistoryExecution(data);
+  } catch (error) {
+    if (target.isConnected) {
+      target.innerHTML = "<p class='muted'>Execution timeline is unavailable for this workout. " +
+        "Historical workouts without execution events are not backfilled.</p>";
+    }
+  }
 }
 
 document.getElementById("history-details-close").addEventListener("click", function () {
