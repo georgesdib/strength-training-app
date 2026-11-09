@@ -1849,6 +1849,14 @@ def test_ios_exercise_library_detail_e1rm_and_history(ios):
     assert detail["e1rm"]["summary"]["n"] >= 1
     assert detail["e1rm"]["basis"] == "raw_formula_epley_rir"
 
+    # bench_press has no explicit e1rm_applicable field; the endpoint must use the shared
+    # structural default rather than treating absence as false.
+    status, default_applicable = _request(
+        ios["base"], "/api/ios/v1/exercises/bench_press", token=token
+    )
+    assert status == 200, default_applicable
+    assert default_applicable["e1rm_applicable"] is True
+
     status, history = _request(
         ios["base"], "/api/ios/v1/exercises/competition_squat/history?limit=1",
         token=token,

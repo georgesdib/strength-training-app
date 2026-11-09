@@ -1117,7 +1117,9 @@ class Handler(BaseHTTPRequestHandler):
         if row is None:
             return None
         properties = dict(row.get("props") or {})
-        applicable = bool(properties.get("e1rm_applicable"))
+        # Explicit taxonomy values win; otherwise use the canonical structural rule used by
+        # prescriptions and strength observations. Most exercises rely on that default.
+        applicable = derived_feature.e1rm_applicable(properties)
         e1rm = None
         if applicable:
             clock = _ios_clock()
