@@ -241,46 +241,57 @@ Only pursue after the core app is useful and stable, with a separate scope/appro
 ### Phase 6 — watchOS companion (planned, not started)
 
 The phone plans; the watch executes. Full contract:
-[`design/IOS-WATCH-CONTRACT.md`](design/IOS-WATCH-CONTRACT.md). Decisions locked 2026-11-09; no
-code is implemented.
+[`design/IOS-WATCH-CONTRACT.md`](design/IOS-WATCH-CONTRACT.md). Decisions locked 2026-11-09 and
+remediated the same day for extraction, credential handoff, lifecycle, offline conflicts,
+HealthKit idempotency and acceptance. Targets: **iOS 27.0** and **watchOS 27.0**. No code or
+migration is implemented.
 
 **Scope.** The watch fetches the server-issued plan, starts the session, logs sets, rest, form
-ratings and finish with sRPE, shows heart rate, and writes one HealthKit strength workout. It has
-its own paired device token, minted by the phone. Logging and finish are offline-safe; plan fetch
-and start need connectivity. During a watch session the watch is the only set writer; the phone
-edits the plan and shows a read-only mirror with a take-over action. Readiness, history, progress, settings and the
-exercise library stay on the phone.
+ratings and finish with sRPE, shows heart rate, and writes exactly one HealthKit strength workout.
+It has its own paired device token, minted by the phone. Logging and finish are offline-safe; plan
+fetch and start need connectivity, and a watch session requires HealthKit workout authorisation so
+the app can stay alive. During a watch session the watch is the only set writer; the phone edits
+the plan and shows a read-only mirror with a take-over action. Readiness, history, progress,
+settings and the exercise library stay on the phone.
 
-**Shared core.** Extract `StrengthCore` (models, API client, outbox/journal, session state
-machine) so both apps use one implementation; keep iOS views and iOS-only services in the app.
-Views stay per-platform and the core contains no `#if os()`.
+**Shared core.** `StrengthCore` is extracted in five reviewable stages, each keeping the iPhone
+suite green: S1 models, S2 API client, S3 persistence/credentials, S4 session engine one operation
+at a time, S5 the watch target. The package contains no UI, HealthKit, WatchConnectivity or
+`#if os()` code; iPhone views and iOS-only services stay in the app. Contract §6 is authoritative
+on boundaries and per-stage acceptance.
 
 **Work packages.**
 
-1. **6.0 Shared core (iOS first).** Move models, client, journal and session logic into the package
-   behind a `SessionCore`; keep the 102 iOS tests green; no behaviour change.
-2. **6.1 Server contract.** `0058_watch_companion.sql`; watch device mint/list/revoke;
-   `owner_device_id` enforcement and takeover; `plan_revision`; `last_activity_at`; idle warning
-   and 24h lazy abandonment; `issued_plan_ttl_seconds` 14400; `watch_enabled`; tests.
-3. **6.2 Watch shell and credentials.** Watch target and scheme embedded in the app; Watch
-   Connectivity handoff; plan fetch and a read-only Today.
-4. **6.3 Execution.** Start, set logging, rest timer, form rating, finish with sRPE, execution
-   telemetry with original `occurred_at` values, and pending states.
-5. **6.4 Offline.** Session-scoped outbox, ordered replay, relaunch/crash recovery, conflict
-   display.
-6. **6.5 Heart rate and HealthKit.** `HKWorkoutSession` and builder, live HR, one saved strength
-   workout with effort from sRPE; discard on abandon.
-7. **6.6 Phone mirror and plan revision.** Phone mirror mode with set logging disabled and a
-   take-over confirmation, phone push on edit, watch refresh points, stale-revision rejection,
-   non-interruption rules.
-8. **6.7 Acceptance and CI.** Watch build in the `ios-ci` workflow, physical Ultra acceptance,
-   docs and rollback notes.
+1. **6.0 StrengthCore extraction (iOS first).** Execute S1–S5 from the contract; parity is proved
+   per stage and a slice that cannot prove it is reverted. Acceptance: the same iPhone tests pass
+   with the same count, no view changes, and the package builds for iOS 27.0 and watchOS 27.0.
+2. **6.1 Server contract.** `0058_watch_companion.sql` with watch kind, parent, monotonic
+   `credential_epoch` and the one-active-watch index; mint/list/revoke; `owner_device_id` and
+   takeover; `plan_revision`; `plan_item_mismatch`; `last_activity_at`; idle warning and 24h lazy
+   abandonment; `issued_plan_ttl_seconds` 14400; `watch_enabled`; tests.
+3. **6.2 Watch shell and credentials.** Watch target and scheme; WatchConnectivity handoff as
+   state with epoch and acknowledgement, bounded foreground retry, 401/revocation recovery; plan
+   fetch and a read-only Today.
+4. **6.3 Execution lifecycle.** HK-session-anchored state machine, persist-first set capture, rest
+   timer persistence, dim/background/termination/relaunch behaviour, and execution telemetry with
+   original `occurred_at` values.
+5. **6.4 Offline and conflicts.** Session-scoped outbox, ordered replay, relaunch recovery,
+   flush-before-revision on reconnect, off-plan preservation on `plan_item_mismatch`, and no
+   stale-snapshot overwrite.
+6. **6.5 Heart rate and HealthKit.** `HKWorkoutSession` and builder, live HR, the external-UUID
+   exactly-once save, crash/relaunch finalisation, real start/end timestamps, and permission
+   handling.
+7. **6.6 Phone mirror and plan revision.** Mirror mode with set logging disabled and a take-over
+   confirmation, phone push on edit, watch refresh points, stale-revision rejection, and
+   non-interruption of a set in progress.
+8. **6.7 Acceptance and CI.** Watch build and deployment-target assertion in `ios-ci`, the nine
+   scenario tests in contract §17, physical Ultra acceptance, docs and rollback notes.
 
-**Acceptance.** The physical script in the contract §17: phone plan → phone closed → watch fetch →
-start → sets → phone substitution → watch update → finish/sRPE → server completed → exactly one
-HealthKit workout with HR and effort. Plus one offline mid-session run (original timestamps
-preserved), one clock-skew run (+5 minutes), one phone-mirror/take-over run and one idle-abandon
-run.
+**Acceptance.** The physical script in contract §17 plus the required scenarios: delayed/failed
+credential delivery, relaunch with pending mutations, backgrounding and returning mid-session,
+phone plan modification while the watch is offline, stale-revision rejection, take-over and
+read-only state, HealthKit finish retry without duplication, clock skew and original timestamps,
+and the watchOS 27.0 deployment/CI build.
 
 ## 5. Offline behavior — explicit contract
 
@@ -351,17 +362,25 @@ strength-app/                    # workspace root; not itself a git repository
   strength-training-app/         # Python server and web UI (this repository)
   StrengthApp/                   # SwiftUI client (separate git repository)
     StrengthApp.xcodeproj/
-    StrengthApp/                 # app sources
+    StrengthCore/                # local Swift package shared with watchOS (Phase 6)
+      Sources/StrengthCore/      # models, API client, outbox, session engine
+      Tests/StrengthCoreTests/
+    StrengthApp/                 # iPhone app sources
       App/
       Features/
         Today/
         Readiness/
         Workout/
         History/
-      Core/
-      Networking/
+      Core/                      # iPhone view state and iOS-only services
+      Networking/                # thin adapters over StrengthCore
       Persistence/
-      HealthKit/       # added in Phase 3, not required by the initial app
+      HealthKit/                 # Phase 3, read-only readiness
+      Tests/
+    StrengthWatch/               # watchOS app target (Phase 6, planned)
+      App/
+      Features/
+      HealthKit/
       Tests/
 ```
 
@@ -370,6 +389,12 @@ crosses the API boundary lands in the server repository first, then in the clien
 atomic cross-repository commit.
 
 Use SwiftUI views for presentation, small observable feature state for user interaction, one API client for DTO/network handling, and a local persistence component only when needed by the phase. Add protocol abstractions when they make a boundary testable or are used by multiple features; do not require a distinct repository, service, and use-case layer for every screen. Keep business rules in Python. The initial app can be mostly online and need not ship a complex local database/outbox.
+
+Phase 6 moves the platform-neutral half into `StrengthCore`: models, the API client, the
+outbox/journal and the session state machine. Both the iPhone and watch targets import it and keep
+only platform services and views. The package must not import SwiftUI, UIKit, WatchKit, HealthKit
+or WatchConnectivity (contract §6); platform differences are injected, not branched with
+`#if os()`.
 
 ## 9. Tests and quality gates
 

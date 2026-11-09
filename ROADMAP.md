@@ -1747,13 +1747,16 @@ Physical offline acceptance was owner-confirmed at closure on 2026-11-08.
 ### 4.32 Phase 6 — watchOS companion (planned; not started)
 
 The phone remains the planner; the watch becomes the execution client for an issued plan: fetch,
-start, log sets/rest/forms, finish with sRPE, live heart rate and one HealthKit strength workout.
-It gets its own device token, the watch is the only set writer during its session (the phone
-mirrors it with plan edits and a take-over path), plan edits propagate by revision, logging is
-offline-safe with preserved timestamps, and forgotten sessions are idle-abandoned. Shared
-code moves into a `StrengthCore` package so iOS and watchOS use one client and one session state
-machine. Contract: [`docs/design/IOS-WATCH-CONTRACT.md`](docs/design/IOS-WATCH-CONTRACT.md). No
-code is implemented; implementation needs a separate go-ahead.
+start, log sets/rest/forms, finish with sRPE, live heart rate and exactly one HealthKit strength
+workout. Targets are iOS 27.0 and watchOS 27.0. The watch gets its own device token with a
+server-issued credential epoch and acknowledgement, is the only set writer during its session (the
+phone mirrors it with plan edits and a take-over path), and keeps logging offline with original
+timestamps. An HKWorkoutSession anchors the app's lifetime; a replayed set whose plan item changed
+is preserved as off-plan rather than dropped, plan edits propagate by revision, and forgotten
+sessions are idle-abandoned. Shared code is extracted into `StrengthCore` in five staged,
+behaviour-preserving moves so iOS and watchOS use one client and one session state machine.
+Contract: [`docs/design/IOS-WATCH-CONTRACT.md`](docs/design/IOS-WATCH-CONTRACT.md). No code is
+implemented; implementation needs a separate go-ahead.
 
 ## 5. Known gaps and risks
 

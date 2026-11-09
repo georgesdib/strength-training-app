@@ -1,14 +1,15 @@
 # iOS Phase 6 — watchOS companion contract
 
-**Status:** planned, not started (decisions locked 2026-11-09). This document authorises no code.
-The phone remains the planner; the watch becomes the client that executes a session.
+**Status:** planned, not started (decisions locked 2026-11-09; design remediation 2026-11-09).
+This document authorises no code; no migration is created by this design task. Target platforms:
+**iOS 27.0** and **watchOS 27.0**.
 
 ## 1. Purpose
 
 The watch fetches the server-issued plan, starts the workout, logs sets and rest, shows heart
-rate, finishes with sRPE, and writes one HealthKit strength workout. The phone keeps readiness,
-prescription requests and plan edits, and shows a read-only mirror while the watch owns the
-session.
+rate, finishes with sRPE, and writes exactly one HealthKit strength workout. The phone keeps
+readiness, prescription requests and plan edits, and shows a read-only mirror while the watch owns
+the session.
 
 ## 2. Scope
 
@@ -26,7 +27,8 @@ session.
   disturbing a set in progress.
 - A phone mirror mode for a watch-owned session: plan edits allowed, set logging blocked and a
   take-over action available.
-- Idle detection and automatic abandonment of forgotten sessions.
+- Idle detection and automatic abandonment of forgotten sessions. The 24h hard threshold is
+  accepted and unchanged.
 
 ## 3. Non-goals
 
@@ -37,7 +39,8 @@ the phone. The watch is a home-gym device on the same LAN as the server.
 
 The watch does not notify the phone: there is no watch→phone event channel and no attempt to
 auto-open the phone app. The phone discovers a watch-started session through its normal foreground
-refresh, and watch→phone WatchConnectivity is not part of this plan.
+refresh. WatchConnectivity is used only for the phone→watch credential handoff and for the
+phone→watch plan nudge described in section 10.
 
 ## 4. Locked decisions
 
@@ -51,60 +54,177 @@ refresh, and watch→phone WatchConnectivity is not part of this plan.
 | D6 | Idle warning at 3h without activity; automatic abandonment at 24h. Sets are preserved. |
 | D7 | Heart rate is displayed; zones are not. HealthKit is written once, from the watch. |
 | D8 | The watch never computes training numbers; it displays server values and sends user input. |
+| D9 | Deployment targets: iOS 27.0 and watchOS 27.0; the package declares both. |
+| D10 | A watch session requires an `HKWorkoutSession`. Exactly one HealthKit workout is saved per session, keyed by a stable external UUID; a session with no saved workout is possible only on an unrecoverable HealthKit failure and is reported. |
+| D11 | Credential handoff is state, not events: one `updateApplicationContext` payload with a server-issued epoch and an acknowledgement. No queued event copying of tokens. |
+| D12 | Plan conflicts never overwrite: the watch applies only equal-or-newer revisions, and a replayed set whose plan item changed is preserved as an off-plan set rather than dropped. |
 
-## 5. Shared code
+## 5. Platform targets and project shape
 
-`StrengthCore` is a local Swift package with no UI dependencies:
+- The iPhone app keeps `IPHONEOS_DEPLOYMENT_TARGET = 27.0`; the watch target uses
+  `WATCHOS_DEPLOYMENT_TARGET = 27.0`; `StrengthCore` declares `.iOS(.v27), .watchOS(.v27)`.
+- One Xcode project (`project.xcproj`, Xcode 27's JSON format), one shared scheme plus a watch
+  scheme; the watch app is embedded in the iPhone app.
+- No third-party dependencies. The watch app uses the same API base URL and bearer scheme as the
+  iPhone.
+- CI builds the watch scheme for a watchOS 27.0 simulator; the iPhone suite and the package tests
+  remain the test gates.
 
-- `APIModels`, `Phase2Models`, `ExecutionModels` and the JSON value types (moved unchanged).
-- `IOSAPIClient` (Foundation + `URLSession`), including the same-origin redirect policy.
-- `MutationJournal` / offline capture logic, generalised to a session-scoped outbox.
-- The session state machine (plan → start → set/form/finish), extracted from the 2,200-line
-  `AppModel` behind a platform-neutral `SessionCore`.
-- Display formatting and validation that does not touch UIKit.
+## 6. StrengthCore extraction
 
-Platform services sit behind protocols: `CredentialStore` (Keychain), `RestNotifier`
-(iOS local notifications vs watch haptics), `HealthData` (readiness import vs workout write) and
-`CompanionLink` (WatchConnectivity on the phone side).
+### 6.1 Goal and shape
 
-The iPhone app keeps its views and its iOS-only services. The watch app adds `WatchSessionModel`
-(HK session, credentials handoff, outbox) around the same core. Avoid `#if os()` inside the core.
+Move platform-neutral code into a local package without changing iPhone behaviour, then let the
+watch consume the same code. One library target (`StrengthCore`) with folder boundaries
+(`Models`, `API`, `Session`, `Offline`, `Support`) and one test target. No module-per-type
+split and no dependency-injection container.
 
-## 6. Device identity and credentials
+### 6.2 Boundaries
 
-1. The phone, authenticated, calls `POST /api/ios/v1/devices/watch` (body `{"label": "Watch"}`).
-   The server revokes any previous non-revoked watch device with the same `parent_device_id`,
-   inserts a new `ios_device` row with `kind = 'watch'`, and returns
-   `{device_id, label, token}` once. Only the digest is stored.
-2. The phone sends `{baseURL, deviceID, token}` through WatchConnectivity
-   (`updateApplicationContext`, namespaced key) and repeats it whenever the watch reports missing
-   credentials.
-3. The watch stores the token in its own Keychain (`kSecAttrAccessibleWhenUnlockedThisDeviceOnly`)
-   and the rest in UserDefaults. The token never reaches a log, a file or the server's URL.
-4. `GET /api/ios/v1/devices` lists devices for the phone's Settings; `DELETE
-   /api/ios/v1/devices/{id}` revokes the watch from the phone or the watch itself. Re-minting is
-   the recovery path after a revoke.
-5. The watch shows “Open StrengthApp on your iPhone” until credentials arrive. It never falls back
-   to a debug or hard-coded token outside `#if DEBUG` simulator test seams.
+- Allowed imports: `Foundation`, `Security`. The core has no `SwiftUI`, `UIKit`,
+  `WatchKit`, `HealthKit`, `WatchConnectivity`, `UserNotifications`, `AudioToolbox` or
+  `Combine`, and no `#if os()`.
+- Platform-specific behaviour is injected by the app: rest notifications, HealthKit, Watch
+  Connectivity, the credential service/account names and the storage location.
+- The API client keeps taking an `IOSSession` (base URL, token, device id); it never reads the
+  Keychain itself.
+- DTOs stay `Codable` and `Equatable`; request bodies and error mapping do not change.
 
-## 7. Plan availability and start
+### 6.3 Staged extraction
 
-- `issued_plan_ttl_seconds` changes from 3600 to 14400 in `config/ios.v1.yaml`; validation already
-  allows 60–86400. This is a start window, not a workout lifetime.
+Each stage is a separate, reviewable change; the iPhone suite must be green at every stage boundary.
+
+1. **S1 — Models.** `APIModels`, `Phase2Models`, `ExecutionModels`, `JSONValue` and pure
+   formatting/validation. Tests move with the code. No behaviour change.
+2. **S2 — Networking.** `IOSAPIClient`, the same-origin redirect policy and `APIError` mapping.
+   The same requests, headers and retry rules; the existing client tests move and stay green.
+3. **S3 — Persistence and credentials.** `MutationJournal`, the offline capture/outbox and
+   `KeychainStore` (service and account injected). File formats stay readable by the existing
+   data, so an upgrade does not lose a pending operation; the iPhone journal's 16-entry cap and
+   conflict behaviour are unchanged.
+4. **S4 — Session engine.** Extract the session state machine from the 2,200-line `AppModel` one
+   operation at a time, in this order: start, add set, form rating, remove set, finish/abandon,
+   plan edit, recovery reconciliation. Each slice introduces a value-type state and an effect enum,
+   moves one operation, and changes no view. `AppModel` remains the `ObservableObject` adapter
+   that publishes state and executes effects.
+5. **S5 — Watch target.** The watch app adds its own `WatchSessionModel` around the same core;
+   no iPhone source changes.
+
+### 6.4 Acceptance
+
+- Every stage: the existing iPhone unit suite passes with the same test count (tests may move, not
+  disappear); the package builds for iOS 27.0 and watchOS 27.0; no view file changes; no API
+  payload or header changes; the same server-call order for the same user actions.
+- S4 slices additionally prove parity for the moved operation: success, retry, conflict and
+  offline paths; if parity cannot be demonstrated, revert that slice only.
+- The extraction is complete when the iPhone app no longer owns models, networking, journal or
+  session transitions, and the watch target compiles against the same core.
+
+### 6.5 What not to do
+
+Do not rewrite `AppModel` wholesale, move views into the package, add generic repositories or
+use-case layers, change the public surface the views bind to, or change a server contract as part
+of the extraction.
+
+## 7. Credential handoff
+
+### 7.1 Device model
+
+- `ios_device` gains `kind` (`phone`/`watch`), `parent_device_id` (the minting phone) and
+  `credential_epoch` (server-issued integer, incremented on every mint).
+- At most one non-revoked watch per phone, enforced by a partial unique index on
+  `(parent_device_id)` where `kind = 'watch' AND revoked_at IS NULL`.
+
+### 7.2 Minting
+
+- The phone calls `POST /api/ios/v1/devices/watch` with `{"label":"Watch"}`. In one
+  transaction the server revokes the parent's active watch (if any), inserts the new device with
+  `credential_epoch = max(prior epochs for the parent, 0) + 1`, and returns
+  `{device_id, label, epoch, token}` once; only the digest is stored.
+- Minting is **identity-idempotent**, not receipt-idempotent: a lost response produces a new
+  epoch and device, and the previous watch token is revoked. There is never a second active watch
+  and no plaintext token is stored for replay. Mint is rate-limited per phone.
+- The phone mints only when no active watch exists or the watch reports missing credentials. A
+  successful acknowledgement stops all further minting.
+
+### 7.3 Delivery and acknowledgement
+
+- The phone sends one `updateApplicationContext` payload under a versioned key:
+  `{schema, epoch, baseURL, deviceID, token, issuedAt}`.
+- `updateApplicationContext` is asynchronous, coalesced to the latest value and may be delayed
+  until the counterpart app runs. The design therefore treats it as latest-wins state, not as a
+  message queue.
+- The watch accepts a payload only when `epoch` is greater than its stored epoch, validates the
+  schema and base URL, writes the token to its Keychain, then acknowledges with a second
+  `updateApplicationContext`: `{schema, ackEpoch, deviceID, status: "ready"}`.
+- A stale or duplicate payload is ignored but acknowledged again with the stored epoch, so a
+  delayed delivery cannot roll the watch back.
+
+### 7.4 Retry and foreground recovery
+
+- The phone retries only on a WC activation change, a reachability change, the phone entering the
+  foreground, or an explicit `credentialsMissing` request from the watch. At most three attempts
+  per foreground session, with 2s/10s/30s backoff; there are no background timers and no tight
+  loops.
+- On launch/foreground both sides exchange contexts. The phone re-sends when `ackEpoch < epoch`;
+  the watch asks again when it has no credentials.
+- If the watch reports missing credentials after a send, the phone re-mints (new epoch) rather than
+  resending an old token that may never have arrived. The watch accepts the higher epoch.
+- A delivered and acknowledged token is never re-sent.
+
+### 7.5 Missing and revoked credentials
+
+- Any `401`/`403` from the server makes the watch wipe its token, mark credentials missing, stop
+  retrying API calls, and show “Open StrengthApp on your iPhone”. It retries only on foreground or
+  when a new context arrives.
+- The phone, on foreground, reads `GET /api/ios/v1/devices`: if the watch is absent or revoked it
+  mints; if the watch is active but reports missing credentials it mints a new epoch (rotation).
+  Revoking the watch from Settings produces the same path.
+- Re-pairing the phone itself does not resurrect a watch token; the phone mints a new watch device
+  after its own pairing succeeds.
+
+### 7.6 Security
+
+- The token never appears in a log, error description, analytics event, URL, file, UserDefaults
+  value, notification or crash report; `Authorization` headers are redacted in diagnostics.
+- Credentials travel only in `updateApplicationContext`. They are never sent through
+  `transferUserInfo` or `sendMessage`, which could deliver a stale queued copy.
+- The watch stores the token in `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`; the phone holds it
+  in memory only until the acknowledgement and then clears it.
+- The payload is accepted only from the paired WC session, with a known schema and the same base
+  URL validation used by pairing. No debug or hard-coded token exists outside an explicit
+  `#if DEBUG` simulator seam.
+
+### 7.7 Handoff failures
+
+| Situation | Behaviour |
+|---|---|
+| WC not activated / watch not paired | Watch shows the instruction; phone retries on activation. |
+| Phone app not running | Context is delivered when it next runs; no background wake is attempted for credentials beyond the OS's own delivery. |
+| Delivery delayed | Latest context wins; the epoch guard prevents a rollback. |
+| Acknowledgement lost | Phone resends the same epoch; the watch ignores and re-acks. |
+| Token revoked mid-session | Watch wipes on 401, pauses API calls, requests credentials; queued local operations remain. |
+| Duplicate mint attempt | Partial unique index plus revoke-on-mint; no second active watch device. |
+
+## 8. Plan availability and start
+
+- `issued_plan_ttl_seconds` changes from 3600 to 14400 in `config/ios.v1.yaml`; validation
+  already allows 60–86400. This is a start window, not a workout lifetime.
 - The server-date rule stays: a plan whose `for_date` is not today returns `410 plan_expired`.
-  Late-night sessions therefore regenerate rather than extend.
-- The watch reads `GET /api/ios/v1/plans/current` on launch, on foreground and on **Refresh**. A
-  **Retrieve workout** button is just Refresh; it is not the transport.
+  Late-night sessions regenerate rather than extend.
+- The watch reads `GET /api/ios/v1/plans/current` on launch, on foreground and on **Refresh**.
+  **Retrieve workout** is Refresh, not a transport.
 - `POST /api/ios/v1/workouts` with `issued_plan_id` starts the session and sets
-  `owner_device_id` to the calling device. Existing `409 workout_active`, `410 plan_expired`,
+  `owner_device_id` to the calling device. A retried start with the same plan returns the
+  existing in-progress workout; the existing `409 workout_active`, `410 plan_expired`,
   `410 plan_consumed` and `409 plan_not_ready` responses keep their meaning.
-- A plan is never pushed from the phone as the source of truth; at most the phone nudges the watch
-  to refresh.
+- The watch must have HealthKit workout authorisation before it starts (section 11). If it does
+  not, it explains why and offers to log on the phone instead.
 - The watch derives a clock offset from the server time in `bootstrap`/`today` and stamps
   `performed_at` and `ended_at` with server-adjusted time. The server rejects a timestamp more
   than a minute in the future, so a fast watch clock must not surface as a server error.
 
-## 8. Ownership
+## 9. Ownership and phone mirror
 
 `workout_session.owner_device_id` is set at start:
 
@@ -113,82 +233,174 @@ The iPhone app keeps its views and its iOS-only services. The watch app adds `Wa
   remain available to the phone (existing R8 rules).
 - Workouts with `owner_device_id IS NULL` (legacy rows and pre-upgrade clients) keep today's
   permissive behaviour.
-- `POST /api/ios/v1/workouts/{id}/takeover` transfers ownership to the caller and appends an event.
-  The phone offers it in mirror mode when the watch is unavailable or the owner wants to log on the
-  phone; the watch, on its next refresh, becomes read-only and shows “Logging moved to the phone”.
+- `POST /api/ios/v1/workouts/{id}/takeover` transfers ownership to the caller and appends an
+  event. The phone offers it in mirror mode when the watch is unavailable or the owner wants to
+  log on the phone; the watch, on its next refresh, becomes read-only and shows “Logging moved to
+  the phone”.
 - The phone opens a watch-owned session in **mirror mode**: the existing active-workout view with
   set, form and finish controls disabled, plan editing enabled, a “Logging on Apple Watch” banner,
   and one **Take over logging** confirmation. The recovery card is labelled “started on Apple
   Watch”.
-- Take-over ships in v1 with that button and the endpoint above; a richer hand-back from phone to
-  watch is deferred (section 21).
+- Take-over ships in v1 with that button and the endpoint; a richer hand-back from phone to watch
+  is deferred (section 21).
 - Abandon is allowed from any authenticated device, so a lost watch cannot strand a workout.
 
-## 9. Plan edits and revision
+## 10. Plan revision and offline conflicts
 
-- Existing plan edits preserve `order_index` and never renumber it, so a set already attributed to
-  an item stays valid across a substitution.
-- Add `workout_session.plan_revision`, incremented in the same transaction as every plan write
-  (swap, add, remove, set-count). `GET .../execution` returns it; every plan-edit response returns
-  the new value.
-- Propagation: after an edit the phone pushes the new execution payload over WatchConnectivity
-  while it is foreground. The watch also refreshes on foreground, after each set and on demand.
-- The watch accepts a payload only when `plan_revision` is greater than or equal to its cached
-  value; it never applies an older plan. A set in progress is not interrupted: show “Plan updated”,
-  apply at the next set.
-- Only items with no logged sets are editable (the server already returns `409` after a set).
-  Whether the *current* exercise may be swapped before its first set is decided by the existing
-  server rule; no new restriction is added.
+### 10.1 Revision contract
 
-## 10. Offline capture and replay
+- Every plan write (swap, add, remove, set-count) increments
+  `workout_session.plan_revision` in the same transaction and returns the new value.
+  `GET .../execution` returns it with the plan.
+- The watch stores the revision with its snapshot and never writes plan content.
 
-- The watch keeps a session store: plan snapshot + revision, workout id, device id, and an ordered
-  outbox of pending set/form/finish operations with their idempotency keys and original timestamps.
-- Each set carries `performed_at` and each finish `ended_at`, captured when the user acted and
-  replayed unchanged. The server computes the duration from `started_at` and `ended_at`; the
-  watch never sends a duration.
-- Execution events (rest start/end and set events) are queued with their `occurred_at` in the same
-  order, so an offline session's timeline keeps its original times.
-- Every action is written locally **before** the request; the UI shows “Saved on watch, syncing”
-  until the server acknowledges.
-- Replay is ordered and bounded, reusing the server's idempotency receipts. A failed operation
-  blocks later dependent operations (finish waits for its sets).
-- Start and plan fetch are online-only. If the server is unreachable at start, the watch says so
-  and offers retry; it does not fabricate a workout id.
-- The outbox is per session and is not subject to the phone journal's 16-entry cap; it is bounded
-  by storage (target: at least 500 operations) and cleared on acknowledgement.
-- Relaunch, crash and background suspension reload the store and resume pending work. The active
-  `HKWorkoutSession` is the mechanism that keeps the app running; persistence covers the rest.
-- If an offline session outlives the 24h abandonment window (section 11), the replay can hit an
-  abandoned workout. v1 surfaces that as a conflict with the preserved sets and does not silently
-  recreate the session; a recovery flow is deferred (section 21).
+### 10.2 Propagation
 
-## 11. Idle and stale workouts
+- After an edit the phone, while foreground, sends the new execution payload to the watch over
+  WatchConnectivity (`updateApplicationContext`, latest-wins). This is a nudge, not the source of
+  truth: the watch also refreshes on foreground, after each set and on demand.
+- The payload carries `plan_revision`; the watch applies it only when it is equal to or newer than
+  its snapshot, and only at an idle point (10.4).
 
-- `workout_session.last_activity_at` is updated on start, set, form and plan edit.
-- The execution/today payload exposes `stale` and `last_activity_at` when the workout is
-  `in_progress` and idle beyond `workout_idle_warn_seconds` (default 10800, 3h).
-- At `workout_idle_abandon_seconds` (default 86400, 24h) the next read or start lazily marks the
-  workout `abandoned`, sets `ended_at`, appends an `abandon_stale` event and preserves every set.
-  Lazy evaluation avoids a scheduler; the operation is idempotent.
-- The client shows “Still training? Resume / Abandon” at the warning threshold and explains an
-  automatic abandonment when it happens.
-- 24h rather than 12h because an offline watch can legitimately hold a session for many hours.
+### 10.3 Reconnect order
 
-## 12. Heart rate and HealthKit
+When the watch regains connectivity with pending work:
 
-- The watch starts an `HKWorkoutSession` with `HKLiveWorkoutBuilder` when the user starts the
-  session, and ends it with finish or abandon. This is also what keeps the app alive.
-- Activity type: `traditionalStrengthTraining`. Collected: heart rate, active energy, duration.
-  At finish, the effort rating (1–10) is written from sRPE.
-- The watch is the only writer. The phone's HealthKit use stays read-only (readiness import) and
-  never saves a workout for the same session.
-- Finish saves the HealthKit workout even if the server finish is queued. Abandon discards it.
-- The saved workout's start and end are the real session timestamps, not the sync time: a queued
-  finish that syncs later still records the real end.
-- If HealthKit authorisation is denied or unavailable, the session still works with no HR and no
-  saved workout; the UI says so once.
-- Heart rate is displayed as BPM (current and session average). Zones are out of scope.
+1. Flush pending set/form/telemetry operations in their original order, each with its original
+   idempotency key and timestamps.
+2. Fetch `GET .../execution`.
+3. If the fetched revision is newer, replace the local snapshot and its revision.
+4. Resume the UI on the new snapshot. A newer plan is never applied before the pending sets are
+   flushed.
+
+### 10.4 Mismatch policy
+
+- A replayed set carries the `exercise_id` actually performed and the `plan_item_index` it was
+  logged against. If the phone swapped that item while the watch was offline, the server rejects
+  the set with `409 plan_item_mismatch` rather than silently attributing it to the new exercise.
+- The client then retries once with `plan_item_index = null` (an off-plan set) keeping the
+  original exercise, load, reps, RIR, `performed_at` and idempotency-derived identity. The set
+  is preserved, volume still counts by exercise, and the session summary and telemetry record a
+  visible “plan changed while offline” note. The original `plan_item_index` is retained in the
+  telemetry event as provenance, so the performed plan item is not lost even though the accounting
+  link is cleared.
+- This is automatic data preservation, not a silent reinterpretation: the user sees the note, and
+  the plan is not rewritten to make the set fit.
+
+### 10.5 Stale snapshots and in-progress input
+
+- The watch applies a payload only when its revision is greater than or equal to the cached one;
+  an older or delayed payload is ignored. A stale snapshot can never overwrite a newer revision
+  because the watch never writes plans.
+- A plan update arriving while the user is entering a set is deferred until that entry is
+  committed or cancelled; it is not allowed to change the target under the user's fingers.
+- If the current item is swapped before any set is captured, the watch updates the label at the
+  next idle point. If a set was captured, that set keeps its performed exercise and the mismatch
+  policy applies on replay.
+
+### 10.6 Phone edits while the watch is offline
+
+Phone edits remain allowed, subject to the existing rule that an item with a logged set on the
+server cannot be swapped. The phone cannot see a set the watch has captured but not yet sent, so
+it may swap an item the watch has already performed. That is accepted: the replay preserves the
+set as off-plan (§10.4) and the revision guard keeps both devices coherent afterwards. There is no
+server-side reservation or locking while the watch is offline.
+
+## 11. Watch execution lifecycle
+
+### 11.1 States
+
+`idle → fetching → ready → starting → active(running/resting) → finishing → finished`, plus
+`abandoned` and the recovery states `suspended`, `terminated` and `reconciling`.
+
+### 11.2 HealthKit is the liveness anchor
+
+- The watch starts an `HKWorkoutSession` and `HKLiveWorkoutBuilder` before the active UI is
+  shown. This is what keeps the app running when the wrist is lowered or the screen dims.
+- HealthKit **workout authorisation is required to start a watch session**. Without it the app
+  cannot be relied on to stay alive, so the watch refuses to start and explains the choice
+  (enable Health access, or log on the phone). Heart-rate read authorisation is optional: without
+  it the session runs and simply shows no HR.
+- If a session is somehow running without an HK session, the app treats itself as foreground-only:
+  every action is persisted, and the UI says logging may stop when the screen locks.
+
+### 11.3 Lifecycle matrix
+
+| Event | Behaviour |
+|---|---|
+| Wrist lowered / screen dims | HK session keeps the app alive; timers continue; the UI dims; a tap wakes it. Logging needs no continuous screen. |
+| App backgrounded (Digital Crown, another app) | Same as above while the HK session is active; state is persisted on every action. |
+| System suspension (no active HK session) | The app may suspend; the session store is authoritative; resume on next activation. |
+| System termination / low power / reboot | HK session ends; on relaunch the store and server are reconciled (11.5); the HK workout is recovered per section 12. |
+| User force-quits the app | Same as system termination; no workout is finalised unless the finish intent was already persisted. |
+| Screen lock / Always-On | The dimmed screen shows the current set; no computation depends on it. |
+
+### 11.4 Set capture
+
+- **Log set** first performs one atomic local write of the operation (set payload, timestamp,
+  idempotency key, plan item attribution) and only then updates the UI to “captured, syncing”.
+  The network call is asynchronous and may fail without losing the set.
+- A captured set is never re-entered because the screen dimmed, the app backgrounded or the
+  network failed; duplicate taps are suppressed by a local operation id plus the server's
+  idempotency receipt.
+- The rest timer's end date is persisted and recomputed on relaunch; it never depends on the UI
+  remaining active.
+- The same rule applies to form ratings, finish and telemetry: persist first, then send.
+
+### 11.5 Interrupted-session recovery
+
+On launch, the watch reads its session store and `GET .../execution`:
+
+| Local | Server | Behaviour |
+|---|---|---|
+| active | in_progress, owner = this watch | Resume: restore the snapshot, restart the HK session, flush pending operations. |
+| active | in_progress, owner = phone | Read-only; show “Logging moved to the phone”; offer to clear local state. |
+| active with pending finish | completed/abandoned | Flush nothing; show the conflict and the preserved summary; do not recreate the workout. |
+| active | no active workout | Show “ended elsewhere”, keep the local summary, offer clear. |
+| finishing | in_progress | Resume finalisation: retry the server finish and the HealthKit save (section 12). |
+| finished | completed | Clear the store after the summary is acknowledged. |
+
+## 12. HealthKit idempotency and recovery
+
+### 12.1 One workout per session
+
+- At start, generate a `sessionUUID`, persist it **before** starting the HK session, and use it
+  as the HK workout metadata external UUID (`HKMetadataKeyExternalUUID`). The workout is
+  `traditionalStrengthTraining` with the real start and end dates.
+- The phone never saves a workout for the same session; the watch is the only writer.
+
+### 12.2 Finish protocol
+
+1. Persist a finish intent: `{endedAt, sRPE, effort, hkState: pending, serverAcked: false}`.
+2. End collection at `ended_at` and call `finishWorkout` on the live builder.
+3. On success, persist `hkState: saved`. On failure, leave `pending` and retry on the next
+   launch/foreground.
+4. Independently enqueue the server finish. A server retry never triggers a second HK save.
+
+### 12.3 Crash and relaunch during finalisation
+
+- On relaunch, first query HealthKit for a workout whose external UUID equals `sessionUUID`. If
+  one exists, mark `saved` and do not save again.
+- If none exists and the builder survived (same process), retry `finishWorkout`.
+- If none exists and the builder is gone (relaunch), rebuild a **minimal** workout from the
+  persisted intent with the original start/end and effort, no HR samples, and save it once. If
+  HealthKit refuses, mark `unsaved`, show the summary and do not retry indefinitely. Never
+  create a second workout.
+- If the app relaunched mid-session it starts a new HK session for liveness and the resumed
+  segment's HR. That segment is **not** saved as its own workout: at finish the resumed builder is
+  discarded and the single minimal workout above is saved with the original start. Crash recovery
+  therefore trades HR samples for one workout with truthful timestamps; the summary says so. If a
+  workout with the external UUID already exists, the resumed segment is discarded too.
+- The external UUID plus the persisted `hkState` are the exactly-once mechanism; the server's
+  idempotency is separate and cannot create duplicates in HealthKit.
+
+### 12.4 Permissions
+
+- Workout authorisation is required to start (§11.2). HR read denial only removes the HR display.
+- If authorisation is revoked mid-session, HR collection stops; the finish save may fail. The app
+  reports it once, keeps the server session intact, and does not retry in a loop.
+- Abandon ends the HK session without saving a workout; if a workout was already saved (only
+  possible after a finish), it is left as the single saved workout.
 
 ## 13. Watch UI contract
 
@@ -203,26 +415,28 @@ Three vertically paged screens plus the end flow:
 - End flow: summary, sRPE picker (Digital Crown, 1–10), **Finish**. Productivity is not captured
   here; it defaults to “not recorded” and stays a phone concern.
 - Persistent states: offline banner, pending-sync count, “Plan updated”, “Logging moved to phone”,
-  plan-expired/regenerate message.
+  plan-expired/regenerate, “credentials missing”, “resume session”, “finish pending”.
+- A captured set shows a distinct confirmation before the server acknowledges; the screen never
+  claims “saved” on a failed request.
 - No keyboard text entry except an optional short note if it proves necessary; v1 omits notes.
 - Always-On dims to the Set screen; no complication.
 
 **Phone mirror.** A watch-owned session opens on the phone in the existing active-workout view with
 set, form and finish controls disabled, plan editing enabled, a banner naming the watch, and one
-take-over confirmation. No WatchConnectivity message is involved; the phone discovers the session
-on its next foreground refresh.
+take-over confirmation. No watch→phone message is involved; the phone discovers the session on its
+next foreground refresh.
 
 ## 14. Server API changes
 
 | Route | Change |
 |---|---|
-| `POST /api/ios/v1/devices/watch` | New. Phone-authenticated; mints/replaces the watch device and returns the token once. |
-| `GET /api/ios/v1/devices` | New. Lists devices with kind, label, created/last-seen/revoked. |
+| `POST /api/ios/v1/devices/watch` | New. Phone-authenticated; revokes the previous watch, mints a new epoch, returns the token once. |
+| `GET /api/ios/v1/devices` | New. Lists devices with kind, label, epoch, created/last-seen/revoked. |
 | `DELETE /api/ios/v1/devices/{device_id}` | New. Revokes the watch from phone or itself. |
 | `GET /api/ios/v1/plans/current` | Unchanged. |
 | `POST /api/ios/v1/workouts` | Sets `owner_device_id`; response includes `owner_device_id`, `plan_revision`, `last_activity_at`. |
 | `GET /api/ios/v1/workouts/{id}/execution` | Adds `owner_device_id`, `plan_revision`, `last_activity_at`, `stale`. |
-| Existing set/form/finish routes | Owner check (`409 not_owner`), unchanged otherwise. |
+| Existing set/form/finish routes | Owner check (`409 not_owner`); a set whose plan item changed returns `409 plan_item_mismatch` with the current item. |
 | Existing plan-edit routes | Increment `plan_revision`; response returns it. |
 | `POST /api/ios/v1/workouts/{id}/takeover` | New. Transfers ownership and appends an event. |
 | Existing abandon route | Allowed by any device; records the device. |
@@ -237,87 +451,119 @@ Migration `0058_watch_companion.sql` (additive, no data rewrite):
 
 - `ios_device.kind TEXT NOT NULL DEFAULT 'phone' CHECK (kind IN ('phone','watch'))`
 - `ios_device.parent_device_id TEXT` (nullable; the phone that minted a watch)
+- `ios_device.credential_epoch INTEGER NOT NULL DEFAULT 0`
+- Partial unique index: one active watch per parent
+  (`(parent_device_id) WHERE kind = 'watch' AND revoked_at IS NULL`)
 - `workout_session.owner_device_id TEXT` (nullable; NULL keeps legacy permissive behaviour)
 - `workout_session.plan_revision INTEGER NOT NULL DEFAULT 0`
 - `workout_session.last_activity_at TEXT` (backfilled from `started_at`)
 
-Rollback drops the added columns; existing rows and every other table are untouched.
+The `sessionUUID`, `hkState` and the outbox live only in the watch app's local store; the
+server stores no HealthKit data. Rollback drops the added columns and index; existing rows and
+every other table are untouched.
 
 ## 16. Failure and recovery matrix
 
 | Situation | Behaviour |
 |---|---|
-| No watch credentials | “Open StrengthApp on your iPhone”; retry on foreground. |
+| No watch credentials | “Open StrengthApp on your iPhone”; retry on foreground; phone re-mints if needed. |
+| Credential delivery delayed | Latest context wins; epoch guard; ack retried. |
+| Token revoked | 401 wipes the watch token, pauses API calls, shows the instruction; queued local ops stay. |
 | Plan not ready | Show status and retry; no local plan generation. |
 | Plan expired / wrong date | “Generate a new plan on the phone.” |
 | Workout already active | Show recovery: resume, or abandon then start. |
-| Token revoked | 401 clears watch credentials; prompt to re-handoff. |
 | Set write fails offline | Queued; pending badge; retry with the same key. |
 | Finish fails offline | Queued; server still shows in-progress until replay. |
 | Phone opens mid-session | Read-only mirror; plan edits allowed. |
 | Phone closed when the watch starts | Nothing is signalled; the phone shows the session on its next foreground refresh. |
+| Phone swaps an unstarted item offline | Replayed set hits `409 plan_item_mismatch`; preserved as off-plan and flagged. |
+| Watch relaunch with pending ops | Store reload, ordered replay, HK recovery; UI shows pending until acked. |
+| HealthKit save fails at finish | Retry on launch; if the builder is gone, save the minimal persisted workout once; else report unsaved. |
 | Watch stolen/lost | Phone takes over ownership, finishes or abandons; revoke the watch device. |
-| Phone substitutes the current exercise | Allowed only before any set; watch applies at next set. |
+| Phone substitutes the current exercise | Allowed only before any set; watch applies at the next idle point. |
 | Server unreachable at start | Blocking message; no fabricated session. |
 
 ## 17. Tests and acceptance
 
 Server (pytest, default suite): TTL 4h boundary, same-date rejection, idle warning and 24h lazy
 abandon (idempotent, sets preserved), ownership enforcement and takeover, plan revision increments
-and ordering, device mint/replace/revoke, idempotency replay, and rollback of `watch_enabled`.
+and ordering, `plan_item_mismatch` and off-plan retry, device mint/replace/revoke with one active
+watch and monotonic epochs, credential epoch in device responses, idempotency replay, and
+rollback of `watch_enabled`.
 
 `StrengthCore` tests: outbox ordering, bounded retry, revision rejection, finish-after-sets,
-relaunch recovery.
+relaunch recovery, and one parity test per extracted session operation.
 
-Client: existing iPhone suite stays green throughout 6.0; the watch scheme builds for a watchOS
-simulator in CI; a simulator UI smoke test covers fetch → start → log → finish.
+Client: the existing iPhone suite stays green throughout 6.0; the watch scheme builds for a
+watchOS 27.0 simulator in CI; a simulator UI smoke test covers fetch → start → log → finish.
 
-Physical acceptance on the Ultra 4: phone generates a plan, phone app is closed, watch fetches it,
-starts, logs at least three sets, phone substitutes an unstarted exercise, watch shows the update,
-finish with sRPE, server shows a completed session, HealthKit shows exactly one strength workout
-with HR and effort. Repeat once with Wi-Fi disabled after start, then re-enabled before finish.
-Start a session and exercise the idle warning with a lowered test threshold or a seeded
-`last_activity_at` (a real 3h wait is not an acceptance step); abandon, start another and confirm
-no 409.
+Required scenario tests (unit/integration where possible, physical where not):
 
-Additional checks:
+1. **Delayed or failed credential delivery:** context delayed past the first UI render, a lost
+   acknowledgement, a stale epoch, and a revoked token; the watch ends ready once, with one active
+   device and no duplicate mint.
+2. **Relaunch with pending offline mutations:** three queued sets before relaunch, replay in
+   order after relaunch, no duplicates, the pending badge clears only after acknowledgement.
+3. **Backgrounding and returning during an active workout:** background for several minutes with
+   the HK session active, return, log a set, and confirm the rest timer and elapsed time are
+   correct.
+4. **Phone plan modification while the watch is offline:** swap an unstarted item; on reconnect
+   the pending set flushes first, the newer revision then applies, and the watch does not
+   interrupt an in-progress entry. If the swap hits the item the offline set was logged against,
+   the set is preserved off-plan and its original index is recorded in telemetry.
+5. **Stale plan revision rejection:** a delayed R4 payload cannot overwrite a cached R5; an R6
+   payload applies.
+6. **Take-over and read-only state:** the phone takes ownership, logs a set, and the watch becomes
+   read-only; a set write from the watch returns `409 not_owner` and nothing is lost.
+7. **HealthKit finish retry without duplication:** simulate a failed `finishWorkout`, a crash
+   before the save and a relaunch; exactly one workout with the session's external UUID exists,
+   with the real start/end, and the resumed segment is not saved separately.
+8. **Clock skew and timestamps:** a watch clock +5 minutes still logs and finishes; an offline set
+   captured at T and synced later is stored at T in both the session and the telemetry timeline.
+9. **watchOS 27.0 deployment and CI:** `xcodebuild -showBuildSettings` reports
+   `WATCHOS_DEPLOYMENT_TARGET = 27.0` for the watch target and
+   `IPHONEOS_DEPLOYMENT_TARGET = 27.0` for the app; the CI watch scheme builds on a watchOS 27.0
+   simulator.
 
-- **Clock skew:** with the watch clock set +5 minutes, a set and a finish still succeed because
-  timestamps use the server offset.
-- **Offline timestamps:** a set logged at T and synced much later is stored at T, and the execution
-  timeline shows the original time.
-- **Mirror:** a watch-owned session opens on the phone with set logging disabled; an unstarted
-  exercise can still be substituted from the phone; the watch shows the update after refresh.
-- **Take-over:** the phone takes ownership, logs a set, and the watch becomes read-only on its next
-  refresh.
-- **HealthKit end date:** the saved workout ends at the real finish even when the server sync was
-  queued.
+Physical acceptance on the Ultra 4: phone plan → phone app closed → watch fetch → start → sets →
+phone substitution → watch update → finish with sRPE → server completed → exactly one HealthKit
+workout with HR and effort. Repeat once with Wi-Fi disabled after start, then re-enabled before
+finish. Exercise the idle warning with a lowered test threshold or a seeded `last_activity_at`
+(a real 3h wait is not an acceptance step); abandon, start another and confirm no 409.
 
 ## 18. CI and distribution
 
-Add a watch scheme to the existing `ios-ci` workflow: build the watch app for a watchOS simulator
-(resolving a UDID the same way the iPhone job does) and keep unit tests on the iPhone target and
-the package. Watch UI tests are not a CI gate in v1. The watch app ships embedded in the iPhone
-app; both need signing, and the existing personal-team 7-day signing applies.
+- Add a watch scheme to the existing `ios-ci` workflow: build the watch app for a watchOS 27.0
+  simulator, resolving a UDID the same way the iPhone job does, and keep unit tests on the iPhone
+  target and the package.
+- Assert the deployment targets in CI with `xcodebuild -showBuildSettings` so a future target
+  bump cannot silently break the 27.0 baseline.
+- Watch UI tests are not a CI gate in v1. The watch app ships embedded in the iPhone app; both
+  need signing, and the existing personal-team 7-day signing applies.
 
 ## 19. Risks
 
-- WatchConnectivity handoff reliability and re-pairing; mitigate with a visible retry and the phone
-  Settings device list.
+- WatchConnectivity handoff latency and the absence of any guaranteed background wake; the epoch
+  and ack design tolerates delay but not a phone that is never opened.
 - LAN-only networking: the watch must be on the same Wi-Fi; cellular cannot reach the server.
-- watchOS suspension: only an active `HKWorkoutSession` keeps logging alive; persistence covers
-  crashes.
-- Project format: `project.xcproj` is Xcode 27's JSON format; adding a watch target is Xcode-driven
-  and CI grows accordingly.
-- Dual-client edge cases during takeover; the 409 paths must be exercised.
-- Offline longer than 24h conflicts with automatic abandonment; documented and deferred.
+- watchOS suspension: logging depends on the HK session; persistence covers crashes but not user
+  force-quits during finalisation.
+- HealthKit finalisation across a crash: the backdated minimal-workout fallback needs a spike
+  (§22) and may be the only path to exactly one workout.
+- `AppModel` extraction is the largest refactor; a slice that cannot prove parity is reverted
+  rather than forced through.
+- Offline plan mismatch is accepted data loss of *plan attribution*, never of the set itself.
+- Project format: `project.xcproj` is Xcode 27's JSON format; adding a watch target and scheme is
+  Xcode-driven and CI grows accordingly.
 
 ## 20. Rollback
 
-Set `watch_enabled: false` and stop minting watch devices; the watch app becomes unusable while
-the phone is unaffected. Revert `issued_plan_ttl_seconds` and the idle keys in config. Drop
-migration 0058 with its paired rollback row if the feature is abandoned before data depends on it.
-Ownership enforcement is inert for rows with `owner_device_id IS NULL`.
+- Set `watch_enabled: false` and stop minting watch devices; the watch app becomes unusable and
+  the phone is unaffected. Revert `issued_plan_ttl_seconds` and the idle keys.
+- Drop migration 0058 with its paired rollback row if the feature is abandoned before data depends
+  on it. Ownership enforcement is inert for rows with `owner_device_id IS NULL`.
+- Each `StrengthCore` stage is independently revertible; reverting S1–S4 restores the app to its
+  current structure without touching server data.
 
 ## 21. Deferred
 
@@ -326,3 +572,17 @@ to watch after take-over; automatic phone-side surfacing of watch events (there 
 WatchConnectivity event channel); heart-rate zones; Shortcuts automation; complications;
 away-server/cellular support; watch-side readiness or history; Apple Intelligence. Each needs a
 separate decision.
+
+## 22. Validation spikes before implementation
+
+These are technical proofs, not open design decisions; they run before the corresponding work
+package and do not change the decisions above.
+
+1. **WatchConnectivity (before 6.2):** measure `updateApplicationContext` delivery when the
+   counterpart is backgrounded, killed and relaunched; confirm the epoch/ack loop converges and
+   that no duplicate watch device is minted across a lost response.
+2. **HealthKit (before 6.5):** confirm a minimal workout can be saved after relaunch with the
+   original start date (backdated `beginCollection`), that a metadata UUID can be queried, and
+   that a failed `finishWorkout` followed by a retry yields exactly one workout.
+3. **Toolchain (before 6.2):** confirm the GitHub `xcode-27` image builds a watchOS 27.0
+  simulator target and reports the deployment targets through `showBuildSettings`.
