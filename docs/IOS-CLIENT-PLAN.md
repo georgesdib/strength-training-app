@@ -23,7 +23,9 @@ closed.
 Contracts:
 [`design/IOS-R7-CONTRACT.md`](design/IOS-R7-CONTRACT.md) and
 [`design/IOS-R8-CONTRACT.md`](design/IOS-R8-CONTRACT.md). Later phases remain proposals and need
-separate approval.
+separate approval. **Phase 6 (watchOS companion) is planned, not started**:
+[`design/IOS-WATCH-CONTRACT.md`](design/IOS-WATCH-CONTRACT.md); no watch, server or shared-core
+code is implemented.
 
 **Purpose:** deliver a practical iPhone interface for one person's existing strength-training workflow, without porting the training method or making a public cloud service a prerequisite. Start with an ordinary, connected strength session. Add offline capture, HealthKit, and Apple Intelligence only after the smaller client proves useful and reliable.
 
@@ -231,10 +233,50 @@ Only pursue after the core app is useful and stable, with a separate scope/appro
 
 - **Apple Intelligence:** optional tools may parse a spoken/typed set entry into an uncommitted draft, explain a server-produced prescription, summarize completed training, or structure free-text notes. The user reviews/accepts any draft before it reaches server validation. The model never controls training decisions or computes numbers.
 - **PCC:** an explicitly selected Apple Private Cloud Compute option for a user-invoked AI task; disabled by default, visibly identified as Apple server processing, with a preview of the context and consent before personal workout/health data is included. It is not used by pairing, readiness, prescription, capture, or sync; no automatic fallback from on-device mode; core functionality remains available with PCC disabled or offline.
-- Additional HealthKit observations (steps, body mass, VO₂max), richer cardio imports, richer but descriptive Longevity views, background delivery, Apple Watch companion, or historical XML backfill only when a concrete use case justifies their added privacy/schema/testing cost.
+- Additional HealthKit observations (steps, body mass, VO₂max), richer cardio imports, richer but descriptive Longevity views, background delivery, or historical XML backfill only when a concrete use case justifies their added privacy/schema/testing cost. The watchOS companion is Phase 6, not part of this bucket.
 - Do not add sleep duration, sleep stages, or Apple Sleep Score under this plan.
 
 **Acceptance:** each enhancement is independently disableable and does not become a dependency of pairing, readiness, prescription, workout capture, or review. On-device AI and PCC outputs are suggestions/text only; all numeric training data still pass through explicit user review and existing server validation.
+
+### Phase 6 — watchOS companion (planned, not started)
+
+The phone plans; the watch executes. Full contract:
+[`design/IOS-WATCH-CONTRACT.md`](design/IOS-WATCH-CONTRACT.md). Decisions locked 2026-11-09; no
+code is implemented.
+
+**Scope.** The watch fetches the server-issued plan, starts the session, logs sets, rest, form
+ratings and finish with sRPE, shows heart rate, and writes one HealthKit strength workout. It has
+its own paired device token, minted by the phone. Logging and finish are offline-safe; plan fetch
+and start need connectivity. During a watch session the watch is the only set writer; the phone
+edits the plan and shows a read-only mirror. Readiness, history, progress, settings and the
+exercise library stay on the phone.
+
+**Shared core.** Extract `StrengthCore` (models, API client, outbox/journal, session state
+machine) so both apps use one implementation; keep iOS views and iOS-only services in the app.
+Views stay per-platform and the core contains no `#if os()`.
+
+**Work packages.**
+
+1. **6.0 Shared core (iOS first).** Move models, client, journal and session logic into the package
+   behind a `SessionCore`; keep the 102 iOS tests green; no behaviour change.
+2. **6.1 Server contract.** `0058_watch_companion.sql`; watch device mint/list/revoke;
+   `owner_device_id` enforcement and takeover; `plan_revision`; `last_activity_at`; idle warning
+   and 24h lazy abandonment; `issued_plan_ttl_seconds` 14400; `watch_enabled`; tests.
+3. **6.2 Watch shell and credentials.** Watch target and scheme embedded in the app; Watch
+   Connectivity handoff; plan fetch and a read-only Today.
+4. **6.3 Execution.** Start, set logging, rest timer, form rating, finish with sRPE; pending states.
+5. **6.4 Offline.** Session-scoped outbox, ordered replay, relaunch/crash recovery, conflict
+   display.
+6. **6.5 Heart rate and HealthKit.** `HKWorkoutSession` and builder, live HR, one saved strength
+   workout with effort from sRPE; discard on abandon.
+7. **6.6 Plan revision propagation.** Phone push on edit, watch refresh points, stale-revision
+   rejection, non-interruption rules.
+8. **6.7 Acceptance and CI.** Watch build in the `ios-ci` workflow, physical Ultra acceptance,
+   docs and rollback notes.
+
+**Acceptance.** The physical script in the contract §17: phone plan → phone closed → watch fetch →
+start → sets → phone substitution → watch update → finish/sRPE → server completed → exactly one
+HealthKit workout with HR and effort. Plus one offline mid-session run and one idle-abandon run.
 
 ## 5. Offline behavior — explicit contract
 
@@ -388,12 +430,17 @@ was owner-confirmed. Phase 4 is closed under
 [`design/IOS-PHASE-4-CONTRACT.md`](design/IOS-PHASE-4-CONTRACT.md); physical offline acceptance was
 owner-confirmed.
 
-The next proposal is Phase 3B (Apple Workout summaries and related cardio data), but it is not
-started and needs its own approved contract. Phase 5 remains optional and separately approved.
-R7 and R8 are recorded in section 4.30 and their contracts rather than as pending next steps.
+Phase 6 (watchOS companion) has an agreed plan and contract
+([`design/IOS-WATCH-CONTRACT.md`](design/IOS-WATCH-CONTRACT.md)) but is **not started**. It is a
+separate go-ahead; nothing in this plan authorises watch, server or shared-core implementation.
 
-Do not begin Phase 3B, cardio or PCC work without separate approval. Phase 4 is closed; Phase 3B
-remains a separate contract.
+Phase 3B (Apple Workout summaries and related cardio data) remains a separate proposal and needs
+its own approved contract. Phase 5 remains optional and separately approved. The agreed next plan
+is Phase 6 (watchOS companion), still not started. R7 and R8 are recorded in section 4.30 and
+their contracts rather than as pending next steps.
+
+Do not begin Phase 3B, cardio, PCC or Phase 6 work without separate approval. Phase 4 is closed;
+Phase 3B remains a separate contract; Phase 6 is planned but not started.
 
 ## 12. References
 

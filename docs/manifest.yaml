@@ -599,7 +599,7 @@ documents:
 - id: ios-client-plan
   path: docs/IOS-CLIENT-PLAN.md
   title: Native iPhone Client — Online-First Implementation Plan
-  description: 'Phases 0-3A closed 2026-11-08; authenticated online-first native strength workflow with Python-authoritative training; R7 asynchronous prescription request implemented and closed 2026-11-08, R8 active-workout plan editing closed 2026-11-08; later HealthKit workout imports with manual-over-import precedence, then offline capture, optional Apple on-device/PCC AI'
+  description: 'Phases 0-3A closed 2026-11-08; authenticated online-first native strength workflow with Python-authoritative training; R7 asynchronous prescription request implemented and closed 2026-11-08, R8 active-workout plan editing closed 2026-11-08; Phase 4 offline capture closed; Phase 6 watchOS companion planned and not started (docs/design/IOS-WATCH-CONTRACT.md); optional Apple on-device/PCC AI'
   category: plans
   status: plan
   audience: public
@@ -915,6 +915,14 @@ documents:
   path: docs/design/IOS-PHASE-4-CONTRACT.md
   title: iOS Phase 4 reliable capture and offline support contract
   description: 'Closed 2026-11-08: cached active workout, ordered outbox, unresolved retention and expiry, offline add set/form/finish, stable timestamps, ordered replay, foreground/network/manual sync, bounded retries, conflict handling, discard/retry and owner-confirmed physical acceptance'
+  category: design
+  status: design
+  audience: maintainer
+  nav: false
+- id: design-ios-watch-contract
+  path: docs/design/IOS-WATCH-CONTRACT.md
+  title: iOS Phase 6 watchOS companion contract (planned)
+  description: 'Plan only, not started 2026-11-09: watch as the set-logging client for an issued plan; own device token, 4h plan TTL, watch-only set ownership and takeover, plan-revision propagation, offline-safe logging with ordered replay, idle warning and 24h abandonment, live heart rate and one HealthKit strength workout, shared Swift core, tests, acceptance and rollback'
   category: design
   status: design
   audience: maintainer

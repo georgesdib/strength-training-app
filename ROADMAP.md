@@ -1744,6 +1744,16 @@ prescription/start, plan editing and HealthKit remain online-only. No server que
 Contract: [`docs/design/IOS-PHASE-4-CONTRACT.md`](docs/design/IOS-PHASE-4-CONTRACT.md).
 Physical offline acceptance was owner-confirmed at closure on 2026-11-08.
 
+### 4.32 Phase 6 — watchOS companion (planned; not started)
+
+The phone remains the planner; the watch becomes the execution client for an issued plan: fetch,
+start, log sets/rest/forms, finish with sRPE, live heart rate and one HealthKit strength workout.
+It gets its own device token, the watch is the only set writer during its session, plan edits
+propagate by revision, logging is offline-safe, and forgotten sessions are idle-abandoned. Shared
+code moves into a `StrengthCore` package so iOS and watchOS use one client and one session state
+machine. Contract: [`docs/design/IOS-WATCH-CONTRACT.md`](docs/design/IOS-WATCH-CONTRACT.md). No
+code is implemented; implementation needs a separate go-ahead.
+
 ## 5. Known gaps and risks
 
 This section keeps **no list**. Every accepted limitation is registered with an id, a status and
