@@ -39,6 +39,7 @@ from strength_coach import (
     settings_profile,
     settings_registry,
     workout,
+    workout_execution,
 )
 from strength_coach.agents import selection as agent_selection
 from strength_coach.agents.client import LLMError
@@ -1086,6 +1087,16 @@ class Handler(BaseHTTPRequestHandler):
                     except ValueError:
                         self._error(404, "session not found")
                         return
+                elif path.startswith("/api/ios/v1/workouts/") and path.endswith("/execution"):
+                    workout_id = unquote(
+                        path[len("/api/ios/v1/workouts/"):-len("/execution")]
+                    ).strip("/")
+                    payload = workout_execution.analytics(
+                        conn, workout_id, device["device_id"]
+                    )
+                    if payload is None:
+                        self._error(404, "workout not found")
+                        return
                 elif path == "/api/ios/v1/progress":
                     params = _ios_progress_params(
                         parse_qs(urlparse(self.path).query, keep_blank_values=True)
@@ -1261,6 +1272,7 @@ class Handler(BaseHTTPRequestHandler):
                         handlers = {
                             "sets": self._ios_workout_set,
                             "remove-set": self._ios_workout_remove_set,
+                            "execution-events": self._ios_workout_execution_events,
                             "form": self._ios_workout_form,
                             "complete": self._ios_workout_complete,
                             "abandon": self._ios_workout_abandon,
@@ -1271,6 +1283,16 @@ class Handler(BaseHTTPRequestHandler):
                             return
                         config = self._ios_require_mutations()
                         body = self._body()
+                        if action == "execution-events":
+                            device_id = device["device_id"]
+                            self._ios_workout_mutation(
+                                conn, device, path, body, config, workout_id,
+                                lambda c, wid, payload, did=device_id:
+                                    self._ios_workout_execution_events(
+                                        c, wid, payload, did
+                                    ),
+                            )
+                            return
                         self._ios_workout_mutation(
                             conn, device, path, body, config, workout_id, handler,
                         )
@@ -2145,6 +2167,17 @@ class Handler(BaseHTTPRequestHandler):
             plan_item_index=plan_item_index,
             rep_velocities=rep_velocities,
             performed_at=performed_at,
+        )
+
+    def _ios_workout_execution_events(
+        self, conn, workout_id: str, body: dict, device_id: str
+    ) -> dict:
+        self._ios_closed_fields(body, {"events"})
+        return workout_execution.record_events(
+            conn,
+            workout_id=workout_id,
+            device_id=device_id,
+            events=body.get("events"),
         )
 
     def _ios_workout_remove_set(self, conn, workout_id: str, body: dict) -> dict:

@@ -619,6 +619,36 @@ RPE is converted to RIR at import, with RIR 6 marking a warm-up. A second option
 can attach rep velocities by exercise + set; it never creates a set. Date-less backfill is not
 supported.
 
+## 16a. `workout_execution_event` — append-only execution telemetry
+
+Migration `0057_workout_execution_event` adds a separate event stream for when work actually
+started and ended. It is observational only: it never creates or changes `workout_set`, never
+changes the prescription, and never feeds e1RM, volume, readiness or progression.
+
+| column | notes |
+|---|---|
+| event_id | client-generated UUID primary key; the idempotency identity |
+| workout_id | FK to `workout_session`; ownership is additionally checked through `ios_issued_plan.device_id` |
+| event_type | validated enum: set/rest/exercise start+completion, rest skip/extension, workout pause/resume |
+| plan_item_index | stable plan-item identity, nullable and not a display position |
+| set_id | nullable FK to `workout_set`; must belong to the workout |
+| local_set_id | nullable client set identity when no server set ID exists yet |
+| occurred_at | original device ISO-8601 timestamp with timezone |
+| received_at | server receipt timestamp |
+| device_id | authenticated device; source is currently `ios` |
+| payload_json | event-specific validated object (for example `prescribed_rest_s`, `added_s`, `actual_rest_s`, `exercise_id`) |
+
+Triggers reject `UPDATE` and `DELETE`. Indexes cover workout/time, workout/type/time,
+workout/set_id and workout/local_set_id. A batch is all-or-nothing and is capped at 100 events.
+Late replay is allowed only when `occurred_at` falls within the workout's start/end bounds;
+original occurrence time is never replaced by receipt time.
+
+Derived execution analytics are computed on read from this stream plus `workout_session`; there
+is no materialised analytics table. `set_started`/`set_completed` pairing produces a duration
+only when both timestamps exist. Rest intervals require explicit `rest_started` and
+`rest_completed` or `rest_skipped` events. Overlapping intervals are unioned before summing.
+Historical workouts with no events report missing coverage rather than fabricated metrics.
+
 ---
 
 ## 17. Deleting or voiding a session

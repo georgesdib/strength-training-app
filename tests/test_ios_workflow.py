@@ -1835,6 +1835,108 @@ def test_plans_current_reports_none_for_an_expired_ready_plan(ios):
     assert state == {"status": "none"}
 
 
+def test_ios_execution_events_are_idempotent_and_analysable(ios):
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(ios, token, issued["issued_plan_id"])
+    assert status == 200, workout
+    item = _first_item(issued["plan"])
+    status, added = _add_set(ios, token, workout["workout_id"], item)
+    assert status == 200, added
+    set_id = added["sets"][-1]["set_id"]
+
+    # Give the synthetic session enough elapsed time for a set and rest without inventing
+    # future timestamps in the API request.
+    workout_start = datetime.datetime.now(datetime.UTC) - datetime.timedelta(seconds=60)
+    store = db.Store(ios["path"])
+    try:
+        store.connection.execute(
+            "UPDATE workout_session SET started_at = ? WHERE workout_id = ?",
+            (workout_start.isoformat(), workout["workout_id"]),
+        )
+        store.connection.commit()
+    finally:
+        store.close()
+
+    def stamp(offset):
+        return (workout_start + datetime.timedelta(seconds=offset)).isoformat()
+
+    event_ids = [str(uuid.uuid4()) for _ in range(4)]
+    events = [
+        {"event_id": event_ids[0], "event_type": "set_started",
+         "occurred_at": stamp(1), "local_set_id": "local-set-1"},
+        {"event_id": event_ids[1], "event_type": "set_completed",
+         "occurred_at": stamp(21), "local_set_id": "local-set-1", "set_id": set_id},
+        {"event_id": event_ids[2], "event_type": "rest_started",
+         "occurred_at": stamp(22), "payload": {"prescribed_rest_s": 60}},
+        {"event_id": event_ids[3], "event_type": "rest_completed",
+         "occurred_at": stamp(27)},
+    ]
+    key = uuid.uuid4().hex
+    status, result = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/execution-events",
+        method="POST", payload={"events": events}, token=token, key=key,
+    )
+    assert status == 200, result
+    assert result["accepted"] == event_ids
+    assert result["duplicates"] == []
+    assert _scalar(
+        ios["path"],
+        "SELECT COUNT(*) FROM workout_execution_event WHERE workout_id = ?",
+        (workout["workout_id"],),
+    ) == 4
+
+    status, replay = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/execution-events",
+        method="POST", payload={"events": events}, token=token,
+        key=uuid.uuid4().hex,
+    )
+    assert status == 200, replay
+    assert replay["accepted"] == []
+    assert replay["duplicates"] == event_ids
+
+    status, analytics = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/execution",
+        token=token,
+    )
+    assert status == 200, analytics
+    assert analytics["data_quality"]["event_count"] == 4
+    assert analytics["sets"][0]["duration_s"] == 20
+    assert analytics["rests"][0]["actual_rest_s"] == 5
+    assert analytics["rests"][0]["deviation_s"] == -55
+    assert analytics["summary"]["active_lifting_s"] == 20
+    assert analytics["summary"]["recorded_recovery_s"] == 5
+
+
+def test_ios_execution_events_reject_bad_timestamps_atomically(ios):
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(ios, token, issued["issued_plan_id"])
+    assert status == 200, workout
+    valid = {
+        "event_id": str(uuid.uuid4()), "event_type": "set_started",
+        "occurred_at": datetime.datetime.now(datetime.UTC).isoformat(),
+        "local_set_id": "local-set-1",
+    }
+    invalid = {
+        "event_id": str(uuid.uuid4()), "event_type": "set_started",
+        "occurred_at": "2000-01-01T00:00:00+00:00",
+        "local_set_id": "local-set-2",
+    }
+    status, result = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/execution-events",
+        method="POST", payload={"events": [valid, invalid]}, token=token,
+        key=uuid.uuid4().hex,
+    )
+    assert status == 409, result
+    assert _scalar(
+        ios["path"],
+        "SELECT COUNT(*) FROM workout_execution_event WHERE workout_id = ?",
+        (workout["workout_id"],),
+    ) == 0
+
 def test_ios_exercise_library_detail_e1rm_and_history(ios):
     token, _ = _paired(ios)
     status, detail = _request(

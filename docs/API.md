@@ -143,6 +143,8 @@ The authoritative interfaces are [IOS-PHASE-1-CONTRACT.md](design/IOS-PHASE-1-CO
 | `POST /api/ios/v1/workouts/<id>/plan/exercises` | bearer + Idempotency-Key | `{exercise_id}` -> workout detail; server defaults 3 sets, 8–12 reps, RIR 2, no load; duplicate is `409 exercise_already_present` |
 | `POST /api/ios/v1/workouts/<id>/complete` | bearer + Idempotency-Key | `{session_rpe? or not_recorded: true, duration_min?, notes?, ended_at?, productivity?}` -> completed workout detail; RPE and not-recorded are mutually exclusive; `ended_at` preserves the local finish time and measured duration; `productivity` is 1-5 when present |
 | `POST /api/ios/v1/workouts/<id>/abandon` | bearer + Idempotency-Key | `{}` -> abandoned workout detail |
+| `POST /api/ios/v1/workouts/<id>/execution-events` | bearer + Idempotency-Key | `{events:[{event_id, event_type, occurred_at, plan_item_index?, set_id?, local_set_id?, payload?}]}` -> `{workout_id, accepted, duplicates, received_at}`; 1-100 events, all-or-nothing, idempotent by event_id; unknown fields, bad timestamps, wrong ownership/status and conflicting event IDs are 400/404/409 |
+| `GET /api/ios/v1/workouts/<id>/execution` | bearer | read-only execution timeline and derived metrics; empty event coverage is valid and historical workouts are never backfilled |
 
 - **Pairing is CLI-only.** `strength-coach ios pair [--label LABEL] [--ttl 300]` prints a
   one-use 8-digit code (spaces/hyphens are ignored by the exchange); the default TTL is 300
@@ -195,6 +197,18 @@ The authoritative interfaces are [IOS-PHASE-1-CONTRACT.md](design/IOS-PHASE-1-CO
 - **Errors.** Phase 2 conflicts use {"error", "code", "fields", "details"} with codes such as readiness_required,
   confirmation_required, workout_active, plan_expired, plan_superseded, plan_consumed,
   workout_not_active, session_rpe_required and idempotency_conflict. Validation failures remain 400.
+- **Execution telemetry.** `workout_execution_event` is append-only and separate from
+  `workout_event` (the server mutation/audit stream) and `workout_set` (the canonical performed
+  set). Events are accepted only for a workout linked to the authenticated device. `occurred_at`
+  is the original device time with a timezone; `received_at` is server time. A completed or
+  abandoned workout accepts only events whose occurrence time falls inside its start/end bounds,
+  which permits delayed offline replay without rewriting history. `set_id` is optional and must
+  belong to the workout; `local_set_id` preserves a client identity when no server ID exists yet.
+  The batch is all-or-nothing; retrying the same `Idempotency-Key` replays the response, while a
+  new batch with an existing event ID is a duplicate or a 409 conflict. Execution events never
+  create or modify sets. The read endpoint derives set durations only when both `set_started` and
+  `set_completed` exist, rest durations only from explicit start/end events, and reports missing
+  coverage rather than inferring it.
 - **Offline timestamp preservation.** `performed_at` is optional on a set and must be an
   ISO-8601 timestamp no earlier than the workout start and not in the future; it is retained as
   the set's audit timestamp. `ended_at` is optional on completion and must fall between the start

@@ -11,11 +11,11 @@ completion/abandon, Progress, opt-in HealthKit HRV/RHR/bodyweight readiness, Key
 Home/Away server routing by Home Server reachability with a Prefer Home manual override (no
 Wi-Fi SSID, Location or Access Wi-Fi Information entitlement), Settings Exercise Library with read-only configurations, e1RM and paginated
 working-set history,
-97 unit tests
+102 unit tests
 after R1/R3/R5/Phase 3A and optional live UI smoke tests. Phase 3A is closed 2026-11-08; physical
 HealthKit acceptance was owner-confirmed and Phase 3B is out of scope. R7 (asynchronous
 prescription request with session-type and minimum-session settings) is **implemented and closed
-2026-11-08**: the app builds with an iOS 27.0 deployment target and 97 client tests pass on the
+2026-11-08**: the app builds with an iOS 27.0 deployment target and 102 client tests pass on the
 available iOS 27.2 simulator; the app launches, and the live UI flow passed twice — once with the resolver off and once with it on against a copy of the
 real database. R2 is closed as absorbed by R7's `plans/current` read. R8 (active-workout plan editing) is **closed 2026-11-08**;
 its authenticated exercise-catalogue, online-only and no-solved-load decisions are recorded; R8 is
@@ -208,6 +208,22 @@ capture, ordered replay and conflict handling); physical offline acceptance was 
 8. Avoid a generic “sync every object” framework. Implement the smallest durable outbox that fits these workout/readiness operations.
 
 **Acceptance:** capture can survive server disconnection, app termination and restart; reconnecting synchronizes each operation at most once; order and local-date context are preserved; partial failures remain visible/actionable; a fresh prescription is unavailable offline; no offline result is represented as server-authoritative.
+
+### R9 — Execution telemetry and timeline
+
+**Status:** server and client implemented on `development`; simulator/unit gates pass. Physical-device
+acceptance remains an owner step before this section is marked closed.
+
+The additive server stream (`workout_execution_event`, migration 0057) records explicit set/rest/
+exercise start and completion events without changing `workout_set` or `workout_event`. Events are
+batched through the existing Phase 4 outbox and rendered as a read-only History execution section.
+The server derives durations, prescribed-versus-actual rest, transitions and missing coverage; it
+never infers a set duration from completion alone and never backfills historical workouts.
+
+The optional heart-rate phase is **not implemented**. The current HealthKit path reads HRV, resting
+heart rate and bodyweight for readiness only; it does not request or expose workout heart-rate
+samples. Adding workout HR would require a separate opt-in, separate samples, provenance and
+feature gate, and would remain observational rather than a fatigue or readiness input.
 
 ### Phase 5 — Optional Enhancements
 
@@ -876,7 +892,7 @@ exercise swap, set-count change".
   deterministic Apple Watch classification, 48-hour HRV / current-day RHR / 30-day bodyweight
   selection, single-flight import, the healthkitReadiness mutation-journal kind, Settings opt-in
   and Today import/provenance display.
-- Verification: 1,681 server tests, 97 client tests, simulator build and the live UI workflow pass.
+- Verification: 1,685 server tests, 102 client tests, simulator build and the live UI workflow pass.
   Physical HealthKit acceptance with real samples remains pending.
 - Rollback: remove the client importer and canonical-merge integration, drop healthkit_readiness
   with the paired 0054/0055 migration rows, and leave readiness_day/readiness_entry untouched.
