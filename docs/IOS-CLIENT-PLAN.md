@@ -248,7 +248,7 @@ code is implemented.
 ratings and finish with sRPE, shows heart rate, and writes one HealthKit strength workout. It has
 its own paired device token, minted by the phone. Logging and finish are offline-safe; plan fetch
 and start need connectivity. During a watch session the watch is the only set writer; the phone
-edits the plan and shows a read-only mirror. Readiness, history, progress, settings and the
+edits the plan and shows a read-only mirror with a take-over action. Readiness, history, progress, settings and the
 exercise library stay on the phone.
 
 **Shared core.** Extract `StrengthCore` (models, API client, outbox/journal, session state
@@ -264,19 +264,23 @@ Views stay per-platform and the core contains no `#if os()`.
    and 24h lazy abandonment; `issued_plan_ttl_seconds` 14400; `watch_enabled`; tests.
 3. **6.2 Watch shell and credentials.** Watch target and scheme embedded in the app; Watch
    Connectivity handoff; plan fetch and a read-only Today.
-4. **6.3 Execution.** Start, set logging, rest timer, form rating, finish with sRPE; pending states.
+4. **6.3 Execution.** Start, set logging, rest timer, form rating, finish with sRPE, execution
+   telemetry with original `occurred_at` values, and pending states.
 5. **6.4 Offline.** Session-scoped outbox, ordered replay, relaunch/crash recovery, conflict
    display.
 6. **6.5 Heart rate and HealthKit.** `HKWorkoutSession` and builder, live HR, one saved strength
    workout with effort from sRPE; discard on abandon.
-7. **6.6 Plan revision propagation.** Phone push on edit, watch refresh points, stale-revision
-   rejection, non-interruption rules.
+7. **6.6 Phone mirror and plan revision.** Phone mirror mode with set logging disabled and a
+   take-over confirmation, phone push on edit, watch refresh points, stale-revision rejection,
+   non-interruption rules.
 8. **6.7 Acceptance and CI.** Watch build in the `ios-ci` workflow, physical Ultra acceptance,
    docs and rollback notes.
 
 **Acceptance.** The physical script in the contract §17: phone plan → phone closed → watch fetch →
 start → sets → phone substitution → watch update → finish/sRPE → server completed → exactly one
-HealthKit workout with HR and effort. Plus one offline mid-session run and one idle-abandon run.
+HealthKit workout with HR and effort. Plus one offline mid-session run (original timestamps
+preserved), one clock-skew run (+5 minutes), one phone-mirror/take-over run and one idle-abandon
+run.
 
 ## 5. Offline behavior — explicit contract
 

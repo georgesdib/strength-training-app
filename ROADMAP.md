@@ -1748,8 +1748,9 @@ Physical offline acceptance was owner-confirmed at closure on 2026-11-08.
 
 The phone remains the planner; the watch becomes the execution client for an issued plan: fetch,
 start, log sets/rest/forms, finish with sRPE, live heart rate and one HealthKit strength workout.
-It gets its own device token, the watch is the only set writer during its session, plan edits
-propagate by revision, logging is offline-safe, and forgotten sessions are idle-abandoned. Shared
+It gets its own device token, the watch is the only set writer during its session (the phone
+mirrors it with plan edits and a take-over path), plan edits propagate by revision, logging is
+offline-safe with preserved timestamps, and forgotten sessions are idle-abandoned. Shared
 code moves into a `StrengthCore` package so iOS and watchOS use one client and one session state
 machine. Contract: [`docs/design/IOS-WATCH-CONTRACT.md`](docs/design/IOS-WATCH-CONTRACT.md). No
 code is implemented; implementation needs a separate go-ahead.

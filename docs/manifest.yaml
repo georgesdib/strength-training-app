@@ -922,7 +922,7 @@ documents:
 - id: design-ios-watch-contract
   path: docs/design/IOS-WATCH-CONTRACT.md
   title: iOS Phase 6 watchOS companion contract (planned)
-  description: 'Plan only, not started 2026-11-09: watch as the set-logging client for an issued plan; own device token, 4h plan TTL, watch-only set ownership and takeover, plan-revision propagation, offline-safe logging with ordered replay, idle warning and 24h abandonment, live heart rate and one HealthKit strength workout, shared Swift core, tests, acceptance and rollback'
+  description: 'Plan only, not started 2026-11-09: watch as the set-logging client for an issued plan; own device token, 4h plan TTL, watch-only set ownership with phone mirror and take-over, plan-revision propagation, offline-safe logging with preserved set/telemetry timestamps and ordered replay, idle warning and 24h abandonment, live heart rate and one HealthKit strength workout, shared Swift core, tests, acceptance and rollback'
   category: design
   status: design
   audience: maintainer

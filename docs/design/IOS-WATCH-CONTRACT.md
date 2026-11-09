@@ -16,12 +16,16 @@ session.
 - Its own paired server device and bearer token, minted by the phone and handed over once.
 - Plan fetch and start from the watch, within the existing issued-plan rules.
 - Set logging, rest timer, form rating and finish with sRPE on the watch.
+- Execution telemetry (rest and set events with their original `occurred_at`) so the server
+  timeline keeps the times the user acted, not the replay times.
 - Offline-safe logging: every mutation is persisted locally before the network call and replayed
   in order; start and plan fetch still require connectivity.
 - Heart rate during the session and one `traditionalStrengthTraining` HealthKit workout with
   heart rate, active energy and the effort rating derived from sRPE.
 - Plan-revision propagation so a substitution made on the phone reaches the watch without
   disturbing a set in progress.
+- A phone mirror mode for a watch-owned session: plan edits allowed, set logging blocked and a
+  take-over action available.
 - Idle detection and automatic abandonment of forgotten sessions.
 
 ## 3. Non-goals
@@ -30,6 +34,10 @@ No readiness entry, prescription request, history, progress, settings or exercis
 watch. No heart-rate zones, no Shortcuts automation, no Apple Intelligence/PCC, no complications,
 no watch-side pairing UI, no cellular or away-server support, and no second HealthKit writer on
 the phone. The watch is a home-gym device on the same LAN as the server.
+
+The watch does not notify the phone: there is no watch→phone event channel and no attempt to
+auto-open the phone app. The phone discovers a watch-started session through its normal foreground
+refresh, and watch→phone WatchConnectivity is not part of this plan.
 
 ## 4. Locked decisions
 
@@ -92,6 +100,9 @@ The iPhone app keeps its views and its iOS-only services. The watch app adds `Wa
   `410 plan_consumed` and `409 plan_not_ready` responses keep their meaning.
 - A plan is never pushed from the phone as the source of truth; at most the phone nudges the watch
   to refresh.
+- The watch derives a clock offset from the server time in `bootstrap`/`today` and stamps
+  `performed_at` and `ended_at` with server-adjusted time. The server rejects a timestamp more
+  than a minute in the future, so a fast watch clock must not surface as a server error.
 
 ## 8. Ownership
 
@@ -103,8 +114,14 @@ The iPhone app keeps its views and its iOS-only services. The watch app adds `Wa
 - Workouts with `owner_device_id IS NULL` (legacy rows and pre-upgrade clients) keep today's
   permissive behaviour.
 - `POST /api/ios/v1/workouts/{id}/takeover` transfers ownership to the caller and appends an event.
-  The phone uses it only when the watch is gone; the watch, on its next refresh, becomes read-only
-  and shows “Logging moved to the phone”.
+  The phone offers it in mirror mode when the watch is unavailable or the owner wants to log on the
+  phone; the watch, on its next refresh, becomes read-only and shows “Logging moved to the phone”.
+- The phone opens a watch-owned session in **mirror mode**: the existing active-workout view with
+  set, form and finish controls disabled, plan editing enabled, a “Logging on Apple Watch” banner,
+  and one **Take over logging** confirmation. The recovery card is labelled “started on Apple
+  Watch”.
+- Take-over ships in v1 with that button and the endpoint above; a richer hand-back from phone to
+  watch is deferred (section 21).
 - Abandon is allowed from any authenticated device, so a lost watch cannot strand a workout.
 
 ## 9. Plan edits and revision
@@ -127,6 +144,11 @@ The iPhone app keeps its views and its iOS-only services. The watch app adds `Wa
 
 - The watch keeps a session store: plan snapshot + revision, workout id, device id, and an ordered
   outbox of pending set/form/finish operations with their idempotency keys and original timestamps.
+- Each set carries `performed_at` and each finish `ended_at`, captured when the user acted and
+  replayed unchanged. The server computes the duration from `started_at` and `ended_at`; the
+  watch never sends a duration.
+- Execution events (rest start/end and set events) are queued with their `occurred_at` in the same
+  order, so an offline session's timeline keeps its original times.
 - Every action is written locally **before** the request; the UI shows “Saved on watch, syncing”
   until the server acknowledges.
 - Replay is ordered and bounded, reusing the server's idempotency receipts. A failed operation
@@ -162,6 +184,8 @@ The iPhone app keeps its views and its iOS-only services. The watch app adds `Wa
 - The watch is the only writer. The phone's HealthKit use stays read-only (readiness import) and
   never saves a workout for the same session.
 - Finish saves the HealthKit workout even if the server finish is queued. Abandon discards it.
+- The saved workout's start and end are the real session timestamps, not the sync time: a queued
+  finish that syncs later still records the real end.
 - If HealthKit authorisation is denied or unavailable, the session still works with no HR and no
   saved workout; the UI says so once.
 - Heart rate is displayed as BPM (current and session average). Zones are out of scope.
@@ -172,8 +196,8 @@ Three vertically paged screens plus the end flow:
 
 1. **Set** — exercise name, “Set n of m”, target load × reps @ RIR, last set, current HR, a large
    **Log set** button, and the rest countdown when resting.
-2. **Session** — elapsed time, sets done/total, tonnage so far, average HR, next exercise, and
-   **Refresh**.
+2. **Session** — elapsed time (from the server's `started_at`), sets done/total, tonnage so far,
+   average HR, next exercise, and **Refresh**.
 3. **Plan** — remaining items, read-only, with a marker when the plan was updated.
 
 - End flow: summary, sRPE picker (Digital Crown, 1–10), **Finish**. Productivity is not captured
@@ -182,6 +206,11 @@ Three vertically paged screens plus the end flow:
   plan-expired/regenerate message.
 - No keyboard text entry except an optional short note if it proves necessary; v1 omits notes.
 - Always-On dims to the Set screen; no complication.
+
+**Phone mirror.** A watch-owned session opens on the phone in the existing active-workout view with
+set, form and finish controls disabled, plan editing enabled, a banner naming the watch, and one
+take-over confirmation. No WatchConnectivity message is involved; the phone discovers the session
+on its next foreground refresh.
 
 ## 14. Server API changes
 
@@ -226,6 +255,7 @@ Rollback drops the added columns; existing rows and every other table are untouc
 | Set write fails offline | Queued; pending badge; retry with the same key. |
 | Finish fails offline | Queued; server still shows in-progress until replay. |
 | Phone opens mid-session | Read-only mirror; plan edits allowed. |
+| Phone closed when the watch starts | Nothing is signalled; the phone shows the session on its next foreground refresh. |
 | Watch stolen/lost | Phone takes over ownership, finishes or abandons; revoke the watch device. |
 | Phone substitutes the current exercise | Allowed only before any set; watch applies at next set. |
 | Server unreachable at start | Blocking message; no fabricated session. |
@@ -249,6 +279,19 @@ with HR and effort. Repeat once with Wi-Fi disabled after start, then re-enabled
 Start a session and exercise the idle warning with a lowered test threshold or a seeded
 `last_activity_at` (a real 3h wait is not an acceptance step); abandon, start another and confirm
 no 409.
+
+Additional checks:
+
+- **Clock skew:** with the watch clock set +5 minutes, a set and a finish still succeed because
+  timestamps use the server offset.
+- **Offline timestamps:** a set logged at T and synced much later is stored at T, and the execution
+  timeline shows the original time.
+- **Mirror:** a watch-owned session opens on the phone with set logging disabled; an unstarted
+  exercise can still be substituted from the phone; the watch shows the update after refresh.
+- **Take-over:** the phone takes ownership, logs a set, and the watch becomes read-only on its next
+  refresh.
+- **HealthKit end date:** the saved workout ends at the real finish even when the server sync was
+  queued.
 
 ## 18. CI and distribution
 
@@ -278,6 +321,8 @@ Ownership enforcement is inert for rows with `owner_device_id IS NULL`.
 
 ## 21. Deferred
 
-Recovery of an offline session that outlives the abandonment window; heart-rate zones; Shortcuts
-automation; complications; away-server/cellular support; watch-side readiness or history; Apple
-Intelligence. Each needs a separate decision.
+Recovery of an offline session that outlives the abandonment window; a richer hand-back from phone
+to watch after take-over; automatic phone-side surfacing of watch events (there is no
+WatchConnectivity event channel); heart-rate zones; Shortcuts automation; complications;
+away-server/cellular support; watch-side readiness or history; Apple Intelligence. Each needs a
+separate decision.
