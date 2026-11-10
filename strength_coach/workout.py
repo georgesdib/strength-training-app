@@ -105,6 +105,7 @@ def start(
     readiness: Mapping[str, Any],
     session_type: str | None = None,
     prescription_id: str | None = None,
+    owner_device_id: str | None = None,
     note: str | None = None,
     allow_partial_readiness: bool = False,
 ) -> dict:
@@ -134,18 +135,20 @@ def start(
             "plan.session_type must be a normal type, volume_fill_<original> or technique"
         )
     workout_id = str(uuid.uuid4())
+    started_at = _now()
     conn.execute(
         """
         INSERT INTO workout_session
             (workout_id, prescription_id, for_date, session_type, status,
-             plan_json, readiness_json, started_at, notes)
-        VALUES (?, ?, ?, ?, 'in_progress', ?, ?, ?, ?)
+             plan_json, readiness_json, started_at, notes, owner_device_id,
+             plan_revision, last_activity_at)
+        VALUES (?, ?, ?, ?, 'in_progress', ?, ?, ?, ?, ?, 0, ?)
         """,
         (
             workout_id, prescription_id, for_date, resolved_type,
             json.dumps(plan_data, separators=(",", ":")),
             json.dumps(readiness_data, separators=(",", ":")),
-            _now(), note,
+            started_at, note, owner_device_id, started_at,
         ),
     )
     _event(conn, workout_id, "start", {"readiness": readiness_data})
@@ -701,6 +704,7 @@ def set_form_rating(conn, workout_id: str, *, exercise_id: str, rating: int,
         (str(workout_id), exercise_id, value, note or None),
     )
     _event(conn, workout_id, "form_rating", {"exercise_id": exercise_id, "rating": value})
+    _touch(conn, workout_id)
     return get(conn, workout_id)
 
 
@@ -796,6 +800,14 @@ def _elapsed(data: Mapping[str, Any]) -> int:
         return 0
     end = _parse(data.get("ended_at")) or dt.datetime.now(dt.UTC)
     return max(0, int((end - start).total_seconds()))
+
+
+def _touch(conn, workout_id: str) -> None:
+    """Record user activity for the idle warning and abandonment sweep."""
+    conn.execute(
+        "UPDATE workout_session SET last_activity_at = ? WHERE workout_id = ?",
+        (_now(), workout_id),
+    )
 
 
 def _event(conn, workout_id: str, event_type: str, payload: dict,
@@ -976,6 +988,7 @@ def add_set(
         _event(conn, workout_id, "add_set", {"exercise_id": exercise_id,
                                               "set_index": set_index},
                target_set_id=int(cursor.lastrowid))
+        _touch(conn, workout_id)
         if rep_detail:
             _append_reps(
                 conn, workout_id, int(cursor.lastrowid), rep_detail,
@@ -1030,6 +1043,7 @@ def remove_set(conn, workout_id: str, set_id: int) -> dict:
         raise ValueError("set not found")
     _event(conn, workout_id, "remove_set", {"set_id": int(set_id)},
            target_set_id=int(set_id))
+    _touch(conn, workout_id)
     return get(conn, workout_id)
 
 
@@ -1091,8 +1105,9 @@ def _write_plan(conn, workout_id: str, plan: dict, event_type: str,
                 payload: dict) -> dict:
     validate_plan_items(plan.get("items") or (), where="plan")
     conn.execute(
-        "UPDATE workout_session SET plan_modified_json = ? WHERE workout_id = ?",
-        (json.dumps(plan, separators=(",", ":")), workout_id),
+        "UPDATE workout_session SET plan_modified_json = ?, "
+        "plan_revision = plan_revision + 1, last_activity_at = ? WHERE workout_id = ?",
+        (json.dumps(plan, separators=(",", ":")), _now(), workout_id),
     )
     _event(conn, workout_id, event_type, payload)
     return get(conn, workout_id)
@@ -1972,6 +1987,29 @@ def end(
                                           "session_rpe": rpe,
                                           "not_recorded": bool(not_recorded),
                                           "productivity": productivity})
+    return get(conn, workout_id)
+
+
+def take_over(conn, workout_id: str, device_id: str) -> dict:
+    """Transfer ownership to a phone; idempotent when it already owns the session."""
+    workout = get(conn, workout_id)
+    if workout is None:
+        raise ValueError("workout not found")
+    if workout["status"] != "in_progress":
+        raise ValueError("workout is not in progress")
+    previous = workout.get("owner_device_id")
+    if previous == device_id:
+        return workout
+    with db.transaction(conn):
+        conn.execute(
+            "UPDATE workout_session SET owner_device_id = ?, last_activity_at = ? "
+            "WHERE workout_id = ?",
+            (device_id, _now(), workout_id),
+        )
+        _event(conn, workout_id, "takeover", {
+            "from": previous,
+            "to": device_id,
+        })
     return get(conn, workout_id)
 
 

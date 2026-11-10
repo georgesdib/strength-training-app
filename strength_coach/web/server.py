@@ -1097,11 +1097,19 @@ class Handler(BaseHTTPRequestHandler):
                         path[len("/api/ios/v1/workouts/"):-len("/execution")]
                     ).strip("/")
                     payload = workout_execution.analytics(
-                        conn, workout_id, device["device_id"]
+                        conn, workout_id, device["device_id"], require_owner=False
                     )
                     if payload is None:
                         self._error(404, "workout not found")
                         return
+                    data = workout.get(conn, workout_id)
+                    if data is not None:
+                        payload.update({
+                            "owner_device_id": data.get("owner_device_id"),
+                            "plan_revision": data.get("plan_revision", 0),
+                            "last_activity_at": data.get("last_activity_at"),
+                            "stale": False,
+                        })
                 elif path == "/api/ios/v1/progress":
                     params = _ios_progress_params(
                         parse_qs(urlparse(self.path).query, keep_blank_values=True)
@@ -1246,7 +1254,7 @@ class Handler(BaseHTTPRequestHandler):
                         body = self._body()
                         self._ios_workout_mutation(
                             conn, device, path, body, config, parts[4],
-                            self._ios_workout_plan_add,
+                            self._ios_workout_plan_add, access="phone",
                         )
                     elif len(parts) == 9 and parts[:5] == [
                         "api", "ios", "v1", "workouts", parts[4]
@@ -1273,10 +1281,16 @@ class Handler(BaseHTTPRequestHandler):
 
                         self._ios_workout_mutation(
                             conn, device, path, body, config, parts[4], plan_handler,
+                            access="phone",
                         )
                     elif len(parts) == 6 and parts[:4] == ["api", "ios", "v1", "workouts"]:
                         workout_id = parts[4]
                         action = parts[5]
+                        if action == "takeover":
+                            config = self._ios_require_mutations()
+                            body = self._body()
+                            self._ios_takeover(conn, device, workout_id, body)
+                            return
                         handlers = {
                             "sets": self._ios_workout_set,
                             "remove-set": self._ios_workout_remove_set,
@@ -1303,6 +1317,7 @@ class Handler(BaseHTTPRequestHandler):
                             return
                         self._ios_workout_mutation(
                             conn, device, path, body, config, workout_id, handler,
+                            access="any" if action == "abandon" else "owner",
                         )
                     else:
                         self._error(404, "not found")
@@ -1437,10 +1452,40 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._json(status, result)
 
+    def _ios_takeover(self, conn, device: dict, workout_id: str, body: dict) -> None:
+        if device["kind"] != "phone":
+            raise ios_workflow.IOSWorkflowError(
+                403, "not_phone", "only the phone may take over a session"
+            )
+        self._ios_closed_fields(body, {"confirm"})
+        if body.get("confirm") is not True:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "confirm must be true",
+                fields={"confirm": "required"},
+            )
+        self._ios_workout(conn, workout_id)
+        result = workout.take_over(conn, workout_id, device["device_id"])
+        self._json(200, result)
+
     def _ios_workout_mutation(self, conn, device: dict, route: str, body: dict,
                               config: ios_config.IOSConfig, workout_id: str,
-                              handler) -> None:
+                              handler, *, access: str = "owner") -> None:
         def callback(c, _device, payload):
+            # A retry whose response was lost must replay its stored receipt before the
+            # workout state (possibly completed/abandoned) is re-checked.
+            data = self._ios_workout(c, workout_id)
+            if access == "owner" and data.get("owner_device_id") not in (
+                None, device["device_id"]
+            ):
+                raise ios_workflow.IOSWorkflowError(
+                    409, "not_owner",
+                    "this workout is owned by another device",
+                    details={"owner_device_id": data.get("owner_device_id")},
+                )
+            if access == "phone" and device["kind"] != "phone":
+                raise ios_workflow.IOSWorkflowError(
+                    403, "not_phone", "only the phone may edit the plan"
+                )
             return handler(c, workout_id, payload)
 
         self._ios_mutation(conn, device, route, body, config, callback)
@@ -2111,6 +2156,7 @@ class Handler(BaseHTTPRequestHandler):
                     readiness=readiness,
                     session_type=row["session_type"],
                     prescription_id=prescription_id,
+                    owner_device_id=device["device_id"],
                     # The issue step already applied the readiness gate: a ready score may have
                     # only the fields it needs, and a non-ready score required an explicit ack.
                     # Re-applying the five-field workout default here rejects a valid ready day.
@@ -2155,7 +2201,7 @@ class Handler(BaseHTTPRequestHandler):
             "exercise_id", "load_kg", "reps", "rir", "velocity_mps",
             "set_index", "plan_item_index", "rep_velocities", "performed_at",
         })
-        self._ios_workout(conn, workout_id)
+        data = self._ios_workout(conn, workout_id)
         exercise_id = body.get("exercise_id")
         if not isinstance(exercise_id, str) or not exercise_id.strip():
             raise ios_workflow.IOSWorkflowError(
@@ -2208,6 +2254,20 @@ class Handler(BaseHTTPRequestHandler):
                 400, "validation_failed", "plan_item_index must be non-negative",
                 fields={"plan_item_index": "must be non-negative"},
             )
+        if plan_item_index is not None:
+            items = (data.get("plan") or {}).get("items") or []
+            if 0 <= plan_item_index < len(items):
+                current = items[plan_item_index]
+                if str(current.get("exercise_id")) != exercise_id.strip():
+                    raise ios_workflow.IOSWorkflowError(
+                        409, "plan_item_mismatch",
+                        "the plan item changed; the set is preserved as off-plan",
+                        details={
+                            "item_index": plan_item_index,
+                            "current_item": current,
+                            "plan_revision": data.get("plan_revision", 0),
+                        },
+                    )
         performed_at = body.get("performed_at")
         if performed_at is not None and not isinstance(performed_at, str):
             raise ios_workflow.IOSWorkflowError(
