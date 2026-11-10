@@ -188,6 +188,10 @@ of the extraction.
 - A stale or duplicate payload is ignored but acknowledged again with the stored epoch, so a
   delayed delivery cannot roll the watch back. A revoked credential at the same epoch is not
   resurrected.
+- A tokenless probe is metadata only. If it names a different device or newer epoch, the watch
+  may replace metadata **only when it holds no token**; it adopts the probe as `missing`, clears
+  any stale token and acknowledges that adopted identity so the phone can mint. A valid token or a
+  revoked credential is never replaced by a tokenless probe.
 
 ### 7.4 Retry and foreground recovery
 
@@ -202,6 +206,11 @@ of the extraction.
 - If the phone is relaunched after minting but before the acknowledgement, the in-memory token is
   gone. The phone sends a tokenless duplicate context at the stored epoch: a watch that has the
   token re-acks, and a watch without it reports `missing`, which triggers a new mint.
+- If the watch acknowledges a different device or an older epoch while the phone has no pending
+  token, the phone treats the tokenless exchange as unable to replace that credential and mints one
+  fresh epoch, then sends the token. This is bounded to the same two automatic mints per foreground
+  as a `missing` acknowledgement, so a stale acknowledgement cannot loop forever. A token-bearing
+  higher epoch is the only way to replace a valid old token or a revoked credential.
 - A delivered and acknowledged token is never re-sent.
 
 ### 7.5 Missing and revoked credentials
@@ -215,7 +224,8 @@ of the extraction.
   because the app entered the foreground; the owner must tap **Pair Apple Watch**.
 - Revoking the watch from Settings is deliberate: the server device is revoked, the watch is sent
   a `revoked` context so it wipes its token, and the phone suppresses automatic re-minting until
-  **Pair Apple Watch** is tapped again.
+  **Pair Apple Watch** is tapped again. A revocation context naming a different device is ignored,
+  and a stale revocation for the matching device is ignored.
 - Revoking a phone also revokes its active child watch in the same transaction; the DELETE response
   includes `revoked_watch_ids` so a legacy stranded watch is visible. This prevents a replaced
   phone from leaving an independently usable watch token behind.
