@@ -1745,7 +1745,7 @@ prescription/start, plan editing and HealthKit remain online-only. No server que
 Contract: [`docs/design/IOS-PHASE-4-CONTRACT.md`](docs/design/IOS-PHASE-4-CONTRACT.md).
 Physical offline acceptance was owner-confirmed at closure on 2026-11-08.
 
-### 4.32 Phase 6 — watchOS companion (6.0–6.2c complete; 6.3+ pending)
+### 4.32 Phase 6 — watchOS companion (Phase 6.2 closed 2026-11-10; 6.3+ pending)
 
 The phone remains the planner; the watch becomes the execution client for a plan requested with an
 explicit `execution_target` (`phone` or `watch`): fetch, start, log sets/rest/forms, finish with
