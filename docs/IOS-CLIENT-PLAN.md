@@ -238,13 +238,14 @@ Only pursue after the core app is useful and stable, with a separate scope/appro
 
 **Acceptance:** each enhancement is independently disableable and does not become a dependency of pairing, readiness, prescription, workout capture, or review. On-device AI and PCC outputs are suggestions/text only; all numeric training data still pass through explicit user review and existing server validation.
 
-### Phase 6 — watchOS companion (planned, not started)
+### Phase 6 — watchOS companion (6.0 complete; 6.1+ planned, not started)
 
 The phone plans; the watch executes. Full contract:
 [`design/IOS-WATCH-CONTRACT.md`](design/IOS-WATCH-CONTRACT.md). Decisions locked 2026-11-09 and
 remediated the same day for extraction, credential handoff, the home-server config, offline-first
 execution, lifecycle, offline conflicts, HealthKit idempotency and acceptance. Targets:
-**iOS 27.0** and **watchOS 27.0**. No code or migration is implemented.
+**iOS 27.0** and **watchOS 27.0**. The 6.0 shared-core extraction (S1–S4) is implemented;
+6.1 and later are not started, and no server migration has been created.
 
 **Scope.** The phone requests a plan with an explicit `execution_target` (`phone` or `watch`);
 the watch fetches the plan targeted for it, starts the session, logs sets, rest, form ratings and
@@ -265,10 +266,11 @@ on boundaries and per-stage acceptance.
 
 **Work packages.**
 
-1. **6.0 StrengthCore extraction (iOS first).** Execute S1–S4 from the contract; parity is proved
-   per stage and a slice that cannot prove it is reverted. Acceptance: the existing iPhone tests
-   stay green, new engine tests are added, no view changes, and the package builds for iOS 27.0 and
-   watchOS 27.0. S5 (the watch target) is 6.2.
+1. **6.0 StrengthCore extraction (iOS first) — complete 2026-11-10.** S1 models, S2 API client,
+   S3 journal/Keychain/offline capture and S4 session reducer are in the package; the iPhone app is
+   the adapter. Parity was proved per stage. Acceptance: the 102 existing iPhone tests stayed green,
+   five reducer tests were added (107 total), no view changed, and the package builds for iOS 27.0
+   and watchOS 27.0. S5 (the watch target) is 6.2.
 2. **6.1 Server contract.** `0058_watch_companion.sql` with watch kind, parent, monotonic
    `credential_epoch`, the one-active-watch index and `execution_target` on issued plans;
    mint/list/revoke; target enforcement (`409 wrong_execution_target`) in start and

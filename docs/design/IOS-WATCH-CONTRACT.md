@@ -1,8 +1,9 @@
 # iOS Phase 6 — watchOS companion contract
 
-**Status:** planned, not started (decisions locked 2026-11-09; design remediation 2026-11-09).
-This document authorises no code; no migration is created by this design task. Target platforms:
-**iOS 27.0** and **watchOS 27.0**.
+**Status:** 6.0 (S1–S4, shared core) complete 2026-11-10; 6.1 and later planned, not started.
+Decisions locked 2026-11-09; design remediation 2026-11-09. The extraction authorises no server
+migration; no migration is created by this design task. Target platforms: **iOS 27.0** and
+**watchOS 27.0**.
 
 ## 1. Purpose
 
