@@ -1,419 +1,52 @@
-# AGENTS.md — how to work in this repository
+# AGENTS.md — strength-training-app
 
-Instructions for any AI agent (or human) contributing to this project. Read this before
-editing anything. It encodes decisions that are easy to "helpfully" undo.
+Lean entry point for agents editing the Python server. Read the workspace-level
+../AGENTS.md first, then the topic document for the task:
 
----
+- docs/AGENT-WORKFLOWS.md — orientation, code layout, tests, documentation, CLI/UI parity.
+- docs/AGENT-MIGRATIONS.md — append-only and schema/migration rules.
+- docs/AGENT-DEBUGGING.md — logs, failure triage, data quarantine and long-running tests.
 
-## 1. What this project is
+ROADMAP.md holds live phase status; docs/DECISIONS.md holds expensive-to-reverse
+decisions. Do not duplicate either here. Current status: v1.3.0 released, v1.4 planned;
+the v1.0/v1.1 beta labels are historical.
 
-A local-first strength-coaching tool with a **fixed methodology**. It is not a chatbot
-that invents programmes. Python computes; the LLM explains. If the LLM is unavailable,
-the system must still emit a safe, valid prescription.
+## Authority
 
-## 2. Current status — read this first
+The server is authoritative for readiness, prescriptions, loads, sets, progression and
+scoring. The LLM may explain or propose, never compute or veto the rules. The iOS client
+must not define training policy.
 
-**v1.3.0 is released; v1.4 is planned.** The beta label is removed. v1.0 beta packaged the
-workable app and v1.1 beta added the monitoring/Performance surfaces. The deterministic template
-resolver is available as an opt-in feature (`resolver.enabled=false` by default) with its
-acceptance audit closed. Cardio depth, a reproducible cardio impulse/shadow load and comparable
-calibration data are deferred to v1.4 (see ROADMAP §4.13a/§4.14).
+## Branch and worktree
 
-**Read [`ROADMAP.md`](ROADMAP.md) first** — it holds the live phase status, the next actions
-and the resume checklist. [`docs/DECISIONS.md`](docs/DECISIONS.md) holds every decision that is
-expensive to reverse.
+- Development happens on development, not main.
+- Use an isolated git worktree and branch for a multi-step change.
+- Do not merge or push an integration branch without the owner's explicit instruction.
+- Keep CI workflow files aligned with main; branch protection decides what runs.
 
-**Working branch:** all development happens on the `development` branch unless the owner
-explicitly says otherwise. Commit and push development there, not to `main`. Keep the same CI
-workflow files as `main`; branch protection and workflow triggers decide what runs, not
-divergent files.
+## Guardrails — do not undo
 
-What exists today is:
+- The constitution (docs/RULES-FORMAT.md, config/rules/) is the source of truth.
+- Never let the LLM do arithmetic, invent thresholds, or override policy.
+- Readiness is 1–5, higher is better; stress 5 means no stress.
+- 0 is column-specific. Never apply a global sentinel rule.
+- Prescriptions, critiques, calibrations and rule versions are append-only.
+- Never deduplicate repeated training sets.
+- Resolve unknown exercise names; never silently drop them.
+- User goals, injuries and preferences are stored state, not prompt text.
+- Empty/incomplete input yields unknown, never pass.
+- Never read, commit or transmit data/, private/, real exports, health data, tokens or keys.
+- The web UI is home-network only; never expose it publicly.
+- Ask before changing a hard rule, threshold, data interpretation or migration.
 
-- `docs/` — the proposal and design record (public).
-- `private/docs/` — documents derived from a real training log (git-ignored, never pushed).
-  `EVIDENCE.md`, `BASELINE.md`, `INFO-REQUESTS.md` live there.
-- `data/raw/` — raw exports (git-ignored).
-- `strength_coach/utils/` — permanent shared helpers (built early on purpose; see §4).
-- `config/exercises/taxonomy.v1.yaml` — exercise identity + properties.
-- `tests/` — tests for the above.
-- `tools/profile_data.py` — regenerates `private/docs/EVIDENCE.md`.
-- `tools/baseline.py` — regenerates the numbers in `private/docs/BASELINE.md`.
-- `strength_coach/domain/` — e1RM, load arithmetic, RIR classes (tested).
-- `strength_coach/ingest/` — cleaning, flags, quarantine, session reconstruction.
-- `strength_coach/features/` — derived metrics, per-lift baseline, VBT calibration, per-region injury signal, cardio capture summary, periodic measurement log, optional session RPE/length, e1RM calibration/decay, per-lift readiness, high-intensity exposure guard, strength fitness-fatigue shadow model, scheduled/reactive deload policy, standardised warm-up ramps, 3RM/5RM cadence, under-MEV accessory progression, optional main-lift readiness set reduction, a user-selected volume-only minimum session, a descriptive progress dashboard, a read-only outcomes review, prescription-modifier provenance, quick readiness presets, context flags, a read-only readiness feedback report, a shared attendance summary, virtual training-day grouping for session fragments and an optional per-rep velocity report and a stratified, descriptive velocity-loss analysis.
-- `strength_coach/store/` — SQLite migrations, append-only repositories, import orchestration.
-- `strength_coach/workout.py` — live workout session, linked prescription snapshot, manual/imported sets, plan overrides, timed/manual end and rubric link. `strength_coach/history.py` — paginated history and append-only corrections for completed/imported sessions.
-- `data/coach.db` is created on demand and is git-ignored.
-- `strength_coach/rules/` — constitution loader, one predicate per `check.fn`, policy verdicts.
-- `strength_coach/prescribe/` — deterministic four-session-type engine, load solver, fallback, and the constraint check that applies stored athlete state. `config/thresholds.v1.yaml` holds the increments and e1RM window.
-- Athlete state lives in the §11 tables (`athlete_profile`, `athlete_constraint`, `exercise_suitability`, `metric_definition`, `symptom_log`), entered with `strength-coach state`.
-- `strength_coach/critique/` — deterministic rubric over a stored session; unmeasurable metrics are stored `measurable = 0`.
-- `strength_coach/trace/` — run lifecycle around `run` / `run_event`.
-- `strength_coach/eval/` — backtest harness, labelled-set comparison, and the database-backed
-  marks that make calibration continuous (`rubric_mark`, append-only).
-- `strength_coach/cli.py` — `import`, `run`, `review`, `calibrate`, `state`, `block`, `regime`, `e1rm`,
-  `test`, `symptom`, `cardio`, `measure`, `fatigue`, `select`, `exercise`, `readiness`, `ios`, `programme`, `validate`, `workout`, `web`. `review` (with `--pending`) is the routine that keeps calibration current.
-- `strength_coach/web/` — home-network HTTP UI and JSON API over the same core; no authentication, bind 0.0.0.0 (temporary accepted risk `LIM-57`; never expose to the internet). The additive `/api/ios/v1/` facade is bearer-authenticated; Phase 1 is read-only, and Phase 2 adds readiness/prescription/workout mutations behind `config/ios.v1.yaml` (`mutations_enabled`). Credentials live in `store/ios_devices.py` and `utils/ios_credentials.py`; Phase 2 plans/receipts live in `store/ios_workflow.py`.
-- `strength_coach/agents/` — LLM interface, config, narrative, exercise-selection chooser and structured proposals.
-  `NullLLM` is the default; the model may explain or propose, but never compute. Keys live in the git-ignored `config/llm.local.toml`
-  or the environment (`config/llm.example.toml` is the committed template).
-- `ROADMAP.md` — phase status and next actions (update it in the same commit as the work).
+## Definition of done — short form
 
-Build order, current status and the next actions live in `ROADMAP.md` — do not duplicate
-them here, because two copies drift. Do not add a public hosted UI. The web UI is for the owner's home network only; it has no authentication and is covered by the temporary accepted risk `LIM-57`.
+1. Narrowest relevant tests pass; add a test that fails without the behaviour.
+2. ruff check passes for the changed area.
+3. New config has a domain-reason comment; judgement calls become assumptions.
+4. Documentation is updated where behaviour changed; docs-consistency checks pass if docs changed.
+5. Multi-statement writes use a transaction and leave no partial state.
+6. Report only task, files, decisions, test status, risks and next action.
 
-## 3. Non-negotiable invariants
-
-Break any of these and the result is wrong even if the tests pass.
-
-1. **The constitution (`docs/RULES-FORMAT.md`, `config/rules/`) is the source of truth.**
-   Never silently reinterpret an ambiguous rule. Raise it as an open question.
-2. **Never let the LLM do arithmetic.** Every number in a prescription comes from a
-   Python function; the transport may be supplied facts, a Python-computed menu, or a future
-   tool call. The current LLM client has no tool protocol.
-3. **The LLM may never veto the rules.** The policy engine may veto or downgrade an LLM
-   suggestion; the reverse is not allowed.
-4. **Readiness scales are 1–5, higher is better.** `Stress = 5` means *no stress*.
-   Any code assuming "stress 5 = bad" is a bug. There is a test for this.
-5. **`0` is not one thing.** See §5.
-6. **No fabricated science.** If a threshold is unknown, put it in config as an
-   assumption and mark it `ASSUMPTION-n`. Do not invent a citation.
-7. **Append-only records.** Prescriptions, critiques, calibrations and rule versions are
-   never mutated; corrections create a new row with a pointer back.
-8. **Never deduplicate training rows.** Identical repeated sets are real sets. See
-   `docs/DATA-QUALITY.md` DQ-DUP-01.
-9. **Unknown exercise names must not be silently dropped.** Resolve or report.
-10. **Every non-obvious decision gets a one-line comment stating the domain reason.**
-11. **User goals, injuries, tightness and preferences are STATE, not prompt text.**
-    They live in the `athlete_profile` / `constraint` / `exercise_suitability` tables
-    (`docs/DATA-MODEL.md` §11) so a hard constraint can veto a prescription
-    deterministically, whatever an agent says.
-12. **An empty/incomplete input produces an `unknown` verdict, never `pass`.**
-13. **Never commit personal data.** `data/` and `private/` are git-ignored and this
-    repository is public. If a test needs a realistic value, synthesise it. Tests that read
-    `data/raw` and assert values derived from it are private (`tests/*_integration.py`, ignored).
-
-## 4. Code layout rules
-
-- Import direction points **down**: `utils` ← `domain` ← `ingest`/`store` ← `features` ←
-  `rules`/`prescribe`/`critique` ← `agents`/`eval`. Nothing lower may import anything
-  higher.
-- **If a computation is needed in two places, it belongs in `utils` (pure) or `domain`
-  (domain arithmetic) and is imported.** Never re-implement. The user asked for this
-  explicitly.
-- Config, not code: exercise taxonomy, day templates, rule documents, thresholds,
-  rep ranges, load increments, calibration overrides.
-- Prefer small pure functions with explicit inputs. No global mutable state.
-- Type-hint public functions. Docstrings explain *why*, not just *what*.
-
-## 5. The sentinel rules (memorise these)
-
-`0` means different things per column. Never apply a global rule.
-
-| Column | `0` means | Handling |
-|---|---|---|
-| `Avg_velocity`, `Avg_power`, `Avg_rom`, `TUT` | device not used | sentinel → NaN |
-| `Weight_Used` | unweighted bodyweight movement | **valid**, preserve |
-| `RIR` | true failure | **valid**, preserve. `RIR 6` = warm-up (`DEC-RIR-01`) |
-| readiness `Weight`, `HRV`, `RHR` | missing | sentinel → NaN |
-| readiness `*_Readiness` | missing | sentinel → NaN |
-| readiness `Sleep`/`Energy`/`Mood`/`Soreness`/`Stress` | impossible (1–5 scale) | no sentinel exists |
-
-Do **not** reuse `dates.NULL_DATE_TOKENS` for numeric columns: it contains `"0"` and doing
-so silently erased genuine `RIR = 0` observations during development.
-
-## 6. Exercise identity
-
-- Resolve every raw name through `utils.exercises`; never branch on the raw log string.
-- Recorded decisions are encoded and **must not be reverted**:
-  - `DEC-TRAPBAR-02` — "Competition Deadlift" is **date-scoped**: sumo deadlift before
-    a recorded switch date (config), trap-bar deadlift from then on and forward. Never relabel the whole history.
-    The switch date is config (ASSUMPTION-05) and may change, especially with manual logging.
-  - `DEC-BACKEXT-02` (amends `DEC-BACKEXT-01`) — back extension ≡ hyperextension **including
-    historical rows**. `Hyperextensions` rows keep their own identity, but they **do** count
-    as back-extension history for load and dose lookups.
-  - `DEC-RIR-01` — `RIR 6` marks a **warm-up**. Not effort. Excluded from compliance,
-    e1RM adjustment and working volume, but preserved and reported.
-  - `DEC-LOAD-02` — bodyweight progression acts on **added load**; total mass is used only
-    for an e1RM.
-  - `DEC-WINDOW-01` — the trap bar's RIR window is the default (it used to be 3-4).
-    The per-lift override map is kept, empty, so changing it back is config, not code.
-  - `DEC-RIR-02` — the effort window is **RIR 1-4 with a 2-3 target**; RIR 0 is forbidden.
-    The evidence is in `docs/RIR-EVIDENCE.md`.
-- There is a standing directive: **back extension is the same as hyperextension, including its
-  history.** When prescribing, prefer `back_extension`.
-- Adding an exercise = editing YAML, not Python. If you need a new *property*, add it to
-  the entity schema and document it in `docs/DATA-MODEL.md`.
-
-## 7. Definition of done for any change
-
-1. `python -m pytest` passes. Optional integration/regression tests run when the owner asks
-   and in the release workflow, not by default.
-2. New behaviour has a test that fails without it.
-3. If the change affects measured facts, `python tools/profile_data.py` still matches
-   `private/docs/EVIDENCE.md` — or you have updated both.
-4. New/changed config has a comment explaining the domain reason.
-5. If you made a judgement call, it is written down as an assumption, not just in code.
-6. A documentation change keeps `tests/test_docs_consistency.py` green: links resolve,
-   `DEC-*`/`LIM-*` references exist, README/AGENTS status matches the roadmap, the W9 current
-   state matches `PRG-SPINE-001`, public docs carry no exact return count, superseded
-   decisions are in the table, and audit counts are dated.
-7. Multi-statement writes use `strength_coach.store.db.transaction`; a failed write must leave
-   no partial state.
-8. No dynamic inline event handlers. Use `data-action` plus delegation, and HTML-escaped
-   attributes for values; HTML escaping is not JavaScript-string escaping.
-9. Dates use `formatLocalDate`/`today`; never a UTC slice or a locale date string for a
-   machine-readable default.
-10. Unexpected web exceptions return a generic 500 and are logged server-side; expected
-    400/404/409 messages stay useful.
-11. HTTP request bodies respect `MAX_BODY_BYTES`; never read an unbounded `Content-Length`.
-12. `ruff check .` passes. The config is in `pyproject.toml` (line length 110); do not add a
-    new per-file ignore without a reason.
-
-### 7.1 How to run tests without wasting ten minutes
-
-The default suite excludes the optional integration (real CSVs), regression (non-obvious
-bug-history) and slow (expensive forecast/web) layers. While iterating, run only what the
-change can affect:
-
-```bash
-.venv/bin/python -m pytest tests/test_prescribe.py tests/test_rules_policy.py
-.venv/bin/python -m pytest --lf                       # only the last failures
-.venv/bin/python -m pytest -m "not integration and not golden and not regression and not slow"
-.venv/bin/python -m pytest -n 0                       # serial, for debugging a failure
-```
-
-`pytest` runs in parallel by default (`pytest-xdist`, one worker per core). Run the default
-suite once before handing off. Run the optional layers when the owner asks, or with:
-
-```bash
-.venv/bin/python -m pytest -m "integration or regression or slow" --dist loadfile
-```
-
-The release workflow runs all optional layers. If a test fails, fix it and re-run that file/
-marker first; a full re-run is the last step, not the first reflex.
-
-Tests assert **contracts, not incidental order**: e.g. "power work precedes the main lift"
-rather than "item 0 is the box jump". Only the golden fixtures pin full item order, on
-purpose, because the prescription is a user-facing document. When a template changes, update
-the fixture deliberately; if a test fails only because an unrelated item moved position, the
-test is too literal.
-
-A test that imports the real export is `integration`-marked and must not run in the default
-fast lane. If a public test needs data, synthesise it with `make_training`/`make_readiness` —
-never read `data/raw`.
-
-### 7.2 Waiting for long test runs
-
-Do not poll a running suite in short increments. Estimate the duration from the collected test
-count and recent runs, start it as a managed background job, then wait once for approximately
-that duration plus a buffer. For this repository, the default full suite is normally **8–10
-minutes**; the golden layer is normally **under one minute**, and focused files are usually
-seconds. A reasonable default is `job_output(wait=True)` with a 9–10 minute timeout for the full
-suite, or one sleep near the estimate. If it is still running after that single wait, extend once
-and inspect; do not emit repeated near-identical status checks. Report the final summary when the
-job completes.
-
-### 7.3 Local iOS simulator test environment
-
-This Mac's default `xcode-select` points at `/Library/Developer/CommandLineTools`, so a plain
-`xcrun` cannot find `xctest` or `simctl`. Always prefix iOS builds/tests with:
-
-```bash
-export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
-export PATH="/Applications/Xcode.app/Contents/Developer/usr/bin:$PATH"
-```
-
-`xcodebuild test` also needs pseudo-terminal access. If it fails with
-`IDEPseudoTerminalDomain` code 7 ("Operation not permitted"), request the
-`danger-full-access` sandbox for that test invocation; do not keep retrying under
-`workspace-write`. Do not run `sudo xcode-select -s` merely to make tests work: it changes the
-system-wide toolchain and needs explicit owner approval. Use `DEVELOPER_DIR` per command instead.
-
-### 7.4 Standing rule — write down every build/test quirk
-
-Owner instruction (2026-11-08): when building, running tests, or testing the iOS app, anything
-that costs a retry — an environmental failure, a wrong port, a wedged simulator, a hung test — is
-recorded, not just worked around. Add a dated row (symptom, cause, fix) to the iOS repository's
-machine-local notebook (`StrengthApp/private/BUILD-TEST-QUIRKS.md`, git-ignored) in the same turn,
-and read it before an iOS or full-suite run.
-
-- Append; do not rewrite. A fix that stops working gets a new row that supersedes the old one.
-- Durable, general fixes are promoted into `StrengthApp/README.md` or this file; the row stays.
-- The Python suite counts too: a green default lane still excludes `integration`, `golden`,
-  `regression` and `slow`.
-- Nothing private goes into a tracked file: no pairing codes, tokens, real server addresses,
-  paths to the live database or personal training data. The notebook stays private for the same
-  reason.
-
-## 8. Style
-
-- Python 3.11+. `from __future__ import annotations`.
-- Small modules, explicit dataclasses, no clever metaprogramming.
-- Exceptions over silent fallbacks; if a fallback is correct, name it and log it.
-- Do not add a dependency without a reason in the PR text. Current runtime deps:
-  `pandas`, `numpy`, `PyYAML`. Test dep: `pytest`.
-
-## 9. Documentation map
-
-| File | Contents |
-|---|---|
-| `USER-GUIDE.md` | how to install, run and read the output (the human-facing entry point) |
-| `ROADMAP.md` | live phase status, next actions, resume checklist |
-| `docs/README.md` | documentation index, category map and maintenance rules; `docs/manifest.yaml` is authoritative |
-| `docs/FORM-PROSPECTIVE.md` | open prospective form evaluation: anchors, sampling, outcomes and limits |
-| `docs/FORM-USE-EVIDENCE.md` | form evidence review, retrospective association and allowed uses |
-| `docs/FREQUENCY-AND-VOLUME.md` | reproduced `programme --sessions-per-week` behaviour, existing volume rules, evidence and the closed Q26 dates-only decision |
-| `docs/archive/VOLUME-MODULATION-PLAN.md` | implemented and closed weekly target/session cap volume budget, exemptions, effective accounting and modality layer |
-| `docs/VOLUME-BUDGET.md` | operator guide to the consolidated Volume budget panel: targets, caps, floors, policy, drop, compensation, profile storage and validation |
-| `docs/FORM-ASSESSMENT.md` | optional per-lift 1-5 form assessment; Workout/History and rubric 1.2.0 |
-| `docs/REGIME-CHANGE.md` | read-only main-lift/substitute regime check; thresholds and limits |
-| `docs/archive/AUDIT-CLOSEOUT.md` | final W0–W12 audit outcome, implemented fixes and remaining limitations |
-| `docs/archive/audits/W11-W12-CLOSEOUT.md` | W11 documentation consistency (including rubric 1.1.0 duration) and W12 public-data inventory/history decision |
-| `docs/archive/audits/W10-AGE.md` | W10 age-in-state audit; optional birth-year, wording and no age-based load rule |
-| `docs/archive/audits/W8-VOLUME-BALANCE.md` | W8 weekly set/spinal/time balance and four options; no change |
-| `docs/archive/audits/W5-PROSPECTIVE-EVALUATION.md` | W5 prospective protocol and implemented read-only summary |
-| `docs/OUTCOMES.md` | read-only 4/8/12-week outcomes review: what changed, not why |
-| `docs/archive/audits/W4-PROGRAMME-EVIDENCE.md` | W4 evidence classification and user-facing evidence labels |
-| `docs/LIMITATIONS-REGISTER.md` | living index of known limitations from all audits |
-| `docs/METHODOLOGY.md` | canonical versioned decision flow, limitations, never-do list and change control |
-| `docs/PRIVACY.md` | public/private documentation boundary; no new personal health/performance data; external-LLM payload and sensitive-field rules |
-| `docs/RELEASING.md` | CI checks, pinned dependencies, release tagging, artifact generation and branch-protection requirements |
-| `docs/DECISIONS.md` | append-only decision log (`DEC-*`) with where each is enforced |
-| `docs/REFERENCES.md` | consolidated scientific bibliography with DOIs and where each is used |
-| `docs/ARCHITECTURE.md` | layers, data flow, where the LLM sits |
-| `docs/DATA-MODEL.md` | canonical schemas, tables, append-only records |
-| `docs/DATA-QUALITY.md` | the decision ledger (DQ-*) and open sentinel questions |
-| `docs/READINESS.md` | how readiness is derived, merged and used; what is config vs rule |
-| `docs/READINESS-SCORE.md` | implemented global, category and per-lift readiness scoring; evidence, phases, overrides and limits |
-| `docs/READINESS-WEIGHT-EVIDENCE.md` | readiness-weight evidence and held-out comparison; learned weights closed |
-| `docs/CONTINUITY.md` | gap detection and re-entry rules; the injury signal is separate |
-| `docs/INJURY-SIGNAL.md` | per-region injury signals, what "tolerated" loading means, injury-to-exercise links |
-| `docs/INJURY-ATTRIBUTION-PLAN.md` | injury-signal verification hygiene and optional session/lift symptom attribution (Phases 1–2 closed; Phase 3 is separate roadmap §4.28) |
-| `docs/SYMPTOM-LOGGING.md` | the 0-3 reading: what counts as a flare, and what to log when a symptom settles |
-| `docs/archive/AUDIT-FOLLOW-UP-PLAN.md` | implemented audit follow-up: back-flare scope, quality-limited power, programme-document drift, same-date accounting and the audit gate |
-| `docs/archive/AUDIT-FOLLOW-UP-REPORT.md` | closed audit follow-up report: five fixes verified, all residuals closed, accepted coverage limitations and no follow-up actions |
-| `docs/CORE-TRAINING.md` | core/trunk training evidence and the proposed programme amendment |
-| `docs/LONGEVITY-REVIEW.md` | modality review against the longevity-first goal: gaps, doses, priorities |
-| `docs/FATIGUE-FITNESS.md` | fatigue-fitness evidence, strength recovery, e1RM calibration and why no model drives loads |
-| `docs/LIFT-READINESS.md` | per-lift readiness evidence, components, weights and downward-only rule |
-| `docs/EXERCISE-VARIANTS.md` | how to add a canonical variant, slot wiring, history caveat, selection tuning |
-| `docs/EXERCISE-DEMANDS.md` | companion demand catalogue: six dimensions, per-dimension levels, provenance, coverage, upper-bound rule and no aggregate |
-| `docs/FATIGUE-SIGNALS.md` | Parts A–D: exposure ratio, VBT residual, suggest-only substitution, advisories, shadow table, flags and activation gates |
-| `docs/SESSION-TEMPLATES.md` | field guide to session templates: scheduling source of truth, prescription blocks, slot fields, variants, day roles and safety rules |
-| `docs/archive/VARIANT-PATTERN-AUDIT.md` | 2026-10-20 variant pattern/muscle audit: checked exceptions and applied corrections |
-| `docs/SELECTION-COMPARABILITY.md` | evidence and proposed three-class guard for variant substitution |
-| `docs/READINESS-EXERCISE-SELECTION-PLAN.md` | implemented readiness/symptom substitution policy and review panel; automatic withholding deferred |
-| `docs/STRENGTH-PROGRAM-REVIEW.md` | evidence check and critique of the strength programme (review only) |
-| `docs/RUBRIC-CALIBRATION.md` | calibration loop, B1 review outcome, next actions and limits |
-| `docs/VOLUME-MANAGEMENT.md` | MEV/MAV/MRV evidence, configured landmarks, ledger and MRV cap |
-| `docs/archive/NEXT-PHASE-FATIGUE-PLAN.md` | final lean non-cardio fatigue plan: sRPE/duration backfill, descriptive calibration, optional deload; no experiments |
-| `docs/RETROSPECTIVE-VALIDATION.md` | retrospective walk-forward method/result; not prospective; no model adoption |
-| `docs/WEAKNESS-INJURY-SELECTION.md` | evidence and deferral of weakness/injury-targeted selection |
-| `docs/PARENT-VARIANT-WEAKNESS-EVIDENCE.md` | why parent-variant ratios are not weakness or injury measures |
-| `docs/REVERSE-HYPER-BELT-SQUAT-EVIDENCE.md` | reverse hyperextension and belt squat evidence; optional accessories, no programme change |
-| `docs/WEAKNESS-TARGETING-PLAN.md` | gated weakness metric, retrospective screen and N-of-1 test plan |
-| `docs/LLM-INTEGRATION-PLAN.md` | future LLM analyst/explainer/constrained-proposer architecture: Iteration 1 (practical capabilities, selector retirement), conditional Iteration 2 (retrieval/RAG/advanced orchestration), shared context/evidence contracts, approval, privacy and evaluation gates; plan only |
-| `docs/IOS-CLIENT-PLAN.md` | Phase 0, Phase 1 and Phase 2 complete and accepted 2026-11-07 (simulator and physical-iPhone verified); R1 durable pending-mutation journal closed post-acceptance; R3 explicit plan-item selection, R4 form-rating correction UX and R5 recovery/reconciliation UX closed; Phase 3A HealthKit HRV/RHR/bodyweight readiness closed 2026-11-08; R7 asynchronous prescription request with workout settings implemented, simulator-verified and closed 2026-11-08; R2 closed as absorbed by R7; R8 active-workout plan editing closed; Phase 4 offline capture/replay closed 2026-11-08; authenticated online-first native strength workflow; optional Apple on-device/PCC AI |
-| `docs/archive/PROGRAMME-BUILDER-PLAN.md` | deterministic dynamic template resolver: fixed four-template blueprint/fallback, per-session exercise resolution, versioned policy and provenance, reuse of the existing scheduler/prescription/volume/history; Steps 0–6 implemented and closed |
-| `docs/archive/RESOLVER-ACCEPTANCE-AUDIT.md` | closed end-to-end production acceptance audit: P0/P1/P2 findings, fixes, acceptance matrix and residual release gates |
-| `docs/PERFORMANCE-PROFILE.md` | 2026-11-04 resolver prescription benchmark, 2026-11-05 clean-set snapshot A/B, stage profile, cache design/invalidation and parallelism assessment |
-| `docs/TRAINING-DAY-MODEL.md` | implemented training-day/session-fragment model: one local date may hold multiple fragments, day-level attendance/e1RM, combined volume/spinal, shared readiness, no schema migration |
-| `docs/WEB-UI.md` | local web UI surface and its limitations |
-| `docs/API.md` | HTTP API reference: routes, request security and limits, dates, errors and client modules |
-| `docs/MONITORING-ANALYSIS.md` | read-only exploratory monitoring analysis: dose, lagged associations, calibration transparency, API/UI/CLI, non-causal limits and privacy |
-| `docs/WORKOUT-GENERATION.md` | Plain-English explanation of the deterministic prescription pipeline, inputs, modifiers, validation and limitations |
-| `docs/UI-CLI-PARITY.md` | current first-class parity, intentional differences and remaining gaps |
-| `docs/UI-MAP.md` | web UI surface map: panels, routes, docs links and the behaviour each panel exposes |
-| `docs/archive/UI-IMPROVEMENT-PLAN.md` | UI-04/UI-08 plus the final functionality/code audit: findings ledger, workstreams, permanent guardrails, commit sequence and optional follow-ups; closed 2026-10-27 (implemented and merged into `main`) |
-| `docs/archive/UI-MOBILE-AUDIT.md` | consolidated iPhone UI/usability and form-control audit: P0 contract defects, active-workout findings, restricted-choice inventory, verification and checkpoints; closed 2026-10-28 (implemented, verified, native pass complete) |
-| `docs/archive/UI-DESIGN-IMPLEMENTATION-PLAN.md` | six-area UI audit, existing API/data inventory, prioritized milestones, acceptance criteria and explicit data/architecture deferrals |
-| `docs/RIR-EVIDENCE.md` | why the effort window is RIR 1-4 with a 2-3 target |
-| `docs/SPINAL-COST.md` | evidence behind the ordinal spinal-cost ratings |
-| `docs/SPINAL-LOAD-EVIDENCE.md` | focused review of load-weighting; keep ordinal, no load/RIR weighting |
-| `config/spinal-heavy-exposure.v1.yaml` | heavy-set advisory threshold/window; display only |
-| `docs/TRAINING-DYNAMICS.md` | evidence on 1RM testing, rep ranges and DUP; proposal, not decision |
-| `docs/JUMP-VARIANTS.md` | jump-training evidence and implementation: box jump on squat, broad jump on hinge, quality limits and alternatives |
-| `docs/THROW-VARIANTS.md` | upper-body throw evidence and implementation: medicine-ball chest pass on both bench days, implement-only quality limits |
-| `docs/WORKOUT-TYPE-READINESS-EVIDENCE.md` | evidence/decision: readiness and injury adjust load/sets, not the planned rep scheme |
-| `docs/HIGH-INTENSITY-EXPOSURE-PLAN.md` | detailed proposal: tests/max attempts/competition exposures, guard windows, evidence and phased evaluation |
-| `docs/archive/ENGINE-AUDIT-PLAN.md` | closed W0–W12 audit plan; outcome in `docs/archive/AUDIT-CLOSEOUT.md` |
-| `docs/archive/READINESS-AUDIT.md` | W6 audit: readiness vs no readiness is not identifiable retrospectively; descriptive associations and policy options |
-| `docs/archive/audits/W2-LOAD-LINEAGE.md` | W2 audit: load lineage; bodyweight-basis and incomplete-workout defects fixed |
-| `docs/archive/audits/W9-SPINAL-CAP.md` | W9 audit: explicit high-fatigue costs, at-cap display; cap 3 at close, superseded by cap 6 in §8 |
-| `docs/archive/audits/W1-W7-ATTENDANCE.md` | W1 schedule audit and W7 attendance metrics; forecast-deload path and session cap implemented |
-| `docs/archive/audits/W0-EXECUTION-MAP.md` | W0 execution map, modifier ownership/order, input risks, test coverage and candidate findings |
-| `docs/archive/audits/W3-MODIFIER-MATRIX.md` | W3 audit: six confirmed deload/order/floor/RIR defects, fixed and tested |
-| `docs/archive/audits/W3-INTERACTION-MATRIX-2026-10-31.md` | 768-case modifier interaction matrix: method, raw flags, preliminary triage and next pass; LIM-30 remains open |
-| `docs/MINIMUM-SESSION.md` | `MOD-MIN-001` user-selected volume-only fallback: targets, floors, precedence, refusal and provenance |
-| `docs/archive/IMPLEMENTATION-PLAN-2026-10.md` | approved direction and phased implementation plan; A0–F implemented |
-| `docs/archive/TEST-FATIGUE-PLAN.md` | superseded narrow test-fatigue proposal; points to the broader plan |
-| `docs/TECHNIQUE-THROTTLE.md` | user-declared one-session load/RIR throttle (`MOD-TECH-001`); why the automatic form was rejected |
-| `docs/RULES-FORMAT.md` | citable rule IDs + 5 encoded rules |
-| `docs/VBT-CALIBRATION.md` | clean set, sparsity, overrides, versioning, current wiring |
-| `docs/VBT-EVIDENCE.md` | VBT evidence, best practices, what our data can and cannot support |
-| `docs/VBT-REP-LEVEL.md` | post-hoc rep-level VBT: benefits, limitations and optional device-CSV capture |
-| `docs/REP-VELOCITY.md` | optional per-rep CSV contract, storage, analyses and limits |
-| `docs/REP-VELOCITY-EVIDENCE.md` | velocity-loss evidence; descriptive only, no RIR/injury prediction |
-| `docs/TOP-SET-BACKOFF-EVIDENCE.md` | top set/back-off review; no direct trial, no programme change |
-| `docs/archive/MODULE-LAYOUT.md` | file layout and test strategy |
-| `docs/V0-SCOPE.md` | smallest end-to-end slice and its exclusions |
-| `docs/OPEN-QUESTIONS.md` | ranked design questions blocking the build |
-| `docs/SANITY-CHECKS.md` | external verification of classification/formulas |
-| `docs/TRAINING-GUIDELINES.md` | programme vs published evidence, with conflicts |
-| `private/docs/EVIDENCE.md` | measured profile of a real export (personal) |
-| `private/docs/BASELINE.md` | current strength baseline (personal) |
-| `private/docs/INFO-REQUESTS.md` | goals/injury/suitability backlog (personal) |
-
-### 9.1 Documentation governance
-
-- **One manifest.** `docs/manifest.yaml` is the authoritative list of public documentation
-  metadata (id, path, title, category, status, audience). The Docs API/viewer and
-  `tests/test_docs_manifest.py` read it; do not add a second hardcoded document list.
-- **Where new docs go.** Current public guidance belongs in `docs/` and gets a manifest entry.
-  Internal design specs belong in `docs/design/` (audience `maintainer`, not in the viewer).
-  Completed plans and closed audits move to `docs/archive/` and get a row in its README; do not
-  update archived prose except to fix a link.
-- **One canonical explanation.** Link to the canonical document instead of repeating it. When a
-  plan is implemented, update the canonical guide and archive the plan; do not leave two
-  descriptions of current behaviour.
-- **Boundary.** Never add a `private/` path to the manifest, the viewer or a public index. The
-  manifest loader rejects it; `tests/test_docs_consistency.py` also rejects public links to
-  `private/`.
-- **Checks.** `tests/test_docs_manifest.py` (coverage, unique ids, paths, visibility) and
-  `tests/test_docs_consistency.py` (links, DEC/LIM refs, boundary) run in the default suite.
-
-## 10. CLI/UI parity — standing instruction
-
-Everything built in the CLI must also be available in the local web UI **where practicable**,
-in the same change. The UI must call the same core function as the CLI, never re-implement it.
-If a capability cannot reasonably live in the UI (interactive prompt, destructive migration,
-host-level operation), record the exception in `docs/WEB-UI.md` and `ROADMAP.md` §4.11 rather
-than leaving it silently missing.
-
-The in-browser terminal was **removed** on 2026-10-28 (`DEC-WEB-02`): a state-changing
-surface with no authentication. Uncovered commands are CLI-only; the CLI is the fallback and
-the remaining parity gaps stay listed in `docs/UI-CLI-PARITY.md`. Do not reintroduce a browser
-command runner without an authentication story.
-
-**Standing permission — restart the local UI (2026-10-28, owner instruction):** an agent may
-stop and restart the `strength-coach web` process whenever a code change makes the running
-process stale, without asking first. This overrides any earlier caution about starting a
-replacement server. Restart it the same way it was started (same database, same bind address
-and port, detached so it outlives the session), then verify: `GET /` returns 200, `POST
-/api/programme` returns 200, and the served HTML no longer contains removed pages. Config-only
-edits do not need a restart; any change under `strength_coach/` does.
-
-## 11. Things an agent should ask instead of doing
-
-**Standing rule: when in doubt, ask the user.** Do not silently choose an interpretation,
-a variant, a threshold, a data migration or a programme change because it seems convenient.
-State the ambiguity, the options and your recommendation, then wait.
-
-- Adding a new hard rule → ask; the constitution is versioned and owned by the user.
-- Changing a threshold that affects a prescription → ask.
-- Interpreting an ambiguous rule → add to `OPEN-QUESTIONS.md`, do not pick silently.
-- Phase status changes → update `ROADMAP.md` in the same commit, never in a separate one.
-- "Fixing" data that looks wrong (e.g. `Reps_Done = 1015`) → flag it, quarantine it, do
-  not silently delete it.
+Detailed test recipes, documentation governance and the docs map are in
+docs/AGENT-WORKFLOWS.md. Migration specifics are in docs/AGENT-MIGRATIONS.md.
