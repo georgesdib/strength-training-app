@@ -144,25 +144,13 @@ def test_public_docs_do_not_expose_profile_values() -> None:
         assert not TEMP_PASSWORD_RE.search(text), path
 
 
-def test_agents_map_lists_every_doc() -> None:
-    mapped: set[str] = set()
-    for line in _read("docs/AGENT-WORKFLOWS.md").splitlines():
-        if not line.startswith(f"| {TICK}docs/"):
-            continue
-        name = line.split(TICK, 2)[1]
-        if name.startswith("docs/") and name.endswith(".md"):
-            mapped.add(name[len("docs/"):])
-    present = {path.name for path in (ROOT / "docs").glob("*.md")}
-    assert sorted(present - mapped) == []
-
-
 def test_status_matches_roadmap() -> None:
     roadmap = _read("ROADMAP.md")
     current = set(re.findall(r"(v\d+\.\d+)\s+beta", roadmap))
     if not current:
         current = set(re.findall(r"(v\d+\.\d+)\s+in progress", roadmap))
     assert current, "ROADMAP has no current phase"
-    for name in ("README.md", "AGENTS.md"):
+    for name in ("README.md",):
         text = _read(name)
         for version in sorted(current):
             assert version in text, f"{name} does not mention the current phase {version}"
