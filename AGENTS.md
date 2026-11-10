@@ -11,6 +11,21 @@ ROADMAP.md holds live phase status; docs/DECISIONS.md holds expensive-to-reverse
 decisions. Do not duplicate either here. Current status: v1.3.0 released, v1.4 planned;
 the v1.0/v1.1 beta labels are historical.
 
+## Output discipline
+
+Never paste full test, build, install, log, database, or command output into context.
+
+On failure, return only:
+1. Pass/fail summary.
+2. Failing test or command.
+3. Assertion/error message.
+4. Relevant traceback/log excerpt, maximum 40 lines.
+5. Most likely cause.
+6. Minimal next diagnostic command.
+
+Use targeted searches and small file excerpts. Do not read generated artefacts,
+large logs, exports, lockfiles, build outputs, or databases unless essential.
+
 ## Authority
 
 The server is authoritative for readiness, prescriptions, loads, sets, progression and
