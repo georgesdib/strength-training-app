@@ -7,7 +7,7 @@ the store layer.
 R7 splits the old "issued plan" into a request lifecycle (`status`) and a liveness axis
 (`consumed_at`/`superseded_at`). Every conditional write below is deliberate: the dispatcher and
 the request handler can race, and a guarded UPDATE is how a superseded request is stopped from
-publishing a plan (docs/design/IOS-R7-CONTRACT.md §4.4).
+publishing a plan (https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-R7-CONTRACT.md §4.4).
 """
 
 from __future__ import annotations

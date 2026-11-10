@@ -52,3 +52,10 @@ Detailed test recipes and documentation governance are in docs/AGENT-WORKFLOWS.m
 The docs index is docs/README.md and docs/manifest.yaml. Migration specifics are in
 docs/AGENT-MIGRATIONS.md. Client-owned docs (plan, iPhone guide, device acceptance) live in
 the sibling StrengthApp repository; server-owned iOS API contracts live in docs/design/.
+
+
+### 9.2 Shared documentation ownership
+
+The portfolio repository is canonical for shared project-wide plans, specifications, architecture, server/client contracts, cross-repository decisions and shared acceptance/operations policy. Start at https://github.com/georgesdib/strength-app/blob/main/docs/README.md and locate shared plans under `docs/plans/` and contracts under `docs/contracts/`. Do not copy those documents into this repository; old paths may contain concise compatibility pointers only.
+
+This repository retains Python architecture, API/data-model implementation, schema/migration detail, backend-only tests, server operations and code-coupled docs. `ROADMAP.md` remains the canonical backend implementation-status source; do not create a competing portfolio status table. When backend implementation changes invalidate a shared requirement, update the portfolio canonical plan/contract and this repository's implementation docs/references in coordinated branches.

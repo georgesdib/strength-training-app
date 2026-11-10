@@ -5,7 +5,7 @@ restart and a lost response because it is a row; the dispatcher only decides whi
 next. There is exactly one dispatcher thread per process and it builds at most one request at a
 time, because it holds the same `_CPU_JOB_SLOTS` semaphore the web forecast and resolver preview
 use. A thread per request would park an unbounded number of threads on a bounded resource, which
-is the failure mode this module exists to avoid (docs/design/IOS-R7-CONTRACT.md §4.4).
+is the failure mode this module exists to avoid (https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-R7-CONTRACT.md §4.4).
 
 The slot is passed in by the caller so this module never imports the web server (which imports
 this module).

@@ -115,7 +115,7 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 additive: every unversioned route above keeps its current behaviour and stays unauthenticated.
 The authoritative server-side contracts are in [`design/`](design/): Phase 1, Phase 2,
 Phase 3A, Phase 4, R7, R8 and the watch companion. The phase rules and client behaviour are in
-the [iOS client plan](https://github.com/georgesdib/StrengthApp/blob/development/docs/IOS-CLIENT-PLAN.md)
+the [iOS client plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/IOS-CLIENT-PLAN.md)
 in the StrengthApp repository.
 
 | route | auth | payload |

@@ -344,7 +344,7 @@ claim that the study is definitive; the evidence notes state the limitations.
 - `docs/CORE-TRAINING.md` — core/trunk training evidence and the programme gap
 - `docs/LONGEVITY-REVIEW.md` — modality review against a longevity-first goal
 - `docs/LONGEVITY-REVIEW.md` §8 and the
-  [iOS client plan](https://github.com/georgesdib/StrengthApp/blob/development/docs/IOS-CLIENT-PLAN.md)
+  [iOS client plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/IOS-CLIENT-PLAN.md)
   — proposed steps/HealthKit display, with wearable-measurement and evidence limits
 - `ROADMAP.md` §4.13 — cardio load and impulse-fatigue model plan
 - `docs/PARENT-VARIANT-WEAKNESS-EVIDENCE.md` — variant ratios, weakness assessment and screening

@@ -80,7 +80,7 @@ The native iPhone client is a separate repository, [StrengthApp](https://github.
 Its plan, user guide, device acceptance and client documentation index live there:
 
 - [iOS documentation index](https://github.com/georgesdib/StrengthApp/blob/development/docs/README.md)
-- [iOS client plan](https://github.com/georgesdib/StrengthApp/blob/development/docs/IOS-CLIENT-PLAN.md)
+- [iOS client plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/IOS-CLIENT-PLAN.md)
 
 The server remains authoritative for the iOS API. The server-side contracts are in
 [`design/`](design/) and stay here; do not mirror them in the client repository.
@@ -110,3 +110,8 @@ must not reference it. The boundary and its enforcement are documented in
 - Do not duplicate a canonical explanation: link to the canonical document instead.
 - The manifest and these indexes are checked by `tests/test_docs_manifest.py` and
   `tests/test_docs_consistency.py`.
+
+
+## Shared iOS contracts
+
+Canonical shared iOS server/client phase contracts are maintained in the portfolio repository: https://github.com/georgesdib/strength-app/blob/main/docs/contracts/README.md . The `docs/design/IOS-*-CONTRACT.md` paths retained here are compatibility pointers required by the backend documentation manifest/viewer; they are not authoritative copies.

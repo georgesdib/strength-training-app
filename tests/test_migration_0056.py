@@ -1,7 +1,7 @@
 """Migration 0056 — the R7 rebuild must preserve every Phase 2 issued-plan row.
 
 The migration copies the whole table, so these tests pin the mapping documented in
-docs/design/IOS-R7-CONTRACT.md §3.1: nothing is dropped, nothing is invented, and a corrupt
+https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-R7-CONTRACT.md §3.1: nothing is dropped, nothing is invented, and a corrupt
 legacy row aborts instead of disappearing.
 """
 

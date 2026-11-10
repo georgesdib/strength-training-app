@@ -1,4 +1,4 @@
-# iOS facade (docs/design/IOS-PHASE-2-CONTRACT.md, docs/design/IOS-R7-CONTRACT.md).
+# iOS facade (https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-PHASE-2-CONTRACT.md, https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-R7-CONTRACT.md).
 #
 # mutations_enabled is the first rollback switch: false disables every mutation route with 503
 # while bootstrap/today/history/progress remain available. It is read per request so a config

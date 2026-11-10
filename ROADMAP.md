@@ -1225,7 +1225,7 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | future | LLM integration: analyst, explainer, constrained proposer | Iteration 1 planned; Iteration 2 conditional (§4.24; selector retirement is Phase 1b) |
 | future | Personalised volume-response model | idea only; shadow/gated (§13, Q28) |
 | future | Nicer UI, adherence encouragement and KPIs | placeholder only (§4.23) |
-| done (Phases 0–3A) | Native iPhone online-first client | Phase 0 complete 2026-11-07; **Phase 1 complete 2026-11-07** (server facade + Swift client, simulator-verified and owner-confirmed on the physical iPhone); **Phase 2 complete 2026-11-07** (online readiness/prescription/workout/completion + Progress, simulator-verified and owner-confirmed on the physical iPhone); **Phase 3A closed 2026-11-08** (opt-in read-only HealthKit HRV/RHR/bodyweight readiness; physical HealthKit acceptance owner-confirmed); Apple PCC is an optional AI-only network exception (§4.29; [`iOS client plan`](https://github.com/georgesdib/StrengthApp/blob/development/docs/IOS-CLIENT-PLAN.md)) |
+| done (Phases 0–3A) | Native iPhone online-first client | Phase 0 complete 2026-11-07; **Phase 1 complete 2026-11-07** (server facade + Swift client, simulator-verified and owner-confirmed on the physical iPhone); **Phase 2 complete 2026-11-07** (online readiness/prescription/workout/completion + Progress, simulator-verified and owner-confirmed on the physical iPhone); **Phase 3A closed 2026-11-08** (opt-in read-only HealthKit HRV/RHR/bodyweight readiness; physical HealthKit acceptance owner-confirmed); Apple PCC is an optional AI-only network exception (§4.29; [`iOS client plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/IOS-CLIENT-PLAN.md)) |
 
 ### 4.19.1 Deferred: web authentication and per-user data
 
@@ -1577,12 +1577,12 @@ owner-confirmed on the physical iPhone. Phase 2 (online strength workflow) is **
 authenticated readiness/prescription/workout/complete/abandon routes, and 27 contract tests;
 the client adds readiness entry, prescription preview, start-by-id, active workout with optional
 manual mean velocity, form ratings, RPE/not-recorded completion, abandon and a Progress screen.
-The contract is [`docs/design/IOS-PHASE-2-CONTRACT.md`](docs/design/IOS-PHASE-2-CONTRACT.md).
+The contract is [`https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-PHASE-2-CONTRACT.md`](https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-PHASE-2-CONTRACT.md).
 The default server suite is 1685 tests and the client has 102 unit tests after R1/R3/R4/R5 and
 Phase 3A; the live UI workflow passed on the iPhone 18 Pro simulator. Physical-iPhone Phase 2
 acceptance was owner-confirmed on 2026-11-07 on the iPhone 16 Pro Max (iPhone17,2), iOS 27.2.
 Phase 2 is closed. Phase 3A (opt-in HealthKit HRV/RHR/bodyweight readiness) is **implemented and
-closed 2026-11-08** under [`docs/design/IOS-PHASE-3A-CONTRACT.md`](docs/design/IOS-PHASE-3A-CONTRACT.md);
+closed 2026-11-08** under [`https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-PHASE-3A-CONTRACT.md`](https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-PHASE-3A-CONTRACT.md);
 physical HealthKit acceptance was owner-confirmed and Phase 3B remains out of scope.
 The first useful release is an online, authenticated native strength-training workflow against the
 owner's local Python server. Durable offline capture (Phase 4) is closed; reviewed Apple Workout
@@ -1593,7 +1593,7 @@ sync. No public cloud service is required for core use. Do not begin a later pha
 approved.
 
 The detailed, repository-grounded client plan is in the
-[iOS client repository](https://github.com/georgesdib/StrengthApp/blob/development/docs/IOS-CLIENT-PLAN.md).
+[iOS client repository](https://github.com/georgesdib/strength-app/blob/main/docs/plans/IOS-CLIENT-PLAN.md).
 Recommendation: a small native SwiftUI client with Python remaining the sole authority for
 readiness scores and prescriptions. Phases 0–2, 3A and 4 are complete; Phase 3B needs a separate approval. The SwiftUI client is its own repository (`StrengthApp`), developed alongside this one rather than as
 an `ios/` subdirectory here. The first release covers pairing, readiness entry, a server prescription,
@@ -1653,7 +1653,7 @@ prescription request with session-type and minimum-session settings) is implemen
 2026-11-08: migration `0056`, the bounded dispatcher, the `202` issue route, `GET plans/current`
 and start-time prescription persistence; the client builds with an iOS 27.0 deployment target and
 passes 102 unit tests on the available iOS 27.2 simulator. R8 (active-workout plan editing) was approved, implemented and closed on 2026-11-08
-under `docs/design/IOS-R8-CONTRACT.md`. Execution telemetry (R9) adds migration `0057`,
+under `https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-R8-CONTRACT.md`. Execution telemetry (R9) adds migration `0057`,
 append-only `workout_execution_event`, authenticated batch ingestion and read-only execution
 analytics; the client records set/rest/exercise timing through the Phase 4 outbox and renders an
 execution timeline in completed History. Server and simulator gates pass; physical-iPhone
@@ -1725,8 +1725,8 @@ separate implementation under its own contract.
 | R3 | Medium | Explicit plan-item selection — **closed 2026-11-07** | When an exercise appears multiple times, the active workout offers a prescription-item picker listing each occurrence; the default remains nil/unattributed. Unique exercises keep automatic attribution. The existing backend explicit-index validation is reused; no schema or API change. Covered by the plan-choice client test. |
 | R4 | Low | Form-rating correction UX — **closed 2026-11-08** | The form section shows the current rating for the selected exercise, prefills it for a correction, labels a subsequent save **Save correction**, and states that the earlier rating is retained while the latest is shown. The server remains append-only and the workout payload still returns only the latest rating per exercise. No schema change. |
 | R5 | Medium | Workout recovery/reconciliation UX — **closed 2026-11-07** | Today shows a Recovery section when refresh finds a server active workout not represented locally, a local in-progress workout no longer active on the server, or a consumed/expired/superseded prescription. Actions: resume/abandon/dismiss a server workout, refresh/clear stale local state, refresh/dismiss an unusable prescription. A one-read grace prevents false ended-elsewhere states immediately after a local mutation. Unreplayable pending mutations remain in the R1 recovery panel. |
-| R7 | High | Asynchronous prescription request with workout settings — **implemented and closed 2026-11-08** | Replaces the blocking `POST /api/ios/v1/prescriptions` with a 202 and a database-backed request row: optional session type and minimum session, a shared CPU slot (no second concurrency budget), one bounded dispatcher with two eligibility checks so an ineligible request never reaches the resolver, a generation check so a superseded build is never published, an explicit legacy-row mapping in migration 0056, authoritative foreground recovery from `plans/current`, and prescription rows written at start instead of at issue. The client polls `GET /api/ios/v1/plans/current` (which also absorbs R2) at 1→2→5→10 s with no 60 s ceiling, survives app exit, and loads a ready plan on return. Contract: `docs/design/IOS-R7-CONTRACT.md`. |
-| R8 | Medium | Active-workout plan editing — **closed 2026-11-08** | Swap, add, remove and set-count edits on an in-progress workout through the existing `workout.py` services. The phone never supplies a load or a replacement plan; add uses the service defaults (3×8–12 @ RIR 2, no load), and swap clears the load. An authenticated read-only `GET /api/ios/v1/exercises` supplies the picker while online; edits are online-only and R1 journaling makes an attempted edit retry-safe. Swap is blocked after sets are logged; set count cannot go below logged sets; the last item cannot be removed; ambiguous unattributed sets block edits. Plan-item `order_index` is the stable identity carried into `prescription_item_index`, so removing an earlier item never renumbers later logged sets; display position is separate. Edits rewrite `plan_modified_json` and append `workout_event` rows; the issued plan JSON is never modified. The web UI shares the same guards and 409 mapping. Contract: `docs/design/IOS-R8-CONTRACT.md`. |
+| R7 | High | Asynchronous prescription request with workout settings — **implemented and closed 2026-11-08** | Replaces the blocking `POST /api/ios/v1/prescriptions` with a 202 and a database-backed request row: optional session type and minimum session, a shared CPU slot (no second concurrency budget), one bounded dispatcher with two eligibility checks so an ineligible request never reaches the resolver, a generation check so a superseded build is never published, an explicit legacy-row mapping in migration 0056, authoritative foreground recovery from `plans/current`, and prescription rows written at start instead of at issue. The client polls `GET /api/ios/v1/plans/current` (which also absorbs R2) at 1→2→5→10 s with no 60 s ceiling, survives app exit, and loads a ready plan on return. Contract: `https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-R7-CONTRACT.md`. |
+| R8 | Medium | Active-workout plan editing — **closed 2026-11-08** | Swap, add, remove and set-count edits on an in-progress workout through the existing `workout.py` services. The phone never supplies a load or a replacement plan; add uses the service defaults (3×8–12 @ RIR 2, no load), and swap clears the load. An authenticated read-only `GET /api/ios/v1/exercises` supplies the picker while online; edits are online-only and R1 journaling makes an attempted edit retry-safe. Swap is blocked after sets are logged; set count cannot go below logged sets; the last item cannot be removed; ambiguous unattributed sets block edits. Plan-item `order_index` is the stable identity carried into `prescription_item_index`, so removing an earlier item never renumbers later logged sets; display position is separate. Edits rewrite `plan_modified_json` and append `workout_event` rows; the issued plan JSON is never modified. The web UI shares the same guards and 409 mapping. Contract: `https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-R8-CONTRACT.md`. |
 
 **Recovery boundary after R1:** every attempted mutation is journaled before the HTTP request.
 After termination, the app replays journaled operations with the original UUID and exact body,
@@ -1742,7 +1742,7 @@ Phase 4 caches the active workout and queues add set, form rating and finish whi
 unreachable. It preserves performed/finish timestamps, gives offline sets temporary local identities,
 replays strictly in order with the existing receipts, and keeps conflicts visible. Readiness,
 prescription/start, plan editing and HealthKit remain online-only. No server queue table is added.
-Contract: [`docs/design/IOS-PHASE-4-CONTRACT.md`](docs/design/IOS-PHASE-4-CONTRACT.md).
+Contract: [`https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-PHASE-4-CONTRACT.md`](https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-PHASE-4-CONTRACT.md).
 Physical offline acceptance was owner-confirmed at closure on 2026-11-08.
 
 ### 4.32 Phase 6 — watchOS companion (6.0–6.1 complete; 6.2+ not started)
@@ -1760,7 +1760,7 @@ replayed set whose plan item changed is preserved as off-plan rather than droppe
 propagate by revision, and forgotten sessions are idle-abandoned. Shared code has been extracted into
 `StrengthCore` in four staged, behaviour-preserving moves (S1–S4 complete 2026-11-10; 107 tests);
 the watch target itself starts 6.2. Contract:
-[`docs/design/IOS-WATCH-CONTRACT.md`](docs/design/IOS-WATCH-CONTRACT.md). Offline start (the
+[`https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-WATCH-CONTRACT.md`](https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-WATCH-CONTRACT.md). Offline start (the
 pending-session shell) and the “Send to iPhone” relay are deferred. 6.0 and the 6.1 server contract
 are implemented; 6.2 and later need a separate go-ahead.
 
