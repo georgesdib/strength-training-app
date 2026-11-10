@@ -195,7 +195,13 @@ def authenticate(conn, token: object, *, now: dt.datetime | None = None) -> dict
     if row["revoked_at"] is not None:
         raise AuthError(403, "device revoked")
     _touch_last_seen(conn, row, _utc_now(now))
-    return {"device_id": row["device_id"], "label": row["label"]}
+    return {
+        "device_id": row["device_id"],
+        "label": row["label"],
+        "kind": row["kind"],
+        "parent_device_id": row["parent_device_id"],
+        "credential_epoch": int(row["credential_epoch"]),
+    }
 
 
 def _touch_last_seen(conn, row, now: dt.datetime) -> None:
@@ -209,9 +215,75 @@ def _touch_last_seen(conn, row, now: dt.datetime) -> None:
     )
 
 
+def mint_watch(conn, *, parent_device_id: str, label: object = None,
+               now: dt.datetime | None = None) -> dict[str, Any]:
+    """Mint one watch device for a phone, replacing the parent's active watch.
+
+    One active watch per parent is enforced by a partial unique index. The epoch is
+    monotonic across revoked watches, so a delayed credential cannot roll the watch back.
+    The plaintext token exists only in the return value and is never stored.
+    """
+    try:
+        clean_label = credentials.normalize_label(label if label is not None else "Apple Watch")
+    except ValueError as exc:
+        raise ValueError(str(exc)) from None
+    created = _utc_now(now)
+    now_iso = _iso(created)
+    token = credentials.generate_token()
+    device_id = uuid.uuid4().hex
+    with transaction(conn):
+        parent = conn.execute(
+            "SELECT kind, revoked_at FROM ios_device WHERE device_id = ?",
+            (parent_device_id,),
+        ).fetchone()
+        if parent is None:
+            raise ValueError("parent device not found")
+        if parent["kind"] != "phone" or parent["revoked_at"] is not None:
+            raise ValueError("only an active phone can mint a watch")
+        active = conn.execute(
+            "SELECT device_id FROM ios_device "
+            "WHERE kind = 'watch' AND parent_device_id = ? AND revoked_at IS NULL",
+            (parent_device_id,),
+        ).fetchone()
+        replaced = active["device_id"] if active is not None else None
+        if replaced is not None:
+            conn.execute(
+                "UPDATE ios_device SET revoked_at = ? "
+                "WHERE device_id = ? AND revoked_at IS NULL",
+                (now_iso, replaced),
+            )
+        epoch_row = conn.execute(
+            "SELECT COALESCE(MAX(credential_epoch), 0) + 1 AS next_epoch "
+            "FROM ios_device WHERE parent_device_id = ?",
+            (parent_device_id,),
+        ).fetchone()
+        epoch = int(epoch_row["next_epoch"])
+        conn.execute(
+            "INSERT INTO ios_device "
+            "(device_id, label, token_hash, created_at, last_seen_at, revoked_at, "
+            " kind, parent_device_id, credential_epoch) "
+            "VALUES (?, ?, ?, ?, NULL, NULL, 'watch', ?, ?)",
+            (device_id, clean_label, credentials.hash_token(token), now_iso,
+             parent_device_id, epoch),
+        )
+    return {
+        "device": {
+            "device_id": device_id,
+            "label": clean_label,
+            "kind": "watch",
+            "parent_device_id": parent_device_id,
+            "credential_epoch": epoch,
+        },
+        "token": token,
+        "created_at": now_iso,
+        "replaced_device_id": replaced,
+    }
+
+
 def list_devices(conn) -> list[dict[str, Any]]:
     rows = conn.execute(
-        "SELECT device_id, label, created_at, last_seen_at, revoked_at "
+        "SELECT device_id, label, kind, parent_device_id, credential_epoch, "
+        "created_at, last_seen_at, revoked_at "
         "FROM ios_device ORDER BY created_at, device_id"
     ).fetchall()
     return [dict(row) for row in rows]

@@ -1022,7 +1022,12 @@ class Handler(BaseHTTPRequestHandler):
             with db.Store(self.db_path) as store:
                 device = self._ios_authenticate(store.connection)
                 conn = store.connection
-                if path == "/api/ios/v1/bootstrap":
+                if path == "/api/ios/v1/devices":
+                    devices = ios_devices.list_devices(conn)
+                    if device["kind"] == "watch":
+                        devices = [d for d in devices if d["device_id"] == device["device_id"]]
+                    payload = {"devices": devices}
+                elif path == "/api/ios/v1/bootstrap":
                     payload = {
                         "api_version": IOS_API_VERSION,
                         **_ios_clock(),
@@ -1201,7 +1206,10 @@ class Handler(BaseHTTPRequestHandler):
             with db.Store(self.db_path) as store:
                 device = self._ios_authenticate(store.connection)
                 conn = store.connection
-                if path == "/api/ios/v1/readiness":
+                if path == "/api/ios/v1/devices/watch":
+                    config = self._ios_require_mutations()
+                    self._ios_mint_watch(conn, device, config)
+                elif path == "/api/ios/v1/readiness":
                     config = self._ios_require_mutations()
                     body = self._body()
                     self._ios_mutation(
@@ -1719,6 +1727,65 @@ class Handler(BaseHTTPRequestHandler):
                 )
             settings["top_set"] = top_set
         return settings
+
+    def _ios_mint_watch(self, conn, device: dict, config: ios_config.IOSConfig) -> None:
+        if device["kind"] != "phone":
+            raise ios_workflow.IOSWorkflowError(
+                403, "watch_mint_forbidden", "only a phone can mint a watch"
+            )
+        if not config.watch_enabled:
+            raise ios_workflow.IOSWorkflowError(
+                503, "watch_disabled", "watch device minting is disabled"
+            )
+        body = self._body()
+        self._ios_closed_fields(body, {"label"})
+        try:
+            result = ios_devices.mint_watch(
+                conn,
+                parent_device_id=device["device_id"],
+                label=body.get("label"),
+            )
+        except ValueError as exc:
+            raise ios_workflow.IOSWorkflowError(400, "validation_failed", str(exc)) from exc
+        self._json(201, result)
+
+    def _ios_delete(self) -> None:
+        path = unquote(urlparse(self.path).path)
+        parts = [part for part in path.split("/") if part]
+        if len(parts) != 5 or parts[:4] != ["api", "ios", "v1", "devices"]:
+            self._error(404, "not found")
+            return
+        target_id = parts[4]
+        try:
+            with db.Store(self.db_path) as store:
+                device = self._ios_authenticate(store.connection)
+                conn = store.connection
+                target = conn.execute(
+                    "SELECT device_id, kind, parent_device_id FROM ios_device "
+                    "WHERE device_id = ?",
+                    (target_id,),
+                ).fetchone()
+                if target is None:
+                    self._error(404, "device not found")
+                    return
+                if device["kind"] == "watch" and target_id != device["device_id"]:
+                    self._error(403, "forbidden")
+                    return
+                if device["kind"] == "phone":
+                    allowed = (
+                        target_id == device["device_id"]
+                        or target["parent_device_id"] == device["device_id"]
+                    )
+                    if not allowed:
+                        self._error(403, "forbidden")
+                        return
+                result = ios_devices.revoke_device(conn, target_id)
+                self._json(200, result)
+        except ios_devices.AuthError as exc:
+            self._error(exc.status, exc.message)
+        except Exception:
+            LOGGER.exception("unhandled iOS DELETE %s", path)
+            self._error(500, "internal server error")
 
     def _ios_prescription(self, conn, device: dict, body: dict) -> dict:
         config = self._ios_require_mutations()
@@ -2927,6 +2994,13 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             LOGGER.exception("unhandled GET %s", self.path)
             self._error(500, "internal server error")
+
+    def do_DELETE(self) -> None:
+        path = unquote(urlparse(self.path).path)
+        if path == "/api/ios/v1" or path.startswith("/api/ios/v1/"):
+            self._ios_delete()
+            return
+        self._error(405, "method not allowed")
 
     def do_POST(self) -> None:
         path = unquote(urlparse(self.path).path)

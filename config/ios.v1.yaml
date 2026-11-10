@@ -10,7 +10,9 @@
 # separate so a slow build does not eat the owner's window for starting.
 #
 # receipt_retention_days bounds the idempotency receipts used for safe retries.
+# watch_enabled gates minting a watch device; existing watch credentials are revoked explicitly.
 mutations_enabled: true
+watch_enabled: false
 issued_plan_ttl_seconds: 3600
 plan_request_ttl_seconds: 900
 receipt_retention_days: 30

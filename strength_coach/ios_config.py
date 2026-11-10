@@ -32,9 +32,12 @@ MAX_PLAN_REQUEST_TTL_SECONDS = 3600
 DEFAULT_MUTATIONS_ENABLED = True
 DEFAULT_ISSUED_PLAN_TTL_SECONDS = 3600
 DEFAULT_RECEIPT_RETENTION_DAYS = 30
+# The watch app ships separately; minting stays closed until the owner enables it.
+DEFAULT_WATCH_ENABLED = False
 
 FIELDS = (
     "mutations_enabled",
+    "watch_enabled",
     "issued_plan_ttl_seconds",
     "plan_request_ttl_seconds",
     "receipt_retention_days",
@@ -42,6 +45,7 @@ FIELDS = (
 
 DEFAULTS = {
     "mutations_enabled": DEFAULT_MUTATIONS_ENABLED,
+    "watch_enabled": DEFAULT_WATCH_ENABLED,
     "issued_plan_ttl_seconds": DEFAULT_ISSUED_PLAN_TTL_SECONDS,
     "plan_request_ttl_seconds": DEFAULT_PLAN_REQUEST_TTL_SECONDS,
     "receipt_retention_days": DEFAULT_RECEIPT_RETENTION_DAYS,
@@ -49,6 +53,7 @@ DEFAULTS = {
 
 RANGES = {
     "mutations_enabled": {"kind": "bool"},
+    "watch_enabled": {"kind": "bool"},
     "issued_plan_ttl_seconds": {
         "kind": "int", "min": MIN_TTL_SECONDS, "max": MAX_TTL_SECONDS,
     },
@@ -63,6 +68,7 @@ RANGES = {
 
 LABELS = {
     "mutations_enabled": "Enable iOS mutations",
+    "watch_enabled": "Enable watch device minting",
     "issued_plan_ttl_seconds": "Issued plan TTL (seconds)",
     "plan_request_ttl_seconds": "Plan request TTL (seconds)",
     "receipt_retention_days": "Receipt retention (days)",
@@ -72,6 +78,10 @@ DESCRIPTIONS = {
     "mutations_enabled": (
         "Master write switch for the iOS facade. Off returns every iOS mutation as 503 "
         "mutation_disabled while bootstrap, today, history and progress stay available."
+    ),
+    "watch_enabled": (
+        "Allows the phone to mint a watch device and token. Existing watch credentials are "
+        "ended by revoking them, not by this switch."
     ),
     "issued_plan_ttl_seconds": (
         "How long a ready plan can be started, measured from the moment it becomes ready. "
@@ -99,6 +109,7 @@ class IOSConfig:
     issued_plan_ttl_seconds: int
     receipt_retention_days: int
     plan_request_ttl_seconds: int = DEFAULT_PLAN_REQUEST_TTL_SECONDS
+    watch_enabled: bool = DEFAULT_WATCH_ENABLED
 
 
 def _boolean(value: object, name: str) -> bool:
@@ -124,6 +135,9 @@ def _parse_config(data: dict) -> IOSConfig:
         raise ValueError("ios.v1.yaml must contain a mapping")
     return IOSConfig(
         mutations_enabled=_boolean(data.get("mutations_enabled"), "mutations_enabled"),
+        watch_enabled=_boolean(
+            data.get("watch_enabled", DEFAULT_WATCH_ENABLED), "watch_enabled"
+        ),
         issued_plan_ttl_seconds=_bounded_int(
             data.get("issued_plan_ttl_seconds"), "issued_plan_ttl_seconds",
             MIN_TTL_SECONDS, MAX_TTL_SECONDS,
@@ -170,6 +184,7 @@ def describe_config(path: str | Path | None = None) -> dict:
         "restart_required": False,
         "effective": {
             "mutations_enabled": config.mutations_enabled,
+            "watch_enabled": config.watch_enabled,
             "issued_plan_ttl_seconds": config.issued_plan_ttl_seconds,
             "plan_request_ttl_seconds": config.plan_request_ttl_seconds,
             "receipt_retention_days": config.receipt_retention_days,
@@ -223,6 +238,7 @@ def save_config(values: dict, path: str | Path | None = None) -> dict:
     current = load_config(target)
     merged = {
         "mutations_enabled": values.get("mutations_enabled", current.mutations_enabled),
+        "watch_enabled": values.get("watch_enabled", current.watch_enabled),
         "issued_plan_ttl_seconds": values.get(
             "issued_plan_ttl_seconds", current.issued_plan_ttl_seconds
         ),
