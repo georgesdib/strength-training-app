@@ -125,10 +125,11 @@ macOS 12.7.6, Python 3.14.8, pytest 9.2.0, xdist `-n auto`):
 | `.venv/bin/python -m pytest -m ""` (all layers) | 1747 passed | 107.0 s | ~108 s |
 
 These are iMac figures for scheduling one background run; they say nothing about the
-deployed server. The ODROID-C4 is the deployed server and benchmarking host, and its
-resolver-build timings in [`PERFORMANCE-PROFILE.md`](PERFORMANCE-PROFILE.md) were measured
-on that hardware: this table does not change them, and they remain the reference for
-deployed behaviour. Re-measure when the suite grows materially.
+ODROID-C4, which hosts both the backend development server and backend main server and is
+the benchmarking host. Keep those server contexts distinct when choosing an endpoint or
+interpreting results. Resolver-build timings in [`PERFORMANCE-PROFILE.md`](PERFORMANCE-PROFILE.md)
+were measured on ODROID hardware and remain the reference for those measurements. Re-measure
+when the suite grows materially.
 
 ## 5. Documentation governance
 
