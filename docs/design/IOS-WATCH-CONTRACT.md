@@ -1,8 +1,8 @@
 # iOS Phase 6 — watchOS companion contract
 
 **Status:** 6.0 (S1–S4, shared core) and 6.1 (server watch contract) complete 2026-11-10;
-6.2a (embedded watch target) and 6.2b (credential handoff) implemented 2026-11-10; 6.2c
-(read-only Today) and 6.3+ are pending.
+6.2a (embedded watch target), 6.2b (credential handoff) and 6.2c (read-only Today) implemented
+2026-11-10; 6.3+ are pending.
 Decisions locked 2026-11-09; design remediation 2026-11-09. The extraction authorises no server
 migration; no migration is created by this design task. Target platforms: **iOS 27.0** and
 **watchOS 27.0**.

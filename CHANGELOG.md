@@ -6,8 +6,9 @@
 
 - **Watch device minting and phone-revocation cascade**: the tracked iOS facade config enables
   `watch_enabled`, and a phone's minted watch is revoked in the same transaction when the phone is
-  revoked. `DELETE /api/ios/v1/devices/{device_id}` now returns `revoked_watch_ids`; a watch token
-  can no longer outlive the phone that minted it. Existing tokens are otherwise unchanged.
+  revoked. `DELETE /api/ios/v1/devices/{device_id}` now returns `revoked_watch_ids`, and the CLI
+  prints the cascaded watch ids; a watch token can no longer outlive the phone that minted it.
+  Existing tokens are otherwise unchanged.
 
 - **Database transfer `--create`**: `tools/db_transfer.py import --create` now allows a missing
   target database. The target is created atomically at the local schema after archive, schema
