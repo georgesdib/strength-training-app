@@ -967,10 +967,34 @@ documents:
   status: design
   audience: maintainer
   nav: false
+- id: agent-debugging
+  path: docs/AGENT-DEBUGGING.md
+  title: Agent debugging
+  description: Logs, failure triage, data incidents and long-running test procedures.
+  category: development
+  status: development
+  audience: maintainer
+  nav: false
+- id: agent-migrations
+  path: docs/AGENT-MIGRATIONS.md
+  title: Agent migrations
+  description: Append-only, schema, migration, transaction and preservation rules.
+  category: development
+  status: development
+  audience: maintainer
+  nav: false
+- id: agent-workflows
+  path: docs/AGENT-WORKFLOWS.md
+  title: Agent workflows
+  description: Detailed server orientation, code, test, documentation and parity procedures.
+  category: development
+  status: development
+  audience: maintainer
+  nav: false
 - id: agents
   path: AGENTS.md
   title: AGENTS.md — how to work in this repository
-  description: Engineering rules, invariants, code layout and definition of done.
+  description: Lean repository entry point and guardrails.
   category: development
   status: development
   audience: maintainer
