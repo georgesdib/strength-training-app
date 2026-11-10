@@ -184,7 +184,14 @@ of the extraction.
 - The watch accepts a payload when `epoch` is greater than its stored epoch, or when the epoch
   is equal and `configVersion` is greater. It validates the schema and base URL, writes a new
   token to its Keychain, then acknowledges with a second `updateApplicationContext`:
-  `{schema, ackEpoch, configVersion, deviceID, status: "ready" | "missing" | "revoked"}`.
+  `{schema, ackEpoch, configVersion, deviceID, status: "ready" | "missing" | "revoked",
+  homeBaseURL?}`.
+- **Epoch lineage rule:** epochs are monotonic within one parent phone's watch history and are
+  not globally comparable. Epoch ordering is applied only when the incoming `deviceID` matches
+  the stored `deviceID`. A token-bearing credential for a different device starts a new
+  credential lineage even if its numeric epoch is lower; this is how a watch moves to another
+  iPhone. A tokenless probe can never start a lineage, clear revocation, or replace a valid
+  token. A cross-device revocation is ignored.
 - A stale or duplicate payload is ignored but acknowledged again with the stored epoch, so a
   delayed delivery cannot roll the watch back. A revoked credential at the same epoch is not
   resurrected.
@@ -206,11 +213,15 @@ of the extraction.
 - If the phone is relaunched after minting but before the acknowledgement, the in-memory token is
   gone. The phone sends a tokenless duplicate context at the stored epoch: a watch that has the
   token re-acks, and a watch without it reports `missing`, which triggers a new mint.
-- If the watch acknowledges a different device or an older epoch while the phone has no pending
-  token, the phone treats the tokenless exchange as unable to replace that credential and mints one
-  fresh epoch, then sends the token. This is bounded to the same two automatic mints per foreground
-  as a `missing` acknowledgement, so a stale acknowledgement cannot loop forever. A token-bearing
-  higher epoch is the only way to replace a valid old token or a revoked credential.
+- A different-device acknowledgement is never judged by its epoch. If no token handoff is in
+  flight, the phone mints one fresh epoch in its own lineage and sends the token; if a token handoff
+  is already in flight, the stale acknowledgement is ignored. A same-device older-epoch
+  acknowledgement only triggers a replacement while the current credential is still unacknowledged;
+  once paired, a delayed stale acknowledgement is ignored.
+- Automatic minting is bounded to two attempts per foreground session, with one mint task at a time,
+  so repeated stale acknowledgements cannot create a mint/ack loop. The manual **Pair Apple Watch**
+  action remains the escape hatch. A token-bearing new-device lineage, or a newer token in the same
+  lineage, is the only way to replace a valid old token or a revoked credential.
 - A delivered and acknowledged token is never re-sent.
 
 ### 7.5 Missing and revoked credentials
@@ -218,10 +229,11 @@ of the extraction.
 - Any `401`/`403` from the server makes the watch wipe its token, mark credentials missing, stop
   retrying API calls, and show “Open StrengthApp on your iPhone”. It retries only on foreground or
   when a new context arrives.
-- The phone, on foreground, reads `GET /api/ios/v1/devices`: if a previously paired watch is
-  absent or revoked it mints; if the watch is active but reports missing credentials it mints a
-  new epoch (rotation). A first-run phone with no stored watch relationship never mints merely
-  because the app entered the foreground; the owner must tap **Pair Apple Watch**.
+- The phone, on foreground, reads `GET /api/ios/v1/devices` on the **Home** server: if a
+  previously paired watch is absent or revoked it mints; if the watch is active but reports
+  missing credentials it mints a new epoch (rotation). A first-run phone with no stored watch
+  relationship never mints merely because the app entered the foreground; the owner must tap
+  **Pair Apple Watch**.
 - Revoking the watch from Settings is deliberate: the server device is revoked, the watch is sent
   a `revoked` context so it wipes its token, and the phone suppresses automatic re-minting until
   **Pair Apple Watch** is tapped again. A revocation context naming a different device is ignored,
@@ -260,8 +272,18 @@ of the extraction.
 
 - The watch is pinned to the phone's Home server for its whole lifetime. The payload carries
   `homeBaseURL`; the Away URL is never sent and the watch never probes or switches routes.
+- All watch device operations — mint, device-list reconciliation, revoke and automatic recovery —
+  use a dedicated session pinned to `homeBaseURL`, carrying the phone's existing bearer token and
+  device id. They never use the phone's active Away route; an unreachable Home fails the watch
+  operation instead of minting against Away.
 - `configVersion` is a phone-local monotonic integer, independent of `credentialEpoch`. Saving a new
   home address or changing the reachability preference that selects it increments it.
+- The acknowledgement carries `homeBaseURL` so the phone can verify that the watch applied the
+  desired Home address, not merely a matching version number. If the watch reports a version above
+  the phone's desired version, or a different Home URL at the same version, the phone raises its
+  desired version above the observed one and sends one config-only context. This re-baselining is
+  bounded, never lowers the watch's version, does not change the credential epoch, and does not
+  re-send the token.
 - The watch accepts a newer `configVersion` only when it has **no active session and an empty
   outbox**. Applying a new base URL while queued operations exist would leave them pointing at the
   old server, where their idempotency receipts live; the watch therefore defers the change.
