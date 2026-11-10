@@ -688,6 +688,54 @@ def test_ios_set_and_complete_preserve_local_timestamps(ios):
     assert completed["duration_source"] == "measured"
 
 
+def test_ios_set_resolves_stable_plan_item_identity_after_removal(ios):
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(ios, token, issued["issued_plan_id"])
+    assert status == 200, workout
+    items = workout["plan"]["items"]
+    assert len(items) >= 3
+    first, second, third = items[0], items[1], items[2]
+    second_identity = second.get("order_index", 1)
+    first_identity = first.get("order_index", 0)
+    # The old positional lookup would read items[1], which is now this different exercise.
+    assert third["exercise_id"] != second["exercise_id"]
+
+    status, current = _plan_edit(
+        ios, token, workout["workout_id"], "/items/0/remove",
+        {"expected_exercise_id": first["exercise_id"]},
+    )
+    assert status == 200, current
+    assert current["plan"]["items"][0]["exercise_id"] == second["exercise_id"]
+
+    status, added = _add_set(
+        ios, token, workout["workout_id"], second,
+        set_index=1, plan_item_index=second_identity,
+    )
+    assert status == 200, added
+    assert _scalar(
+        ios["path"],
+        "SELECT prescription_item_index FROM workout_set "
+        "WHERE workout_id = ? ORDER BY rowid DESC LIMIT 1",
+        (workout["workout_id"],),
+    ) == second_identity
+
+    status, removed = _add_set(
+        ios, token, workout["workout_id"], first,
+        set_index=1, plan_item_index=first_identity,
+    )
+    assert status == 409, removed
+    assert removed["code"] == "plan_item_mismatch"
+
+    status, missing = _add_set(
+        ios, token, workout["workout_id"], second,
+        set_index=2, plan_item_index=999,
+    )
+    assert status == 409, missing
+    assert missing["code"] == "plan_item_mismatch"
+
+
 def test_ios_removing_an_item_keeps_later_set_identity(ios):
     token, _ = _paired(ios)
     status, issued = _issue(ios, token)

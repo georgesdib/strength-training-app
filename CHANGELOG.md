@@ -21,6 +21,14 @@
   side files, and writes an automatic `pre-transfer` backup before the atomic replace. No
   authoritative label.
 
+### Fixed
+
+- **iOS plan-item identity validation**: the workout-set endpoint now resolves
+  `plan_item_index` through the same stable `order_index` identity used by the workout core,
+  instead of indexing the current plan list position. A valid identity still resolves after an
+  earlier item is removed, while a removed or out-of-range identity returns the intended
+  `409 plan_item_mismatch` rather than being misinterpreted or surfacing as a generic 400.
+
 ### Changed
 
 - **Rubric calibration review (B1) closed.** The review found the remaining disagreement is

@@ -2279,18 +2279,32 @@ class Handler(BaseHTTPRequestHandler):
             )
         if plan_item_index is not None:
             items = (data.get("plan") or {}).get("items") or []
-            if 0 <= plan_item_index < len(items):
-                current = items[plan_item_index]
-                if str(current.get("exercise_id")) != exercise_id.strip():
-                    raise ios_workflow.IOSWorkflowError(
-                        409, "plan_item_mismatch",
-                        "the plan item changed; the set is preserved as off-plan",
-                        details={
-                            "item_index": plan_item_index,
-                            "current_item": current,
-                            "plan_revision": data.get("plan_revision", 0),
-                        },
-                    )
+            # Reuse the core resolver: plan_item_index is the stable order_index identity,
+            # not the current list position. The resolver also accepts legacy positional
+            # values only when they still name the same exercise.
+            try:
+                plan_item_index = workout._plan_item_index(
+                    data, exercise_id.strip(), plan_item_index,
+                )
+            except ValueError as exc:
+                current = next(
+                    (
+                        item for position, item in enumerate(items)
+                        if workout._item_identity(item, position) == plan_item_index
+                    ),
+                    None,
+                )
+                if current is None and 0 <= plan_item_index < len(items):
+                    current = items[plan_item_index]
+                raise ios_workflow.IOSWorkflowError(
+                    409, "plan_item_mismatch",
+                    "the plan item changed; the set is preserved as off-plan",
+                    details={
+                        "item_index": plan_item_index,
+                        "current_item": current,
+                        "plan_revision": data.get("plan_revision", 0),
+                    },
+                ) from exc
         performed_at = body.get("performed_at")
         if performed_at is not None and not isinstance(performed_at, str):
             raise ios_workflow.IOSWorkflowError(
