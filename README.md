@@ -110,17 +110,25 @@ scp data/exports/coach-db-*.tar.gz dev-host:
 # development machine: stop the app first
 python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --dry-run
 python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --force
+
+# new machine with no target database yet
+python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --create --force
 ```
 
 The archive contains the SQLite snapshot, a manifest with the full applied migration set
 (version and checksum), the app version and the database SHA-256. Import verifies the
 archive, compares the complete migration set with the target, and **fails before replacing
 anything** if any migration, checksum or database hash differs. It refuses while the target
-has SQLite WAL side files, writes a `coach.db.pre-transfer-*` backup beside the target, and
-then replaces the file atomically.
+has SQLite WAL side files, writes a `coach.db.pre-transfer-*` backup beside an existing
+target, and then replaces the file atomically.
 
-Default import requires the source and target schemas to match exactly. Two opt-in modes are
-available:
+`--create` permits a missing target. The tool creates it at the local code's schema only after all
+archive, schema and `--force` checks pass; a dry run does not create it. A newly created
+target has no prior data, so no backup is written. If the archive is older than the local
+code, combine `--create` with `--upgrade`.
+
+Default import requires the source and target schemas to match exactly. Two schema opt-in
+modes are available:
 
 - **`--upgrade`** accepts a source that is older than the local code, applies the missing
   migrations to a copy, and then replaces the target. It fails if the source or target has a

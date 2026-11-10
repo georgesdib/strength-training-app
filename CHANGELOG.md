@@ -4,6 +4,11 @@
 
 ### Added
 
+- **Database transfer `--create`**: `tools/db_transfer.py import --create` now allows a missing
+  target database. The target is created atomically at the local schema after archive, schema
+  and `--force` checks pass; a dry run does not create it, and a newly created target needs no
+  backup. Use `--create --upgrade` when importing an older archive.
+
 - **iOS settings panel**: Settings → iOS settings now exposes `mutations_enabled`,
   `issued_plan_ttl_seconds`, `plan_request_ttl_seconds` and `receipt_retention_days` with
   integer/boolean controls, server ranges, descriptions, effective values and the config source.

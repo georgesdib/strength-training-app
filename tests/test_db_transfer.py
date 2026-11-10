@@ -221,6 +221,69 @@ def test_import_requires_an_existing_target(tmp_path):
         db_transfer.import_database(archive, tmp_path / "missing.db", force=True)
 
 
+def test_create_imports_into_a_missing_target(tmp_path):
+    source = tmp_path / "source.db"
+    target = tmp_path / "new" / "target.db"
+    _make_db(source, "source")
+    archive = tmp_path / "transfer.tar.gz"
+    exported = _export(source, archive)
+
+    result = db_transfer.import_database(archive, target, create=True, force=True)
+
+    assert result.created_target
+    assert result.backup is None
+    assert target.is_file()
+    assert _probe(target) == "source"
+    assert db_transfer.read_fingerprint(target) == exported.fingerprint
+
+
+def test_create_still_requires_force_and_leaves_target_missing(tmp_path):
+    source = tmp_path / "source.db"
+    target = tmp_path / "target.db"
+    _make_db(source, "source")
+    archive = tmp_path / "transfer.tar.gz"
+    _export(source, archive)
+
+    with pytest.raises(db_transfer.TransferError, match="--force"):
+        db_transfer.import_database(archive, target, create=True, force=False)
+    assert not target.exists()
+
+
+def test_create_dry_run_does_not_create_the_target(tmp_path):
+    source = tmp_path / "source.db"
+    target = tmp_path / "target.db"
+    _make_db(source, "source")
+    archive = tmp_path / "transfer.tar.gz"
+    _export(source, archive)
+
+    result = db_transfer.import_database(archive, target, create=True, dry_run=True)
+
+    assert result.dry_run
+    assert result.created_target
+    assert result.backup is None
+    assert not target.exists()
+
+
+def test_create_with_an_older_source_requires_upgrade(tmp_path):
+    source = tmp_path / "source.db"
+    target = tmp_path / "target.db"
+    _make_db_at(source, _migrations_through(tmp_path, "0050"), [("a", "1")])
+    archive = tmp_path / "transfer.tar.gz"
+    _export(source, archive)
+
+    with pytest.raises(db_transfer.TransferError, match="schema mismatch"):
+        db_transfer.import_database(archive, target, create=True, force=True)
+    assert not target.exists()
+
+    result = db_transfer.import_database(
+        archive, target, create=True, upgrade=True, force=True,
+    )
+    assert result.created_target
+    assert result.backup is None
+    assert db_transfer.read_fingerprint(target).latest == db.discover_migrations()[-1].version
+    assert _probe_rows(target) == [("a", "1")]
+
+
 def test_upgrade_applies_missing_migrations_and_replaces_the_target(tmp_path):
     source = tmp_path / "source.db"
     target = tmp_path / "target.db"

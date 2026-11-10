@@ -11,6 +11,7 @@ authoritative and another is used for development:
 
     # development machine (stop the web server first)
     python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --force
+    python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --create --force
     python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --upgrade
     python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --upgrade-fill
 
@@ -19,14 +20,18 @@ The manifest records the full applied migration set (version and checksum), the 
 the database size and the database SHA-256. Import verifies all of it before replacing
 anything. By default the source and target schemas must match exactly.
 
-Two opt-in modes exist. --upgrade accepts an older source, applies the missing local
+Two schema opt-in modes exist. --upgrade accepts an older source, applies the missing local
 migrations to a copy, and fails on a downgrade or a divergent migration. --upgrade-fill does
 the same and then copies target-only rows into the upgraded copy; it requires the target to
 be at the local migration version and fails whenever a row cannot be matched or copied
 safely. It never overwrites an existing row.
 
+--create allows a missing target. The target is created at the local code's schema only after
+all archive, schema and --force checks pass; a dry run never creates it. A created target has
+no prior data, so no backup is written for it.
+
 Import never runs while the target has SQLite WAL side files, and it writes an automatic
-backup next to the target before replacing it. The tool does not label either side
+backup next to an existing target before replacing it. The tool does not label either side
 authoritative; the operator decides which archive to import and must pass --force.
 """
 
@@ -109,6 +114,7 @@ class ImportResult:
     target: SchemaFingerprint
     backup: Path | None
     dry_run: bool
+    created_target: bool = False
     upgraded_from: str | None = None
     filled_rows: int = 0
 
@@ -573,14 +579,20 @@ def import_database(
     backup_dir: Path | None = None,
     upgrade: bool = False,
     fill: bool = False,
+    create: bool = False,
 ) -> ImportResult:
     """Verify an archive and replace the target database if every check passes."""
     archive = archive.expanduser().resolve()
     db_path = db_path.expanduser().resolve()
     if not archive.is_file():
         raise TransferError(f"archive not found: {archive}")
-    if not db_path.is_file():
-        raise TransferError(f"target database not found: {db_path}; create it before importing")
+    if db_path.exists() and not db_path.is_file():
+        raise TransferError(f"target path is not a file: {db_path}")
+    target_missing = not db_path.is_file()
+    if target_missing and not create:
+        raise TransferError(
+            f"target database not found: {db_path}; create it before importing or pass --create"
+        )
     if fill and not upgrade:
         upgrade = True
 
@@ -590,7 +602,12 @@ def import_database(
         source_db, manifest = _extract_archive(archive, temp)
         source_fingerprint = read_fingerprint(source_db)
         _validate_manifest(manifest, source_db, source_fingerprint)
-        target_fingerprint = _read_fingerprint_copy(db_path, temp)
+        # A missing target has the local code's schema: it will be created at that schema if
+        # the transfer succeeds. A dry run checks against that same fingerprint without
+        # creating the file or a backup.
+        target_fingerprint = (
+            _local_fingerprint() if target_missing else _read_fingerprint_copy(db_path, temp)
+        )
 
         upgraded_from = None
         filled_rows = 0
@@ -605,7 +622,7 @@ def import_database(
                 )
             upgraded_from = source_fingerprint.latest if source_fingerprint != code else None
             source_fingerprint = _upgrade_source(source_db, source_fingerprint, code)
-            if fill:
+            if fill and not target_missing:
                 filled_rows = _fill_from_target(source_db, db_path, temp)
         else:
             _require_same_schema(source_fingerprint, target_fingerprint)
@@ -619,6 +636,7 @@ def import_database(
                 target=target_fingerprint,
                 backup=None,
                 dry_run=True,
+                created_target=target_missing,
                 upgraded_from=upgraded_from,
                 filled_rows=filled_rows,
             )
@@ -627,7 +645,9 @@ def import_database(
                 f"refusing to replace {db_path}; pass --force after confirming the target"
             )
 
-        backup = _backup_target(db_path, backup_dir)
+        # A missing target has no data to preserve, so it gets no backup. The staged file is
+        # replaced into place atomically, creating the database only after every check passed.
+        backup = None if target_missing else _backup_target(db_path, backup_dir)
         _require_not_in_use(db_path)
         staged = db_path.with_name(f".{db_path.name}.transfer-{os.getpid()}")
         replaced = False
@@ -640,9 +660,13 @@ def import_database(
             _verify_database(db_path, source_fingerprint, temp)
         except Exception:
             if replaced:
-                # The replacement was written but did not verify; put the backup back.
-                shutil.copyfile(backup, db_path)
-                os.chmod(db_path, 0o600)
+                # The replacement was written but did not verify; put the previous target
+                # back, or remove the newly created file when there was no previous target.
+                if backup is not None:
+                    shutil.copyfile(backup, db_path)
+                    os.chmod(db_path, 0o600)
+                else:
+                    db_path.unlink(missing_ok=True)
             raise
         finally:
             if staged.exists():
@@ -655,6 +679,7 @@ def import_database(
         target=target_fingerprint,
         backup=backup,
         dry_run=False,
+        created_target=target_missing,
         upgraded_from=upgraded_from,
         filled_rows=filled_rows,
     )
@@ -683,6 +708,11 @@ def _build_parser() -> argparse.ArgumentParser:
     imp.add_argument("--db", type=Path, default=ROOT / "data" / "coach.db")
     imp.add_argument("--backup-dir", type=Path, default=None)
     imp.add_argument("--force", action="store_true", help="required to replace the database")
+    imp.add_argument(
+        "--create",
+        action="store_true",
+        help="allow a missing target; create it at the local schema during import",
+    )
     imp.add_argument("--dry-run", action="store_true", help="check everything, replace nothing")
     mode = imp.add_mutually_exclusive_group()
     mode.add_argument(
@@ -720,9 +750,12 @@ def main(argv: list[str] | None = None) -> int:
             backup_dir=args.backup_dir,
             upgrade=args.upgrade or args.upgrade_fill,
             fill=args.upgrade_fill,
+            create=args.create,
         )
         print(f"Source schema: {result.source.latest}")
         print(f"Target schema: {result.target.latest}")
+        if result.created_target:
+            print("Target: would be created" if result.dry_run else "Target: created")
         if result.upgraded_from:
             print(f"Upgraded source: {result.upgraded_from} -> {result.source.latest}")
         if result.filled_rows:
@@ -730,7 +763,7 @@ def main(argv: list[str] | None = None) -> int:
         if result.dry_run:
             print("Dry run: checks passed; target was not changed.")
         else:
-            print(f"Backup: {result.backup}")
+            print(f"Backup: {result.backup}" if result.backup else "Backup: none (new target)")
             print(f"Imported: {result.db_path}")
         return 0
     except TransferError as exc:
