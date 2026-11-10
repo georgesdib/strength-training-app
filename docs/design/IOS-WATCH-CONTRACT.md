@@ -1,6 +1,7 @@
 # iOS Phase 6 — watchOS companion contract
 
-**Status:** 6.0 (S1–S4, shared core) complete 2026-11-10; 6.1 and later planned, not started.
+**Status:** 6.0 (S1–S4, shared core) and 6.1 (server watch contract) complete 2026-11-10;
+6.2 and later planned, not started.
 Decisions locked 2026-11-09; design remediation 2026-11-09. The extraction authorises no server
 migration; no migration is created by this design task. Target platforms: **iOS 27.0** and
 **watchOS 27.0**.
@@ -503,18 +504,19 @@ next foreground refresh.
 | `POST /api/ios/v1/devices/watch` | New. Phone-authenticated; revokes the previous watch, mints a new epoch, returns the token once. |
 | `GET /api/ios/v1/devices` | New. Lists devices with kind, label, epoch, created/last-seen/revoked. |
 | `DELETE /api/ios/v1/devices/{device_id}` | New. Revokes the watch from phone or itself. |
-| `POST /api/ios/v1/prescriptions` | Accepts `execution_target` (`phone` or `watch`) and stores it on the issued plan; absent means `phone` for older clients. |
-| `GET /api/ios/v1/plans/current` | Returns `execution_target` with the plan. |
-| `POST /api/ios/v1/workouts` | Rejects a start from the wrong device kind with `409 wrong_execution_target`; sets `owner_device_id`; response includes `owner_device_id`, `plan_revision`, `last_activity_at`. |
+| `POST /api/ios/v1/prescriptions` | Accepts `execution_target` (`phone` or `watch`); for `watch` resolves the phone's active watch into `target_device_id` and returns `409 watch_not_paired` when there is none. Absent means `phone` for older clients. |
+| `GET /api/ios/v1/plans/current` | Returns `execution_target`; matches the requester or the target so the watch can see a phone-requested plan. |
+| `POST /api/ios/v1/workouts` | Rejects a start unless the caller is the target and its kind matches, with `409 wrong_execution_target`; sets `owner_device_id`, `plan_revision = 0` and `last_activity_at`; response includes them. |
 | `GET /api/ios/v1/workouts/{id}/execution` | Adds `owner_device_id`, `plan_revision`, `last_activity_at`, `stale`. |
 | Existing set/form/finish routes | Owner check (`409 not_owner`); a set whose plan item changed returns `409 plan_item_mismatch` with the current item. |
 | Existing plan-edit routes | Increment `plan_revision`; response returns it. |
 | `POST /api/ios/v1/workouts/{id}/takeover` | New. Transfers ownership and appends an event. |
 | Existing abandon route | Allowed by any device; records the device. |
 
-`config/ios.v1.yaml` gains `workout_idle_warn_seconds`, `workout_idle_abandon_seconds` and
-`watch_enabled` (gates device minting until the watch app ships); all validated with closed
-ranges and fail-closed parsing, like the existing TTLs.
+`config/ios.v1.yaml` gains `idle_warn_seconds` (10800), `idle_abandon_seconds` (86400) and
+`watch_enabled` (false; gates device minting until the watch app ships), and
+`issued_plan_ttl_seconds` becomes 14400. All are validated with closed ranges and fail-closed
+parsing, like the existing TTLs.
 
 ## 15. Data model
 
@@ -525,14 +527,21 @@ Migration `0058_watch_companion.sql` (additive, no data rewrite):
 - `ios_device.credential_epoch INTEGER NOT NULL DEFAULT 0`
 - Partial unique index: one active watch per parent
   (`(parent_device_id) WHERE kind = 'watch' AND revoked_at IS NULL`)
+- `ios_issued_plan.target_device_id TEXT REFERENCES ios_device(device_id)` (backfilled to `device_id`)
 - `ios_issued_plan.execution_target TEXT NOT NULL DEFAULT 'phone' CHECK (execution_target IN ('phone','watch'))`
+- Target-scoped live index on
+  `(COALESCE(target_device_id, device_id)) WHERE consumed_at IS NULL AND superseded_at IS NULL`
 - `workout_session.owner_device_id TEXT` (nullable; NULL keeps legacy permissive behaviour)
 - `workout_session.plan_revision INTEGER NOT NULL DEFAULT 0`
 - `workout_session.last_activity_at TEXT` (backfilled from `started_at`)
 
 The `sessionUUID`, `hkState` and the outbox live only in the watch app's local store; the
-server stores no HealthKit data. Rollback drops the added columns and index; existing rows and
+server stores no HealthKit data. Rollback drops the added columns and indexes; existing rows and
 every other table are untouched.
+
+Ownership is enforced after the idempotency receipt lookup, so a retry whose response was lost
+replays its stored response instead of failing on the completed/abandoned state. Idle abandonment
+runs lazily on start, today and execution reads and preserves every set.
 
 ## 16. Failure and recovery matrix
 

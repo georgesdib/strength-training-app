@@ -271,12 +271,13 @@ on boundaries and per-stage acceptance.
    the adapter. Parity was proved per stage. Acceptance: the 102 existing iPhone tests stayed green,
    five reducer tests were added (107 total), no view changed, and the package builds for iOS 27.0
    and watchOS 27.0. S5 (the watch target) is 6.2.
-2. **6.1 Server contract.** `0058_watch_companion.sql` with watch kind, parent, monotonic
-   `credential_epoch`, the one-active-watch index and `execution_target` on issued plans;
-   mint/list/revoke; target enforcement (`409 wrong_execution_target`) in start and
-   `plans/current`; `owner_device_id` and takeover; `plan_revision`; `plan_item_mismatch`;
-   `last_activity_at`; idle warning and 24h lazy abandonment; `issued_plan_ttl_seconds` 14400;
-   `watch_enabled`; tests.
+2. **6.1 Server contract — complete 2026-11-10.** `0058_watch_companion.sql` adds watch kind,
+   parent, monotonic `credential_epoch`, the one-active-watch index, `target_device_id` and
+   `execution_target` on issued plans, and owner/revision/activity on workouts. Mint/list/revoke,
+   target routing and `409 wrong_execution_target`, owner checks and takeover,
+   `409 plan_item_mismatch`, idle warning and 24h lazy abandonment, 4h plan TTL and
+   `watch_enabled` are implemented with migration, device, routing, ownership, revision, mismatch,
+   idle and regression tests.
 3. **6.2 Watch shell and credentials.** Create the embedded watch target and scheme (S5), then
    the WatchConnectivity handoff as state with epoch, `configVersion` and `homeBaseURL`,
    acknowledgement, bounded foreground retry, 401/revocation recovery; no Home/Away switching;

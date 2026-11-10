@@ -921,8 +921,8 @@ documents:
   nav: false
 - id: design-ios-watch-contract
   path: docs/design/IOS-WATCH-CONTRACT.md
-  title: iOS Phase 6 watchOS companion contract (6.0 complete; 6.1+ not started)
-  description: '6.0 (S1-S4) complete 2026-11-10; 6.1+ not started; remediated 2026-11-09: watch as the set-logging client for a plan with an explicit execution target on iOS 27.0/watchOS 27.0; four-stage StrengthCore extraction, credential-epoch and home-config handoff with acknowledgement, home-server pinning (no Away switching), offline-first execution with partial flushes and backoff, HK-session lifecycle and persist-first capture, watch-only ownership with phone mirror/take-over, plan-revision and off-plan conflict handling, exactly-once HealthKit workout by external UUID, 4h plan TTL, idle warning and 24h abandonment; offline start and phone relay deferred; tests, acceptance and rollback'
+  title: iOS Phase 6 watchOS companion contract (6.0-6.1 complete; 6.2+ not started)
+  description: '6.0 (S1-S4) and 6.1 (server watch contract) complete 2026-11-10; 6.2+ not started; remediated 2026-11-09: watch as the set-logging client for a plan with an explicit execution target on iOS 27.0/watchOS 27.0; four-stage StrengthCore extraction, credential-epoch and home-config handoff with acknowledgement, home-server pinning (no Away switching), offline-first execution with partial flushes and backoff, HK-session lifecycle and persist-first capture, watch-only ownership with phone mirror/take-over, plan-revision and off-plan conflict handling, exactly-once HealthKit workout by external UUID, 4h plan TTL, idle warning and 24h abandonment; offline start and phone relay deferred; tests, acceptance and rollback'
   category: design
   status: design
   audience: maintainer

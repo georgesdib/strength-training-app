@@ -2868,6 +2868,9 @@ def test_ios_settings_api_round_trip_and_validation(server, tmp_path, monkeypatc
         "issued_plan_ttl_seconds": 7200,
         "plan_request_ttl_seconds": 1200,
         "receipt_retention_days": 14,
+        "watch_enabled": False,
+        "idle_warn_seconds": 10800,
+        "idle_abandon_seconds": 86400,
     }
     assert "issued_plan_ttl_seconds: 7200" in config.read_text(encoding="utf-8")
 

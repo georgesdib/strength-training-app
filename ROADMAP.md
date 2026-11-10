@@ -1744,7 +1744,7 @@ prescription/start, plan editing and HealthKit remain online-only. No server que
 Contract: [`docs/design/IOS-PHASE-4-CONTRACT.md`](docs/design/IOS-PHASE-4-CONTRACT.md).
 Physical offline acceptance was owner-confirmed at closure on 2026-11-08.
 
-### 4.32 Phase 6 — watchOS companion (6.0 complete; 6.1+ not started)
+### 4.32 Phase 6 — watchOS companion (6.0–6.1 complete; 6.2+ not started)
 
 The phone remains the planner; the watch becomes the execution client for a plan requested with an
 explicit `execution_target` (`phone` or `watch`): fetch, start, log sets/rest/forms, finish with
@@ -1760,8 +1760,8 @@ propagate by revision, and forgotten sessions are idle-abandoned. Shared code ha
 `StrengthCore` in four staged, behaviour-preserving moves (S1–S4 complete 2026-11-10; 107 tests);
 the watch target itself starts 6.2. Contract:
 [`docs/design/IOS-WATCH-CONTRACT.md`](docs/design/IOS-WATCH-CONTRACT.md). Offline start (the
-pending-session shell) and the “Send to iPhone” relay are deferred. 6.0 is implemented; 6.1 and
-later need a separate go-ahead.
+pending-session shell) and the “Send to iPhone” relay are deferred. 6.0 and the 6.1 server contract
+are implemented; 6.2 and later need a separate go-ahead.
 
 ## 5. Known gaps and risks
 
