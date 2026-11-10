@@ -30,25 +30,37 @@ MIN_PLAN_REQUEST_TTL_SECONDS = 60
 MAX_PLAN_REQUEST_TTL_SECONDS = 3600
 
 DEFAULT_MUTATIONS_ENABLED = True
-DEFAULT_ISSUED_PLAN_TTL_SECONDS = 3600
+# Phase 6 locks the ready-plan window at 4h; the plan-request build deadline is separate.
+DEFAULT_ISSUED_PLAN_TTL_SECONDS = 14400
 DEFAULT_RECEIPT_RETENTION_DAYS = 30
+DEFAULT_IDLE_WARN_SECONDS = 10800
+DEFAULT_IDLE_ABANDON_SECONDS = 86400
+# The watch app ships separately; minting stays closed until the owner enables it.
+DEFAULT_WATCH_ENABLED = False
 
 FIELDS = (
     "mutations_enabled",
+    "watch_enabled",
     "issued_plan_ttl_seconds",
     "plan_request_ttl_seconds",
     "receipt_retention_days",
+    "idle_warn_seconds",
+    "idle_abandon_seconds",
 )
 
 DEFAULTS = {
     "mutations_enabled": DEFAULT_MUTATIONS_ENABLED,
+    "watch_enabled": DEFAULT_WATCH_ENABLED,
     "issued_plan_ttl_seconds": DEFAULT_ISSUED_PLAN_TTL_SECONDS,
     "plan_request_ttl_seconds": DEFAULT_PLAN_REQUEST_TTL_SECONDS,
     "receipt_retention_days": DEFAULT_RECEIPT_RETENTION_DAYS,
+    "idle_warn_seconds": DEFAULT_IDLE_WARN_SECONDS,
+    "idle_abandon_seconds": DEFAULT_IDLE_ABANDON_SECONDS,
 }
 
 RANGES = {
     "mutations_enabled": {"kind": "bool"},
+    "watch_enabled": {"kind": "bool"},
     "issued_plan_ttl_seconds": {
         "kind": "int", "min": MIN_TTL_SECONDS, "max": MAX_TTL_SECONDS,
     },
@@ -59,19 +71,28 @@ RANGES = {
     "receipt_retention_days": {
         "kind": "int", "min": MIN_RETENTION_DAYS, "max": MAX_RETENTION_DAYS,
     },
+    "idle_warn_seconds": {"kind": "int", "min": 60, "max": 86400},
+    "idle_abandon_seconds": {"kind": "int", "min": 60, "max": 604800},
 }
 
 LABELS = {
     "mutations_enabled": "Enable iOS mutations",
+    "watch_enabled": "Enable watch device minting",
     "issued_plan_ttl_seconds": "Issued plan TTL (seconds)",
     "plan_request_ttl_seconds": "Plan request TTL (seconds)",
     "receipt_retention_days": "Receipt retention (days)",
+    "idle_warn_seconds": "Idle warning (seconds)",
+    "idle_abandon_seconds": "Idle abandonment (seconds)",
 }
 
 DESCRIPTIONS = {
     "mutations_enabled": (
         "Master write switch for the iOS facade. Off returns every iOS mutation as 503 "
         "mutation_disabled while bootstrap, today, history and progress stay available."
+    ),
+    "watch_enabled": (
+        "Allows the phone to mint a watch device and token. Existing watch credentials are "
+        "ended by revoking them, not by this switch."
     ),
     "issued_plan_ttl_seconds": (
         "How long a ready plan can be started, measured from the moment it becomes ready. "
@@ -86,6 +107,14 @@ DESCRIPTIONS = {
         "How long idempotency receipts are retained for safe retries. Older receipts are "
         "expired and removed; this does not affect training rows."
     ),
+    "idle_warn_seconds": (
+        "How long after the last set/form/plan edit the watch session is shown as stale. "
+        "Nothing is abandoned at this threshold."
+    ),
+    "idle_abandon_seconds": (
+        "How long after the last activity a forgotten in-progress session is lazily "
+        "abandoned. Sets are preserved."
+    ),
 }
 
 
@@ -99,6 +128,9 @@ class IOSConfig:
     issued_plan_ttl_seconds: int
     receipt_retention_days: int
     plan_request_ttl_seconds: int = DEFAULT_PLAN_REQUEST_TTL_SECONDS
+    watch_enabled: bool = DEFAULT_WATCH_ENABLED
+    idle_warn_seconds: int = DEFAULT_IDLE_WARN_SECONDS
+    idle_abandon_seconds: int = DEFAULT_IDLE_ABANDON_SECONDS
 
 
 def _boolean(value: object, name: str) -> bool:
@@ -124,6 +156,9 @@ def _parse_config(data: dict) -> IOSConfig:
         raise ValueError("ios.v1.yaml must contain a mapping")
     return IOSConfig(
         mutations_enabled=_boolean(data.get("mutations_enabled"), "mutations_enabled"),
+        watch_enabled=_boolean(
+            data.get("watch_enabled", DEFAULT_WATCH_ENABLED), "watch_enabled"
+        ),
         issued_plan_ttl_seconds=_bounded_int(
             data.get("issued_plan_ttl_seconds"), "issued_plan_ttl_seconds",
             MIN_TTL_SECONDS, MAX_TTL_SECONDS,
@@ -139,6 +174,14 @@ def _parse_config(data: dict) -> IOSConfig:
             ),
             "plan_request_ttl_seconds",
             MIN_PLAN_REQUEST_TTL_SECONDS, MAX_PLAN_REQUEST_TTL_SECONDS,
+        ),
+        idle_warn_seconds=_bounded_int(
+            data.get("idle_warn_seconds", DEFAULT_IDLE_WARN_SECONDS),
+            "idle_warn_seconds", 60, 86400,
+        ),
+        idle_abandon_seconds=_bounded_int(
+            data.get("idle_abandon_seconds", DEFAULT_IDLE_ABANDON_SECONDS),
+            "idle_abandon_seconds", 60, 604800,
         ),
     )
 
@@ -170,9 +213,12 @@ def describe_config(path: str | Path | None = None) -> dict:
         "restart_required": False,
         "effective": {
             "mutations_enabled": config.mutations_enabled,
+            "watch_enabled": config.watch_enabled,
             "issued_plan_ttl_seconds": config.issued_plan_ttl_seconds,
             "plan_request_ttl_seconds": config.plan_request_ttl_seconds,
             "receipt_retention_days": config.receipt_retention_days,
+            "idle_warn_seconds": config.idle_warn_seconds,
+            "idle_abandon_seconds": config.idle_abandon_seconds,
         },
         "defaults": dict(DEFAULTS),
         "ranges": {key: dict(value) for key, value in RANGES.items()},
@@ -223,6 +269,7 @@ def save_config(values: dict, path: str | Path | None = None) -> dict:
     current = load_config(target)
     merged = {
         "mutations_enabled": values.get("mutations_enabled", current.mutations_enabled),
+        "watch_enabled": values.get("watch_enabled", current.watch_enabled),
         "issued_plan_ttl_seconds": values.get(
             "issued_plan_ttl_seconds", current.issued_plan_ttl_seconds
         ),
@@ -231,6 +278,12 @@ def save_config(values: dict, path: str | Path | None = None) -> dict:
         ),
         "receipt_retention_days": values.get(
             "receipt_retention_days", current.receipt_retention_days
+        ),
+        "idle_warn_seconds": values.get(
+            "idle_warn_seconds", current.idle_warn_seconds
+        ),
+        "idle_abandon_seconds": values.get(
+            "idle_abandon_seconds", current.idle_abandon_seconds
         ),
     }
     try:

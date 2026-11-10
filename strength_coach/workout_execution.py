@@ -50,7 +50,9 @@ def _workout_row(conn, workout_id: str):
 
 def _owns_workout(conn, workout_id: str, device_id: str) -> bool:
     row = conn.execute(
-        "SELECT 1 FROM ios_issued_plan WHERE workout_id = ? AND device_id = ? LIMIT 1",
+        "SELECT 1 FROM workout_session "
+        "WHERE workout_id = ? AND (owner_device_id = ? OR owner_device_id IS NULL) "
+        "LIMIT 1",
         (workout_id, device_id),
     ).fetchone()
     return row is not None

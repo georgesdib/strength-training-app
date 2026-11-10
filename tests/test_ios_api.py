@@ -22,6 +22,7 @@ from strength_coach import cli, history
 from strength_coach.features import progress as progress_feature
 from strength_coach.store import db, importer, ios_devices
 from strength_coach.utils import ios_credentials
+from strength_coach.web import ios_plan_worker
 from strength_coach.web import server as web_server
 from strength_coach.web.server import create_server
 
@@ -62,6 +63,9 @@ def ios(tmp_path):
         httpd.shutdown()
         httpd.server_close()
         thread.join(timeout=5)
+        # The plan dispatcher is a per-process singleton; do not leave it watching a
+        # temporary database that the next test deletes.
+        ios_plan_worker.stop_dispatcher()
 
 
 def _request(base, path, *, method="GET", payload=None, token=None, headers=None):

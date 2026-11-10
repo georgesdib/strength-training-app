@@ -1004,8 +1004,8 @@ def test_start_rejects_other_device_and_client_plan_content(ios):
     assert status == 200, second
 
     status, body = _start(ios, second["token"], issued["issued_plan_id"])
-    assert status == 404, body
-    assert body["code"] == "plan_not_found"
+    assert status == 409, body
+    assert body["code"] == "wrong_execution_target"
 
     status, body = _start(
         ios, token, issued["issued_plan_id"],
