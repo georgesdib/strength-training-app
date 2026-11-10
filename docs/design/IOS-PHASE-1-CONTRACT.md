@@ -6,7 +6,7 @@ interface; the completion record is in §13. Phase 2 was implemented 2026-11-07 
 [`IOS-PHASE-2-CONTRACT.md`](IOS-PHASE-2-CONTRACT.md).
 
 **Scope:** fixes the exact server surface, client surface, tests and acceptance for Phase 1 of
-[`IOS-CLIENT-PLAN.md`](../IOS-CLIENT-PLAN.md). The plan remains the authority for the phase
+[`IOS-CLIENT-PLAN.md`](https://github.com/georgesdib/StrengthApp/blob/development/docs/IOS-CLIENT-PLAN.md). The plan remains the authority for the phase
 boundary; this document exists so the server repository and the separate `StrengthApp` repository
 can be built against one written interface.
 
@@ -302,7 +302,7 @@ Settled at approval (2026-11-07):
 
 ## 12. References
 
-- [`IOS-CLIENT-PLAN.md`](../IOS-CLIENT-PLAN.md) — phase boundary, invariants, rollback gates.
+- [`IOS-CLIENT-PLAN.md`](https://github.com/georgesdib/StrengthApp/blob/development/docs/IOS-CLIENT-PLAN.md) — phase boundary, invariants, rollback gates.
 - [`API.md`](../API.md) — existing routes, body limits, error behaviour, date semantics.
 - [`READINESS.md`](../READINESS.md), [`READINESS-SCORE.md`](../READINESS-SCORE.md) — readiness
   payload, score status and override rules.

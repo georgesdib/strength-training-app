@@ -23,7 +23,7 @@ bounded dispatcher and start-time prescription persistence are current behaviour
 and implemented. The marked clauses above keep their accepted text as history.
 
 **Scope:** fixes the exact server surface, data model, client surface, tests, acceptance and
-rollback for Phase 2 of [`IOS-CLIENT-PLAN.md`](../IOS-CLIENT-PLAN.md). The plan remains the
+rollback for Phase 2 of [`IOS-CLIENT-PLAN.md`](https://github.com/georgesdib/StrengthApp/blob/development/docs/IOS-CLIENT-PLAN.md). The plan remains the
 authority for the phase boundary; this document exists so the server repository and the separate
 `StrengthApp` repository can be built against one written interface.
 
@@ -657,12 +657,12 @@ Swift Phase 1 tests must remain unchanged and green.
 - Existing `ios_device`/`ios_pairing_code` and Phase 1 reads remain. Do not change any existing
   training, readiness, prescription, workout or review row as part of rollback.
 - **Back up first.** `0053` is applied to the one live `data/coach.db`; take the consistent backup
-  described in [`IOS-CLIENT-PLAN.md`](../IOS-CLIENT-PLAN.md) §13.1 with the server stopped before
+  described in [`IOS-CLIENT-PLAN.md`](https://github.com/georgesdib/StrengthApp/blob/development/docs/IOS-CLIENT-PLAN.md) §13.1 with the server stopped before
   applying or dropping anything.
 - **Drop the tables and their `schema_migration` row together.** Dropping only the tables leaves
   `0053` recorded as applied, so `migrate()` skips it forever and a later re-enable has no tables
   and no way to recreate them. Use the paired statement in
-  [`IOS-CLIENT-PLAN.md`](../IOS-CLIENT-PLAN.md) §13.2, which includes `ios_operation_receipt`,
+  [`IOS-CLIENT-PLAN.md`](https://github.com/georgesdib/StrengthApp/blob/development/docs/IOS-CLIENT-PLAN.md) §13.2, which includes `ios_operation_receipt`,
   `ios_issued_plan` and the matching `schema_migration` row.
 - Client rollback: return to the Phase 1 read-only screens or discard the Phase 2 build; the token
   and pairing remain.
@@ -728,7 +728,7 @@ mutations. These are config/contract values, not new training rules.
 
 ## 17. References
 
-- [`IOS-CLIENT-PLAN.md`](../IOS-CLIENT-PLAN.md) — phase boundary, invariants, rollback gates.
+- [`IOS-CLIENT-PLAN.md`](https://github.com/georgesdib/StrengthApp/blob/development/docs/IOS-CLIENT-PLAN.md) — phase boundary, invariants, rollback gates.
 - [`IOS-R7-CONTRACT.md`](IOS-R7-CONTRACT.md) — asynchronous prescription request; supersedes §4.1,
   §5.2 and §8.2 above.
 - [`IOS-R8-CONTRACT.md`](IOS-R8-CONTRACT.md) — active-workout plan editing; supersedes §9's

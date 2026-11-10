@@ -620,7 +620,7 @@ consumption and supersession state. The physical-device pass is not required (§
 - Remove the route changes and the worker; revert `POST /api/ios/v1/prescriptions` to the
   synchronous Phase 2 behaviour if needed.
 - Drop `ios_issued_plan` and delete the `0056` `schema_migration` row together
-  (`IOS-CLIENT-PLAN.md` §13.2). This drops the R7 previews **and** the legacy Phase 2 issued plans
+  ([the iOS client plan](https://github.com/georgesdib/StrengthApp/blob/development/docs/IOS-CLIENT-PLAN.md) §13.2). This drops the R7 previews **and** the legacy Phase 2 issued plans
   that `0056` carried forward, so a rollback loses unstarted plans of both generations. Starting a
   legacy plan before the rollback leaves its workout and prescription untouched, because those were
   written by Phase 2, not by R7.
@@ -703,7 +703,7 @@ Checked every public document that mentions the iOS prescription path. Found and
 | One `expires_at` serving two meanings | this contract §3 | split into `request_expires_at` and `plan_expires_at` |
 | `POST /api/ios/v1/prescriptions` returns the plan synchronously | `docs/API.md` route table and the "Issued plans" bullet | marked as current behaviour with the R7 change called out |
 | `ios_issued_plan` column list without status or deadlines | `docs/DATA-MODEL.md` §20 | pending-change note added, pointing at §3 and §3.1 |
-| "The prescription is stored at issue" | `docs/IOS-CLIENT-PLAN.md` §6 increment table | R7 row added with the new persistence rule |
+| "The prescription is stored at issue" | [the iOS client plan](https://github.com/georgesdib/StrengthApp/blob/development/docs/IOS-CLIENT-PLAN.md) §6 increment table | R7 row added with the new persistence rule |
 | "R2 deferred" | plan §4.30 and this contract | R2 marked absorbed by `plans/current` |
 | "specified, not implemented" for R7 | plan status header, §11 next task, manifest, roadmap | all say approved 2026-11-08, not started |
 
@@ -736,6 +736,6 @@ waiting. The client's own unit tests were updated to the new API and fixtures.
 
 ## 18. References
 
-- [`IOS-CLIENT-PLAN.md`](../IOS-CLIENT-PLAN.md) — phase boundary, invariants, rollback gates.
+- [`IOS-CLIENT-PLAN.md`](https://github.com/georgesdib/StrengthApp/blob/development/docs/IOS-CLIENT-PLAN.md) — phase boundary, invariants, rollback gates.
 - [`IOS-PHASE-2-CONTRACT.md`](IOS-PHASE-2-CONTRACT.md) — the surface this amends.
 - [`API.md`](../API.md), [`DATA-MODEL.md`](../DATA-MODEL.md) — current route and schema reference.

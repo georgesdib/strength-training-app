@@ -113,10 +113,10 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 
 /api/ios/v1/ is the authenticated boundary used by the native iPhone client. It is
 additive: every unversioned route above keeps its current behaviour and stays unauthenticated.
-The authoritative interfaces are [IOS-PHASE-1-CONTRACT.md](design/IOS-PHASE-1-CONTRACT.md),
-[IOS-PHASE-2-CONTRACT.md](design/IOS-PHASE-2-CONTRACT.md) and
-[IOS-PHASE-3A-CONTRACT.md](design/IOS-PHASE-3A-CONTRACT.md); the phase rules are in
-[IOS-CLIENT-PLAN.md](IOS-CLIENT-PLAN.md).
+The authoritative server-side contracts are in [`design/`](design/): Phase 1, Phase 2,
+Phase 3A, Phase 4, R7, R8 and the watch companion. The phase rules and client behaviour are in
+the [iOS client plan](https://github.com/georgesdib/StrengthApp/blob/development/docs/IOS-CLIENT-PLAN.md)
+in the StrengthApp repository.
 
 | route | auth | payload |
 |---|---|---|
@@ -307,3 +307,5 @@ before a deep link can call its loader.
 - **Architecture:** [ARCHITECTURE.md](ARCHITECTURE.md)
 - **UI map:** [UI-MAP.md](UI-MAP.md)
 - **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)

@@ -125,6 +125,11 @@ Report the final summary.
 - docs/README.md is the human index; docs/manifest.yaml is the machine index.
 - tests/test_docs_manifest.py and tests/test_docs_consistency.py enforce coverage, links,
   DEC/LIM references and the public/private boundary.
+- The iOS client plan, iPhone user guide and device acceptance live in the sibling StrengthApp
+  repository; do not add client-owned documents here. Server-owned iOS API contracts stay in
+  docs/design/ because the server is authoritative for the API. Link across repositories with
+  absolute GitHub URLs; the portfolio placement policy is
+  [docs/DOCUMENTATION.md](https://github.com/georgesdib/strength-app/blob/main/docs/DOCUMENTATION.md).
 
 Do not duplicate the full docs map here. The manifest and docs/README.md are the source.
 

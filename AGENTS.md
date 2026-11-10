@@ -50,4 +50,5 @@ must not define training policy.
 
 Detailed test recipes and documentation governance are in docs/AGENT-WORKFLOWS.md.
 The docs index is docs/README.md and docs/manifest.yaml. Migration specifics are in
-docs/AGENT-MIGRATIONS.md.
+docs/AGENT-MIGRATIONS.md. Client-owned docs (plan, iPhone guide, device acceptance) live in
+the sibling StrengthApp repository; server-owned iOS API contracts live in docs/design/.

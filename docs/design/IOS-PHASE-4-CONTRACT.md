@@ -193,7 +193,7 @@ server-authoritative sessions and receipts remain valid.
 
 ## 10. References
 
-- [IOS-CLIENT-PLAN.md](../IOS-CLIENT-PLAN.md) §Phase 4.
+- [IOS-CLIENT-PLAN.md](https://github.com/georgesdib/StrengthApp/blob/development/docs/IOS-CLIENT-PLAN.md) §Phase 4.
 - [IOS-PHASE-2-CONTRACT.md](IOS-PHASE-2-CONTRACT.md).
 - [IOS-R7-CONTRACT.md](IOS-R7-CONTRACT.md).
 - [IOS-R8-CONTRACT.md](IOS-R8-CONTRACT.md).

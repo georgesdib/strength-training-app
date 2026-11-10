@@ -1225,7 +1225,7 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | future | LLM integration: analyst, explainer, constrained proposer | Iteration 1 planned; Iteration 2 conditional (§4.24; selector retirement is Phase 1b) |
 | future | Personalised volume-response model | idea only; shadow/gated (§13, Q28) |
 | future | Nicer UI, adherence encouragement and KPIs | placeholder only (§4.23) |
-| done (Phases 0–3A) | Native iPhone online-first client | Phase 0 complete 2026-11-07; **Phase 1 complete 2026-11-07** (server facade + Swift client, simulator-verified and owner-confirmed on the physical iPhone); **Phase 2 complete 2026-11-07** (online readiness/prescription/workout/completion + Progress, simulator-verified and owner-confirmed on the physical iPhone); **Phase 3A closed 2026-11-08** (opt-in read-only HealthKit HRV/RHR/bodyweight readiness; physical HealthKit acceptance owner-confirmed); Apple PCC is an optional AI-only network exception (§4.29; [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-CLIENT-PLAN.md)) |
+| done (Phases 0–3A) | Native iPhone online-first client | Phase 0 complete 2026-11-07; **Phase 1 complete 2026-11-07** (server facade + Swift client, simulator-verified and owner-confirmed on the physical iPhone); **Phase 2 complete 2026-11-07** (online readiness/prescription/workout/completion + Progress, simulator-verified and owner-confirmed on the physical iPhone); **Phase 3A closed 2026-11-08** (opt-in read-only HealthKit HRV/RHR/bodyweight readiness; physical HealthKit acceptance owner-confirmed); Apple PCC is an optional AI-only network exception (§4.29; [`iOS client plan`](https://github.com/georgesdib/StrengthApp/blob/development/docs/IOS-CLIENT-PLAN.md)) |
 
 ### 4.19.1 Deferred: web authentication and per-user data
 
@@ -1592,7 +1592,8 @@ it is disabled by default, user-invoked, never an automatic fallback, and never 
 sync. No public cloud service is required for core use. Do not begin a later phase until it is
 approved.
 
-The detailed, repository-grounded plan is [`docs/IOS-CLIENT-PLAN.md`](docs/IOS-CLIENT-PLAN.md).
+The detailed, repository-grounded client plan is in the
+[iOS client repository](https://github.com/georgesdib/StrengthApp/blob/development/docs/IOS-CLIENT-PLAN.md).
 Recommendation: a small native SwiftUI client with Python remaining the sole authority for
 readiness scores and prescriptions. Phases 0–2, 3A and 4 are complete; Phase 3B needs a separate approval. The SwiftUI client is its own repository (`StrengthApp`), developed alongside this one rather than as
 an `ios/` subdirectory here. The first release covers pairing, readiness entry, a server prescription,

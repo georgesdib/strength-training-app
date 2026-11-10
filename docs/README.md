@@ -71,9 +71,19 @@ for current status and next actions. [`AGENTS.md`](../AGENTS.md) holds the engin
 
 - [HIGH-INTENSITY-EXPOSURE-PLAN.md](HIGH-INTENSITY-EXPOSURE-PLAN.md) (Phase 3 pending)
 - [INJURY-ATTRIBUTION-PLAN.md](INJURY-ATTRIBUTION-PLAN.md) (Phase 3 open)
-- [IOS-CLIENT-PLAN.md](IOS-CLIENT-PLAN.md) (Phases 0–4 and the R1–R5/R7/R8 work closed 2026-11-08; Phase 6 watchOS companion planned, not started; Apple Intelligence later)
 - [LLM-INTEGRATION-PLAN.md](LLM-INTEGRATION-PLAN.md)
 - [WEAKNESS-TARGETING-PLAN.md](WEAKNESS-TARGETING-PLAN.md) (gated)
+
+## Client documentation
+
+The native iPhone client is a separate repository, [StrengthApp](https://github.com/georgesdib/StrengthApp).
+Its plan, user guide, device acceptance and client documentation index live there:
+
+- [iOS documentation index](https://github.com/georgesdib/StrengthApp/blob/development/docs/README.md)
+- [iOS client plan](https://github.com/georgesdib/StrengthApp/blob/development/docs/IOS-CLIENT-PLAN.md)
+
+The server remains authoritative for the iOS API. The server-side contracts are in
+[`design/`](design/) and stay here; do not mirror them in the client repository.
 
 ## Archive and internal design
 

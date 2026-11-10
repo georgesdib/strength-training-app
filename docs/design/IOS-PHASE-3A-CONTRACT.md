@@ -155,7 +155,7 @@ workouts, sessions and review tables are untouched.
 - A later HealthKit import never overwrites a manual readiness entry; precedence is per field.
 - Migration 0055 rebuilds this table to extend the field CHECK for bodyweight while preserving
   every observation. Rollback drops the table and the matching 0054/0055 schema_migration rows
-  together. The paired statement is in IOS-CLIENT-PLAN.md section 13.2.
+  together. The paired statement is in [the iOS client plan](https://github.com/georgesdib/StrengthApp/blob/development/docs/IOS-CLIENT-PLAN.md) section 13.2.
 
 ### 3.1 Sample identity and complete observation
 
@@ -609,7 +609,7 @@ After selection, the flow is:
 
 ## 11. References
 
-- IOS-CLIENT-PLAN.md section 4 (Phase 3 scope), section 10 (risks) and section 13 (rollback).
+- [the iOS client plan](https://github.com/georgesdib/StrengthApp/blob/development/docs/IOS-CLIENT-PLAN.md) section 4 (Phase 3 scope), section 10 (risks) and section 13 (rollback).
 - docs/READINESS.md, docs/READINESS-SCORE.md, docs/LIFT-READINESS.md, docs/DATA-MODEL.md.
 - docs/API.md for the authenticated facade and idempotency contract.
 - IOS-PHASE-2-CONTRACT.md for bearer/receipt/error conventions.

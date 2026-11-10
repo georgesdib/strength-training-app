@@ -7,7 +7,7 @@
 --
 -- Accepted risk: an 8-digit code digest is brute-forceable if this local database leaks.
 -- The mitigation is the 5-minute TTL, the five-attempt limit, single use and the database
--- being local-only (docs/IOS-CLIENT-PLAN.md §7). Do not store the plaintext code.
+-- being local-only (StrengthApp/docs/IOS-CLIENT-PLAN.md §7). Do not store the plaintext code.
 
 CREATE TABLE ios_device (
     device_id    TEXT PRIMARY KEY,          -- uuid4 hex
