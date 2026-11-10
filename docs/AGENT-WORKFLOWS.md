@@ -114,6 +114,22 @@ Do not poll a running suite in short increments. Estimate from collected count/r
 start it as a managed background job, wait once near that estimate, then inspect once.
 Report the final summary.
 
+### Measured suite duration
+
+Measured 2026-11-10 on the **iMac coding host** (Intel Core i5-6500, 4 cores, 8 GB RAM,
+macOS 12.7.6, Python 3.14.8, pytest 9.2.0, xdist `-n auto`):
+
+| Command | Result | Test time | Wall time |
+|---|---|---:|---:|
+| `.venv/bin/python -m pytest` (default suite) | 1706 passed | 104.6 s | ~105 s |
+| `.venv/bin/python -m pytest -m ""` (all layers) | 1747 passed | 107.0 s | ~108 s |
+
+These are iMac figures for scheduling one background run; they say nothing about the
+deployed server. The ODROID-C4 is the deployed server and benchmarking host, and its
+resolver-build timings in [`PERFORMANCE-PROFILE.md`](PERFORMANCE-PROFILE.md) were measured
+on that hardware: this table does not change them, and they remain the reference for
+deployed behaviour. Re-measure when the suite grows materially.
+
 ## 5. Documentation governance
 
 - docs/manifest.yaml is authoritative for public document metadata.
