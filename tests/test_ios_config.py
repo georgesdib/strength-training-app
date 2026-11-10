@@ -31,6 +31,8 @@ def test_describe_reports_effective_values_source_and_reload(tmp_path):
         "issued_plan_ttl_seconds": 3600,
         "plan_request_ttl_seconds": 900,
         "receipt_retention_days": 30,
+        "idle_warn_seconds": 10800,
+        "idle_abandon_seconds": 86400,
     }
     assert data["source"] == str(path)
     assert data["reload"] == "per request"

@@ -13,10 +13,12 @@
 # watch_enabled gates minting a watch device; existing watch credentials are revoked explicitly.
 mutations_enabled: true
 watch_enabled: false
-issued_plan_ttl_seconds: 3600
+issued_plan_ttl_seconds: 14400
 plan_request_ttl_seconds: 900
 receipt_retention_days: 30
+idle_warn_seconds: 10800
+idle_abandon_seconds: 86400
 
 # Validation: issued_plan_ttl 60-86400 seconds; plan_request_ttl 60-3600 seconds; retention
-# 1-365 days. Malformed or out-of-range values fail closed with a server error rather than
+# 1-365 days; idle_warn 60-86400 seconds; idle_abandon 60-604800 seconds. Malformed or out-of-range values fail closed with a server error rather than
 # silently enabling a mutation path. plan_request_ttl_seconds is optional; omitting it uses 900.

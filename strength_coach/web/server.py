@@ -1034,6 +1034,7 @@ class Handler(BaseHTTPRequestHandler):
                         "capabilities": _ios_capabilities(),
                     }
                 elif path == "/api/ios/v1/today":
+                    self._ios_idle_sweep(conn)
                     clock = _ios_clock()
                     readiness = self._readiness(conn, clock["server_date"])
                     payload = {
@@ -1096,6 +1097,7 @@ class Handler(BaseHTTPRequestHandler):
                     workout_id = unquote(
                         path[len("/api/ios/v1/workouts/"):-len("/execution")]
                     ).strip("/")
+                    self._ios_idle_sweep(conn)
                     payload = workout_execution.analytics(
                         conn, workout_id, device["device_id"], require_owner=False
                     )
@@ -1104,11 +1106,24 @@ class Handler(BaseHTTPRequestHandler):
                         return
                     data = workout.get(conn, workout_id)
                     if data is not None:
+                        config = ios_config.load_config()
+                        last = data.get("last_activity_at")
+                        stale = False
+                        if last:
+                            try:
+                                last_dt = datetime.datetime.fromisoformat(
+                                    str(last).replace("Z", "+00:00")
+                                )
+                                stale = (
+                                    datetime.datetime.now(datetime.UTC) - last_dt
+                                ).total_seconds() >= config.idle_warn_seconds
+                            except ValueError:
+                                stale = False
                         payload.update({
                             "owner_device_id": data.get("owner_device_id"),
                             "plan_revision": data.get("plan_revision", 0),
-                            "last_activity_at": data.get("last_activity_at"),
-                            "stale": False,
+                            "last_activity_at": last,
+                            "stale": stale,
                         })
                 elif path == "/api/ios/v1/progress":
                     params = _ios_progress_params(
@@ -1344,6 +1359,13 @@ class Handler(BaseHTTPRequestHandler):
         if exc.details:
             payload["details"] = exc.details
         self._json(exc.status, payload)
+
+    def _ios_idle_sweep(self, conn) -> int:
+        config = ios_config.load_config()
+        cutoff = ios_workflow.iso(
+            ios_workflow.now() - datetime.timedelta(seconds=config.idle_abandon_seconds)
+        )
+        return workout.abandon_stale(conn, cutoff)
 
     def _ios_require_mutations(self) -> ios_config.IOSConfig:
         config = ios_config.load_config()
@@ -2132,6 +2154,7 @@ class Handler(BaseHTTPRequestHandler):
             raise ios_workflow.IOSWorkflowError(
                 410, "plan_expired", "issued plan has expired"
             )
+        self._ios_idle_sweep(conn)
         active = workout.active_workout(conn)
         if active is not None:
             raise ios_workflow.IOSWorkflowError(

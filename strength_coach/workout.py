@@ -1990,6 +1990,22 @@ def end(
     return get(conn, workout_id)
 
 
+def abandon_stale(conn, before_iso: str) -> int:
+    """Lazily abandon in-progress sessions whose last activity predates the cutoff."""
+    rows = conn.execute(
+        "SELECT workout_id FROM workout_session "
+        "WHERE status = 'in_progress' "
+        "  AND COALESCE(last_activity_at, started_at) < ?",
+        (str(before_iso),),
+    ).fetchall()
+    count = 0
+    with db.transaction(conn):
+        for row in rows:
+            abandon(conn, row["workout_id"], reason="idle")
+            count += 1
+    return count
+
+
 def take_over(conn, workout_id: str, device_id: str) -> dict:
     """Transfer ownership to a phone; idempotent when it already owns the session."""
     workout = get(conn, workout_id)
@@ -2013,7 +2029,7 @@ def take_over(conn, workout_id: str, device_id: str) -> dict:
     return get(conn, workout_id)
 
 
-def abandon(conn, workout_id: str) -> dict:
+def abandon(conn, workout_id: str, *, reason: str | None = None) -> dict:
     workout = get(conn, workout_id)
     if workout is None:
         raise ValueError("workout not found")
@@ -2024,5 +2040,5 @@ def abandon(conn, workout_id: str) -> dict:
         "duration_measured_s = ? WHERE workout_id = ?",
         (_now(), _elapsed(workout), workout_id),
     )
-    _event(conn, workout_id, "abandon", {})
+    _event(conn, workout_id, "abandon", {"reason": reason} if reason else {})
     return get(conn, workout_id)
