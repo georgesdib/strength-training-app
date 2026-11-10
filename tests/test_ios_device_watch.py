@@ -72,13 +72,14 @@ def test_only_a_phone_can_mint_and_only_one_active_watch(tmp_path):
         conn.close()
 
 
-def test_minting_is_disabled_by_default(ios):
+def test_minting_is_enabled_by_default(ios):
     token, _ = _paired(ios)
     status, body = _request(
         ios["base"], "/api/ios/v1/devices/watch", method="POST", payload={"label": "Watch"},
         token=token,
     )
-    assert status == 503
+    assert status == 201, body
+    assert body["device"]["kind"] == "watch"
 
 
 def test_phone_mints_lists_and_revokes_a_watch(ios, monkeypatch):
@@ -112,6 +113,31 @@ def test_phone_mints_lists_and_revokes_a_watch(ios, monkeypatch):
     status, revoked = _request(
         ios["base"], "/api/ios/v1/devices", token=watch_token,
     )
+    assert status == 403
+
+
+def test_revoking_the_phone_revokes_its_active_child_watch(ios, monkeypatch):
+    _enabled(monkeypatch)
+    token, phone = _paired(ios)
+    _, minted = _request(
+        ios["base"], "/api/ios/v1/devices/watch", method="POST", payload={"label": "Watch"},
+        token=token,
+    )
+    watch_id = minted["device"]["device_id"]
+
+    status, revoked = _request(
+        ios["base"], f"/api/ios/v1/devices/{phone['device_id']}", method="DELETE", token=token,
+    )
+    assert status == 200, revoked
+    assert revoked["revoked_watch_ids"] == [watch_id]
+
+    watch_row = _one(
+        ios["path"],
+        "SELECT revoked_at FROM ios_device WHERE device_id = ?",
+        (watch_id,),
+    )
+    assert watch_row["revoked_at"] is not None
+    status, _ = _request(ios["base"], "/api/ios/v1/devices", token=minted["token"])
     assert status == 403
 
 
