@@ -291,21 +291,43 @@ def list_devices(conn) -> list[dict[str, Any]]:
 
 def revoke_device(conn, device_id: str,
                   now: dt.datetime | None = None) -> dict[str, Any] | None:
-    """Set revoked_at once; an unknown id returns None and a repeat is a no-op."""
+    """Set revoked_at once; revoking a phone also revokes its active child watch.
+
+    A watch bearer token is independent of the phone token, so without the cascade a
+    forgotten or replaced phone would leave its watch able to call the API forever. The
+    whole revocation is one transaction; an unknown id returns None and a repeat is a
+    no-op apart from repairing any legacy child watch that is still active.
+    """
     target = str(device_id)
     at = _iso(_utc_now(now))
     with transaction(conn):
         row = conn.execute(
-            "SELECT revoked_at FROM ios_device WHERE device_id = ?", (target,)
+            "SELECT revoked_at, kind FROM ios_device WHERE device_id = ?", (target,)
         ).fetchone()
         if row is None:
             return None
+        revoked_watch_ids: list[str] = []
+        if row["kind"] == "phone":
+            children = conn.execute(
+                "SELECT device_id FROM ios_device "
+                "WHERE kind = 'watch' AND parent_device_id = ? AND revoked_at IS NULL "
+                "ORDER BY created_at, device_id",
+                (target,),
+            ).fetchall()
+            revoked_watch_ids = [child["device_id"] for child in children]
+            if revoked_watch_ids:
+                conn.execute(
+                    "UPDATE ios_device SET revoked_at = ? "
+                    "WHERE kind = 'watch' AND parent_device_id = ? AND revoked_at IS NULL",
+                    (at, target),
+                )
         if row["revoked_at"] is not None:
             return {"device_id": target, "revoked_at": row["revoked_at"],
-                    "already_revoked": True}
+                    "already_revoked": True, "revoked_watch_ids": revoked_watch_ids}
         conn.execute(
             "UPDATE ios_device SET revoked_at = ? "
             "WHERE device_id = ? AND revoked_at IS NULL",
             (at, target),
         )
-    return {"device_id": target, "revoked_at": at, "already_revoked": False}
+    return {"device_id": target, "revoked_at": at, "already_revoked": False,
+            "revoked_watch_ids": revoked_watch_ids}

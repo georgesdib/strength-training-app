@@ -1,7 +1,8 @@
 # iOS Phase 6 — watchOS companion contract
 
 **Status:** 6.0 (S1–S4, shared core) and 6.1 (server watch contract) complete 2026-11-10;
-6.2 and later planned, not started.
+6.2a (embedded watch target) and 6.2b (credential handoff) implemented 2026-11-10; 6.2c
+(read-only Today) and 6.3+ are pending.
 Decisions locked 2026-11-09; design remediation 2026-11-09. The extraction authorises no server
 migration; no migration is created by this design task. Target platforms: **iOS 27.0** and
 **watchOS 27.0**.
@@ -163,22 +164,41 @@ of the extraction.
 - Minting is **identity-idempotent**, not receipt-idempotent: a lost response produces a new
   epoch and device, and the previous watch token is revoked. There is never a second active watch
   and no plaintext token is stored for replay. Mint is rate-limited per phone.
-- The phone mints only when no active watch exists or the watch reports missing credentials. A
-  successful acknowledgement stops all further minting.
+- The tracked server config enables minting (`watch_enabled: true`). The code default stays
+  `false`, so a missing or malformed config still fails closed.
+- The phone mints when no active watch exists, when the watch reports missing credentials, or when
+  the owner deliberately taps **Pair Apple Watch** to rotate an active watch. A successful
+  acknowledgement stops all further automatic minting.
 
 ### 7.3 Delivery and acknowledgement
 
 - The phone sends one `updateApplicationContext` payload under a versioned key:
-  `{schema, epoch, configVersion, homeBaseURL, deviceID, token, issuedAt}`. `homeBaseURL` is the
-  Home server, never the phone's active Away route.
+  `{schema, epoch, configVersion, homeBaseURL, deviceID, token?, issuedAt, status}`.
+  `homeBaseURL` is the Home server, never the phone's active Away route.
+- `token` is present for a new epoch. A same-epoch, higher-`configVersion` refresh omits it and
+  the watch keeps its existing token; this is the only context sent after the token was
+  acknowledged. `status` is `ready` or `revoked`.
 - `updateApplicationContext` is asynchronous, coalesced to the latest value and may be delayed
   until the counterpart app runs. The design therefore treats it as latest-wins state, not as a
   message queue.
-- The watch accepts a payload only when `epoch` is greater than its stored epoch, validates the
-  schema and base URL, writes the token to its Keychain, then acknowledges with a second
-  `updateApplicationContext`: `{schema, ackEpoch, configVersion, deviceID, status: "ready"}`.
+- The watch accepts a payload when `epoch` is greater than its stored epoch, or when the epoch
+  is equal and `configVersion` is greater. It validates the schema and base URL, writes a new
+  token to its Keychain, then acknowledges with a second `updateApplicationContext`:
+  `{schema, ackEpoch, configVersion, deviceID, status: "ready" | "missing" | "revoked",
+  homeBaseURL?}`.
+- **Epoch lineage rule:** epochs are monotonic within one parent phone's watch history and are
+  not globally comparable. Epoch ordering is applied only when the incoming `deviceID` matches
+  the stored `deviceID`. A token-bearing credential for a different device starts a new
+  credential lineage even if its numeric epoch is lower; this is how a watch moves to another
+  iPhone. A tokenless probe can never start a lineage, clear revocation, or replace a valid
+  token. A cross-device revocation is ignored.
 - A stale or duplicate payload is ignored but acknowledged again with the stored epoch, so a
-  delayed delivery cannot roll the watch back.
+  delayed delivery cannot roll the watch back. A revoked credential at the same epoch is not
+  resurrected.
+- A tokenless probe is metadata only. If it names a different device or newer epoch, the watch
+  may replace metadata **only when it holds no token**; it adopts the probe as `missing`, clears
+  any stale token and acknowledges that adopted identity so the phone can mint. A valid token or a
+  revoked credential is never replaced by a tokenless probe.
 
 ### 7.4 Retry and foreground recovery
 
@@ -190,6 +210,18 @@ of the extraction.
   the watch asks again when it has no credentials.
 - If the watch reports missing credentials after a send, the phone re-mints (new epoch) rather than
   resending an old token that may never have arrived. The watch accepts the higher epoch.
+- If the phone is relaunched after minting but before the acknowledgement, the in-memory token is
+  gone. The phone sends a tokenless duplicate context at the stored epoch: a watch that has the
+  token re-acks, and a watch without it reports `missing`, which triggers a new mint.
+- A different-device acknowledgement is never judged by its epoch. If no token handoff is in
+  flight, the phone mints one fresh epoch in its own lineage and sends the token; if a token handoff
+  is already in flight, the stale acknowledgement is ignored. A same-device older-epoch
+  acknowledgement only triggers a replacement while the current credential is still unacknowledged;
+  once paired, a delayed stale acknowledgement is ignored.
+- Automatic minting is bounded to two attempts per foreground session, with one mint task at a time,
+  so repeated stale acknowledgements cannot create a mint/ack loop. The manual **Pair Apple Watch**
+  action remains the escape hatch. A token-bearing new-device lineage, or a newer token in the same
+  lineage, is the only way to replace a valid old token or a revoked credential.
 - A delivered and acknowledged token is never re-sent.
 
 ### 7.5 Missing and revoked credentials
@@ -197,9 +229,18 @@ of the extraction.
 - Any `401`/`403` from the server makes the watch wipe its token, mark credentials missing, stop
   retrying API calls, and show “Open StrengthApp on your iPhone”. It retries only on foreground or
   when a new context arrives.
-- The phone, on foreground, reads `GET /api/ios/v1/devices`: if the watch is absent or revoked it
-  mints; if the watch is active but reports missing credentials it mints a new epoch (rotation).
-  Revoking the watch from Settings produces the same path.
+- The phone, on foreground, reads `GET /api/ios/v1/devices` on the **Home** server: if a
+  previously paired watch is absent or revoked it mints; if the watch is active but reports
+  missing credentials it mints a new epoch (rotation). A first-run phone with no stored watch
+  relationship never mints merely because the app entered the foreground; the owner must tap
+  **Pair Apple Watch**.
+- Revoking the watch from Settings is deliberate: the server device is revoked, the watch is sent
+  a `revoked` context so it wipes its token, and the phone suppresses automatic re-minting until
+  **Pair Apple Watch** is tapped again. A revocation context naming a different device is ignored,
+  and a stale revocation for the matching device is ignored.
+- Revoking a phone also revokes its active child watch in the same transaction; the DELETE response
+  includes `revoked_watch_ids` so a legacy stranded watch is visible. This prevents a replaced
+  phone from leaving an independently usable watch token behind.
 - Re-pairing the phone itself does not resurrect a watch token; the phone mints a new watch device
   after its own pairing succeeds.
 
@@ -210,7 +251,8 @@ of the extraction.
 - Credentials travel only in `updateApplicationContext`. They are never sent through
   `transferUserInfo` or `sendMessage`, which could deliver a stale queued copy.
 - The watch stores the token in `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`; the phone holds it
-  in memory only until the acknowledgement and then clears it.
+  in memory only until the acknowledgement and then clears it. A config-only refresh therefore
+  carries no token.
 - The payload is accepted only from the paired WC session, with a known schema and the same base
   URL validation used by pairing. No debug or hard-coded token exists outside an explicit
   `#if DEBUG` simulator seam.
@@ -230,8 +272,18 @@ of the extraction.
 
 - The watch is pinned to the phone's Home server for its whole lifetime. The payload carries
   `homeBaseURL`; the Away URL is never sent and the watch never probes or switches routes.
+- All watch device operations — mint, device-list reconciliation, revoke and automatic recovery —
+  use a dedicated session pinned to `homeBaseURL`, carrying the phone's existing bearer token and
+  device id. They never use the phone's active Away route; an unreachable Home fails the watch
+  operation instead of minting against Away.
 - `configVersion` is a phone-local monotonic integer, independent of `credentialEpoch`. Saving a new
   home address or changing the reachability preference that selects it increments it.
+- The acknowledgement carries `homeBaseURL` so the phone can verify that the watch applied the
+  desired Home address, not merely a matching version number. If the watch reports a version above
+  the phone's desired version, or a different Home URL at the same version, the phone raises its
+  desired version above the observed one and sends one config-only context. This re-baselining is
+  bounded, never lowers the watch's version, does not change the credential epoch, and does not
+  re-send the token.
 - The watch accepts a newer `configVersion` only when it has **no active session and an empty
   outbox**. Applying a new base URL while queued operations exist would leave them pointing at the
   old server, where their idempotency receipts live; the watch therefore defers the change.
@@ -503,7 +555,7 @@ next foreground refresh.
 |---|---|
 | `POST /api/ios/v1/devices/watch` | New. Phone-authenticated; revokes the previous watch, mints a new epoch, returns the token once. |
 | `GET /api/ios/v1/devices` | New. Lists devices with kind, label, epoch, created/last-seen/revoked. |
-| `DELETE /api/ios/v1/devices/{device_id}` | New. Revokes the watch from phone or itself. |
+| `DELETE /api/ios/v1/devices/{device_id}` | New. Revokes the watch from phone or itself. Revoking a phone also revokes its active child watch and returns `revoked_watch_ids`. |
 | `POST /api/ios/v1/prescriptions` | Accepts `execution_target` (`phone` or `watch`); for `watch` resolves the phone's active watch into `target_device_id` and returns `409 watch_not_paired` when there is none. Absent means `phone` for older clients. |
 | `GET /api/ios/v1/plans/current` | Returns `execution_target`; matches the requester or the target so the watch can see a phone-requested plan. |
 | `POST /api/ios/v1/workouts` | Rejects a start unless the caller is the target and its kind matches, with `409 wrong_execution_target`; sets `owner_device_id`, `plan_revision = 0` and `last_activity_at`; response includes them. |
