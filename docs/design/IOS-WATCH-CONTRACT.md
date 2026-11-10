@@ -122,8 +122,9 @@ Each stage is a separate, reviewable change; the iPhone suite must be green at e
    plan edit, recovery reconciliation. Each slice introduces a value-type state and an effect enum,
    moves one operation, and changes no view. `AppModel` remains the `ObservableObject` adapter
    that publishes state and executes effects.
-5. **S5 — Watch target.** The watch app adds its own `WatchSessionModel` around the same core;
-   no iPhone source changes.
+5. **S5 — Watch target (moved to 6.2).** Creating the embedded watch app target, scheme,
+   deployment target, Info.plist and CI job belongs to 6.2, where credentials and plan fetch give
+   it a purpose. It is not part of the 6.0 core extraction.
 
 ### 6.4 Acceptance
 
@@ -133,7 +134,8 @@ Each stage is a separate, reviewable change; the iPhone suite must be green at e
 - S4 slices additionally prove parity for the moved operation: success, retry, conflict and
   offline paths; if parity cannot be demonstrated, revert that slice only.
 - The extraction is complete when the iPhone app no longer owns models, networking, journal or
-  session transitions, and the watch target compiles against the same core.
+  session transitions, and the package builds for iOS 27.0 and watchOS 27.0. The watch target
+  itself is 6.2.
 
 ### 6.5 What not to do
 

@@ -265,18 +265,20 @@ on boundaries and per-stage acceptance.
 
 **Work packages.**
 
-1. **6.0 StrengthCore extraction (iOS first).** Execute S1–S5 from the contract; parity is proved
-   per stage and a slice that cannot prove it is reverted. Acceptance: the same iPhone tests pass
-   with the same count, no view changes, and the package builds for iOS 27.0 and watchOS 27.0.
+1. **6.0 StrengthCore extraction (iOS first).** Execute S1–S4 from the contract; parity is proved
+   per stage and a slice that cannot prove it is reverted. Acceptance: the existing iPhone tests
+   stay green, new engine tests are added, no view changes, and the package builds for iOS 27.0 and
+   watchOS 27.0. S5 (the watch target) is 6.2.
 2. **6.1 Server contract.** `0058_watch_companion.sql` with watch kind, parent, monotonic
    `credential_epoch`, the one-active-watch index and `execution_target` on issued plans;
    mint/list/revoke; target enforcement (`409 wrong_execution_target`) in start and
    `plans/current`; `owner_device_id` and takeover; `plan_revision`; `plan_item_mismatch`;
    `last_activity_at`; idle warning and 24h lazy abandonment; `issued_plan_ttl_seconds` 14400;
    `watch_enabled`; tests.
-3. **6.2 Watch shell and credentials.** Watch target and scheme; WatchConnectivity handoff as
-   state with epoch, `configVersion` and `homeBaseURL`, acknowledgement, bounded foreground retry,
-   401/revocation recovery; no Home/Away switching; plan fetch and a read-only Today.
+3. **6.2 Watch shell and credentials.** Create the embedded watch target and scheme (S5), then
+   the WatchConnectivity handoff as state with epoch, `configVersion` and `homeBaseURL`,
+   acknowledgement, bounded foreground retry, 401/revocation recovery; no Home/Away switching;
+   plan fetch and a read-only Today.
 4. **6.3 Execution lifecycle.** HK-session-anchored state machine, persist-first set capture, rest
    timer persistence, offline-first network policy with partial flushes and 5s/15s/60s/5min backoff,
    finish queue and foreground retry, dim/background/termination/relaunch behaviour, and execution
