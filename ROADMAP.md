@@ -1758,7 +1758,7 @@ offline-first with partial flushes and backoff, preserved timestamps, and an off
 syncs by foreground retry or on next open. An HKWorkoutSession anchors the app's lifetime; a
 replayed set whose plan item changed is preserved as off-plan rather than dropped, plan edits
 propagate by revision, and forgotten sessions are idle-abandoned. Shared code has been extracted into
-`StrengthCore` in four staged, behaviour-preserving moves (S1–S4 complete 2026-11-10; 164 iOS tests);
+`StrengthCore` in four staged, behaviour-preserving moves (S1–S4 complete 2026-11-10; 172 iOS tests);
 the watch target is 6.2a. Contract:
 [`docs/design/IOS-WATCH-CONTRACT.md`](docs/design/IOS-WATCH-CONTRACT.md). Offline start (the
 pending-session shell) and the “Send to iPhone” relay are deferred. 6.0, 6.1, 6.2a, 6.2b and 6.2c
