@@ -246,6 +246,36 @@ def test_readiness_write_replays_without_a_second_manual_entry(ios):
     assert body["sleep"] == 4.0
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("hrv_ms", -1),
+        ("hrv_ms", 0),
+        ("hrv_ms", "nan"),
+        ("rhr_bpm", 0),
+        ("rhr_bpm", "inf"),
+        ("bodyweight_kg", -1),
+        ("bodyweight_kg", "nan"),
+        ("wearable_score", 101),
+        ("wearable_score", "-inf"),
+    ],
+)
+def test_readiness_write_rejects_invalid_optional_device_values(ios, field, value):
+    token, _ = _paired(ios)
+    payload = {
+        "values": {
+            "sleep": 4, "energy": 4, "mood": 4, "soreness": 2, "stress": 3,
+            field: value,
+        },
+    }
+    status, body = _request(
+        ios["base"], "/api/ios/v1/readiness", method="POST",
+        payload=payload, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 400, body
+    assert field in body.get("fields", {}), body
+
+
 def _healthkit_sample(field="hrv_ms", value=55.0, *, sample_id=None, sample_at=None,
                       source_name="Apple Watch", source_class="apple_watch",
                       source_model="Watch6,18", source_manufacturer="Apple Inc."):

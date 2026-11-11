@@ -41,6 +41,7 @@ from strength_coach.prescribe.models import (
 from strength_coach.rules import RuleContext, load_document, registry
 from strength_coach.store import db, queries, repositories
 from strength_coach.utils import exercises
+from strength_coach.utils import readiness as readiness_utils
 
 REQUIRED_READINESS = ("sleep", "energy", "mood", "soreness", "stress")
 OPTIONAL_READINESS = ("hrv_ms", "rhr_bpm", "bodyweight_kg", "wearable_score")
@@ -80,8 +81,13 @@ def validate_readiness(values: Mapping[str, Any], *,
         clean[key] = number
     for key in OPTIONAL_READINESS:
         value = values.get(key)
-        if value not in (None, ""):
-            clean[key] = float(value)
+        if value in (None, ""):
+            continue
+        try:
+            readiness_utils.validate(key, value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"readiness.{key}: {exc}") from None
+        clean[key] = float(value)
     return clean
 
 
