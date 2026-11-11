@@ -7,3 +7,7 @@ enabled: true
 percents: [0.50, 0.70, 0.85]
 reps: [5, 3, 2]
 apply_to_essential: true
+# A first set on the empty bar, capped at the 50% rung so a light working load never gets a
+# heavier bar set. 20 kg is a standard Olympic bar; set bar_kg to 0 to omit the extra set.
+bar_kg: 20.0
+bar_reps: 10

@@ -1383,6 +1383,7 @@ def test_workout_start_active_and_end(server):
     })
     assert len(added["workout"]["sets"]) == 1
     assert added["workout"]["sets"][0]["prescription_item_index"] == item_index
+    assert added["workout"]["sets"][0]["plan_item_index"] == item_index
 
     ended = post(server, f"/api/workout/{workout_id}/end", {
         "session_rpe": 7, "duration_min": 50,

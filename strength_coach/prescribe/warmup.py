@@ -23,6 +23,10 @@ class WarmupConfig:
     percents: tuple[float, ...] = (0.50, 0.70, 0.85)
     reps: tuple[int, ...] = (5, 3, 2)
     apply_to_essential: bool = True
+    # A first set on the empty bar, capped at the first percentage rung so a light working
+    # load never prescribes a bar set heavier than the ramp. Zero disables the extra set.
+    bar_kg: float = 20.0
+    bar_reps: int = 10
     source_path: Path = Path()
 
     @classmethod
@@ -35,11 +39,17 @@ class WarmupConfig:
             raise ValueError("warmup percents and reps must have the same length")
         if any(not 0 < p < 1 for p in percents) or any(r <= 0 for r in reps):
             raise ValueError("warmup percents must be in (0, 1) and reps positive")
+        bar_kg = float(raw.get("bar_kg", 20.0))
+        bar_reps = int(raw.get("bar_reps", 10))
+        if bar_kg < 0 or bar_reps <= 0:
+            raise ValueError("warmup bar weight must be non-negative and bar reps positive")
         return cls(
             enabled=bool(raw.get("enabled", True)),
             percents=percents,
             reps=reps,
             apply_to_essential=bool(raw.get("apply_to_essential", True)),
+            bar_kg=bar_kg,
+            bar_reps=bar_reps,
             source_path=source,
         )
 
@@ -67,6 +77,18 @@ def for_item(
                 reference_load * percent, item.rounding_increment_kg
             ),
         ))
+    if cfg.bar_kg > 0 and out:
+        bar_load = loads.round_down(
+            min(cfg.bar_kg, out[0].load_kg), item.rounding_increment_kg
+        )
+        # A bar set at the same load as the first rung adds nothing, and a bar at or above
+        # the working load is not a warm-up.
+        if 0 < bar_load < reference_load and bar_load < out[0].load_kg:
+            out.insert(0, WarmupSet(
+                percent=round(bar_load / reference_load, 3),
+                reps=cfg.bar_reps,
+                load_kg=bar_load,
+            ))
     return tuple(out)
 
 

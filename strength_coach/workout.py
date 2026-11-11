@@ -185,6 +185,11 @@ def get(conn, workout_id: str) -> dict | None:
     data["readiness"] = json.loads(data.pop("readiness_json"))
     data["sets"] = _sets(conn, workout_id)
     data["forms"] = _form_ratings(conn, workout_id)
+    # The API names the stable plan-item identity plan_item_index; the stored column is
+    # prescription_item_index. Expose both so existing web consumers keep the column name and
+    # the iOS client can decode the documented API field.
+    for row in data["sets"]:
+        row.setdefault("plan_item_index", row.get("prescription_item_index"))
     rep_state = _current_reps(conn, workout_id)
     for row in data["sets"]:
         detail = rep_state.get(int(row["set_id"]))

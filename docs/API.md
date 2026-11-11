@@ -147,6 +147,10 @@ in the StrengthApp repository.
 | `GET /api/ios/v1/workouts/<id>/execution` | bearer | read-only execution timeline and derived metrics; empty event coverage is valid and historical workouts are never backfilled |
 | `GET /api/history/<id>/execution` | none (local web UI) | the same read-only execution payload for a completed workout, keyed by session/workout id; imported sessions without a workout row are 404 |
 
+Workout-detail sets carry the stable plan-item identity as both `plan_item_index` (the API field)
+and `prescription_item_index` (the stored column name kept for existing web consumers). An
+unattributed set has neither.
+
 - **Pairing is CLI-only.** `strength-coach ios pair [--label LABEL] [--ttl 300]` prints a
   one-use 8-digit code (spaces/hyphens are ignored by the exchange); the default TTL is 300
   seconds and the accepted range is 60-3600. `ios devices` lists devices and `ios revoke`

@@ -24,6 +24,9 @@ from strength_coach.prescribe import (
     loads,
     validate_references,
 )
+from strength_coach.prescribe import (
+    warmup as warmup_mod,
+)
 from strength_coach.rules import RuleContext
 from strength_coach.store import db, importer
 
@@ -622,11 +625,34 @@ def test_main_lifts_carry_a_standardised_warmup_ramp():
             store.connection, for_date="2024-01-15", session_type="hinge",
         )
     main = next(item for item in prescription.items if item.essential and item.load_kg)
-    assert [w.percent for w in main.warmup] == [0.50, 0.70, 0.85]
-    assert [w.reps for w in main.warmup] == [5, 3, 2]
+    assert main.warmup[0].load_kg == 20.0
+    assert [w.percent for w in main.warmup[1:]] == [0.50, 0.70, 0.85]
+    assert [w.reps for w in main.warmup] == [10, 5, 3, 2]
     assert all(0 < w.load_kg <= main.load_kg for w in main.warmup)
     accessory = next(item for item in prescription.items if not item.essential)
     assert accessory.warmup == ()
+
+
+def test_empty_bar_rung_is_capped_deduplicated_and_disableable():
+    with store_with(BASE_HISTORY) as store:
+        prescription = build_prescription(
+            store.connection, for_date="2024-01-15", session_type="hinge",
+        )
+    main = next(item for item in prescription.items if item.essential and item.load_kg)
+    config = warmup_mod.WarmupConfig(
+        percents=(0.50, 0.70, 0.85), reps=(5, 3, 2), bar_kg=20.0, bar_reps=10,
+    )
+    heavy = replace(main, load_kg=100.0, rounding_increment_kg=2.5, warmup=())
+    heavy_ramps = warmup_mod.for_item(heavy, config)
+    assert [w.load_kg for w in heavy_ramps] == [20.0, 50.0, 70.0, 85.0]
+    assert [w.reps for w in heavy_ramps] == [10, 5, 3, 2]
+
+    light = replace(heavy, load_kg=30.0)
+    light_ramps = warmup_mod.for_item(light, config)
+    assert light_ramps[0].load_kg == 15.0
+    assert len(light_ramps) == 3
+
+    assert len(warmup_mod.for_item(heavy, replace(config, bar_kg=0.0))) == 3
 
 
 def test_minimum_session_is_optional_volume_only_and_keeps_main_lifts_by_default():
