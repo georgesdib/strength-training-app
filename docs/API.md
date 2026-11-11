@@ -149,7 +149,7 @@ in the StrengthApp repository.
 
 Workout-detail sets carry the stable plan-item identity as both `plan_item_index` (the API field)
 and `prescription_item_index` (the stored column name kept for existing web consumers). An
-unattributed set has neither.
+unattributed set has both as null.
 
 - **Pairing is CLI-only.** `strength-coach ios pair [--label LABEL] [--ttl 300]` prints a
   one-use 8-digit code (spaces/hyphens are ignored by the exchange); the default TTL is 300
