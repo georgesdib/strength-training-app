@@ -12,7 +12,7 @@
 # receipt_retention_days bounds the idempotency receipts used for safe retries.
 # watch_enabled gates minting a watch device; existing watch credentials are revoked explicitly.
 mutations_enabled: true
-watch_enabled: false
+watch_enabled: true
 issued_plan_ttl_seconds: 14400
 plan_request_ttl_seconds: 900
 receipt_retention_days: 30

@@ -1483,6 +1483,9 @@ def _cmd_ios(args) -> int:
                 print(f"already revoked: {result['device_id']} ({result['revoked_at']})")
             else:
                 print(f"revoked: {result['device_id']} ({result['revoked_at']})")
+            revoked_watches = result.get("revoked_watch_ids") or []
+            if revoked_watches:
+                print("revoked watches: " + ", ".join(revoked_watches))
             return 0
         print("unknown ios action")
         return 2

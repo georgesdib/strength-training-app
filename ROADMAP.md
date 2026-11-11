@@ -1745,7 +1745,7 @@ prescription/start, plan editing and HealthKit remain online-only. No server que
 Contract: [`https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-PHASE-4-CONTRACT.md`](https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-PHASE-4-CONTRACT.md).
 Physical offline acceptance was owner-confirmed at closure on 2026-11-08.
 
-### 4.32 Phase 6 — watchOS companion (6.0–6.1 complete; 6.2+ not started)
+### 4.32 Phase 6 — watchOS companion (Phase 6.2 closed 2026-11-10; 6.3+ pending)
 
 The phone remains the planner; the watch becomes the execution client for a plan requested with an
 explicit `execution_target` (`phone` or `watch`): fetch, start, log sets/rest/forms, finish with
@@ -1758,11 +1758,12 @@ offline-first with partial flushes and backoff, preserved timestamps, and an off
 syncs by foreground retry or on next open. An HKWorkoutSession anchors the app's lifetime; a
 replayed set whose plan item changed is preserved as off-plan rather than dropped, plan edits
 propagate by revision, and forgotten sessions are idle-abandoned. Shared code has been extracted into
-`StrengthCore` in four staged, behaviour-preserving moves (S1–S4 complete 2026-11-10; 107 tests);
-the watch target itself starts 6.2. Contract:
-[`https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-WATCH-CONTRACT.md`](https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-WATCH-CONTRACT.md). Offline start (the
-pending-session shell) and the “Send to iPhone” relay are deferred. 6.0 and the 6.1 server contract
-are implemented; 6.2 and later need a separate go-ahead.
+`StrengthCore` in four staged, behaviour-preserving moves (S1–S4 complete 2026-11-10; 172 iOS tests);
+the watch target is 6.2a. Contract:
+[`IOS-WATCH-CONTRACT.md`](https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-WATCH-CONTRACT.md). Offline start (the
+pending-session shell) and the “Send to iPhone” relay are deferred. 6.0, 6.1, 6.2a, 6.2b and 6.2c
+are implemented (watch target, credential handoff, mint/list/revoke, the phone-revocation watch
+cascade, and the read-only watch Today); 6.3 and later need a separate go-ahead.
 
 ## 5. Known gaps and risks
 

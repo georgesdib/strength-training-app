@@ -8,7 +8,7 @@ from __future__ import annotations
 import pytest
 from test_ios_api import _one, _paired, _request, ios  # noqa: F401
 
-from strength_coach import ios_config
+from strength_coach import cli, ios_config
 from strength_coach.store import db, ios_devices
 
 
@@ -72,13 +72,14 @@ def test_only_a_phone_can_mint_and_only_one_active_watch(tmp_path):
         conn.close()
 
 
-def test_minting_is_disabled_by_default(ios):
+def test_minting_is_enabled_by_default(ios):
     token, _ = _paired(ios)
     status, body = _request(
         ios["base"], "/api/ios/v1/devices/watch", method="POST", payload={"label": "Watch"},
         token=token,
     )
-    assert status == 503
+    assert status == 201, body
+    assert body["device"]["kind"] == "watch"
 
 
 def test_phone_mints_lists_and_revokes_a_watch(ios, monkeypatch):
@@ -113,6 +114,115 @@ def test_phone_mints_lists_and_revokes_a_watch(ios, monkeypatch):
         ios["base"], "/api/ios/v1/devices", token=watch_token,
     )
     assert status == 403
+
+
+def test_revoking_the_phone_revokes_its_active_child_watch(ios, monkeypatch):
+    _enabled(monkeypatch)
+    token, phone = _paired(ios)
+    _, minted = _request(
+        ios["base"], "/api/ios/v1/devices/watch", method="POST", payload={"label": "Watch"},
+        token=token,
+    )
+    watch_id = minted["device"]["device_id"]
+
+    status, revoked = _request(
+        ios["base"], f"/api/ios/v1/devices/{phone['device_id']}", method="DELETE", token=token,
+    )
+    assert status == 200, revoked
+    assert revoked["revoked_watch_ids"] == [watch_id]
+
+    watch_row = _one(
+        ios["path"],
+        "SELECT revoked_at FROM ios_device WHERE device_id = ?",
+        (watch_id,),
+    )
+    assert watch_row["revoked_at"] is not None
+    status, _ = _request(ios["base"], "/api/ios/v1/devices", token=minted["token"])
+    assert status == 403
+
+
+def test_phone_revocation_is_idempotent_and_watch_revoke_does_not_revoke_phone(
+    ios, monkeypatch
+):
+    _enabled(monkeypatch)
+    token, phone = _paired(ios)
+    _, minted = _request(
+        ios["base"], "/api/ios/v1/devices/watch", method="POST", payload={"label": "Watch"},
+        token=token,
+    )
+    watch_id = minted["device"]["device_id"]
+
+    first = _request(
+        ios["base"], f"/api/ios/v1/devices/{phone['device_id']}", method="DELETE", token=token,
+    )
+    assert first[0] == 200
+    assert first[1]["revoked_watch_ids"] == [watch_id]
+
+    # Revoking the watch itself leaves the phone usable and active.
+    token2, phone2 = _paired(ios)
+    _, minted2 = _request(
+        ios["base"], "/api/ios/v1/devices/watch", method="POST", payload={"label": "Watch 2"},
+        token=token2,
+    )
+    status, _ = _request(
+        ios["base"], f"/api/ios/v1/devices/{minted2['device']['device_id']}",
+        method="DELETE", token=token2,
+    )
+    assert status == 200
+    status, devices = _request(ios["base"], "/api/ios/v1/devices", token=token2)
+    assert status == 200
+    assert phone2["device_id"] in {d["device_id"] for d in devices["devices"]}
+
+
+def test_cross_parent_watch_revocation_is_rejected(ios, monkeypatch):
+    _enabled(monkeypatch)
+    token_a, _ = _paired(ios)
+    _, watch_a = _request(
+        ios["base"], "/api/ios/v1/devices/watch", method="POST", payload={"label": "A"},
+        token=token_a,
+    )
+    token_b, _ = _paired(ios)
+    _, watch_b = _request(
+        ios["base"], "/api/ios/v1/devices/watch", method="POST", payload={"label": "B"},
+        token=token_b,
+    )
+    status, _ = _request(
+        ios["base"], f"/api/ios/v1/devices/{watch_b['device']['device_id']}",
+        method="DELETE", token=token_a,
+    )
+    assert status == 403
+    assert _one(
+        ios["path"], "SELECT revoked_at FROM ios_device WHERE device_id = ?",
+        (watch_b["device"]["device_id"],),
+    )["revoked_at"] is None
+
+
+def test_cli_phone_revocation_reports_cascaded_watch(tmp_path, capsys):
+    path = tmp_path / "cli-watch.db"
+    store = db.Store(path)
+    try:
+        minted = ios_devices.mint_pairing_code(store.connection, ttl_seconds=300)
+        phone = ios_devices.pair(
+            store.connection, code=minted["code"], label="iPhone",
+        )
+        watch = ios_devices.mint_watch(
+            store.connection, parent_device_id=phone["device"]["device_id"], label="Watch",
+        )
+    finally:
+        store.close()
+
+    assert cli.main([
+        "--db", str(path), "ios", "revoke", phone["device"]["device_id"],
+    ]) == 0
+    out = capsys.readouterr().out
+    assert "revoked watches:" in out
+    assert watch["device"]["device_id"] in out
+
+    assert cli.main([
+        "--db", str(path), "ios", "revoke", phone["device"]["device_id"],
+    ]) == 0
+    out = capsys.readouterr().out
+    assert "already revoked:" in out
 
 
 def test_a_watch_cannot_mint_or_revoke_the_phone(ios, monkeypatch):
