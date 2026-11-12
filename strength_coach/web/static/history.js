@@ -512,6 +512,7 @@ function openHistoryDetails(sessionId) {
         "<th>Note</th></tr></thead><tbody>" + forms + "</tbody></table>" +
         "<p class='muted'>Optional self-assessment; rubric input only, never a load or set.</p>" : "") +
       attributionBlock +
+      renderHistoryAdherence(data.adherence) +
       "<h3>Execution</h3><div id='history-execution' class='execution-panel'>" +
       "<p class='muted'>Loading recorded execution…</p></div>" +
       "<h3>Exercises and sets</h3>" +

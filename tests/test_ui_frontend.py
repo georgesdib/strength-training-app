@@ -141,6 +141,8 @@ def test_script_load_order() -> None:
     order = [src.removeprefix("/static/")
              for src in re.findall(r'<script src="([^"]+)"', page)]
     assert order.index("core.js") == 0
+    assert order.index("core.js") < order.index("adherence.js")
+    assert order.index("adherence.js") < order.index("history.js")
     assert order.index("settings.js") < order.index("app.js")
     assert order.index("app.js") < order.index("history.js")
     assert order.index("app.js") < order.index("workout.js")
@@ -1491,3 +1493,386 @@ def test_exercise_views_are_grouped_and_add_edit_share_one_dialog() -> None:
     analytics_start = page.index('<section class="exercise-trends"', config_form_end)
     assert config_form_end < analytics_start
     assert 'exerciseHistoryAnalyticsCharts' in exercises
+
+
+def test_history_adherence_renders_targets_unmatched_work_and_unavailable_states() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+
+    def metric(numerator: int, denominator: int, **extra) -> dict:
+        return {
+            "numerator": numerator,
+            "denominator": denominator,
+            "ratio": round(numerator / denominator, 4) if denominator else None,
+            **extra,
+        }
+
+    def evaluation(sets: int, attained: int, **extra) -> dict:
+        return {
+            "evaluated_sets": sets,
+            "unavailable_sets": 0,
+            "attainment": metric(attained, sets),
+            **extra,
+        }
+
+    def set_row(set_id: int, index: int, **overrides) -> dict:
+        row = {
+            "set_id": set_id, "set_index": index, "exercise_id": "trap_bar_deadlift",
+            "set_role": None, "matched": index <= 2, "extra": index > 2,
+            "included_in_attainment": index <= 2,
+            "reps_actual": 5, "reps_target_low": 3, "reps_target_high": 5,
+            "reps_status": "within", "reps_unit": "reps",
+            "load_actual_kg": 100.0, "load_actual_external_kg": 100.0,
+            "load_target_kg": 100.0, "load_tolerance_kg": 2.5,
+            "load_deviation_kg": 0.0, "load_deviation_pct": 0.0,
+            "load_status": "at_target",
+            "rir_actual": 2, "rir_target": 2, "rir_deviation": 0,
+            "rir_status": "at_target", "limitations": [],
+        }
+        row.update(overrides)
+        return row
+
+    def view(**overrides) -> dict:
+        value = {
+            "view": "original", "status": "available", "reason": None,
+            "prescribed_sets": 3, "performed_sets": 3, "matched_sets": 2,
+            "missing_sets": 1, "extra_sets": 1, "unattributable_planned_sets": 0,
+            "warm_up_sets_excluded": 1,
+            "set_completion": metric(2, 3),
+            "reps": evaluation(2, 1, within_target=1, below_target=1, above_target=0,
+                               mean_actual_reps=4.5, common_target_low=3,
+                               common_target_high=5, unit="reps"),
+            "load": evaluation(2, 1, at_target=1, below_target=1, above_target=0,
+                               mean_absolute_deviation_kg=2.5,
+                               max_absolute_deviation_kg=5.0,
+                               mean_relative_deviation_pct=-2.5,
+                               common_target_kg=100.0, unit="kg"),
+            "rir": evaluation(2, 1, at_target=1, above_target=1, below_target=0,
+                              mean_deviation=1.0, tolerance=1,
+                              sign="positive = actual RIR above target"),
+            "exercises": [{
+                "plan_item_index": 0, "position": 0,
+                "exercise_id": "trap_bar_deadlift",
+                "exercise_name": "Trap-Bar <script>",
+                "planned_sets": 3, "attributable": True, "status": "under",
+                "attribution": "matched", "prescribed_sets": 3, "performed_sets": 3,
+                "matched_sets": 2, "missing_sets": 1, "extra_sets": 1,
+                "unattributable_planned_sets": 0, "warm_up_sets_excluded": 1,
+                "set_completion": metric(2, 3),
+                "reps": evaluation(2, 1), "load": evaluation(2, 1),
+                "rir": evaluation(2, 1),
+                "sets": [
+                    set_row(1, 1, set_role="top_set"),
+                    set_row(2, 2, reps_actual=4, reps_status="below",
+                            load_actual_kg=95.0, load_actual_external_kg=95.0,
+                            load_deviation_kg=-5.0, load_deviation_pct=-5.0,
+                            load_status="below", rir_actual=4, rir_deviation=2,
+                            rir_status="above"),
+                    set_row(3, 3, load_actual_external_kg=None,
+                            load_target_kg=100.0, load_deviation_kg=None,
+                            load_deviation_pct=None, load_status="unavailable",
+                            rir_status="unavailable", rir_deviation=None,
+                            limitations=["actual_load_includes_bodyweight"]),
+                ],
+                "limitations": ["actual_load_includes_bodyweight"],
+            }, {
+                "plan_item_index": 1, "position": 1,
+                "exercise_id": "conventional_deadlift",
+                "exercise_name": "Conventional Deadlift",
+                "planned_sets": 2, "attributable": False, "status": "unavailable",
+                "attribution": "unavailable", "prescribed_sets": 0, "performed_sets": 0,
+                "matched_sets": 0, "missing_sets": 0, "extra_sets": 0,
+                "unattributable_planned_sets": 2, "warm_up_sets_excluded": 0,
+                "set_completion": metric(0, 0), "reps": evaluation(0, 0),
+                "load": evaluation(0, 0), "rir": evaluation(0, 0),
+                "sets": [], "limitations": ["swapped_exercise"],
+            }],
+            "quality": {
+                "unmatched_sets": 1, "ambiguous_attribution": 0,
+                "mismatched_attribution": 0, "stale_attribution": 0,
+                "added_exercise_sets": 0, "removed_exercise_sets": 1,
+                "unattributable_items": 1,
+                "unavailable_metrics": ["actual_load_includes_bodyweight"],
+                "unmatched": [{
+                    "set_id": 9, "set_index": 4, "exercise_id": "trap_bar_deadlift",
+                    "reps": 5, "load_kg": 100, "rir": 2,
+                    "reason": "removed_from_final_plan",
+                }],
+            },
+        }
+        value.update(overrides)
+        return value
+
+    payload = {
+        "version": 1, "status": "available", "reason": None,
+        "original": view(),
+        "final_plan": view(
+            view="final_plan", prescribed_sets=2, matched_sets=2, missing_sets=0,
+            extra_sets=1, set_completion=metric(2, 2),
+        ),
+        "changes": {
+            "swapped": [], "added": [], "removed": [],
+            "set_count_changed": [{
+                "plan_item_index": 0, "exercise_id": "trap_bar_deadlift",
+                "from_sets": 3, "to_sets": 2,
+            }],
+            "targets_changed": [],
+        },
+        "quality": {
+            "plan_modified": True, "legacy_plan_without_order_index": False,
+            "warm_up_sets_excluded": 1, "ambiguous_status_sets": 0,
+            "sets_without_rir": 0,
+            "unmatched_sets": {"original": 1, "final_plan": 0},
+            "ambiguous_attribution": {"original": 0, "final_plan": 0},
+            "unattributable_planned_sets": {"original": 0, "final_plan": 0},
+            "unavailable_metrics": ["actual_load_includes_bodyweight"],
+        },
+        "definitions": {},
+    }
+
+    script = r"""
+global.esc = function (value) {
+  return String(value == null ? "" : value).replace(/[&<>"']/g, function (c) {
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+  });
+};
+global.fmt = function (value, digits) {
+  if (value == null || value === "") return "—";
+  return Number(value).toFixed(digits == null ? 1 : digits).replace(/.0+$/, "");
+};
+eval(SOURCE);
+var payload = PAYLOAD;
+var html = renderHistoryAdherence(payload);
+function need(text) { if (html.indexOf(text) < 0) throw new Error("missing: " + text); }
+need("Prescription adherence");
+need("Original prescription");
+need("Final modified prescription");
+need("Set completion");
+need("2 / 3 (66.7%)");
+need("Target attainment");
+need("Exercise breakdown");
+need("within target");
+need("below target");
+need("above target");
+need("at target");
+need("extra");
+need("Trap-Bar &lt;script&gt;");
+if (html.indexOf("<script>") >= 0) throw new Error("exercise name was not escaped");
+need("The actual load includes bodyweight, so the added plate is unknown.");
+need("removed from the final plan");
+need("Set count for trap_bar_deadlift: 3 → 2");
+need("Warm-up sets excluded: 1");
+need("swapped during the workout");
+need("RIR deviation is actual minus target");
+need("aria-label='Target attainment");
+need("scope='col'");
+
+var empty = JSON.parse(JSON.stringify(payload));
+empty.original.exercises = [];
+empty.original.quality.unmatched = [];
+empty.quality.plan_modified = false;
+html = renderHistoryAdherence(empty);
+if (html.indexOf("No prescribed exercises.") < 0) throw new Error("empty exercises");
+if (html.indexOf("No unmatched working sets.") < 0) throw new Error("empty unmatched");
+if (html.indexOf("Final plan was not modified during the workout.") < 0)
+  throw new Error("unmodified copy");
+
+html = renderHistoryAdherence({version: 1, status: "unavailable",
+  reason: "no_prescription_snapshot"});
+if (html.indexOf("Prescription adherence is unavailable") < 0) throw new Error("unavailable");
+if (html.indexOf("No frozen prescription snapshot exists") < 0)
+  throw new Error("unavailable reason");
+html = renderHistoryAdherence(null);
+if (html.indexOf("Adherence data is unavailable for this session.") < 0)
+  throw new Error("missing payload");
+"""
+    script = script.replace("SOURCE", json.dumps(
+        (STATIC / "adherence.js").read_text(encoding="utf-8")
+    )).replace("PAYLOAD", json.dumps(payload))
+    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+
+
+def test_progress_adherence_renders_denominators_charts_and_drilldown() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+
+    def metric(numerator: int, denominator: int) -> dict:
+        return {
+            "numerator": numerator,
+            "denominator": denominator,
+            "ratio": round(numerator / denominator, 4) if denominator else None,
+        }
+
+    def target(numerator: int, denominator: int) -> dict:
+        return {"attainment": metric(numerator, denominator)}
+
+    def period(key: str, start: str, end: str, workouts: int,
+               matched: int, prescribed: int, small: bool, has_data: bool = True) -> dict:
+        return {
+            "key": key, "label": key, "start": start, "end": end,
+            "workouts": workouts, "has_data": has_data, "small_sample": small,
+            "set_completion": metric(matched, prescribed),
+            "reps": target(matched, matched), "load": target(matched, matched),
+            "rir": target(matched, matched),
+        }
+
+    def exercise(exercise_id: str, name: str, matched: int, prescribed: int,
+                 small: bool = False) -> dict:
+        return {
+            "exercise_id": exercise_id, "exercise_name": name,
+            "workouts": 3, "prescribed_sets": prescribed,
+            "has_data": True, "small_sample": small,
+            "set_completion": metric(matched, prescribed),
+            "reps": target(matched, matched), "load": target(matched, matched),
+            "rir": target(matched, matched),
+        }
+
+    original_periods = [
+        period("2024-W01", "2024-01-01", "2024-01-07", 3, 16, 17, False),
+        period("2024-W02", "2024-01-08", "2024-01-14", 0, 0, 0, True, False),
+    ]
+    final_periods = [
+        period("2024-W01", "2024-01-01", "2024-01-07", 3, 17, 17, False),
+        period("2024-W02", "2024-01-08", "2024-01-14", 0, 0, 0, True, False),
+    ]
+    original = {
+        "workouts": 3, "prescribed_sets": 17, "matched_sets": 16,
+        "missing_sets": 1, "extra_sets": 0, "small_sample": False,
+        "set_completion": metric(16, 17),
+        "reps": target(16, 16), "load": target(16, 16), "rir": target(16, 16),
+        "periods": original_periods,
+        "exercises": [
+            exercise("trap_bar_deadlift", "Trap-Bar <script>", 16, 17),
+            exercise("competition_bench_press", "Bench Press", 0, 0, True),
+        ],
+    }
+    final = {
+        "workouts": 3, "prescribed_sets": 17, "matched_sets": 17,
+        "missing_sets": 0, "extra_sets": 0, "small_sample": False,
+        "set_completion": metric(17, 17),
+        "reps": target(17, 17), "load": target(17, 17), "rir": target(17, 17),
+        "periods": final_periods,
+        "exercises": [exercise("trap_bar_deadlift", "Trap-Bar <script>", 17, 17)],
+    }
+    workout_metric = {
+        "workouts": 1, "prescribed_sets": 3, "matched_sets": 2,
+        "missing_sets": 1, "extra_sets": 0, "small_sample": True,
+        "set_completion": metric(2, 3),
+        "reps": target(2, 2), "load": target(2, 2), "rir": target(2, 2),
+    }
+    payload = {
+        "version": 1, "status": "available", "reason": None,
+        "range": {"from": "2024-01-01", "to": "2024-01-31", "group_by": "week"},
+        "filters": {"exercise_id": None, "session_type": None,
+                    "exercises": [], "session_types": ["hinge"]},
+        "definitions": {
+            "aggregation": "summed numerators and denominators across workouts",
+            "small_sample": "fewer than three workouts or five prescribed sets",
+        },
+        "coverage": {
+            "workouts_in_range": 3, "workouts_analysed": 3,
+            "workouts_unavailable": 0, "workouts_voided": 1,
+            "workouts_without_session": 0, "invalid_plan_rows": 0,
+            "workouts_filtered_out": 0,
+            "excluded": [{"workout_id": "voided-id", "for_date": "2024-01-03",
+                          "reason": "session_voided"}],
+        },
+        "original": original, "final_plan": final,
+        "workouts": [{
+            "workout_id": "w1", "for_date": "2024-01-02", "session_type": "hinge",
+            "original": workout_metric, "final_plan": workout_metric,
+        }],
+    }
+
+    script = r"""
+global.esc = function (value) {
+  return String(value == null ? "" : value).replace(/[&<>"']/g, function (c) {
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+  });
+};
+global.fmt = function (value, digits) {
+  if (value == null || value === "") return "—";
+  return Number(value).toFixed(digits == null ? 1 : digits).replace(/.0+$/, "");
+};
+global.today = function () { return "2024-01-31"; };
+global.__panelClick = null;
+global.$ = function (selector) {
+  if (selector === "#progress-adherence")
+    return {addEventListener: function (type, handler) {
+      if (type === "click") global.__panelClick = handler;
+    }};
+  return null;
+};
+global.document = {addEventListener: function () {}};
+global.chartNumber = function (value, digits) {
+  return Number(value).toFixed(digits == null ? 1 : digits).replace(/.0+$/, "");
+};
+global.sessionLabel = function (value) { return String(value || ""); };
+global.api = function () { return Promise.resolve({}); };
+global.__charts = [];
+global.dateSeriesChart = function (spec) {
+  global.__charts.push(spec);
+  return "<div class='chart-stub'>" + spec.title + "</div>";
+};
+eval(ADHERENCE_SOURCE);
+eval(PROGRESS_SOURCE);
+const data = PAYLOAD;
+let html = progressAdherenceRender(data);
+function need(text) { if (html.indexOf(text) < 0) throw new Error("missing: " + text); }
+need("Set completion");
+need("Repetition attainment");
+need("Load attainment");
+need("RIR attainment");
+need("16 / 17 (94.1%)");
+need("17 / 17 (100%)");
+need("Periods and denominators");
+need("Exercise comparison");
+need("Workout drill-down");
+need("Definitions, coverage and exclusions");
+need("small sample");
+need("not prescribed");
+need("Trap-Bar &lt;script&gt;");
+need("data-progress-adherence-workout='w1'");
+need("This session is voided");
+if (html.indexOf("<script>") >= 0) throw new Error("exercise name was not escaped");
+
+if (global.__charts.length !== 4) throw new Error("expected four trend charts");
+if (global.__charts[0].series[0].points.length !== 1)
+  throw new Error("small-sample period was not omitted from the chart");
+if (global.__charts[0].series[0].points[0].value < 94 ||
+    global.__charts[0].series[0].points[0].value > 95)
+  throw new Error("set-completion point is not a summed ratio");
+if (global.__charts[0].note.indexOf("omitted") < 0)
+  throw new Error("chart note does not explain omitted periods");
+
+global.setView = function (name) { global.__view = name; };
+global.openHistoryDetails = function (id) { global.__opened = id; };
+global.__panelClick({target: {closest: function (selector) {
+  if (selector !== "[data-progress-adherence-workout]") return null;
+  return {getAttribute: function () { return "w1"; }};
+}}});
+if (global.__view !== "history" || global.__opened !== "w1")
+  throw new Error("drill-down did not open History");
+
+var empty = {status: "available", range: {from: "2024-01-01", to: "2024-01-31", group_by: "week"},
+  coverage: {workouts_analysed: 0, workouts_in_range: 0}, filters: {}, definitions: {},
+  original: {periods: []}, final_plan: {periods: []}};
+html = progressAdherenceRender(empty);
+if (html.indexOf("No completed app-tracked workouts") < 0)
+  throw new Error("empty state missing");
+html = progressAdherenceRender({status: "unavailable", reason: "no_prescription_snapshot"});
+if (html.indexOf("No frozen prescription snapshot exists") < 0)
+  throw new Error("unavailable state missing");
+"""
+    script = script.replace("ADHERENCE_SOURCE", json.dumps(
+        (STATIC / "adherence.js").read_text(encoding="utf-8")
+    )).replace("PROGRESS_SOURCE", json.dumps(
+        (STATIC / "progress.js").read_text(encoding="utf-8")
+    )).replace("PAYLOAD", json.dumps(payload))
+    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr

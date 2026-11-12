@@ -67,8 +67,8 @@ def get(base: str, path: str) -> tuple[int, str]:
 def client_js(base: str) -> str:
     """The whole client bundle, so a feature move does not break a string contract."""
     names = (
-        "core.js", "settings.js", "app.js", "exercises.js", "history.js", "workout.js",
-        "summary.js", "performance.js",
+        "core.js", "adherence.js", "settings.js", "app.js", "exercises.js", "history.js",
+        "workout.js", "summary.js", "performance.js",
     )
     parts = []
     for name in names:
@@ -2910,3 +2910,595 @@ def test_symptom_history_limit_order_and_all(server):
     assert all_history["shown"] == 12
     assert all_history["has_more"] is False
     assert [row["logged_on"] for row in all_history["entries"]] == list(reversed(days))
+
+
+def _strict_json(body: str):
+    """Browsers reject NaN/Infinity; make that contract explicit for the adherence payload."""
+    return json.loads(
+        body,
+        parse_constant=lambda token: (_ for _ in ()).throw(
+            ValueError(f"non-strict JSON constant: {token}")
+        ),
+    )
+
+
+def _adherence_readiness():
+    return {
+        "sleep": 4, "energy": 4, "mood": 4, "soreness": 2, "stress": 3,
+        "nutrition": 4, "hydration": 4,
+    }
+
+
+def test_completed_summary_and_history_expose_adherence(server):
+    plan = {
+        "for_date": "2024-01-02",
+        "session_type": "hinge",
+        "items": [
+            {"exercise_id": "trap_bar_deadlift", "sets": 3, "reps_low": 3,
+             "reps_high": 5, "load_kg": 100, "rir_target": 2},
+            {"exercise_id": "competition_bench_press", "sets": 2, "reps_low": 5,
+             "reps_high": 5, "load_kg": 80, "rir_target": 2},
+        ],
+    }
+    started = post(server, "/api/workout/start", {
+        "date": "2024-01-02", "plan": plan, "readiness": _adherence_readiness(),
+    })["workout"]
+    workout_id = started["workout_id"]
+    for reps in (5, 4, 6, 5):          # four trap-bar sets: three slots + one extra
+        post(server, f"/api/workout/{workout_id}/sets", {
+            "exercise_id": "trap_bar_deadlift", "load_kg": 100, "reps": reps, "rir": 2,
+        })
+    post(server, f"/api/workout/{workout_id}/sets", {
+        "exercise_id": "competition_bench_press", "load_kg": 80, "reps": 5, "rir": 3,
+    })
+    post(server, f"/api/workout/{workout_id}/end", {
+        "session_rpe": 7, "duration_min": 45, "productivity": 4,
+    })
+
+    status, body = get(server, f"/api/workout/{workout_id}/summary")
+    assert status == 200
+    summary = _strict_json(body)["summary"]
+    adherence = summary["adherence"]
+    assert adherence["version"] == 1
+    assert adherence["status"] == "available"
+    original = adherence["original"]
+    final = adherence["final_plan"]
+    for view in (original, final):
+        assert view["prescribed_sets"] == 5
+        assert view["performed_sets"] == 5
+        assert view["matched_sets"] == 4
+        assert view["missing_sets"] == 1
+        assert view["extra_sets"] == 1
+        assert view["set_completion"] == {
+            "numerator": 4, "denominator": 5, "ratio": 0.8,
+        }
+        for metric in (
+            view["set_completion"], view["reps"]["attainment"],
+            view["load"]["attainment"], view["rir"]["attainment"],
+        ):
+            assert set(metric) == {"numerator", "denominator", "ratio"}
+        assert len(view["exercises"]) == 2
+        assert view["exercises"][0]["sets"]
+        assert "reps_status" in view["exercises"][0]["sets"][0]
+        assert "load_deviation_kg" in view["exercises"][0]["sets"][0]
+        assert "rir_deviation" in view["exercises"][0]["sets"][0]
+    assert original["exercises"][0]["extra_sets"] == 1
+    assert summary["completion"]["planned_sets"] == 5
+    assert summary["feedback"]["duration_min"] == 45.0
+    assert summary["comparison"]["status"] == "unavailable"
+    assert summary["dose"]["per_exercise"]
+
+    status, body = get(server, f"/api/history/{workout_id}")
+    assert status == 200
+    detail = _strict_json(body)
+    assert detail["adherence"]["original"]["matched_sets"] == 4
+    assert detail["adherence"]["final_plan"]["matched_sets"] == 4
+    assert detail["adherence"]["original"]["exercises"][0]["sets"]
+    # Existing history fields remain present and unchanged.
+    assert detail["sets"]
+    assert "feedback" in detail and "forms" in detail
+    assert "workout_note" in detail
+
+
+def test_summary_adherence_keeps_original_and_modified_prescriptions_apart(server):
+    plan = {
+        "for_date": "2024-01-03",
+        "session_type": "hinge",
+        "items": [{
+            "exercise_id": "trap_bar_deadlift", "sets": 5, "reps_low": 3,
+            "reps_high": 5, "load_kg": 100, "rir_target": 2,
+        }],
+    }
+    started = post(server, "/api/workout/start", {
+        "date": "2024-01-03", "plan": plan, "readiness": _adherence_readiness(),
+    })["workout"]
+    workout_id = started["workout_id"]
+    post(server, f"/api/workout/{workout_id}/plan/set-count", {
+        "item_index": 0, "delta": -2,
+    })
+    for _ in range(3):
+        post(server, f"/api/workout/{workout_id}/sets", {
+            "exercise_id": "trap_bar_deadlift", "load_kg": 100, "reps": 5, "rir": 2,
+        })
+    post(server, f"/api/workout/{workout_id}/end", {
+        "session_rpe": 7, "duration_min": 40,
+    })
+
+    _, body = get(server, f"/api/workout/{workout_id}/summary")
+    adherence = _strict_json(body)["summary"]["adherence"]
+    assert adherence["original"]["prescribed_sets"] == 5
+    assert adherence["original"]["matched_sets"] == 3
+    assert adherence["original"]["missing_sets"] == 2
+    assert adherence["original"]["set_completion"]["ratio"] == 0.6
+    assert adherence["final_plan"]["prescribed_sets"] == 3
+    assert adherence["final_plan"]["matched_sets"] == 3
+    assert adherence["final_plan"]["missing_sets"] == 0
+    assert adherence["final_plan"]["set_completion"]["ratio"] == 1.0
+    assert adherence["changes"]["set_count_changed"] == [{
+        "plan_item_index": 0,
+        "exercise_id": "trap_bar_deadlift",
+        "from_sets": 5,
+        "to_sets": 3,
+    }]
+
+    _, body = get(server, f"/api/history/{workout_id}")
+    history_adherence = _strict_json(body)["adherence"]
+    assert history_adherence["original"]["prescribed_sets"] == 5
+    assert history_adherence["final_plan"]["prescribed_sets"] == 3
+
+
+def test_imported_history_session_reports_adherence_unavailable(server):
+    status, body = get(server, "/api/history/2024-01-01")
+    assert status == 200
+    detail = _strict_json(body)
+    adherence = detail["adherence"]
+    assert adherence["status"] == "unavailable"
+    assert adherence["reason"] == "no_prescription_snapshot"
+    for view in (adherence["original"], adherence["final_plan"]):
+        assert view["status"] == "unavailable"
+        assert view["reason"] == "no_prescription_snapshot"
+        assert view["set_completion"] == {
+            "numerator": 0, "denominator": 0, "ratio": None,
+        }
+        assert "no_prescription_snapshot" in view["quality"]["unavailable_metrics"]
+    assert detail["sets"]          # the imported actual sets still render
+
+
+def test_history_edit_updates_adherence_from_current_sets(server):
+    plan = {
+        "for_date": "2024-01-04",
+        "session_type": "hinge",
+        "items": [{
+            "exercise_id": "trap_bar_deadlift", "sets": 3, "reps_low": 3,
+            "reps_high": 5, "load_kg": 100, "rir_target": 2,
+        }],
+    }
+    started = post(server, "/api/workout/start", {
+        "date": "2024-01-04", "plan": plan, "readiness": _adherence_readiness(),
+    })["workout"]
+    workout_id = started["workout_id"]
+    for reps in (5, 4):
+        post(server, f"/api/workout/{workout_id}/sets", {
+            "exercise_id": "trap_bar_deadlift", "load_kg": 100, "reps": reps, "rir": 2,
+        })
+    post(server, f"/api/workout/{workout_id}/end", {
+        "session_rpe": 7, "duration_min": 40,
+    })
+
+    _, body = get(server, f"/api/history/{workout_id}")
+    detail = _strict_json(body)
+    assert detail["adherence"]["original"]["performed_sets"] == 2
+    assert detail["adherence"]["original"]["missing_sets"] == 1
+
+    first = detail["sets"][0]
+    edited = post(server, f"/api/history/{workout_id}/edit", {
+        "sets": [first], "reason": "keep one set",
+    })
+    assert edited["session"]["adherence"]["original"]["performed_sets"] == 1
+    assert edited["session"]["adherence"]["original"]["missing_sets"] == 2
+
+    _, body = get(server, f"/api/history/{workout_id}")
+    reread = _strict_json(body)
+    assert reread["adherence"]["original"]["matched_sets"] == 1
+    assert reread["adherence"]["original"]["missing_sets"] == 2
+
+    # The completed summary reads the same corrected leaf rows, not the live workout draft.
+    _, body = get(server, f"/api/workout/{workout_id}/summary")
+    summary = _strict_json(body)["summary"]
+    assert summary["adherence"]["original"]["matched_sets"] == 1
+    assert summary["adherence"]["original"]["missing_sets"] == 2
+
+
+def test_active_workout_does_not_expose_completed_adherence(server):
+    plan = {
+        "for_date": "2024-01-05",
+        "session_type": "hinge",
+        "items": [{
+            "exercise_id": "trap_bar_deadlift", "sets": 2, "reps_low": 3,
+            "reps_high": 5, "load_kg": 100, "rir_target": 2,
+        }],
+    }
+    started = post(server, "/api/workout/start", {
+        "date": "2024-01-05", "plan": plan, "readiness": _adherence_readiness(),
+    })["workout"]
+    workout_id = started["workout_id"]
+
+    _, body = get(server, f"/api/workout/{workout_id}")
+    detail = _strict_json(body)["workout"]
+    assert detail["status"] == "in_progress"
+    assert "adherence" not in detail
+
+    try:
+        get(server, f"/api/workout/{workout_id}/summary")
+    except urllib.error.HTTPError as exc:
+        assert exc.code == 409
+    else:
+        raise AssertionError("in-progress summary should be 409")
+
+
+def test_voided_session_adherence_is_explicitly_unavailable(server):
+    plan = {
+        "for_date": "2024-01-06",
+        "session_type": "hinge",
+        "items": [{
+            "exercise_id": "trap_bar_deadlift", "sets": 2, "reps_low": 3,
+            "reps_high": 5, "load_kg": 100, "rir_target": 2,
+        }],
+    }
+    started = post(server, "/api/workout/start", {
+        "date": "2024-01-06", "plan": plan, "readiness": _adherence_readiness(),
+    })["workout"]
+    workout_id = started["workout_id"]
+    post(server, f"/api/workout/{workout_id}/sets", {
+        "exercise_id": "trap_bar_deadlift", "load_kg": 100, "reps": 5, "rir": 2,
+    })
+    post(server, f"/api/workout/{workout_id}/end", {
+        "session_rpe": 7, "duration_min": 30,
+    })
+
+    voided = post(server, f"/api/history/{workout_id}/void", {"reason": "duplicate"})
+    assert voided["adherence"]["status"] == "unavailable"
+    assert voided["adherence"]["reason"] == "session_voided"
+
+    _, body = get(server, f"/api/workout/{workout_id}/summary")
+    summary = _strict_json(body)["summary"]
+    assert summary["adherence"]["status"] == "unavailable"
+    assert summary["adherence"]["reason"] == "session_voided"
+
+
+def test_summary_adherence_handles_missing_targets_explicitly(server):
+    plan = {
+        "for_date": "2024-01-07",
+        "session_type": "hinge",
+        "items": [{"exercise_id": "trap_bar_deadlift", "sets": 2}],
+    }
+    started = post(server, "/api/workout/start", {
+        "date": "2024-01-07", "plan": plan, "readiness": _adherence_readiness(),
+    })["workout"]
+    workout_id = started["workout_id"]
+    post(server, f"/api/workout/{workout_id}/sets", {
+        "exercise_id": "trap_bar_deadlift", "load_kg": 100, "reps": 5, "rir": 2,
+    })
+    post(server, f"/api/workout/{workout_id}/end", {
+        "session_rpe": 7, "duration_min": 30,
+    })
+
+    _, body = get(server, f"/api/workout/{workout_id}/summary")
+    adherence = _strict_json(body)["summary"]["adherence"]
+    assert adherence["status"] == "available"
+    original = adherence["original"]
+    assert original["prescribed_sets"] == 2
+    assert original["matched_sets"] == 1
+    assert original["missing_sets"] == 1
+    for metric in (original["reps"], original["load"], original["rir"]):
+        assert metric["evaluated_sets"] == 0
+        assert metric["attainment"] == {
+            "numerator": 0, "denominator": 0, "ratio": None,
+        }
+    unavailable = set(original["quality"]["unavailable_metrics"])
+    assert {"missing_prescribed_reps", "missing_prescribed_load",
+            "missing_prescribed_rir"} <= unavailable
+
+
+def test_history_detail_renders_prescription_adherence(server):
+    status, page = get(server, "/")
+    assert status == 200
+    assert "/static/adherence.js" in page
+    assert page.index("/static/adherence.js") < page.index("/static/history.js")
+    assert "Prescription adherence compares performed working sets" in page
+
+    status, js = get(server, "/static/adherence.js")
+    assert status == 200
+    for text in (
+        "renderHistoryAdherence",
+        "Original prescription",
+        "Final modified prescription",
+        "Set completion",
+        "Target attainment",
+        "Extra work",
+        "Missing prescribed sets",
+        "Unmatched work and data quality",
+        "Prescription changes during the workout",
+        "Exercise breakdown",
+        "adherenceReason",
+    ):
+        assert text in js, text
+
+    status, history = get(server, "/static/history.js")
+    assert status == 200
+    assert "renderHistoryAdherence(data.adherence)" in history
+    assert history.index("renderHistoryAdherence(data.adherence)") < history.index(
+        "<h3>Execution</h3>"
+    )
+
+
+def test_history_adherence_ui_has_accessible_status_and_table_labels(server):
+    _, js = get(server, "/static/adherence.js")
+    # Status is always text, so colour is not the only signal.
+    for text in (
+        "within target", "below target", "above target", "at target", "unavailable",
+        "missing", "complete", "over prescription",
+    ):
+        assert text in js, text
+    # Native disclosure elements and table headers keep the dense view navigable.
+    assert "<details" in js and "<summary>" in js
+    assert "aria-labelledby='history-adherence-title'" in js
+    assert "scope='col'" in js and "scope='row'" in js
+    assert "aria-label='Target attainment " in js
+    assert "aria-label='Per-set targets for " in js
+    assert "aria-label='Unmatched actual sets'" in js
+    css = Path(__file__).resolve().parents[1] / "strength_coach" / "web" / "static" / "style.css"
+    assert "focus-visible" in css.read_text(encoding="utf-8")
+
+
+def test_history_adherence_ui_covers_empty_error_and_unavailable_states(server):
+    _, js = get(server, "/static/adherence.js")
+    for text in (
+        "Adherence data is unavailable for this session.",
+        "Prescription adherence is unavailable:",
+        "No prescribed exercises.",
+        "No attributed sets.",
+        "No unmatched working sets.",
+        "No known data-quality limitations.",
+        "Final plan was not modified during the workout.",
+        "Plan marked modified; no item-level differences remain.",
+    ):
+        assert text in js, text
+
+    _, history = get(server, "/static/history.js")
+    assert "Loading details…" in history
+    assert "warnbox" in history and "error.message" in history
+
+
+def test_history_adherence_payload_has_the_fields_the_ui_renders(server):
+    plan = {
+        "for_date": "2024-01-08",
+        "session_type": "hinge",
+        "items": [{
+            "exercise_id": "trap_bar_deadlift", "sets": 2, "reps_low": 3,
+            "reps_high": 5, "load_kg": 100, "rir_target": 2,
+        }],
+    }
+    started = post(server, "/api/workout/start", {
+        "date": "2024-01-08", "plan": plan, "readiness": _adherence_readiness(),
+    })["workout"]
+    workout_id = started["workout_id"]
+    post(server, f"/api/workout/{workout_id}/plan/set-count", {
+        "item_index": 0, "delta": -1,
+    })
+    for reps, load, rir in ((5, 100, 2), (4, 95, 3)):
+        post(server, f"/api/workout/{workout_id}/sets", {
+            "exercise_id": "trap_bar_deadlift", "load_kg": load,
+            "reps": reps, "rir": rir,
+        })
+    post(server, f"/api/workout/{workout_id}/end", {
+        "session_rpe": 7, "duration_min": 30,
+    })
+
+    _, body = get(server, f"/api/history/{workout_id}")
+    adherence = _strict_json(body)["adherence"]
+    assert adherence["status"] == "available"
+    for view_name in ("original", "final_plan"):
+        view = adherence[view_name]
+        for key in ("prescribed_sets", "performed_sets", "matched_sets", "missing_sets",
+                    "extra_sets", "set_completion", "reps", "load", "rir",
+                    "exercises", "quality"):
+            assert key in view, (view_name, key)
+        assert set(view["set_completion"]) == {"numerator", "denominator", "ratio"}
+        exercise = view["exercises"][0]
+        for key in ("exercise_name", "status", "prescribed_sets", "matched_sets", "sets",
+                    "limitations"):
+            assert key in exercise, (view_name, key)
+        first = exercise["sets"][0]
+        for key in ("reps_actual", "reps_target_low", "reps_target_high", "reps_status",
+                    "load_target_kg", "load_actual_external_kg", "load_deviation_kg",
+                    "load_status", "rir_target", "rir_actual", "rir_deviation", "rir_status",
+                    "limitations", "extra", "included_in_attainment"):
+            assert key in first, (view_name, key)
+    assert "set_count_changed" in adherence["changes"]
+    assert "unavailable_metrics" in adherence["quality"]
+
+
+def _create_adherence_workout(server, day, *, sets=3, done=3,
+                              exercise_id="trap_bar_deadlift", session_type="hinge"):
+    plan = {
+        "for_date": day,
+        "session_type": session_type,
+        "items": [{
+            "exercise_id": exercise_id, "sets": sets, "reps_low": 3,
+            "reps_high": 5, "load_kg": 100, "rir_target": 2,
+        }],
+    }
+    started = post(server, "/api/workout/start", {
+        "date": day, "plan": plan, "readiness": _adherence_readiness(),
+    })["workout"]
+    workout_id = started["workout_id"]
+    for _ in range(done):
+        post(server, f"/api/workout/{workout_id}/sets", {
+            "exercise_id": exercise_id, "load_kg": 100, "reps": 5, "rir": 2,
+        })
+    post(server, f"/api/workout/{workout_id}/end", {
+        "session_rpe": 7, "duration_min": 30,
+    })
+    return workout_id
+
+
+def test_adherence_analytics_api_sums_numerators_and_keeps_empty_periods(server):
+    _create_adherence_workout(server, "2024-02-01", sets=10, done=10)
+    _create_adherence_workout(server, "2024-02-15", sets=2, done=1)
+
+    status, body = get(
+        server,
+        "/api/adherence/analytics?from=2024-02-01&to=2024-02-29&group_by=week",
+    )
+    assert status == 200
+    result = _strict_json(body)
+    original = result["original"]
+    assert result["status"] == "available"
+    assert result["coverage"]["workouts_analysed"] == 2
+    assert original["set_completion"] == {
+        "numerator": 11, "denominator": 12, "ratio": 0.9167,
+    }
+    periods = {row["key"]: row for row in original["periods"]}
+    assert periods["2024-W05"]["set_completion"]["ratio"] == 1.0
+    assert periods["2024-W06"]["has_data"] is False
+    assert periods["2024-W06"]["set_completion"] == {
+        "numerator": 0, "denominator": 0, "ratio": None,
+    }
+    assert periods["2024-W07"]["set_completion"]["ratio"] == 0.5
+    assert len(result["workouts"]) == 2
+    assert result["workouts"][0]["for_date"] == "2024-02-15"
+    assert result["workouts"][0]["original"]["set_completion"]["numerator"] == 1
+    assert result["filters"]["exercises"][0]["id"] == "trap_bar_deadlift"
+    assert result["filters"]["session_types"] == ["hinge"]
+    assert "aggregation" in result["definitions"]
+
+
+def test_adherence_analytics_api_keeps_original_and_final_distinct(server):
+    plan = {
+        "for_date": "2024-02-20",
+        "session_type": "hinge",
+        "items": [{
+            "exercise_id": "trap_bar_deadlift", "sets": 5, "reps_low": 3,
+            "reps_high": 5, "load_kg": 100, "rir_target": 2,
+        }],
+    }
+    started = post(server, "/api/workout/start", {
+        "date": "2024-02-20", "plan": plan, "readiness": _adherence_readiness(),
+    })["workout"]
+    workout_id = started["workout_id"]
+    post(server, f"/api/workout/{workout_id}/plan/set-count", {
+        "item_index": 0, "delta": -2,
+    })
+    for _ in range(3):
+        post(server, f"/api/workout/{workout_id}/sets", {
+            "exercise_id": "trap_bar_deadlift", "load_kg": 100, "reps": 5, "rir": 2,
+        })
+    post(server, f"/api/workout/{workout_id}/end", {
+        "session_rpe": 7, "duration_min": 30,
+    })
+
+    _, body = get(server, "/api/adherence/analytics?from=2024-02-20&to=2024-02-20")
+    result = _strict_json(body)
+    assert result["original"]["set_completion"]["ratio"] == 0.6
+    assert result["final_plan"]["set_completion"]["ratio"] == 1.0
+    assert result["original"]["prescribed_sets"] == 5
+    assert result["final_plan"]["prescribed_sets"] == 3
+
+
+def test_adherence_analytics_api_filters_exercise_and_session_type(server):
+    _create_adherence_workout(server, "2024-02-21", sets=2, done=2)
+    _create_adherence_workout(
+        server, "2024-02-22", sets=2, done=2,
+        exercise_id="competition_squat", session_type="squat",
+    )
+
+    _, body = get(
+        server,
+        "/api/adherence/analytics?from=2024-02-01&to=2024-02-29"
+        "&exercise_id=competition_squat",
+    )
+    squat = _strict_json(body)
+    assert squat["coverage"]["workouts_analysed"] == 1
+    assert squat["original"]["prescribed_sets"] == 2
+    assert [row["exercise_id"] for row in squat["original"]["exercises"]] == [
+        "competition_squat"
+    ]
+
+    _, body = get(
+        server,
+        "/api/adherence/analytics?from=2024-02-01&to=2024-02-29&session_type=squat",
+    )
+    filtered = _strict_json(body)
+    assert filtered["coverage"]["workouts_in_range"] == 1
+    assert filtered["original"]["set_completion"]["numerator"] == 2
+    assert filtered["filters"]["session_types"] == ["hinge", "squat"]
+
+
+def test_adherence_analytics_api_empty_range_legacy_and_validation(server):
+    # The fixture's 2024-01-01 session is imported; it has no workout prescription and must not
+    # be fabricated into the adherence denominator.
+    _, body = get(server, "/api/adherence/analytics?from=2024-01-01&to=2024-01-01")
+    legacy = _strict_json(body)
+    assert legacy["coverage"]["workouts_in_range"] == 0
+    assert legacy["original"]["set_completion"]["denominator"] == 0
+    assert legacy["original"]["periods"][0]["set_completion"]["ratio"] is None
+    assert legacy["workouts"] == []
+
+    for query in (
+        "weeks=0",
+        "weeks=53",
+        "group_by=day",
+        "exercise_id=not_a_lift",
+        "to=not-a-date",
+    ):
+        try:
+            get(server, "/api/adherence/analytics?" + query)
+        except urllib.error.HTTPError as exc:
+            assert exc.code == 400, query
+        else:
+            raise AssertionError(f"{query} should be 400")
+
+
+def test_progress_adherence_panel_is_wired_and_keeps_metrics_separate(server):
+    status, page = get(server, "/")
+    assert status == 200
+    assert 'id="progress-adherence-panel"' in page
+    assert 'id="progress-adherence-form"' in page
+    assert 'id="progress-adherence-exercise"' in page
+    assert 'id="progress-adherence-session-type"' in page
+    assert 'id="progress-adherence-group"' in page
+    assert "no composite score" in page
+    assert "each with its own summed numerator and denominator" in page
+
+    status, js = get(server, "/static/progress.js")
+    assert status == 200
+    for text in (
+        "loadProgressAdherence",
+        "/api/adherence/analytics",
+        "progressAdherenceRender",
+        "progressAdherenceChart",
+        "dateSeriesChart",
+        "data-progress-adherence-workout",
+        "Definitions, coverage and exclusions",
+        "Exercise comparison",
+        "Workout drill-down",
+        "small sample",
+        "fewer than 3 workouts",
+        "No completed app-tracked workouts",
+        "Loading prescription adherence",
+        "aria-label='Adherence by period'",
+        "aria-label='Adherence comparison by exercise'",
+        "aria-label='Adherence by workout'",
+    ):
+        assert text in js, text
+
+
+def test_progress_adherence_panel_has_loading_and_error_states(server):
+    _, js = get(server, "/static/progress.js")
+    assert "Loading prescription adherence…" in js
+    assert "Could not load" in js
+    assert "warnbox" in js and "error.message" in js
+    assert "No periods in this range." in js
+    assert "No prescribed exercises in this range." in js
+    assert "No workouts in this range." in js

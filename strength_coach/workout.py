@@ -18,10 +18,12 @@ from typing import Any
 
 import pandas as pd
 
-from strength_coach import __version__
+from strength_coach import __version__, adherence
 from strength_coach.critique import build_facts, score_session
 from strength_coach.critique.rubric import persist as persist_critique
 from strength_coach.domain import load as load_mod
+from strength_coach.domain.plan_identity import item_identity as _item_identity
+from strength_coach.domain.plan_identity import row_plan_identity
 from strength_coach.features import comparisons as comparisons_feature
 from strength_coach.features import demands as demands_feature
 from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
@@ -580,6 +582,19 @@ def summary(conn, workout_id: str) -> dict[str, Any]:
     completion["completed_sets"] = sum(
         int(item.get("actual_sets") or 0) for item in completion.get("items") or []
     )
+    # Adherence reads the materialised leaf rows, not the live workout_set draft, so a later
+    # history correction is reflected in the completed summary. A voided session is excluded
+    # from metrics, so its adherence is explicitly unavailable rather than silently recomputed.
+    session_row = conn.execute(
+        "SELECT voided FROM session WHERE session_id = ?", (session_id,)
+    ).fetchone()
+    if session_row is not None and int(session_row["voided"] or 0):
+        adherence_payload = adherence.unavailable("session_voided")
+    else:
+        adherence_payload = adherence.analyse({
+            **data,
+            "sets": queries.session_clean_sets(conn, session_id),
+        })
     feedback = _summary_feedback(conn, data, session_id)
     strength = _summary_strength(
         conn, session_id, for_date, frame, entities, excluded_set_kinds, config
@@ -633,6 +648,7 @@ def summary(conn, workout_id: str) -> dict[str, Any]:
             for value in ratios
         ],
         "comparison": comparison,
+        "adherence": adherence_payload,
         "quality": {
             "flags": [],
             "coverage": {
@@ -1130,39 +1146,15 @@ def _editable(workout: dict) -> list[dict]:
     return [dict(item) for item in (workout.get("plan") or {}).get("items") or []]
 
 
-def _item_identity(item: Mapping[str, Any], position: int) -> int:
-    """Stable identity within a workout; legacy rows fall back to their original position.
-
-    Plan edits preserve ``order_index`` and never renumber it. It is therefore an identity,
-    not the item's current display position. Old plan JSON without the field still gets a
-    deterministic identity from its initial order.
-    """
-    return int(item.get("order_index", position))
-
-
 def _row_plan_identity(workout: Mapping[str, Any], row: Mapping[str, Any]) -> int | None:
-    """Resolve a stored set to a stable item identity, including legacy positional rows.
+    """Resolve a stored set against the workout's current plan snapshot.
 
-    New rows store the stable identity. Rows written before the identity fix store the list
-    position at write time; when that value no longer names an item of the same exercise, the
-    current position is accepted only if it names the same exercise, which preserves old
-    unmodified workouts without guessing across a moved item.
+    The identity rules live in strength_coach.domain.plan_identity so adherence analysis can
+    resolve a set against the original and final plans without a second implementation.
     """
-    value = row.get("prescription_item_index")
-    if value is None:
-        return None
-    try:
-        index = int(value)
-    except (TypeError, ValueError):
-        return None
-    items = list((workout.get("plan") or {}).get("items") or [])
-    exercise = str(row.get("exercise_id"))
-    for position, item in enumerate(items):
-        if _item_identity(item, position) == index and str(item.get("exercise_id")) == exercise:
-            return index
-    if 0 <= index < len(items) and str(items[index].get("exercise_id")) == exercise:
-        return _item_identity(items[index], index)
-    return None
+    return row_plan_identity(
+        list((workout.get("plan") or {}).get("items") or []), row
+    )
 
 
 def _logged_sets_for_item(workout: dict, item_index: int, exercise_id: str) -> tuple[int, int]:
@@ -1254,10 +1246,16 @@ def add_exercise(
     sets = max(1, min(20, int(sets)))
     low = max(1, min(50, int(reps_low)))
     high = max(low, min(50, int(reps_high)))
-    next_index = max(
-        (_item_identity(item, position) for position, item in enumerate(items)),
-        default=-1,
-    ) + 1
+    # Allocate across the original snapshot as well as the edited plan. Reusing the identity
+    # of a removed item would make a removal plus an addition indistinguishable from a swap
+    # when original and final prescriptions are compared.
+    original_items = list((workout.get("original_plan") or {}).get("items") or [])
+    identities = [
+        _item_identity(item, position)
+        for collection in (original_items, items)
+        for position, item in enumerate(collection)
+    ]
+    next_index = max(identities, default=-1) + 1
     item = {
         "order_index": next_index,
         "exercise_id": new_id,

@@ -13,7 +13,7 @@ import logging
 import uuid
 from typing import Any
 
-from strength_coach import __version__
+from strength_coach import __version__, adherence, workout
 from strength_coach.critique import score_session
 from strength_coach.critique.rubric import persist as persist_critique
 from strength_coach.domain import load as load_mod
@@ -34,19 +34,14 @@ def _now() -> str:
 
 
 def current_sets(conn, session_id: str) -> list[dict]:
-    """Sets in performed order.
+    """Sets in performed order; the leaf-row query lives in the read-side store module.
 
     An import inserts rows grouped by exercise, so `set_id` order is not the order the sets
     were logged; `raw_id` is. Live-workout sets are appended in order and have no raw_id, so
     they keep `set_id` order. A session that mixes both sources sorts each by its own
     sequence, which is the best available without a stored performed-position column.
     """
-    rows = conn.execute(
-        f"SELECT s.* FROM clean_set s WHERE s.session_id = ? AND {CURRENT} "
-        "ORDER BY COALESCE(s.raw_id, s.set_id), s.set_id",
-        (str(session_id),),
-    ).fetchall()
-    return [dict(row) for row in rows]
+    return queries.session_clean_sets(conn, session_id)
 
 
 def list_sessions(conn, *, limit: int = 50, offset: int = 0,
@@ -141,6 +136,7 @@ def detail(conn, session_id: str) -> dict:
     data["main_lifts"] = json.loads(data.get("main_lifts") or "[]")
     # JSON columns leave SQLite as text; the API promises arrays, and a string has no .join().
     data["flags"] = json.loads(data.get("flags") or "[]")
+    full_sets = queries.session_clean_sets(conn, session_id)
     rep_rows = conn.execute(
         "SELECT r.clean_set_id, r.rep_index, r.velocity_mps FROM clean_rep r "
         "JOIN clean_set s ON s.set_id = r.clean_set_id "
@@ -163,10 +159,14 @@ def detail(conn, session_id: str) -> dict:
             "rir": item["rir"],
             "velocity_mps": item["velocity_mps"],
             "reps_unit": item["reps_unit"],
+            # Attribution survives a correction so a rerun of comparison/adherence and the
+            # next edit still resolve the set to the same plan item and set group.
+            "prescription_item_index": item["prescription_item_index"],
+            "set_role": item["set_role"],
             "flags": json.loads(item["flags"] or "[]"),
             "device_reps": device_reps.get(int(item["set_id"]), []),
         }
-        for item in current_sets(conn, session_id)
+        for item in full_sets
     ]
     vbt = current_vbt(conn, session_id)
     for item in data["sets"]:
@@ -193,7 +193,27 @@ def detail(conn, session_id: str) -> dict:
             (str(data["workout_id"]),),
         ).fetchone()
         data["workout_note"] = note_row["notes"] if note_row is not None else None
+    data["adherence"] = _session_adherence(conn, data, full_sets)
     return data
+
+
+def _session_adherence(conn, session: dict, full_sets: list[dict]) -> dict:
+    """Attach completed-workout adherence, or an explicit unavailable result.
+
+    Imported sessions have no frozen workout prescription, and a voided session is excluded
+    from analysis. Both return the same shaped payload with a reason instead of numbers.
+    """
+    if session.get("voided"):
+        return adherence.unavailable("session_voided")
+    workout_id = session.get("workout_id")
+    if not workout_id:
+        return adherence.unavailable("no_prescription_snapshot")
+    source = workout.get(conn, str(workout_id))
+    if source is None:
+        return adherence.unavailable("workout_not_found")
+    if source.get("status") != "completed":
+        return adherence.unavailable("workout_not_completed")
+    return adherence.analyse({**source, "sets": full_sets})
 
 
 def _current_forms(conn, session_id: str) -> list[dict]:
@@ -269,10 +289,14 @@ def _insert_set(conn, *, session_id: str, occurred_on: str, edit_id: str,
     if old is not None:
         reps_unit = str(old.get("reps_unit") or "reps")
         item_index = old.get("prescription_item_index")
+        # Keep the set's role across a correction; dropping it would silently turn a top set
+        # or back-off set into an ordinary set and make its group targets unavailable.
+        set_role = old.get("set_role")
         flags = json.loads(old.get("flags") or "[]")
     else:
         reps_unit = "seconds" if entity.get("time_based") else "reps"
         item_index = None
+        set_role = None
         flags = []
     flags = sorted(set(flags + ["session_edited"]))
     cursor = conn.execute(
@@ -281,8 +305,8 @@ def _insert_set(conn, *, session_id: str, occurred_on: str, edit_id: str,
             (raw_id, session_id, occurred_on, exercise_id, raw_exercise, load_kg,
              load_basis, external_load_kg, reps, reps_unit, rir, rir_source,
              velocity_mps, velocity_present, tonnage_kg, is_working_set, flags,
-             supersedes_id, prescription_item_index, voided)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             supersedes_id, prescription_item_index, voided, set_role)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             int(raw.lastrowid), str(session_id), occurred_on, exercise_id, exercise_id,
@@ -291,6 +315,7 @@ def _insert_set(conn, *, session_id: str, occurred_on: str, edit_id: str,
             (float(resolved.external_load_kg) * int(reps))
             if resolved.external_load_kg is not None and reps is not None else None,
             is_working, json.dumps(flags), supersedes_id, item_index, 1 if voided else 0,
+            set_role,
         ),
     )
     return int(cursor.lastrowid)

@@ -137,7 +137,7 @@
         <div class="panel-head"><h2 id="history-detail-title">Session details</h2>
           <span class="muted">read only</span></div>
         <p class="section-help"><span>Session-level RPE, duration, note and edit reason; set corrections remain append-only.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md&amp;anchor=17-1-corrections-for-completed-sessions">Correction model</a></p>
-        <p class="section-help"><span>Read-only stored sets, RIR, VBT and notes for the selected session.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md">Session data model</a></p>
+        <p class="section-help"><span>Read-only stored sets, RIR, VBT and notes for the selected session. Prescription adherence compares performed working sets with the original and final plan; set completion is shown separately from rep, load and RIR target attainment.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md">Session data model</a></p>
         <div id="history-details"></div>
         <div class="form-row"><button class="ghost" type="button" id="history-details-close">Close</button></div>
       </div>
@@ -240,8 +240,22 @@
             <p class="muted">Completed app-tracked workouts only; imported sessions without a frozen plan are unavailable.</p>
             <label>Completed workout<select id="progress-workout"><option value="">No workout selected</option></select></label>
             <div id="progress-execution"><p class="empty">Select a completed workout with a stored plan snapshot.</p></div>
-            <p class="muted">The actual is a count of logged set rows (which can include different roles), not a working-set-only or exercise-matched compliance score. Repetitions, loads and RIR remain in workout detail because ranges, nullable actuals and differing load bases do not form one comparable longitudinal total.</p>
+            <p class="muted">The actual is a count of logged set rows (which can include different roles), not a working-set-only or exercise-matched compliance score. Repetitions, loads and RIR remain in workout detail because ranges, nullable actuals and differing load bases do not form one comparable longitudinal total. The separate adherence panel below sums each metric's own numerator and denominator instead of combining them.</p>
           </details>
+          <section class="panel progress-dashboard-panel state-wide" id="progress-adherence-panel">
+            <div class="panel-head"><h2>Prescription adherence over time</h2><span class="muted">summed counts; no composite score</span></div>
+            <p class="section-help"><span>Completed app-tracked workouts only. Set completion, rep-range attainment, load-target attainment and RIR-target attainment stay separate, each with its own summed numerator and denominator.</span> <a class="doc-link" href="#docs?doc=docs/WEB-UI.md">Adherence definitions</a></p>
+            <form id="progress-adherence-form" class="form-row">
+              <label>Period<select id="progress-adherence-weeks"><option value="4">4 weeks</option><option value="8" selected>8 weeks</option><option value="12">12 weeks</option></select></label>
+              <label>As of<input type="date" id="progress-adherence-date"></label>
+              <label>Exercise<select id="progress-adherence-exercise"><option value="">All prescribed exercises</option></select></label>
+              <label>Session type<select id="progress-adherence-session-type"><option value="">All</option></select></label>
+              <label>Group by<select id="progress-adherence-group"><option value="week">Week</option><option value="month">Month</option></select></label>
+              <button class="primary" type="submit">Update adherence</button>
+              <span class="muted" id="progress-adherence-status" role="status" aria-live="polite"></span>
+            </form>
+            <div id="progress-adherence"><p class="empty">Loading prescription adherence…</p></div>
+          </section>
         </div>
         <div class="today-quick-links"><a href="#performance" data-view-link="performance">Detailed Performance analysis</a><a href="#outcomes" data-view-link="outcomes">Detailed Outcomes review</a></div>
       </div>
@@ -1487,6 +1501,7 @@
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   <footer class="foot">Same core as <code>strength-coach</code>. The CLI remains the automation interface.</footer>
   <script src="/static/core.js"></script>
+  <script src="/static/adherence.js"></script>
   <script src="/static/prescription-cache.js"></script>
   <script src="/static/settings.js"></script>
   <script src="/static/performance.js"></script>

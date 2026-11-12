@@ -11,6 +11,7 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 |---|---|
 | `GET /api/overview` | dashboard data |
 | `GET /api/progress?date=&weeks=` | descriptive attendance aggregate, weekly average volume, sRPE coverage, recent performance-ratio observations and observed weekly RIR/tonnage/residual series (`weekly`, `missing_weeks`) |
+| `GET /api/adherence/analytics?date=&weeks=&from=&to=&exercise_id=&session_type=&group_by=week\|month` | summed prescription-adherence totals, periods, exercise comparison and completed-workout drill-down; app-tracked completed workouts only |
 | `GET /api/outcomes?weeks=&date=` | read-only strength, volume, attendance, readiness, cardio, measurement and symptom summaries |
 | `GET /api/performance/e1rm?exercise_id=&from=&to=` | raw e1RM observations, rolling median, breaks and descriptive summary |
 | `GET /api/performance/dose?from=&to=&group_by=session` | descriptive session dose |
@@ -25,7 +26,7 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `POST /api/workout/start` | `{date, plan, readiness, readiness_ack?, note?}` -> live workout; a score-ready assessment or explicit acknowledgement is required; partial readiness stays partial |
 | `GET /api/workout/active` | active workout, or `{workout: null}` |
 | `GET /api/workout/<id>` | workout detail |
-| `GET /api/workout/<id>/summary` | completed-workout descriptive summary; 404 unknown, 409 in progress |
+| `GET /api/workout/<id>/summary` | completed-workout descriptive summary including prescription adherence; 404 unknown, 409 in progress |
 | `GET /api/form-trend?weeks=N&date=N` | descriptive current/baseline form trend |
 | `POST /api/workout/<id>/form` | `{exercise_id, rating 1-5}` -> optional post-lift form rating |
 | `POST /api/workout/<id>/sets` | `{exercise_id, load_kg, reps, rir, velocity?, plan_item_index?}` -> add manual set; explicit plan-item identity is validated against the frozen exercise; omitted identity resolves only a unique item |
@@ -37,7 +38,7 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/history?limit=&offset=&start=&end=` | paginated session-fragment history |
 | `GET /api/history/days?limit=&offset=&start=&end=` | paginated training days with their fragments |
 | `GET /api/exercise-history?exercise_id=&limit=&offset=&on_or_before=` | read-only completed-session history for one exercise, grouped by session; limit counts sessions and defaults to 5 |
-| `GET /api/history/<id>` | current session sets and feedback |
+| `GET /api/history/<id>` | current session sets, feedback and completed-workout prescription adherence |
 | `POST /api/history/<id>/edit` | append-only correction of sets and session metadata |
 | `POST /api/history/<id>/vbt` | set/rep VBT overrides (also accepted inside `/edit`) |
 | `POST /api/history/<id>/void` | void or unvoid a whole session |
@@ -108,6 +109,71 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `POST /api/state/profile` / `constraint` / `suitability` / `e1rm` / `test` / `symptom` / `block` | append-only state writes; profile includes `volume_budget_enabled` and `main_lift_policy`; goals, constraint kinds/regions, forbidden patterns/exercises and exercise ids are validated against the canonical vocabulary; `symptom` accepts optional `timing`, `attributed_session_id`, `attributed_exercise_id`, `onset_on` and `attribution_confidence`, plus the short aliases the UI uses |
 | `GET /api/calibrate` | calibration report |
 | `GET /api/docs` / `GET /api/docs/<name>` | doc list and rendered doc from `docs/manifest.yaml`; public entries only, grouped by category; `private/` and maintainer-only design docs are never served |
+
+### Prescription adherence
+
+Completed workouts expose a versioned `adherence` object in
+`GET /api/workout/<id>/summary` and `GET /api/history/<id>`. It is additive: existing
+summary and history fields are unchanged. The live `GET /api/workout/<id>` detail does not
+carry it, so an in-progress workout is never presented as a completed adherence analysis.
+
+The object holds two independent comparisons:
+
+- `original` — the frozen `plan_json` issued at workout start;
+- `final_plan` — `plan_modified_json`, or the original plan when unmodified.
+
+Each view reports prescribed, performed, matched, missing and extra working sets;
+`set_completion` (numerator, denominator, ratio); repetition, load and RIR attainment; and
+per-exercise/per-set detail. Ratios always carry numerator and denominator and return
+`ratio: null` for a zero denominator. Set completion is not target attainment: a set can fill
+a prescribed slot and still miss its rep, load or RIR target. There is no composite score.
+
+Adherence for a completed workout reads the current `clean_set` leaf rows, so an audited
+history correction is reflected rather than the original live `workout_set` draft. The
+existing summary `completion` block remains the frozen workout-view comparison; use
+`adherence` for adherence questions after a correction. The
+existing `is_working_set` classification is authoritative and RIR 6 remains the logged
+warm-up sentinel; contradictory rows are reported as ambiguous. Load is compared as external
+load, using the stored `load_basis`/`external_load_kg`; a captured bodyweight total is not
+treated as an added plate. RIR deviation is actual minus target (positive means further from
+failure). Unmatched, ambiguous, mismatched and removed-exercise sets remain visible under
+`quality`.
+
+`changes` separates swaps, additions, removals, set-count edits and target edits. When the
+original prescription cannot be attributed reliably (a swap removes that item from the
+original denominator), the planned sets appear under `unattributable_planned_sets` with a
+reason instead of a fabricated percentage.
+
+Imported sessions have no frozen workout prescription and return
+`{"status": "unavailable", "reason": "no_prescription_snapshot"}`; a voided session returns
+`session_voided`; a workout with no plan items returns `no_prescription_items`.
+
+History set rows also expose `prescription_item_index` and `set_role`; an audited correction
+preserves both, so later comparison and adherence still resolve the same plan item and set
+group.
+
+### Longitudinal adherence analytics
+
+`GET /api/adherence/analytics` aggregates completed app-tracked workouts. It accepts
+`date` (as-of, default today) plus `weeks` (1–52, default 8), or explicit `from`/`to`
+dates, and the filters `exercise_id`, `session_type` and `group_by=week|month`. Training-block
+grouping is not offered because no reliable per-workout block identity is stored.
+
+The response keeps `original` and `final_plan` separate. Each contains the summed
+`set_completion` (numerator, denominator, ratio), repetition, load and RIR attainment, missing
+and extra sets, per-period rows and per-exercise rows. Every ratio is computed from summed
+numerators and denominators; per-workout percentages are never averaged. Empty periods return
+`{numerator: 0, denominator: 0, ratio: null}`, never a fabricated 0%.
+
+`workouts` provides per-workout drill-down rows, each with both prescription views. `coverage`
+reports completed workouts in range, analysed, unavailable, voided, missing materialised
+sessions, invalid snapshots and filter exclusions, plus the excluded rows and their reasons.
+Imported sessions have no workout prescription and are outside the aggregation.
+
+A documented display guard marks a period or exercise `small_sample` when it has fewer than
+three workouts or fewer than five prescribed sets. The Progress UI omits those points from the
+trend charts and keeps them in the tables with the exact counts. The guard is not a statistical
+confidence claim and never changes a numerator or denominator.
 
 ### iOS facade — Phase 1 reads and Phase 2 workflow
 
@@ -292,13 +358,14 @@ What remains:
 No build step and no bundler. The scripts load in this order:
 
 1. `core.js` — API requests, HTML escaping, formatting, notices and local dates.
-2. `settings.js` — Settings panels: LLM, iOS, profile, volume, modalities and monitoring.
-3. `app.js` — navigation, routing, boot and the shared views.
-4. `exercises.js` — exercise catalogue, editor and e1RM override.
-5. `history.js` — history list, session details, corrections and VBT backfill.
-6. `workout.js` — live workout start, sets, end and post-workout screens.
-7. `summary.js` — descriptive workout summary.
-8. `performance.js` — performance and relationship panels.
+2. `adherence.js` — original/final prescription adherence rendering for history details.
+3. `settings.js` — Settings panels: LLM, iOS, profile, volume, modalities and monitoring.
+4. `app.js` — navigation, routing, boot and the shared views.
+5. `exercises.js` — exercise catalogue, editor and e1RM override.
+6. `history.js` — history list, session details, corrections and VBT backfill.
+7. `workout.js` — live workout start, sets, end and post-workout screens.
+8. `summary.js` — descriptive workout summary.
+9. `performance.js` — performance and relationship panels.
 
 Feature modules use the core helpers. `app.js` dispatches view loaders through `VIEW_LOADERS`
 rather than an if-chain. Boot is deferred to `DOMContentLoaded` so every module is loaded

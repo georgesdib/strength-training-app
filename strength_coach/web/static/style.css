@@ -254,6 +254,61 @@ details summary { cursor: pointer; color: var(--muted); }
 #history-details input[readonly] { background: var(--soft); color: var(--ink); }
 #history-details table { min-width: 760px; }
 
+/* Prescription adherence: two prescription views, then expandable target-vs-actual detail. */
+.adherence-section { margin: 18px 0 6px; padding-top: 14px; border-top: 1px solid var(--line); }
+.adherence-section h4 { margin: 16px 0 6px; }
+.adherence-intro { max-width: 86ch; }
+.adherence-views { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 12px; margin: 10px 0; }
+.adherence-view { min-width: 0; border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px; background: var(--paper); }
+.adherence-view-head { display: flex; gap: 8px; align-items: center;
+  justify-content: space-between; flex-wrap: wrap; }
+.adherence-view-head h4 { margin: 0; }
+.adherence-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px; margin: 10px 0; }
+.adherence-facts div { min-width: 0; }
+.adherence-facts dt { font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted); }
+.adherence-facts dd { margin: 2px 0 0; font-weight: 600; font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere; }
+.adherence-targets th[scope="row"] { text-transform: none; color: var(--ink); font-size: 13px; }
+.adherence-note { color: var(--muted); font-size: 12px; margin: 8px 0 0; max-width: 86ch; }
+.adherence-exercises, .adherence-quality { margin-top: 10px; padding-top: 8px;
+  border-top: 1px solid var(--line); }
+.adherence-exercises > summary, .adherence-quality > summary { cursor: pointer; min-height: 38px;
+  display: flex; align-items: center; color: var(--ink); font-weight: 600; }
+.adherence-exercises > summary:focus-visible, .adherence-quality > summary:focus-visible,
+.adherence-exercise > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.adherence-exercise { border-top: 1px solid var(--line); padding: 8px 0 10px; }
+.adherence-exercise:first-of-type { border-top: 0; }
+.adherence-exercise > summary { cursor: pointer; min-height: 38px; display: flex;
+  flex-wrap: wrap; gap: 6px; align-items: center; }
+.adherence-changes { margin: 8px 0; }
+#history-details .adherence-targets table { min-width: 520px; }
+#history-details .adherence-set-table { min-width: 860px; }
+#history-details .adherence-unmatched-table { min-width: 620px; }
+@media (max-width: 760px) {
+  .adherence-views { grid-template-columns: minmax(0, 1fr); }
+  #history-details .adherence-targets table { min-width: 420px; }
+  #history-details .adherence-set-table { min-width: 720px; }
+}
+
+/* Longitudinal adherence in Progress: separate metrics, explicit denominators. */
+#progress-adherence h4 { margin: 18px 0 6px; }
+.adherence-analytics-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px; margin: 10px 0; }
+.adherence-analytics-grid .shared-chart { margin: 0; min-width: 0; }
+.adherence-summary-table { min-width: 640px; }
+.progress-adherence-table { min-width: 760px; }
+.adherence-exercise-table { min-width: 880px; }
+#progress-adherence .progress-subsection { margin-top: 12px; }
+@media (max-width: 760px) {
+  .adherence-analytics-grid { grid-template-columns: minmax(0, 1fr); }
+  .progress-adherence-table { min-width: 680px; }
+  .adherence-exercise-table { min-width: 760px; }
+}
+
 /* Recorded execution: a proportional timeline, not a score or a prescription. */
 .execution-panel { margin: 8px 0 18px; }
 .execution-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));

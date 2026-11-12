@@ -57,9 +57,8 @@ from strength_coach.critique.rubric import RUBRIC_VERSION
 from strength_coach.domain import athlete_state
 from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.eval import ITEM_GUIDE, ITEM_KEYS, backtest, format_report, load_marks, record_marks
-from strength_coach.features import breaks as breaks_feature
-from strength_coach.features import cardio as cardio_feature
 from strength_coach.features import (
+    adherence_analytics,
     config_inventory,
     continuity_calibration,
     heavy_spinal,
@@ -72,6 +71,8 @@ from strength_coach.features import (
     rep_velocity,
     retrospective_validation,
 )
+from strength_coach.features import breaks as breaks_feature
+from strength_coach.features import cardio as cardio_feature
 from strength_coach.features import deload as deload_feature
 from strength_coach.features import demands as demands_feature
 from strength_coach.features import derived as derived_feature
@@ -2893,6 +2894,11 @@ class Handler(BaseHTTPRequestHandler):
                 day = query.get("date", [None])[0]
                 self._json(200, self._with_conn(
                     lambda c: rep_velocity.analysis_report(c, on_date=day, weeks=weeks)
+                ))
+            elif path == "/api/adherence/analytics":
+                query = parse_qs(urlparse(self.path).query)
+                self._json(200, self._with_conn(
+                    lambda c: adherence_analytics.analytics(c, query)
                 ))
             elif path == "/api/progress":
                 query = parse_qs(urlparse(self.path).query)

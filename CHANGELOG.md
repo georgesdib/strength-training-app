@@ -4,6 +4,27 @@
 
 ### Added
 
+- **Prescription adherence analytics (backend)**: completed workout summaries and history
+  detail now expose a versioned `adherence` object comparing actual working sets with the
+  original and final in-workout prescription. It reports set completion plus repetition, load
+  and RIR attainment, per-exercise/per-set detail, prescription changes and explicit
+  attribution/data-quality limitations. It is derived from immutable plan snapshots and the
+  current `clean_set` leaf rows; no table or derived metric is persisted, and imported or
+  voided sessions return an explicit unavailable result. Existing API fields are unchanged.
+
+- **Workout History adherence breakdown**: History → Session details now renders the adherence
+  payload as original and final prescription cards, set completion, rep/load/RIR target
+  attainment, expandable per-exercise and per-set target-versus-actual tables, prescription
+  changes, unmatched work and data-quality limitations. Unavailable comparisons and imported or
+  voided sessions are stated explicitly; status is always text, not colour alone.
+
+- **Longitudinal prescription-adherence analytics**: `GET /api/adherence/analytics` sums
+  original and final set completion plus repetition, load and RIR attainment by week or month,
+  exercise and session type, with exact numerators/denominators, coverage and per-workout
+  drill-down. Progress adds a **Prescription adherence over time** panel with original/final
+  trend charts, period and exercise tables, small-sample guards, and links into History session
+  details. Imported/voided workouts are excluded; no composite score is computed or stored.
+
 - **Watch device minting and phone-revocation cascade**: the tracked iOS facade config enables
   `watch_enabled`, and a phone's minted watch is revoked in the same transaction when the phone is
   revoked. `DELETE /api/ios/v1/devices/{device_id}` now returns `revoked_watch_ids`, and the CLI
