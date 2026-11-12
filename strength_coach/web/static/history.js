@@ -513,6 +513,7 @@ function openHistoryDetails(sessionId) {
         "<p class='muted'>Optional self-assessment; rubric input only, never a load or set.</p>" : "") +
       attributionBlock +
       renderHistoryAdherence(data.adherence) +
+      vbtSectionHtml(data.vbt) +
       "<h3>Execution</h3><div id='history-execution' class='execution-panel'>" +
       "<p class='muted'>Loading recorded execution…</p></div>" +
       "<h3>Exercises and sets</h3>" +

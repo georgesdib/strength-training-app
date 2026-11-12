@@ -17,7 +17,7 @@ from strength_coach import __version__, adherence, workout
 from strength_coach.critique import score_session
 from strength_coach.critique.rubric import persist as persist_critique
 from strength_coach.domain import load as load_mod
-from strength_coach.features import training_day
+from strength_coach.features import training_day, vbt_analysis
 from strength_coach.store import db, queries, repositories, symptom_attribution
 from strength_coach.utils import exercises
 
@@ -193,27 +193,29 @@ def detail(conn, session_id: str) -> dict:
             (str(data["workout_id"]),),
         ).fetchone()
         data["workout_note"] = note_row["notes"] if note_row is not None else None
-    data["adherence"] = _session_adherence(conn, data, full_sets)
+    source, unavailable_reason = _session_workout(conn, data)
+    if source is None:
+        data["adherence"] = adherence.unavailable(unavailable_reason)
+        data["vbt"] = vbt_analysis.unavailable(unavailable_reason)
+    else:
+        data["adherence"] = adherence.analyse({**source, "sets": full_sets})
+        data["vbt"] = source.get("vbt") or vbt_analysis.unavailable("vbt_unavailable")
     return data
 
 
-def _session_adherence(conn, session: dict, full_sets: list[dict]) -> dict:
-    """Attach completed-workout adherence, or an explicit unavailable result.
-
-    Imported sessions have no frozen workout prescription, and a voided session is excluded
-    from analysis. Both return the same shaped payload with a reason instead of numbers.
-    """
+def _session_workout(conn, session: dict) -> tuple[dict | None, str | None]:
+    """Load the frozen workout snapshot once for adherence and VBT analysis."""
     if session.get("voided"):
-        return adherence.unavailable("session_voided")
+        return None, "session_voided"
     workout_id = session.get("workout_id")
     if not workout_id:
-        return adherence.unavailable("no_prescription_snapshot")
+        return None, "no_prescription_snapshot"
     source = workout.get(conn, str(workout_id))
     if source is None:
-        return adherence.unavailable("workout_not_found")
+        return None, "workout_not_found"
     if source.get("status") != "completed":
-        return adherence.unavailable("workout_not_completed")
-    return adherence.analyse({**source, "sets": full_sets})
+        return None, "workout_not_completed"
+    return source, None
 
 
 def _current_forms(conn, session_id: str) -> list[dict]:

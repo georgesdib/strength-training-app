@@ -16,6 +16,7 @@ Order of operations is deliberate:
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from collections.abc import Callable, Collection, Mapping
 from dataclasses import replace
@@ -47,7 +48,7 @@ from strength_coach.prescribe import technique_throttle as technique_throttle_mo
 from strength_coach.prescribe import top_set as top_set_mod
 from strength_coach.prescribe import undulation as undulation_mod
 from strength_coach.prescribe import volume_budget as volume_budget_mod
-from strength_coach.prescribe.models import Prescription, PrescriptionItem
+from strength_coach.prescribe.models import Prescription, PrescriptionItem, VbtTarget
 from strength_coach.rules import History, RuleContext, evaluate, load_document, registry
 from strength_coach.rules import policy as policy_mod
 from strength_coach.store import queries, repositories
@@ -1639,25 +1640,51 @@ def _attach_vbt_targets(
                 item,
                 velocity_target=target.velocity_median,
                 vbt_basis=f"{target.scope} · {target.n_sets} sets/{target.n_sessions} sessions",
+                vbt=VbtTarget(
+                    target_mps=float(target.velocity_median),
+                    low_mps=target.velocity_low,
+                    high_mps=target.velocity_high,
+                    rep_count=int(target.rep_count),
+                    rir_low=int(target.rir_band[0]),
+                    rir_high=int(target.rir_band[1]),
+                    scope=str(target.scope),
+                    family=target.vbt_family,
+                    n_sets=int(target.n_sets),
+                    n_sessions=int(target.n_sessions),
+                    method_version=str(target.method_version),
+                    calibration_id=calibration_id,
+                    source=str(target.source),
+                ),
             )
         )
 
+    unique_ids = tuple(dict.fromkeys(ids))
     note = {
         "status": "available" if ids else "unavailable",
         "targets": len(ids),
-        "calibration_ids": ids,
+        "calibration_ids": list(unique_ids),
         "withheld": sorted(set(withheld)),
         "upgrade": "mean velocity only; per-rep velocity loss deferred (docs/VBT-CALIBRATION.md)",
     }
-    return tuple(out), tuple(ids), note
+    return tuple(out), unique_ids, note
 
 
 def _persist_calibration(conn, target, for_date: str) -> str:
-    """Store the target (append-only) and return a stable id for the prescription to cite."""
+    """Store the target (append-only) and return a stable id for the prescription to cite.
+
+    The id covers every piece of target provenance, not only the numeric median and sample
+    size: a lift target and a family target with coincidentally equal numbers are different
+    objects. Existing rows are never updated; a changed target creates a new id.
+    """
+    params_hash = json.dumps(
+        target.params, sort_keys=True, separators=(",", ":"), default=str
+    )
     raw = (
-        f"{target.exercise_id}|{target.rep_count}|{target.velocity_median}|"
-        f"{target.velocity_low}|{target.velocity_high}|{target.n_sets}|"
-        f"{target.n_sessions}|{target.method_version}|{for_date}"
+        f"{target.exercise_id}|{target.scope}|{target.rep_count}|{target.rir_band}|"
+        f"{target.velocity_median}|{target.velocity_low}|{target.velocity_high}|"
+        f"{target.n_sets}|{target.n_sessions}|{target.velocity_mad}|"
+        f"{target.method_version}|{target.vbt_family}|{target.source}|"
+        f"{params_hash}|{for_date}"
     )
     calibration_id = "vbt-" + hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
     existing = conn.execute(
@@ -1668,11 +1695,12 @@ def _persist_calibration(conn, target, for_date: str) -> str:
             conn,
             calibration_id=calibration_id,
             exercise_id=target.exercise_id,
-            vbt_family=None,
+            vbt_family=target.vbt_family,
             scope=target.scope if target.scope in ("lift", "family") else "global_prior",
             rep_count=target.rep_count,
             rir_band=target.rir_band,
             velocity_median=target.velocity_median,
+            velocity_mad=target.velocity_mad,
             velocity_low=target.velocity_low,
             velocity_high=target.velocity_high,
             n_sets=target.n_sets,
@@ -1680,6 +1708,7 @@ def _persist_calibration(conn, target, for_date: str) -> str:
             method_version=target.method_version,
             params=target.params,
             window_end=for_date,
+            source=str(target.source),
         )
     return calibration_id
 

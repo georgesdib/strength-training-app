@@ -146,6 +146,26 @@ def session_clean_sets(conn, session_id: str) -> list[dict]:
     return [dict(row) for row in rows]
 
 
+def session_vbt_overrides(conn, session_id: str) -> dict[int, dict]:
+    """Latest set-mean VBT override per set for one session.
+
+    Only `rep_index IS NULL` overrides replace the set mean; per-rep overrides remain rep
+    detail. The append-only chain is resolved by `override_id`, not by wall-clock text.
+    """
+    rows = conn.execute(
+        "SELECT o.set_id, o.velocity_mps, o.source, o.override_id "
+        "FROM vbt_override o WHERE o.session_id = ? AND o.rep_index IS NULL "
+        "AND NOT EXISTS (SELECT 1 FROM vbt_override child "
+        "WHERE child.supersedes_id = o.override_id) "
+        "ORDER BY o.override_id DESC",
+        (str(session_id),),
+    ).fetchall()
+    latest: dict[int, dict] = {}
+    for row in rows:
+        latest.setdefault(int(row["set_id"]), dict(row))
+    return latest
+
+
 def _clean_sets_query(
     conn,
     *,

@@ -89,6 +89,17 @@ It is **not** enough to:
 - Hex-bar targets are withheld regardless of sample size. The trap bar has its own family, but
   that does not override the evidence-based `VBT_UNRELIABLE` exclusion; a family is necessary,
   not sufficient, for a target.
+- The structured `vbt` metadata is provenance only. It does not add evidence, change the
+  calibration method, change how a target is selected, or make a target load-specific. The
+  target remains a median velocity conditional on lift/family, rep count and RIR band.
+- Target-versus-actual deltas, within-band counts and above/below-target fractions are
+  descriptive summaries of observed sets. They are not measurement-error bounds, prediction
+  intervals, evidence that a set was effective, or inputs to autoregulation. A comparison marked
+  `comparable` means only that the predefined structural and effort conditions were met.
+- The Performance dashboard's cohort residuals, bootstrap intervals, band counts and rep-loss
+  drift are descriptive observations. A 20-observation/8-week gate makes a cohort
+  evaluation-ready; it does not validate a load-velocity model, justify a load change or establish
+  a causal effect. Cohorts are not pooled across lifts or target scopes.
 
 ## 5. What is already available, and what remains
 

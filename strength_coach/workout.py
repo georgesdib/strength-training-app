@@ -29,7 +29,12 @@ from strength_coach.features import demands as demands_feature
 from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
 from strength_coach.features import e1rm_decay as e1rm_decay_feature
 from strength_coach.features import e1rm_source as e1rm_source_feature
-from strength_coach.features import heavy_spinal, monitoring, strength_observations
+from strength_coach.features import (
+    heavy_spinal,
+    monitoring,
+    strength_observations,
+    vbt_analysis,
+)
 from strength_coach.features import relative_strength as relative_strength_feature
 from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.prescribe import config as prescribe_config
@@ -202,6 +207,23 @@ def get(conn, workout_id: str) -> dict | None:
     data["comparison"] = _comparison(data)
     data["original_comparison"] = _comparison({**data, "plan": original}, original=True)
     data["minimum_session"] = _minimum_session_summary(data)
+    if data["status"] == "in_progress":
+        data["vbt"] = vbt_analysis.active_feedback(data)
+    elif data["status"] == "completed":
+        # Completed analysis must use corrected clean_set leaf rows, not the live workout_set
+        # draft, and the latest set-mean override when one exists. A voided session is excluded
+        # from analysis rather than silently retaining a stale comparison.
+        voided = conn.execute(
+            "SELECT voided FROM session WHERE session_id = ?", (workout_id,)
+        ).fetchone()
+        if voided is not None and int(voided["voided"] or 0):
+            data["vbt"] = vbt_analysis.unavailable("session_voided")
+        else:
+            data["vbt"] = vbt_analysis.completed(
+                data,
+                queries.session_clean_sets(conn, workout_id),
+                overrides=queries.session_vbt_overrides(conn, workout_id),
+            )
     return data
 
 
@@ -532,9 +554,9 @@ def _summary_special(
 def summary(conn, workout_id: str) -> dict[str, Any]:
     """Read-only descriptive summary for a completed workout.
 
-    Sections 1-5 only. No historical comparability, ratios or longitudinal trend is computed
-    in Phase 2. Raw performance is formula-derived; load-base provenance is used only for
-    relative intensity.
+    Includes the Phase 3 target-versus-actual comparison alongside the existing descriptive
+    sections. No historical comparability, ratios or longitudinal trend is computed here. Raw
+    performance is formula-derived; load-base provenance is used only for relative intensity.
     """
     data = get(conn, workout_id)
     if data is None:
@@ -590,11 +612,13 @@ def summary(conn, workout_id: str) -> dict[str, Any]:
     ).fetchone()
     if session_row is not None and int(session_row["voided"] or 0):
         adherence_payload = adherence.unavailable("session_voided")
+        vbt_payload = vbt_analysis.unavailable("session_voided")
     else:
         adherence_payload = adherence.analyse({
             **data,
             "sets": queries.session_clean_sets(conn, session_id),
         })
+        vbt_payload = data.get("vbt") or vbt_analysis.unavailable("vbt_unavailable")
     feedback = _summary_feedback(conn, data, session_id)
     strength = _summary_strength(
         conn, session_id, for_date, frame, entities, excluded_set_kinds, config
@@ -649,6 +673,7 @@ def summary(conn, workout_id: str) -> dict[str, Any]:
         ],
         "comparison": comparison,
         "adherence": adherence_payload,
+        "vbt": vbt_payload,
         "quality": {
             "flags": [],
             "coverage": {
@@ -1213,6 +1238,11 @@ def swap_exercise(conn, workout_id: str, item_index: int, exercise_id: str) -> d
         # The old load belongs to the old lift; do not silently carry it across.
         "load_kg": None,
         "unknown_load_reason": "swapped during workout; load not re-solved",
+        # The old VBT target belongs to the old lift's velocity profile; carrying it across
+        # would be a fabricated target for the replacement exercise.
+        "velocity_target": None,
+        "vbt_basis": None,
+        "vbt": None,
         # The old top-set/back-off structure belongs to the old lift; discard it rather
         # than carry a stale load or role onto the replacement.
         "set_groups": [],
@@ -1266,6 +1296,11 @@ def add_exercise(
         "rir_target": rir_target,
         "essential": False,
         "added_during_workout": True,
+        # A workout-time addition has no issued calibration target; keep the shape explicit
+        # rather than making consumers guess from an absent key.
+        "velocity_target": None,
+        "vbt_basis": None,
+        "vbt": None,
     }
     plan = {**(workout.get("plan") or {}), "items": items + [item]}
     return _write_plan(conn, workout_id, plan, "add_exercise", item)

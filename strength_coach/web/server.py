@@ -97,6 +97,7 @@ from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.features import shadow_report as shadow_report_feature
 from strength_coach.features import strength_trend as strength_trend_feature
 from strength_coach.features import test_cadence as test_cadence_feature
+from strength_coach.features import vbt_performance as vbt_performance_feature
 from strength_coach.features import volume as volume_feature
 from strength_coach.features import weekly as weekly_feature
 from strength_coach.features.readiness_score import ReadinessRequired
@@ -358,6 +359,7 @@ def _item_dict(item) -> dict:
         "time_cap_s": item.time_cap_s,
         "substitution_for": item.substitution_for,
         "vbt_basis": item.vbt_basis,
+        "vbt": item.vbt.as_dict() if item.vbt is not None else None,
         "e1rm_source_sets": item.e1rm_source_sets,
         "e1rm_kg": item.e1rm_kg,
         "e1rm_ref": item.e1rm_ref,
@@ -2724,6 +2726,27 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/performance/ratios":
                 query = parse_qs(urlparse(self.path).query)
                 self._json(200, self._performance_ratios_cached(query))
+            elif path == "/api/performance/vbt":
+                query = parse_qs(urlparse(self.path).query)
+                to_date = query.get("to", [datetime.date.today().isoformat()])[0]
+                try:
+                    end = datetime.date.fromisoformat(to_date)
+                except ValueError as exc:
+                    raise ValueError("from and to must be YYYY-MM-DD") from exc
+                from_date = query.get(
+                    "from", [(end - datetime.timedelta(days=83)).isoformat()]
+                )[0]
+                try:
+                    start = datetime.date.fromisoformat(from_date)
+                except ValueError as exc:
+                    raise ValueError("from and to must be YYYY-MM-DD") from exc
+                if start > end:
+                    raise ValueError("from must not be after to")
+                exercise_id = query.get("exercise_id", [None])[0] or None
+                self._json(200, self._with_conn(lambda c: vbt_performance_feature.analyse(
+                    c, start=start.isoformat(), end=end.isoformat(),
+                    exercise_id=exercise_id,
+                )))
             elif path == "/api/performance/relationship-options":
                 self._json(200, self._relationship_options())
             elif path == "/api/performance/relationships":

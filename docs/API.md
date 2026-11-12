@@ -16,6 +16,7 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/performance/e1rm?exercise_id=&from=&to=` | raw e1RM observations, rolling median, breaks and descriptive summary |
 | `GET /api/performance/dose?from=&to=&group_by=session` | descriptive session dose |
 | `GET /api/performance/ratios?relationship_id=&from=&to=` | configured ratio current value and paired history |
+| `GET /api/performance/vbt?from=&to=&exercise_id=` | longitudinal frozen-target cohorts, weekly residuals, band/RIR evidence, within-set velocity drift and per-set drill-down; default range is 84 days |
 | `GET /api/performance/relationships` | merged relationship configuration, source provenance and revision |
 | `POST /api/performance/relationships` | add a validated local relationship; requires the current revision |
 | `POST /api/performance/relationships/{id}/update\|delete\|reset` | edit, hide or reset a local relationship override; requires the current revision; stale revisions return 409 |
@@ -174,6 +175,120 @@ A documented display guard marks a period or exercise `small_sample` when it has
 three workouts or fewer than five prescribed sets. The Progress UI omits those points from the
 trend charts and keeps them in the tables with the exact counts. The guard is not a statistical
 confidence claim and never changes a numerator or denominator.
+
+### VBT target metadata
+
+An issued VBT target now carries an optional `vbt` object on each plan item:
+
+```json
+{
+  "target_mps": 0.42,
+  "low_mps": 0.39,
+  "high_mps": 0.45,
+  "rep_count": 3,
+  "rir_low": 2,
+  "rir_high": 3,
+  "scope": "lift",
+  "family": "squat",
+  "n_sets": 18,
+  "n_sessions": 3,
+  "method_version": "1.0.0",
+  "calibration_id": "vbt-...",
+  "source": "computed"
+}
+```
+
+The legacy `velocity_target` and `vbt_basis` fields remain. The structured object is frozen
+into `workout_session.plan_json` at workout start, so a later recalibration cannot rewrite the
+target a workout was issued with. A swap clears the old target, an added exercise has no target,
+and a set-count change preserves a still-applicable target. Plans created before this field
+existed have no `vbt` object and are treated as legacy; the server does not reconstruct target
+bands from the current calibration.
+
+The object is additive and optional, including in the iOS plan payload; no existing field or
+semantic changes. No migration is required. `prescription_item` keeps its legacy
+`velocity_target`/`vbt_basis` projection; the structured metadata lives in the frozen plan
+JSON and the append-only `vbt_calibration` row identified by `calibration_id`.
+
+An in-progress `GET /api/workout/<id>` and its set mutations include a read-only `vbt` block
+with per-set comparisons, exercise aggregates and quality counts:
+
+```json
+{
+  "status": "available",
+  "reason": null,
+  "sets": [{
+    "set_id": 1, "set_index": 1, "exercise_id": "ssb_squat",
+    "reps": 3, "load_kg": 100, "load_basis": "external",
+    "actual_velocity_mps": 0.44, "target_mps": 0.42, "low_mps": 0.39,
+    "high_mps": 0.45, "delta_mps": 0.02, "delta_pct": 4.76,
+    "within_calibration_band": true, "comparable": true, "reasons": [],
+    "actual_rir": 2, "target_rir_low": 2, "target_rir_high": 3,
+    "target_source": "final_plan", "velocity_source": "stored",
+    "target": {"calibration_id": "vbt-..."}
+  }],
+  "exercises": [{
+    "exercise_id": "ssb_squat", "sets": 3, "comparable_sets": 2,
+    "excluded_sets": 1, "mean_signed_delta_mps": 0.0,
+    "median_signed_delta_mps": 0.0, "mean_absolute_error_mps": 0.02,
+    "within_calibration_band": {"numerator": 2, "denominator": 2, "ratio": 1.0},
+    "above_target": {"numerator": 1, "denominator": 2, "ratio": 0.5},
+    "below_target": {"numerator": 1, "denominator": 2, "ratio": 0.5}
+  }],
+  "quality": {"target_items": 1, "logged_sets": 3, "working_sets": 3,
+              "comparable_sets": 2, "excluded_sets": 1}
+}
+```
+
+Completed `GET /api/workout/<id>`, `GET /api/workout/<id>/summary` (under
+`summary.vbt`) and `GET /api/history/<id>` (under `vbt`) expose the same shape computed
+from corrected `clean_set` leaf rows and the frozen plan. Exercise means, medians, band
+fractions and above/below fractions use comparable sets only; the band fraction's denominator
+is the comparable sets with a recorded band. A set whose final item was removed
+falls back to the target issued in the original plan and is marked
+`target_source: "original_plan"`; a swapped exercise never borrows the old target. The latest
+set-mean `vbt_override` wins and is marked `velocity_source: "override"`. Per-rep velocity
+loss remains a separate field.
+
+A comparison is marked `comparable: false` with explicit reasons when the set is warm-up,
+unattributed, attributed to another exercise, missing/invalid velocity, a different rep count,
+a different set-group rep count, has unknown/incompatible load basis, is time-based, carries a
+data-quality flag, or has missing/out-of-band actual RIR. The delta may still be present as
+context, but it is not a valid target observation. Imported sessions report
+`no_prescription_snapshot`; voided sessions report `session_voided`. No cross-exercise
+composite score is produced.
+
+### Longitudinal VBT performance
+
+`GET /api/performance/vbt` is the read-only Performance dashboard feed. It reuses the completed
+per-set analysis above and exposes frozen-target cohorts, weekly residuals, band and RIR
+evidence, within-set per-rep drift and per-set drill-down rows. The default range is the latest
+84 days; `exercise_id` narrows the drill-down without changing the analysis rules.
+
+Cohorts are split by exercise, target scope (`lift` or `family`), target rep count and target
+RIR band. The response never pools lift and family targets, never pools different lifts into one
+estimate, and never returns a composite score. Key fields:
+
+- `cohorts[]`: `n`, `weeks`, `mean_residual_mps`, `median_residual_mps`,
+  `mean_absolute_error_mps`, `spread_mps`, `mad_mps`, relative errors,
+  `within_calibration_band`, `band_evidence` (below/within/above), `rir`
+  (actual/prescribed, outside/missing), `bootstrap_mean_ci`, `gate` and `reasons`.
+- `weekly[]`: one row per observed week with comparable residuals; absent weeks are not zero.
+  When more than one cohort is present, top-level `weekly` is empty and each cohort carries
+  its own `weekly` series, so unrelated exercises/scopes are not averaged together.
+- `drift`: working sets with at least two valid per-rep velocities; median within-set loss and
+  weekly medians. The drift gate is 5 sets over 3 consecutive weeks; no trend model is fitted.
+- `summary`: target/comparable/excluded counts, cohort and scope counts, metadata coverage,
+  `evaluation_ready` and `abstain` reasons.
+- `gates`: the reused 5-observation signal gate, 20-observation/8-week evaluation gate and
+  drift gate. Gates make a cohort readable; they do not authorize a load or prescription change.
+
+The 95% bootstrap interval is deterministic from the residual vector and is descriptive, not a
+prediction interval or a measurement-error bound. Cohort `within_calibration_band` uses
+comparable sets; `band_evidence` counts all target rows with a recorded band, including
+excluded rows. Band counts are descriptive threshold evidence, not success/failure labels.
+Actual RIR is shown even when it falls outside the target band; such sets remain excluded from
+comparable residual statistics.
 
 ### iOS facade — Phase 1 reads and Phase 2 workflow
 

@@ -94,10 +94,12 @@ Every computation creates a new `vbt_calibration` row:
 `velocity_mad`, `velocity_low`, `velocity_high`, `n_sets`, `n_sessions`, `window_start`,
 `window_end`, `method_version`, `params_hash`, `computed_at`, `supersedes_id`.
 
-Nothing is updated in place. Recalibrating after new data produces a new row; a past
-prescription still points at the old one and still explains itself. `params_hash` covers
-`k`, the relative floor, the warm-up threshold, the RIR band and the rep cap, so a change
-to any of those is visible as a different calibration even if the numbers coincide.
+Nothing is updated in place. Recalibrating after new data produces a new row. The
+deterministic `calibration_id` covers the exercise, scope, rep count, RIR band, median,
+band, sample size, method version, family, parameter values and issue date, so a lift target
+and a family target with coincidentally equal numbers are different rows. A past
+prescription cites the exact row it used. `vbt_family` and `velocity_mad` are persisted when
+available; older rows without them remain valid historical records.
 
 ## 6. What cannot be computed — velocity loss
 
@@ -138,8 +140,15 @@ feature record so the critique cannot accidentally print a real-looking velocity
 only where the ladder produces one:
 
 - the target is the calibrated **median mean velocity** for that lift, rep count and RIR band;
-- the item records `velocity_target` and `vbt_basis` (scope + sample size);
-- the prescription cites the stored calibration rows in `calibration_ids`;
+- the item records the legacy `velocity_target` and `vbt_basis` fields and a structured
+  `vbt` object with target/lower/upper, rep count, RIR band, scope/family, sample size,
+  method version, calibration id and source;
+- the structured object is frozen into the workout plan JSON, so it is reproducible after a
+  later recalibration; old plans without it are `legacy_partial` and are never reconstructed
+  from today's calibration;
+- the prescription cites the stored calibration rows in `calibration_ids` (deduplicated);
+- a swap clears the old target because the replacement lift has a different velocity profile;
+  added exercises have no target; changing set counts preserves a still-applicable target;
 - **no target** is attached when the session was already modified by a safety rule (the load no
   longer matches the calibration), or when no lift has 12 clean sets across 3 sessions;
 - **hex-bar deadlift targets are withheld** regardless of sample size, because the RIR-velocity
@@ -147,6 +156,33 @@ only where the ladder produces one:
 
 The prescription notes say which case applied, and the CLI prints a `vel` column when any item
 has a target. A missing target is visible, not silent.
+
+No schema migration is required for the structured metadata: `vbt_calibration` already has the
+needed columns, and `workout_session.plan_json` is the frozen historical authority.
+`prescription_item` retains the legacy `velocity_target`/`vbt_basis` projection for existing
+readers. The new `vbt` fields are additive to the plan JSON returned by the API, including the
+additive iOS plan payload; no iOS code or model changes are involved.
+
+The active logger checks exercise identity, set group, rep count, actual RIR and load basis before
+treating the frozen target as applicable. Completed workouts are analysed from corrected
+`clean_set` leaf rows: exercise/identity, exact target rep count, valid positive mean velocity,
+working-set status, known/compatible load basis, target RIR band and data-quality flags are
+required for `comparable: true`. A removed item falls back to its original-plan target; a swapped
+item never borrows the old target. The latest set-mean `vbt_override` wins. Per-set signed and
+relative deltas, absolute error, band status and reasons are exposed, together with per-exercise
+counts, mean/median signed delta, mean/median absolute error, mean/median relative error,
+within-band and above/below-target fractions, actual/prescribed RIR and calibration provenance.
+Metrics are never pooled across exercises into a composite score, and within-set velocity loss is
+kept separate.
+
+The Performance view adds a read-only longitudinal layer over the same per-set rules. Cohorts are
+split by exercise, scope/family, rep count and target RIR band; lift and family targets are never
+pooled. It reports weekly residual series, within/above/below-band evidence, actual vs prescribed
+RIR, deterministic 95% bootstrap intervals for sufficiently sized cohorts, and per-set drill-down.
+The reused gates are 5 comparable observations for a descriptive signal and 20 observations over
+8 weeks (on at least two cohorts) before anything is called evaluation-ready; these gates do not
+authorize a change. Per-rep within-set loss has a separate 5-set/3-consecutive-week descriptive
+gate and no fitted trend. Set-level band counts are evidence, not success thresholds.
 
 ## 9. What is captured now, and what a live controller would still need
 
@@ -166,3 +202,13 @@ A real live velocity-loss controller would still need:
 The calibration already carries `METHOD_VERSION` and a typed `CalibrationParams`, so a future
 v2 method could be written beside the current one and selected by config.
 Until then, the app uses what the export provides and says when that is not enough.
+
+## Related
+
+- **UI surface:** [WEB-UI.md](WEB-UI.md), [UI-MAP.md](UI-MAP.md)
+- **API and data model:** [API.md](API.md), [DATA-MODEL.md](DATA-MODEL.md)
+- **Evidence:** [VBT-EVIDENCE.md](VBT-EVIDENCE.md), [REFERENCES.md](REFERENCES.md)
+- **Rep-velocity detail:** [REP-VELOCITY.md](REP-VELOCITY.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)

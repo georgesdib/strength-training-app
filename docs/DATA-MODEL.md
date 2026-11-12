@@ -570,7 +570,7 @@ until completion.
 | prescription_id | nullable link; the snapshot is `plan_json` because the displayed prescription is frozen at start |
 | for_date / session_type | copied from the plan |
 | status | `in_progress` \| `completed` \| `abandoned` |
-| plan_json | frozen prescription payload; later regeneration cannot rewrite it |
+| plan_json | frozen prescription payload; later regeneration cannot rewrite it. Items may carry an optional structured `vbt` target (target/band, rep count, RIR band, scope/family, sample size, method version, calibration id) |
 | plan_modified_json | latest in-workout plan after swaps/adds/removes/set edits; null until changed |
 | readiness_json | validated readiness fields as supplied; a score-ready snapshot or an explicitly acknowledged partial snapshot |
 | started_at / ended_at | ISO timestamps |

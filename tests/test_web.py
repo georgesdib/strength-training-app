@@ -67,8 +67,8 @@ def get(base: str, path: str) -> tuple[int, str]:
 def client_js(base: str) -> str:
     """The whole client bundle, so a feature move does not break a string contract."""
     names = (
-        "core.js", "adherence.js", "settings.js", "app.js", "exercises.js", "history.js",
-        "workout.js", "summary.js", "performance.js",
+        "core.js", "adherence.js", "vbt.js", "settings.js", "app.js", "exercises.js",
+        "history.js", "workout.js", "summary.js", "performance.js",
     )
     parts = []
     for name in names:
@@ -3054,6 +3054,8 @@ def test_imported_history_session_reports_adherence_unavailable(server):
     adherence = detail["adherence"]
     assert adherence["status"] == "unavailable"
     assert adherence["reason"] == "no_prescription_snapshot"
+    assert detail["vbt"]["status"] == "unavailable"
+    assert detail["vbt"]["reason"] == "no_prescription_snapshot"
     for view in (adherence["original"], adherence["final_plan"]):
         assert view["status"] == "unavailable"
         assert view["reason"] == "no_prescription_snapshot"
@@ -3159,11 +3161,15 @@ def test_voided_session_adherence_is_explicitly_unavailable(server):
     voided = post(server, f"/api/history/{workout_id}/void", {"reason": "duplicate"})
     assert voided["adherence"]["status"] == "unavailable"
     assert voided["adherence"]["reason"] == "session_voided"
+    assert voided["vbt"]["status"] == "unavailable"
+    assert voided["vbt"]["reason"] == "session_voided"
 
     _, body = get(server, f"/api/workout/{workout_id}/summary")
     summary = _strict_json(body)["summary"]
     assert summary["adherence"]["status"] == "unavailable"
     assert summary["adherence"]["reason"] == "session_voided"
+    assert summary["vbt"]["status"] == "unavailable"
+    assert summary["vbt"]["reason"] == "session_voided"
 
 
 def test_summary_adherence_handles_missing_targets_explicitly(server):
@@ -3502,3 +3508,290 @@ def test_progress_adherence_panel_has_loading_and_error_states(server):
     assert "No periods in this range." in js
     assert "No prescribed exercises in this range." in js
     assert "No workouts in this range." in js
+
+
+def test_active_workout_exposes_vbt_target_applicability_and_feedback(server):
+    plan = {
+        "for_date": "2024-03-01",
+        "session_type": "hinge",
+        "items": [{
+            "order_index": 0, "exercise_id": "trap_bar_deadlift", "sets": 2,
+            "reps_low": 3, "reps_high": 5, "load_kg": 100, "load_basis": "external",
+            "rir_target": 2,
+            "vbt": {
+                "target_mps": 0.42, "low_mps": 0.39, "high_mps": 0.45,
+                "rep_count": 3, "rir_low": 2, "rir_high": 3, "scope": "lift",
+                "family": "hinge", "n_sets": 18, "n_sessions": 3,
+                "method_version": "1.0.0", "calibration_id": "vbt-active-test",
+                "source": "computed",
+            },
+        }],
+    }
+    started = post(server, "/api/workout/start", {
+        "date": "2024-03-01", "plan": plan, "readiness": _adherence_readiness(),
+    })["workout"]
+    workout_id = started["workout_id"]
+    assert started["vbt"]["status"] == "available"
+    assert started["vbt"]["quality"]["target_items"] == 1
+
+    detail = post(server, f"/api/workout/{workout_id}/sets", {
+        "exercise_id": "trap_bar_deadlift", "load_kg": 100, "reps": 3,
+        "rir": 2, "velocity": 0.44, "plan_item_index": 0,
+    })["workout"]
+    comparison = detail["vbt"]["sets"][0]
+    assert comparison["comparable"] is True
+    assert comparison["actual_velocity_mps"] == 0.44
+    assert comparison["delta_mps"] == pytest.approx(0.02)
+    assert comparison["delta_pct"] == pytest.approx(4.76)
+    assert comparison["within_calibration_band"] is True
+    assert comparison["target"]["calibration_id"] == "vbt-active-test"
+
+    detail = post(server, f"/api/workout/{workout_id}/sets", {
+        "exercise_id": "trap_bar_deadlift", "load_kg": 100, "reps": 5,
+        "rir": 2, "velocity": 0.44, "plan_item_index": 0,
+    })["workout"]
+    latest = next(row for row in detail["vbt"]["sets"] if row["set_index"] == 2)
+    assert latest["comparable"] is False
+    assert "rep_mismatch" in latest["reasons"]
+
+
+def test_vbt_targets_are_wired_into_prescribe_and_active_workout(server):
+    status, page = get(server, "/")
+    assert status == 200
+    assert "/static/vbt.js" in page
+    assert page.index("/static/vbt.js") < page.index("/static/app.js")
+    assert page.index("/static/vbt.js") < page.index("/static/workout.js")
+    assert 'id="workout-set-vbt-feedback"' in page
+
+    _, app_js = get(server, "/static/app.js")
+    assert "vbtTargetDetails(item)" in app_js
+    assert "vbtPrescriptionNote(p.notes?.vbt)" in app_js
+
+    _, workout_js = get(server, "/static/workout.js")
+    assert "vbtApplicabilityHtml(" in workout_js
+    assert "renderWorkoutVbtFeedback(w)" in workout_js
+    assert "vbtTargetDetails(item)" in workout_js
+    assert "vbtSectionHtml(w.vbt)" in workout_js
+
+    _, history_js = get(server, "/static/history.js")
+    assert "vbtSectionHtml(data.vbt)" in history_js
+
+    _, vbt_js = get(server, "/static/vbt.js")
+    for text in (
+        "vbtTargetDetails", "vbtApplicability", "vbtFeedbackHtml",
+        "vbtPrescriptionNote", "vbtSectionHtml", "vbt-analysis-table",
+        "within calibration band", "not comparable", "VBT target", "calibration id",
+    ):
+        assert text in vbt_js, text
+
+    _, css = get(server, "/static/style.css")
+    assert ".vbt-details" in css
+    assert ".vbt-feedback" in css
+    assert ".vbt-section" in css
+    assert ".vbt-analysis-table" in css
+
+
+def test_completed_workout_summary_and_history_expose_vbt_target_comparison(server):
+    plan = {
+        "for_date": "2024-04-02",
+        "session_type": "squat",
+        "items": [{
+            "order_index": 0, "exercise_id": "competition_squat", "sets": 3,
+            "reps_low": 3, "reps_high": 5, "load_kg": 100, "load_basis": "external",
+            "rir_target": 2,
+            "vbt": {
+                "target_mps": 0.42, "low_mps": 0.39, "high_mps": 0.45,
+                "rep_count": 3, "rir_low": 2, "rir_high": 3, "scope": "lift",
+                "family": "squat", "n_sets": 18, "n_sessions": 3,
+                "method_version": "1.0.0", "calibration_id": "vbt-completed-test",
+                "source": "computed",
+            },
+        }],
+    }
+    started = post(server, "/api/workout/start", {
+        "date": "2024-04-02", "plan": plan, "readiness": _adherence_readiness(),
+    })["workout"]
+    workout_id = started["workout_id"]
+    for reps, velocity in ((3, 0.44), (3, 0.40), (5, 0.44)):
+        post(server, f"/api/workout/{workout_id}/sets", {
+            "exercise_id": "competition_squat", "load_kg": 100, "reps": reps,
+            "rir": 2, "velocity": velocity, "plan_item_index": 0,
+        })
+    post(server, f"/api/workout/{workout_id}/end", {
+        "session_rpe": 7, "duration_min": 45, "productivity": 4,
+    })
+
+    detail = _strict_json(get(server, f"/api/workout/{workout_id}")[1])["workout"]
+    vbt = detail["vbt"]
+    assert vbt["status"] == "available"
+    assert vbt["quality"]["target_sets"] == 3
+    assert vbt["quality"]["comparable_sets"] == 2
+    assert vbt["quality"]["excluded_sets"] == 1
+    assert vbt["sets"][0]["target_mps"] == 0.42
+    assert vbt["sets"][0]["actual_velocity_mps"] == 0.44
+    assert vbt["sets"][0]["delta_mps"] == 0.02
+    assert vbt["sets"][0]["within_calibration_band"] is True
+    assert vbt["sets"][2]["reasons"] == ["rep_mismatch"]
+    exercise = vbt["exercises"][0]
+    assert exercise["comparable_sets"] == 2
+    assert exercise["median_signed_delta_mps"] == 0.0
+    assert exercise["mean_absolute_error_mps"] == 0.02
+    assert exercise["within_calibration_band"]["ratio"] == 1.0
+    assert exercise["target"]["calibration_id"] == "vbt-completed-test"
+
+    summary = _strict_json(get(server, f"/api/workout/{workout_id}/summary")[1])["summary"]
+    assert summary["vbt"]["quality"]["comparable_sets"] == 2
+    assert summary["vbt"]["exercises"][0]["target"]["calibration_id"] == "vbt-completed-test"
+
+    detail = _strict_json(get(server, f"/api/history/{workout_id}")[1])
+    assert detail["vbt"]["status"] == "available"
+    assert detail["vbt"]["quality"]["comparable_sets"] == 2
+    assert detail["vbt"]["exercises"][0]["sets"] == 3
+
+    set_id = detail["vbt"]["sets"][0]["set_id"]
+    post(server, f"/api/history/{workout_id}/vbt", {
+        "sets": [{"set_id": set_id, "mean": 0.46}],
+    })
+    overridden = _strict_json(get(server, f"/api/history/{workout_id}")[1])["vbt"]
+    first = next(row for row in overridden["sets"] if row["set_id"] == set_id)
+    assert first["actual_velocity_mps"] == 0.46
+    assert first["velocity_source"] == "override"
+    assert first["delta_mps"] == 0.04
+
+
+def test_performance_vbt_analysis_exposes_longitudinal_cohorts_and_drift(server):
+    plan = {
+        "for_date": "2024-04-15",
+        "session_type": "squat",
+        "items": [{
+            "order_index": 0, "exercise_id": "competition_squat", "sets": 5,
+            "reps_low": 3, "reps_high": 5, "load_kg": 100, "load_basis": "external",
+            "rir_target": 2,
+            "vbt": {
+                "target_mps": 0.42, "low_mps": 0.39, "high_mps": 0.45,
+                "rep_count": 3, "rir_low": 2, "rir_high": 3, "scope": "lift",
+                "family": "squat", "n_sets": 18, "n_sessions": 3,
+                "method_version": "1.0.0", "calibration_id": "vbt-perf-test",
+                "source": "computed",
+            },
+        }],
+    }
+    started = post(server, "/api/workout/start", {
+        "date": "2024-04-15", "plan": plan, "readiness": _adherence_readiness(),
+    })["workout"]
+    workout_id = started["workout_id"]
+    for index in range(5):
+        post(server, f"/api/workout/{workout_id}/sets", {
+            "exercise_id": "competition_squat", "load_kg": 100, "reps": 3, "rir": 2,
+            "velocity": 0.43 - index * 0.005, "plan_item_index": 0,
+            "rep_velocities": [
+                {"rep_index": 1, "velocity_mps": 0.50 - index * 0.005},
+                {"rep_index": 2, "velocity_mps": 0.47 - index * 0.005},
+                {"rep_index": 3, "velocity_mps": 0.44 - index * 0.005},
+            ],
+        })
+    post(server, f"/api/workout/{workout_id}/end", {
+        "session_rpe": 7, "duration_min": 45, "productivity": 4,
+    })
+
+    data = _strict_json(get(
+        server, "/api/performance/vbt?from=2024-04-01&to=2024-04-30",
+    )[1])
+    assert data["summary"]["target_sets"] == 5
+    assert data["summary"]["comparable_sets"] == 5
+    assert data["summary"]["cohorts"] == 1
+    assert data["summary"]["scopes"] == {"lift": 1}
+    assert data["summary"]["evaluation_ready"] is False
+    assert len(data["weekly"]) == 1
+    cohort = data["cohorts"][0]
+    assert cohort["scope"] == "lift"
+    assert cohort["n"] == 5
+    assert cohort["gate"] == "signal"
+    assert cohort["within_calibration_band"]["numerator"] == 5
+    assert cohort["band_evidence"]["within_band"] == 5
+    assert cohort["rir"]["sets_with_rir"] == 5
+    assert cohort["bootstrap_mean_ci"]["low"] <= cohort["mean_residual_mps"] <= cohort["bootstrap_mean_ci"]["high"]
+    assert data["drift"]["n_sets"] == 5
+    assert data["drift"]["n_exercises"] == 1
+    drift = data["drift"]["exercises"][0]
+    assert drift["n_reps"] == 15
+    assert drift["gate"] == "insufficient"
+    assert drift["consecutive_weeks"] == 1
+    assert drift["median_loss_pct"] is not None
+
+    filtered = _strict_json(get(
+        server, "/api/performance/vbt?from=2024-04-01&to=2024-04-30&exercise_id=competition_squat",
+    )[1])
+    assert filtered["summary"]["target_sets"] == 5
+    other = _strict_json(get(
+        server, "/api/performance/vbt?from=2024-04-01&to=2024-04-30&exercise_id=competition_bench_press",
+    )[1])
+    assert other["summary"]["target_sets"] == 0
+
+
+def test_performance_vbt_keeps_lift_and_family_cohorts_separate(server):
+    def target(scope, target_mps, calibration_id):
+        return {
+            "target_mps": target_mps, "low_mps": 0.39, "high_mps": 0.45,
+            "rep_count": 3, "rir_low": 2, "rir_high": 3, "scope": scope,
+            "family": "squat", "n_sets": 18, "n_sessions": 3,
+            "method_version": "1.0.0", "calibration_id": calibration_id,
+            "source": "computed",
+        }
+
+    plan = {
+        "for_date": "2024-05-06", "session_type": "squat",
+        "items": [
+            {"order_index": 0, "exercise_id": "competition_squat", "sets": 1,
+             "reps_low": 3, "reps_high": 5, "load_kg": 100, "load_basis": "external",
+             "rir_target": 2, "vbt": target("lift", 0.42, "vbt-lift")},
+            {"order_index": 1, "exercise_id": "ssb_squat", "sets": 1,
+             "reps_low": 3, "reps_high": 5, "load_kg": 90, "load_basis": "external",
+             "rir_target": 2, "vbt": target("family", 0.40, "vbt-family")},
+        ],
+    }
+    started = post(server, "/api/workout/start", {
+        "date": "2024-05-06", "plan": plan, "readiness": _adherence_readiness(),
+    })["workout"]
+    workout_id = started["workout_id"]
+    for index, exercise_id in enumerate(("competition_squat", "ssb_squat")):
+        post(server, f"/api/workout/{workout_id}/sets", {
+            "exercise_id": exercise_id, "load_kg": 100 if index == 0 else 90,
+            "reps": 3, "rir": 2, "velocity": 0.43, "plan_item_index": index,
+        })
+    post(server, f"/api/workout/{workout_id}/end", {
+        "session_rpe": 7, "duration_min": 30,
+    })
+
+    data = _strict_json(get(
+        server, "/api/performance/vbt?from=2024-05-01&to=2024-05-31",
+    )[1])
+    assert data["summary"]["scopes"] == {"family": 1, "lift": 1}
+    assert data["summary"]["cohorts"] == 2
+    assert {cohort["scope"] for cohort in data["cohorts"]} == {"family", "lift"}
+    assert {cohort["gate"] for cohort in data["cohorts"]} == {"insufficient"}
+    assert all(cohort["n"] == 1 for cohort in data["cohorts"])
+    # Multiple cohorts must not be averaged into a panel-level weekly series.
+    assert data["weekly"] == []
+    assert all(len(cohort["weekly"]) == 1 for cohort in data["cohorts"])
+
+
+def test_performance_vbt_panel_is_wired_to_the_read_only_endpoint(server):
+    status, page = get(server, "/")
+    assert status == 200
+    assert 'id="vbt-performance-panel"' in page
+    assert 'id="vbt-performance-form"' in page
+    assert 'id="vbt-performance-result"' in page
+    assert "/static/performance.js" in page
+
+    _, performance_js = get(server, "/static/performance.js")
+    for text in (
+        "/api/performance/vbt", "renderVbtPerformance", "loadVbtPerformance",
+        "vbtPerformanceDrift", "vbtPerformanceWeekly", "vbtPerformanceSetTable",
+        "No cross-exercise score", "No trend is fitted",
+    ):
+        assert text in performance_js, text
+
+    _, css = get(server, "/static/style.css")
+    assert ".vbt-performance-table" in css
+    assert ".vbt-performance-summary" in css

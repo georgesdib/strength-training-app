@@ -27,6 +27,15 @@ def _static_files() -> list[Path]:
     return [INDEX, *sorted(STATIC.glob("*.js"))]
 
 
+def _run_node(script: str, *, check: bool = False, env=None):
+    """Run a large inline script through stdin; argv has an OS length limit."""
+    node = shutil.which("node")
+    assert node is not None
+    return subprocess.run(
+        [node, "-"], input=script, text=True, capture_output=True, check=check, env=env
+    )
+
+
 def test_no_inline_event_handlers() -> None:
     offenders = []
     for path in _static_files():
@@ -142,7 +151,10 @@ def test_script_load_order() -> None:
              for src in re.findall(r'<script src="([^"]+)"', page)]
     assert order.index("core.js") == 0
     assert order.index("core.js") < order.index("adherence.js")
-    assert order.index("adherence.js") < order.index("history.js")
+    assert order.index("adherence.js") < order.index("vbt.js")
+    assert order.index("vbt.js") < order.index("app.js")
+    assert order.index("vbt.js") < order.index("history.js")
+    assert order.index("vbt.js") < order.index("performance.js")
     assert order.index("settings.js") < order.index("app.js")
     assert order.index("app.js") < order.index("history.js")
     assert order.index("app.js") < order.index("workout.js")
@@ -173,7 +185,7 @@ def test_esc_escapes_html_metacharacters() -> None:
         "const got = esc(\"'\\\"><&\");"
         "if (got !== \"&#39;&quot;&gt;&lt;&amp;\") throw new Error(got);"
     )
-    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    result = _run_node(script)
     assert result.returncode == 0, result.stderr
 
 def test_no_utc_or_locale_date_contract() -> None:
@@ -209,7 +221,7 @@ def test_format_local_date_uses_the_local_calendar_day() -> None:
         + "}"
     )
     env = {**os.environ, "TZ": "America/New_York"}
-    subprocess.run([node, "-e", script], check=True, capture_output=True, text=True, env=env)
+    _run_node(script, check=True, env=env)
 
 
 def test_constrained_controls_are_not_free_text() -> None:
@@ -386,7 +398,7 @@ def test_fatigue_diagnostic_reveals_ten_rows_at_a_time() -> None:
         + "if (all.indexOf('Show 10 more') >= 0) throw new Error('button should disappear');"
         + "if (all.indexOf('Showing all 23 lifts') < 0) throw new Error('all count missing');"
     )
-    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    result = _run_node(script)
     assert result.returncode == 0, result.stderr
 
 
@@ -502,7 +514,7 @@ def test_volume_panel_is_consolidated_and_linked_to_its_guide() -> None:
             "if (volumeNestedValue(budget, 'tolerance') !== 0.1) throw new Error('flat value');"
             "if (volumeNestedValue(budget, 'missing.total') !== undefined) throw new Error('missing');"
         )
-        result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+        result = _run_node(script)
     assert result.returncode == 0, result.stderr
 
 
@@ -599,7 +611,7 @@ html = render(base);
 if (html.indexOf("degraded") < 0) throw new Error("degraded status");
 """
     script = script.replace("SOURCE", json.dumps(source))
-    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    result = _run_node(script)
     assert result.returncode == 0, result.stderr
 
 
@@ -656,7 +668,7 @@ if (html.indexOf("Unavailable") < 0) throw new Error("missing tonnage shown as u
 if (html.indexOf("0 kg (observed_zero)") < 0) throw new Error("genuine zero lost");
 """
     script = script.replace("SOURCE", json.dumps(source))
-    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    result = _run_node(script)
     assert result.returncode == 0, result.stderr
 
 
@@ -689,7 +701,7 @@ if (html.indexOf("chart-series-median") < 0) throw new Error("rolling median ove
 if (html.indexOf("rolling median") < 0) throw new Error("rolling median legend missing");
 """
     script = script.replace("SOURCE", json.dumps(source))
-    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    result = _run_node(script)
     assert result.returncode == 0, result.stderr
 
 
@@ -728,7 +740,7 @@ if (html.indexOf("no values are imputed") < 0) throw new Error("missing-data dis
 if (html.indexOf("role='button'") < 0 || html.indexOf("tabindex='0'") < 0) throw new Error("accessible expansion missing");
 """
     script = script.replace("SOURCE", json.dumps(source))
-    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    result = _run_node(script)
     assert result.returncode == 0, result.stderr
 
 
@@ -766,7 +778,7 @@ loadLongevity().then(() => {
   if (!html.includes("latest values below use available history")) throw new Error("measurement window caveat missing");
 });
 """.replace("FUNCTION", json.dumps(match.group(0)))
-    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    result = _run_node(script)
     assert result.returncode == 0, result.stderr
 
 
@@ -781,7 +793,7 @@ def test_today_workout_action_handles_active_and_missing_workouts() -> None:
     script = f"eval({json.dumps(match.group(0))});\n"
     script += "if (todaySessionActionLabel({status: 'in_progress'}) !== 'Continue workout') throw new Error('active action');\n"
     script += "if (todaySessionActionLabel(null) !== 'Start today’s workout') throw new Error('missing action');\n"
-    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    result = _run_node(script)
     assert result.returncode == 0, result.stderr
 
 
@@ -878,7 +890,7 @@ loadProgressOverview().then(() => {
   if (els["#progress-overview-status"].textContent !== "Updated") throw new Error("status missing");
 });
 """.replace("SOURCE", json.dumps(source))
-    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    result = _run_node(script)
     assert result.returncode == 0, result.stderr
 
 
@@ -937,7 +949,7 @@ if (measureWindowFrom("all", boundary) !== "") throw new Error("all-history wind
 if (measureWindowLabel("all") !== "all history" || measureWindowLabel("6") !== "the last 6 months")
   throw new Error("window label incorrect");
 """.replace("CHUNKS", json.dumps("\n".join(chunks)))
-    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    result = _run_node(script)
     assert result.returncode == 0, result.stderr
 
 
@@ -983,7 +995,7 @@ if ((bars.match(/<rect class=/g) || []).length !== 3) throw new Error("bar serie
 if (!bars.includes("Target") || !bars.includes("Working sets")) throw new Error("bar labels missing");
 if (!groupedBarChart({categories: [], series: []}).includes("No observations")) throw new Error("empty state missing");
 """.replace("SOURCE", json.dumps(source))
-    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    result = _run_node(script)
     assert result.returncode == 0, result.stderr
 
 
@@ -1022,7 +1034,7 @@ if (!frequency.includes("complete-range Python aggregates")) throw new Error("co
 if (!frequency.includes("W14 2024") || !frequency.includes("W15 2024")) throw new Error("complete older ISO-week analytics missing");
 if ((frequency.match(/<rect class=/g) || []).length !== 3) throw new Error("complete weekly categories missing");
 """.replace("SOURCE", json.dumps(source))
-    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    result = _run_node(script)
     assert result.returncode == 0, result.stderr
 
 
@@ -1057,7 +1069,7 @@ Promise.all([loadProgressExecution("w1"), loadProgressAssociation()]).then(() =>
   if (!els["#progress-association"].innerHTML.includes("not refit or predict")) throw new Error("association caveat missing");
 });
 """.replace("SOURCE", json.dumps(source))
-    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    result = _run_node(script)
     assert result.returncode == 0, result.stderr
 
 def test_step5_report_controls_are_wired() -> None:
@@ -1178,7 +1190,7 @@ eval(FUNC);
 })().catch(error => { throw error; });
 """
     script = script.replace("FUNC", json.dumps(function_source))
-    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    result = _run_node(script)
     assert result.returncode == 0, result.stderr
 
 
@@ -1224,7 +1236,7 @@ eval(FUNC);
 })().catch(error => { throw error; });
 """
     script = script.replace("FUNC", json.dumps(function_source))
-    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    result = _run_node(script)
     assert result.returncode == 0, result.stderr
 def test_monitoring_inventory_reason_disclosures_and_empty_state() -> None:
     node = shutil.which("node")
@@ -1303,7 +1315,7 @@ applyMonitoringFilter();
 if (elements["settings-monitoring-empty"].hidden !== true) throw new Error("empty state should hide when results return");
 """
     script = script.replace("ESC", json.dumps(esc_match.group(0))).replace("CHUNK", json.dumps(chunk))
-    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    result = _run_node(script)
     assert result.returncode == 0, result.stderr
 
 
@@ -1347,7 +1359,7 @@ if (!html.includes("no dates are imputed") && !html.includes("No dates are imput
 const empty = exerciseHistoryAnalyticsCharts({working_sets: 0}, "No history");
 if (!empty.includes("No completed working-set observations")) throw new Error("empty-state disclosure missing");
 """.replace("SOURCE", json.dumps(source))
-    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    result = _run_node(script)
     assert result.returncode == 0, result.stderr
 
 
@@ -1420,7 +1432,7 @@ global.api = async function (url) {
     throw new Error("duplicate page was not surfaced as incomplete");
 })();
 """.replace("CHUNKS", json.dumps("\n".join(chunks)))
-    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    result = _run_node(script)
     assert result.returncode == 0, result.stderr
 
 
@@ -1457,7 +1469,7 @@ if (controls["#exercise-history-start"].value || controls["#exercise-history-end
   throw new Error("All history did not clear both date bounds");
 if (fetches !== 2) throw new Error("All history did not refetch");
 """.replace("HANDLERS", json.dumps("\n".join(handlers)))
-    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    result = _run_node(script)
     assert result.returncode == 0, result.stderr
 
 
@@ -1640,7 +1652,7 @@ global.esc = function (value) {
 };
 global.fmt = function (value, digits) {
   if (value == null || value === "") return "—";
-  return Number(value).toFixed(digits == null ? 1 : digits).replace(/.0+$/, "");
+  return Number(value).toFixed(digits == null ? 1 : digits).replace(/\.0+$/, "");
 };
 eval(SOURCE);
 var payload = PAYLOAD;
@@ -1691,7 +1703,7 @@ if (html.indexOf("Adherence data is unavailable for this session.") < 0)
     script = script.replace("SOURCE", json.dumps(
         (STATIC / "adherence.js").read_text(encoding="utf-8")
     )).replace("PAYLOAD", json.dumps(payload))
-    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    result = _run_node(script)
     assert result.returncode == 0, result.stderr
 
 
@@ -1797,7 +1809,7 @@ global.esc = function (value) {
 };
 global.fmt = function (value, digits) {
   if (value == null || value === "") return "—";
-  return Number(value).toFixed(digits == null ? 1 : digits).replace(/.0+$/, "");
+  return Number(value).toFixed(digits == null ? 1 : digits).replace(/\.0+$/, "");
 };
 global.today = function () { return "2024-01-31"; };
 global.__panelClick = null;
@@ -1810,7 +1822,7 @@ global.$ = function (selector) {
 };
 global.document = {addEventListener: function () {}};
 global.chartNumber = function (value, digits) {
-  return Number(value).toFixed(digits == null ? 1 : digits).replace(/.0+$/, "");
+  return Number(value).toFixed(digits == null ? 1 : digits).replace(/\.0+$/, "");
 };
 global.sessionLabel = function (value) { return String(value || ""); };
 global.api = function () { return Promise.resolve({}); };
@@ -1874,5 +1886,225 @@ if (html.indexOf("No frozen prescription snapshot exists") < 0)
     )).replace("PROGRESS_SOURCE", json.dumps(
         (STATIC / "progress.js").read_text(encoding="utf-8")
     )).replace("PAYLOAD", json.dumps(payload))
-    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
+    result = _run_node(script)
+    assert result.returncode == 0, result.stderr
+
+
+def test_vbt_helpers_render_targets_applicability_and_feedback() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    source = (STATIC / "vbt.js").read_text(encoding="utf-8")
+    script = r"""
+global.esc = function (value) {
+  return String(value == null ? "" : value).replace(/[&<>"']/g, function (c) {
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+  });
+};
+global.fmt = function (value, digits) {
+  if (value == null || value === "") return "—";
+  return Number(value).toFixed(digits == null ? 1 : digits).replace(/\.0+$/, "");
+};
+eval(SOURCE);
+var target = {
+  target_mps: 0.42, low_mps: 0.39, high_mps: 0.45, rep_count: 3,
+  rir_low: 2, rir_high: 3, scope: "lift", family: "squat", n_sets: 18,
+  n_sessions: 3, method_version: "1.0.0", calibration_id: "vbt-test",
+  source: "computed"
+};
+var item = {exercise_id: "ssb_squat", reps_low: 3, reps_high: 5, set_groups: [], vbt: target};
+var details = vbtTargetDetails(item);
+if (details.indexOf("0.42 m/s") < 0 || details.indexOf("0.39–0.45") < 0) throw new Error("target detail");
+if (details.indexOf("RIR 2–3") < 0 || details.indexOf("squat") < 0) throw new Error("scope/rir");
+if (details.indexOf("18 sets / 3 sessions") < 0 || details.indexOf("1.0.0") < 0) throw new Error("sample/method");
+if (details.indexOf("vbt-test") < 0) throw new Error("calibration id");
+
+var ok = vbtApplicability(item, "", 3, 2);
+if (ok.status !== "applicable") throw new Error("applicable target");
+var reps = vbtApplicability(item, "", 5, 2);
+if (reps.reason !== "rep_mismatch") throw new Error("rep mismatch");
+var effort = vbtApplicability(item, "", 3, 1);
+if (effort.reason !== "actual_rir_outside_band") throw new Error("rir band");
+var missingEffort = vbtApplicability(item, "", 3, "");
+if (missingEffort.reason !== "actual_rir_missing") throw new Error("rir missing");
+var noTarget = vbtApplicability({exercise_id: "ssb_squat", vbt: null}, "", 3, 2);
+if (noTarget.reason !== "no_target") throw new Error("no target");
+var legacy = vbtApplicability({exercise_id: "ssb_squat", vbt: null, velocity_target: 0.4}, "", 3, 2);
+if (legacy.reason !== "legacy_target") throw new Error("legacy target");
+
+var groups = [
+  {role: "top_set", sets: 1, reps_low: 5, reps_high: 5, load_kg: 110, rir_target: 1},
+  {role: "back_off", sets: 2, reps_low: 3, reps_high: 5, load_kg: 95, rir_target: 2}
+];
+var groupItem = {exercise_id: "ssb_squat", reps_low: 3, reps_high: 5, set_groups: groups, vbt: target};
+var groupMismatch = vbtApplicability(groupItem, "top_set", 5, 1);
+if (groupMismatch.reason !== "group_rep_mismatch") throw new Error("group reps");
+var ambiguous = vbtApplicability(groupItem, "", 3, 2);
+if (ambiguous.reason !== "ambiguous_set_role") throw new Error("ambiguous role");
+
+var comparable = vbtFeedbackHtml({
+  target_mps: 0.42, actual_velocity_mps: 0.44, delta_mps: 0.02,
+  delta_pct: 4.76, within_calibration_band: true, comparable: true, reasons: []
+});
+if (comparable.indexOf("Target 0.42") < 0 || comparable.indexOf("actual 0.44") < 0) throw new Error("feedback values");
+if (comparable.indexOf("+0.02") < 0 || comparable.indexOf("within calibration band") < 0) throw new Error("feedback delta");
+var invalid = vbtFeedbackHtml({
+  target_mps: 0.42, actual_velocity_mps: 0.44, delta_mps: 0.02,
+  delta_pct: 4.76, within_calibration_band: true, comparable: false,
+  reasons: ["rep_mismatch"]
+});
+if (invalid.indexOf("not comparable") < 0 || invalid.indexOf("rep count") < 0) throw new Error("invalid feedback");
+
+var note = vbtPrescriptionNote({status: "available", targets: 2, withheld: ["trap_bar_deadlift"]});
+if (note.indexOf("2 target") < 0 || note.indexOf("trap_bar_deadlift") < 0) throw new Error("available note");
+var unavailable = vbtPrescriptionNote({status: "unavailable", reason: "no clean sets"});
+if (unavailable.indexOf("no clean sets") < 0) throw new Error("unavailable note");
+"""
+    script = script.replace("SOURCE", json.dumps(source))
+    result = _run_node(script)
+    assert result.returncode == 0, result.stderr
+
+
+def test_vbt_section_renders_completed_comparison_and_quality() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    source = (STATIC / "vbt.js").read_text(encoding="utf-8")
+    script = r"""
+global.esc = function (value) {
+  return String(value == null ? "" : value).replace(/[&<>"']/g, function (c) {
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+  });
+};
+global.fmt = function (value, digits) {
+  if (value == null || value === "") return "—";
+  return Number(value).toFixed(digits == null ? 1 : digits).replace(/\.0+$/, "");
+};
+eval(SOURCE);
+var target = {
+  target_mps: 0.42, low_mps: 0.39, high_mps: 0.45, rep_count: 3,
+  rir_low: 2, rir_high: 3, scope: "lift", family: "squat", n_sets: 18,
+  n_sessions: 3, method_version: "1.0.0", calibration_id: "vbt-test",
+  source: "computed", metadata: "complete"
+};
+var vbt = {
+  status: "available", reason: null,
+  sets: [
+    {set_id: 1, set_index: 1, exercise_id: "ssb_squat", exercise_name: "SSB squat",
+     reps: 3, load_kg: 100, load_basis: "external", actual_rir: 2,
+     target_rir_low: 2, target_rir_high: 3, target_mps: 0.42,
+     actual_velocity_mps: 0.44, delta_mps: 0.02, delta_pct: 4.76,
+     within_calibration_band: true, comparable: true, reasons: [],
+     target_source: "final_plan", extra_set: false, target: target},
+    {set_id: 2, set_index: 2, exercise_id: "ssb_squat", exercise_name: "SSB squat",
+     reps: 5, load_kg: 100, load_basis: "external", actual_rir: 2,
+     target_rir_low: 2, target_rir_high: 3, target_mps: 0.42,
+     actual_velocity_mps: 0.44, delta_mps: 0.02, delta_pct: 4.76,
+     within_calibration_band: true, comparable: false,
+     reasons: ["rep_mismatch"], target_source: "final_plan",
+     extra_set: false, target: target}
+  ],
+  exercises: [{
+    exercise_id: "ssb_squat", exercise_name: "SSB squat", sets: 2,
+    comparable_sets: 1, excluded_sets: 1, extra_sets: 0,
+    median_signed_delta_mps: 0.02, mean_absolute_error_mps: 0.02,
+    mean_actual_rir: 2, mean_prescribed_rir: 2,
+    targets: [target], target_sources: ["final_plan"]
+  }],
+  quality: {
+    logged_sets: 2, working_sets: 2, sets_with_velocity: 2,
+    comparable_sets: 1, excluded_sets: 1, target_sets: 2, extra_sets: 0,
+    reasons: {rep_mismatch: 1}
+  }
+};
+var html = vbtSectionHtml(vbt);
+if (html.indexOf("SSB squat") < 0 || html.indexOf("Target 0.42 m/s") < 0) throw new Error("exercise/target");
+if (html.indexOf("0.44") < 0 || html.indexOf("+0.02") < 0 || html.indexOf("within band") < 0) throw new Error("per set");
+if (html.indexOf("not comparable") < 0 && html.indexOf("rep count") < 0) throw new Error("reason");
+if (html.indexOf("VBT data quality") < 0 || html.indexOf("Comparable target sets") < 0) throw new Error("quality");
+if (html.indexOf("rep count") < 0) throw new Error("excluded reason");
+var unavailable = vbtSectionHtml({status: "unavailable", reason: "no_vbt_target_issued", quality: {logged_sets: 2}});
+if (unavailable.indexOf("No trustworthy") < 0 || unavailable.indexOf("2 set") < 0) throw new Error("unavailable");
+"""
+    script = script.replace("SOURCE", json.dumps(source))
+    result = _run_node(script)
+    assert result.returncode == 0, result.stderr
+
+
+def test_vbt_performance_helpers_render_cohorts_drilldown_and_drift() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    source = (STATIC / "performance.js").read_text(encoding="utf-8")
+    script = r"""
+global.esc = function (value) {
+  return String(value == null ? "" : value).replace(/[&<>"']/g, function (c) {
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+  });
+};
+global.fmt = function (value, digits) {
+  if (value == null || value === "") return "—";
+  return Number(value).toFixed(digits == null ? 1 : digits).replace(/\.0+$/, "");
+};
+global.vbtSigned = function (value, digits) {
+  if (value == null) return "—";
+  return (Number(value) > 0 ? "+" : "") + fmt(value, digits == null ? 2 : digits);
+};
+global.vbtBandText = function (row) {
+  if (row.within_calibration_band === true) return "within band";
+  if (row.within_calibration_band === false) return "outside band";
+  return "band unavailable";
+};
+global.vbtSetNotes = function (row) {
+  return (row.reasons || []).join(" · ") || (row.target_source === "original_plan" ? "original-plan target" : "");
+};
+global.vbtTargetInline = function (target) {
+  return fmt(target.target_mps, 2) + " m/s @ " + target.rep_count + " reps";
+};
+global.dateSeriesChart = function () { return "<svg></svg>"; };
+global.chartFrame = function (title, svg) { return "<div>" + title + svg + "</div>"; };
+eval(SOURCE);
+if (vbtPerformanceRatio({numerator: 2, denominator: 3, ratio: 0.6667}) !== "2 / 3 (67%)") {
+  throw new Error("ratio");
+}
+var set = {workout_date: "2024-04-01", set_index: 1, set_id: 9, reps: 3,
+  load_kg: 100, load_basis: "external", actual_rir: 2, target_rir_low: 2,
+  target_rir_high: 3, target_mps: 0.42, low_mps: 0.39, high_mps: 0.45,
+  actual_velocity_mps: 0.44, delta_mps: 0.02, delta_pct: 4.76,
+  within_calibration_band: true, comparable: true, reasons: [],
+  target_source: "final_plan"};
+var setHtml = vbtPerformanceSetTable([set]);
+if (setHtml.indexOf("2024-04-01") < 0 || setHtml.indexOf("0.42") < 0) throw new Error("set values");
+if (setHtml.indexOf("comparable") < 0 || setHtml.indexOf("within band") < 0) throw new Error("set status");
+
+var drift = {
+  gates: {min_sets: 5, min_weeks: 3},
+  exercises: [{
+    exercise_id: "competition_squat", exercise_name: "Competition squat",
+    n_sets: 5, n_reps: 15, weeks: 3, consecutive_weeks: 3,
+    median_loss_pct: 8.2, change_pct_points: 1.4, gate: "descriptive",
+    reason: "descriptive; at least 5 sets over 3 weeks",
+    sets: [{date: "2024-04-01", set_id: 9, rep_count: 3, first_mps: 0.50,
+      last_mps: 0.46, loss_mps: 0.04, loss_pct: 8.0}]
+  }]
+};
+var driftHtml = vbtPerformanceDrift(drift);
+if (driftHtml.indexOf("Competition squat") < 0 || driftHtml.indexOf("8.2") < 0) throw new Error("drift");
+if (driftHtml.indexOf("No trend is fitted") < 0 || driftHtml.indexOf("5") < 0) throw new Error("drift caveat");
+
+var cohortHtml = vbtPerformanceCohortDetails({
+  exercise_id: "competition_squat", exercise_name: "Competition squat",
+  scope: "lift", family: "squat", target_rep_count: 3, target_rir_low: 2,
+  target_rir_high: 3, n: 1, calibration_ids: ["vbt-test"],
+  target_sources: ["final_plan"], target: {target_mps: 0.42, rep_count: 3}
+}, [set]);
+if (cohortHtml.indexOf("vbt-test") < 0 || cohortHtml.indexOf("Target 0.42") < 0) {
+  throw new Error("cohort details");
+}
+"""
+    script = script.replace("SOURCE", json.dumps(source))
+    result = _run_node(script)
     assert result.returncode == 0, result.stderr

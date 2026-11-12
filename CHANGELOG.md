@@ -4,6 +4,43 @@
 
 ### Added
 
+- **Longitudinal VBT performance dashboard**: new read-only `GET /api/performance/vbt` and
+  Performance panel report frozen-target cohorts split by exercise, scope/family, rep count
+  and target RIR band. It includes weekly mean/median residuals, residual spread/MAD,
+  within/above/below-band evidence, actual vs prescribed RIR, deterministic 95% bootstrap
+  intervals, the reused 5-observation and 20-observation/8-week gates, per-set drill-down and
+  separate within-set per-rep velocity drift with a 5-set/3-consecutive-week descriptive gate.
+  Lift and family cohorts are never pooled; there is no cross-exercise score, prediction
+  interval, load recommendation or autoregulation. No migration and no iOS change.
+
+- **Completed-workout and historical VBT target analysis**: completed workout, summary and
+  History payloads now expose a per-set target comparison built from corrected `clean_set`
+  leaf rows and the frozen plan. It reports signed/relative and absolute error, calibration-band
+  status, actual RIR vs the target band, target source (final or original plan), override source,
+  comparability and explicit exclusion reasons. Per-exercise aggregates report counts,
+  mean/median signed delta, mean/median absolute and relative error, within-band and
+  above/below-target fractions, actual/prescribed RIR and calibration provenance; no
+  cross-exercise composite is produced. Removed items fall back to the original issued target;
+  swapped items do not. End-of-workout and History detail sections render the comparison.
+  Within-set velocity loss stays separate. No prescription or autoregulation reads the result.
+
+- **VBT target visibility and active-set feedback**: Prescribe shows expandable target
+  provenance (band, rep count, RIR band, scope/family, sample size, method, calibration id) and
+  an honest reason when no target exists. Active workout cards show the same detail; the logger
+  checks the selected exercise, set group, rep count and RIR before treating a target as
+  applicable. Velocity-bearing sets receive compact descriptive feedback with target, actual,
+  signed/relative delta, calibration-band status and comparability reasons. No prescription,
+  load, set termination or autoregulation behavior changes. Additive `vbt` block on the active
+  workout API; `vbt.js` is a new client module.
+
+- **Complete VBT target metadata**: issued plan items now carry an optional structured `vbt`
+  object (target and band, rep count, RIR band, lift/family scope, sample size, method version,
+  calibration id and source) frozen into the workout plan JSON. Calibration rows now persist
+  family and MAD metadata, and calibration IDs include scope/RIR/parameter provenance. Exercise
+  swaps clear the old lift's target; added exercises have none; set-count changes preserve it.
+  Legacy plan snapshots remain visibly legacy and are never reconstructed from today's
+  calibration. The fields are additive, including to the iOS plan payload; no migration.
+
 - **Prescription adherence analytics (backend)**: completed workout summaries and history
   detail now expose a versioned `adherence` object comparing actual working sets with the
   original and final in-workout prescription. It reports set completion plus repetition, load
@@ -60,6 +97,16 @@
   instead of indexing the current plan list position. A valid identity still resolves after an
   earlier item is removed, while a removed or out-of-range identity returns the intended
   `409 plan_item_mismatch` rather than being misinterpreted or surfacing as a generic 400.
+
+- **Adherence period aggregation**: the longitudinal analytics now keep separate week/month
+  accumulators for the original and final prescriptions. A workout whose set count or targets
+  were edited no longer double-counts an unmodified plan or blends the two views in period rows;
+  each period now reports its own numerators, denominators and target attainment. The overall
+  summary and workout drill-down were already separate and are unchanged.
+
+- **Prescription-change provenance**: an item edited in both set count and repetition, load or
+  RIR target now reports both `set_count_changed` and `targets_changed`. The set-count branch no
+  longer suppresses the target edit, so History and the API show every changed dimension.
 
 ### Changed
 

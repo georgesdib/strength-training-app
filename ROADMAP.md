@@ -402,6 +402,29 @@ the golden fixture gains velocity columns.
 Do not start this before those three questions have answers — inventing them is what the
 deferral exists to avoid.
 
+### 3.7a VBT target analytics  (done 2026-11-12)
+
+Implemented in four reviewed phases, server and local web UI only:
+
+- **Phase 1** — structured, frozen target metadata (band, rep count, RIR band, scope/family,
+  sample, method version, calibration id) in plan JSON; deterministic calibration provenance;
+  legacy plans stay partial; no migration and no iOS model change.
+- **Phase 2** — Prescribe and Active Workout target visibility, dynamic set-group/rep/RIR
+  applicability checks and compact post-set feedback; no coaching or termination rule.
+- **Phase 3** — completed-workout and History per-set target-versus-actual comparison from
+  corrected `clean_set` rows, original-plan fallback for removed items, override priority,
+  per-exercise aggregates and explicit exclusion reasons.
+- **Phase 4** — Performance VBT dashboard with frozen-target cohorts split by exercise,
+  scope/family, rep count and target RIR band; weekly residuals, band/RIR evidence,
+  deterministic descriptive bootstrap intervals, reused 5-observation and 20-observation/8-week
+  gates, per-set drill-down and separate within-set rep-velocity drift. No cross-exercise score,
+  load model, prescription change or autoregulation.
+
+Verification: VBT/unit/API/frontend tests, the default suite, optional regression/slow suites,
+docs audit and ruff are green on the final tree. Data/raw integration is intentionally not run.
+No schema migration was added. The existing Progress VBT residual remains the shadow-only Part B
+signal; the Performance dashboard is a separate descriptive analysis.
+
 ### 3.8 Labelled set — moved to §4.14
 
 This is now a v0.2 item; the content and acceptance are in §4.14. v0.1 is complete.
