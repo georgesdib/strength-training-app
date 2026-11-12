@@ -585,6 +585,16 @@ def test_ios_plan_swap_expected_guard_and_idempotent_replay(ios):
     assert status == 200, swapped
     assert swapped["plan"]["items"][0]["exercise_id"] == new_id
     assert swapped["original_plan"]["items"][0]["exercise_id"] == item["exercise_id"]
+
+    # The execution envelope carries the edited plan with its revision so a watch can apply it
+    # without a second request (contract §10.1/§10.3).
+    status, execution = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/execution",
+        token=token,
+    )
+    assert status == 200, execution
+    assert execution["plan_revision"] >= 1
+    assert execution["plan"]["items"][0]["exercise_id"] == new_id
     assert swapped["plan"]["items"][0]["load_kg"] is None
     assert swapped["plan"]["items"][0]["substitution_for"] == item["exercise_id"]
 

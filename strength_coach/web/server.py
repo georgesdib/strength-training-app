@@ -1124,6 +1124,9 @@ class Handler(BaseHTTPRequestHandler):
                             "plan_revision": data.get("plan_revision", 0),
                             "last_activity_at": last,
                             "stale": stale,
+                            # The current plan (phone edits included) so a watch can apply a
+                            # newer revision without a second request (contract §10.1/§10.3).
+                            "plan": data.get("plan"),
                         })
                 elif path == "/api/ios/v1/progress":
                     params = _ios_progress_params(
