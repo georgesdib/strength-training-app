@@ -812,7 +812,8 @@ def _changes(
                 "from_sets": int(old.get("sets") or 0),
                 "to_sets": int(new.get("sets") or 0),
             })
-            continue
+        # Set count and target dimensions are independent: an item can have both edited,
+        # and the drill-down must report each rather than stopping at the first difference.
         old_fields = _target_fields(old)
         new_fields = _target_fields(new)
         changed = sorted(key for key in old_fields if old_fields[key] != new_fields[key])

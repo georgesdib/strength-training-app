@@ -209,6 +209,35 @@ def test_modified_set_count_keeps_original_and_final_distinct(conn):
     }]
 
 
+def test_set_count_and_target_changes_are_reported_independently(conn):
+    """One edit must not hide another: set count and target provenance are separate rows."""
+    started = start(conn, item(sets=5))
+    workout.change_sets(conn, started["workout_id"], 0, -2)
+    plan = workout.get(conn, started["workout_id"])["plan"]
+    plan["items"][0].update({"reps_low": 8, "reps_high": 8})
+    conn.execute(
+        "UPDATE workout_session SET plan_modified_json = ? WHERE workout_id = ?",
+        (json.dumps(plan), started["workout_id"]),
+    )
+    for _ in range(3):
+        log(conn, started, reps=5)
+    result = adherence.analyse(finish(conn, started))
+
+    assert result["changes"]["set_count_changed"] == [{
+        "plan_item_index": 0,
+        "exercise_id": "trap_bar_deadlift",
+        "from_sets": 5,
+        "to_sets": 3,
+    }]
+    assert result["changes"]["targets_changed"] == [{
+        "plan_item_index": 0,
+        "exercise_id": "trap_bar_deadlift",
+        "fields": ["reps_high", "reps_low"],
+    }]
+    assert result["original"]["reps"]["attainment"]["ratio"] == 1.0
+    assert result["final_plan"]["reps"]["attainment"]["ratio"] == 0.0
+
+
 def test_a_swapped_exercise_makes_only_that_original_item_unavailable(conn):
     started = start(conn, item(sets=2), item("competition_bench_press", sets=2, load_kg=80))
     workout.swap_exercise(conn, started["workout_id"], 0, "conventional_deadlift")

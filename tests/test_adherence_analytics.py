@@ -78,6 +78,12 @@ def test_aggregation_sums_numerators_and_denominators_not_percentages(conn):
     assert original["prescribed_sets"] == 12
     assert original["matched_sets"] == 11
     assert original["missing_sets"] == 1
+    # Period rows must sum the same counts once, not once per prescription view. Both
+    # workouts fall in ISO week 1, so a blended accumulator would report 24/22 here.
+    period = next(row for row in original["periods"] if row["key"] == "2024-W01")
+    assert period["prescribed_sets"] == 12
+    assert period["matched_sets"] == 11
+    assert period["set_completion"] == original["set_completion"]
 
 
 def test_original_and_final_prescriptions_are_aggregated_separately(conn):
@@ -97,6 +103,45 @@ def test_original_and_final_prescriptions_are_aggregated_separately(conn):
     row = result["workouts"][0]
     assert row["original"]["set_completion"]["numerator"] == 3
     assert row["final_plan"]["set_completion"]["denominator"] == 3
+
+
+def test_periods_keep_original_and_final_views_separate(conn):
+    """Each period row must carry its own view's counts, not a blend of both prescriptions."""
+    started = start(conn, "2024-01-03", item(sets=5))
+    workout.change_sets(conn, started["workout_id"], 0, -2)
+    plan = workout.get(conn, started["workout_id"])["plan"]
+    plan["items"][0].update({"reps_low": 8, "reps_high": 8})
+    conn.execute(
+        "UPDATE workout_session SET plan_modified_json = ? WHERE workout_id = ?",
+        (json.dumps(plan), started["workout_id"]),
+    )
+    for _ in range(3):
+        log(conn, started, reps=5)
+    end(conn, started)
+
+    result = aggregate(conn, **{"from": "2024-01-01", "to": "2024-01-31"})
+    original_period = next(
+        row for row in result["original"]["periods"] if row["key"] == "2024-W01"
+    )
+    final_period = next(
+        row for row in result["final_plan"]["periods"] if row["key"] == "2024-W01"
+    )
+
+    assert original_period["set_completion"] == {
+        "numerator": 3, "denominator": 5, "ratio": 0.6,
+    }
+    assert final_period["set_completion"] == {
+        "numerator": 3, "denominator": 3, "ratio": 1.0,
+    }
+    assert original_period["reps"]["attainment"] == {
+        "numerator": 3, "denominator": 3, "ratio": 1.0,
+    }
+    assert final_period["reps"]["attainment"] == {
+        "numerator": 0, "denominator": 3, "ratio": 0.0,
+    }
+    # For a single-period range the overall summary must agree with that period's row.
+    assert result["original"]["set_completion"] == original_period["set_completion"]
+    assert result["final_plan"]["set_completion"] == final_period["set_completion"]
 
 
 def test_month_grouping_keeps_empty_periods_empty(conn):

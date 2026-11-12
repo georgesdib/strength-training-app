@@ -367,8 +367,13 @@ def analytics(conn, query: Mapping[str, Any]) -> dict[str, Any]:
 
     start_iso, to_iso = start.isoformat(), to.isoformat()
     period_meta = _period_keys(start, to, group_by)
-    period_acc: dict[str, dict[str, Any]] = {
-        meta["key"]: {"meta": meta, "raw": _empty_raw()} for meta in period_meta
+    # One accumulator per prescription view: the original and final plan can prescribe
+    # different sets and targets, so their period numerators and denominators must never mix.
+    period_acc: dict[str, dict[str, dict[str, Any]]] = {
+        view_name: {
+            meta["key"]: {"meta": meta, "raw": _empty_raw()} for meta in period_meta
+        }
+        for view_name in ("original", "final_plan")
     }
     total = {"original": _empty_raw(), "final_plan": _empty_raw()}
     exercise_acc: dict[str, dict[str, dict[str, Any]]] = {"original": {}, "final_plan": {}}
@@ -455,9 +460,10 @@ def analytics(conn, query: Mapping[str, Any]) -> dict[str, Any]:
             raw["workout_ids"].add(workout_id)
             _add_raw(total[view_name], raw)
             meta = _period_meta(dt.date.fromisoformat(for_date), group_by)
-            if meta["key"] not in period_acc:
-                period_acc[meta["key"]] = {"meta": meta, "raw": _empty_raw()}
-            _add_raw(period_acc[meta["key"]]["raw"], raw)
+            periods = period_acc[view_name]
+            if meta["key"] not in periods:
+                periods[meta["key"]] = {"meta": meta, "raw": _empty_raw()}
+            _add_raw(periods[meta["key"]]["raw"], raw)
             for entry in view.get("exercises") or []:
                 entry_id = str(entry.get("exercise_id"))
                 if exercise_id and entry_id != exercise_id:
@@ -490,7 +496,7 @@ def analytics(conn, query: Mapping[str, Any]) -> dict[str, Any]:
             **entry["meta"],
             **_finalize(entry["raw"]),
         }
-        for entry in period_acc.values()
+        for entry in period_acc["original"].values()
     ]
     payload_original["periods"].sort(key=lambda item: item["start"])
     payload_final = _finalize(total["final_plan"])
@@ -499,7 +505,7 @@ def analytics(conn, query: Mapping[str, Any]) -> dict[str, Any]:
             **entry["meta"],
             **_finalize(entry["raw"]),
         }
-        for entry in period_acc.values()
+        for entry in period_acc["final_plan"].values()
     ]
     payload_final["periods"].sort(key=lambda item: item["start"])
 
