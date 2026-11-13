@@ -111,6 +111,8 @@ def analyse(
         "comparison_sessions": config.comparison_sessions,
         "repeated_required": config.repeated_required,
         "sessions_in_window": len(sessions),
+        "count": len(observations),
+        "families": sorted({row["family"] for row in observations}),
         "observations": observations,
         "abstain": abstain,
     }

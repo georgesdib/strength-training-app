@@ -265,6 +265,7 @@ async function refreshToday() {
 function renderTodayPriorities(data) {
   const target = $("#today-priorities");
   if (!target) return;
+  renderNudge(target);
   const followup = data.form_evaluation || {};
   const due = followup.due_on ? `Review due ${followup.due_on}` : followup.message || "No follow-up status available";
   target.innerHTML = `<div class="today-priority-row">
@@ -357,6 +358,7 @@ async function loadProgress() {
       <p class="muted">${esc(data.note)} Attendance is an aggregate, not adherence to planned dates.</p>
       <p><a href="#progress" data-view-link="progress">Open Progress overview</a></p>`;
     loadObservations();
+    loadKpis(data);
   } catch (error) {
     $("#progress").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
@@ -3668,3 +3670,82 @@ document.addEventListener("DOMContentLoaded", () => {
   loadOverview();
   applyHashRoute();
 });
+
+async function renderNudge(target) {
+  let data;
+  try {
+    data = await api("/api/nudge");
+  } catch (error) {
+    return;
+  }
+  if (!data || !data.nudge) return;
+  const nudge = data.nudge;
+  const row = document.createElement("div");
+  row.className = "today-priority-row";
+  row.id = "today-nudge";
+  row.innerHTML = `<div><strong>Coaching nudge · ${esc(String(nudge.family).replace("_", " "))}</strong>
+      <p class="muted">${esc(nudge.statement)}</p>
+      <p class="muted">${esc(nudge.gate)} · n=${nudge.n} · <code>${esc(nudge.evidence_id)}</code></p>
+      <details class="muted"><summary>Why this nudge</summary>
+        <ul>${(nudge.evidence.limitations || []).map((item) => `<li>${esc(item)}</li>`).join("")}</ul>
+      </details></div>
+    <div class="form-row">
+      <button class="ghost" type="button" id="nudge-snooze">Snooze 14 days</button>
+      <button class="ghost" type="button" id="nudge-dismiss">Dismiss</button>
+    </div>`;
+  target.prepend(row);
+  document.getElementById("nudge-snooze").addEventListener("click", () => decideNudge(nudge, "snooze"));
+  document.getElementById("nudge-dismiss").addEventListener("click", () => decideNudge(nudge, "dismiss"));
+}
+
+async function decideNudge(nudge, action) {
+  try {
+    await api("/api/nudge", {
+      method: "POST",
+      body: JSON.stringify({
+        action, key: nudge.key, evidence_id: nudge.evidence_id,
+      }),
+    });
+    notify(action === "dismiss" ? "Nudge dismissed" : "Nudge snoozed for 14 days");
+    const row = document.getElementById("today-nudge");
+    if (row) row.remove();
+  } catch (error) {
+    notify(error.message, "error");
+  }
+}
+
+async function loadKpis(progress) {
+  const target = $("#progress-kpis");
+  if (!target) return;
+  try {
+    const [adherence, observations] = await Promise.all([
+      api("/api/adherence/analytics?weeks=8").catch(() => ({})),
+      api("/api/observations").catch(() => ({})),
+    ]);
+    const attendance = progress.attendance || {};
+    const volume = (progress.volume || []).filter((row) => row.status !== "untargeted");
+    const plan = (adherence.final_plan || {});
+    const slots = plan.set_completion || {};
+    const rir = plan.rir || {};
+    const count = observations.count == null ? 0 : observations.count;
+    target.innerHTML = `<div class="cards compact-cards">
+      <div class="card"><div class="label">Training frequency</div>
+        <div class="value">${attendance.completed ?? "unknown"}${attendance.target == null ? "" : " / " + attendance.target}</div>
+        <div class="sub">${attendance.pct == null ? "target unknown" : attendance.pct + "% of target"}</div></div>
+      <div class="card"><div class="label">Volume patterns</div>
+        <div class="value">${volume.length}</div>
+        <div class="sub">targeted movement patterns in view</div></div>
+      <div class="card"><div class="label">Set completion</div>
+        <div class="value">${slots.numerator ?? "unknown"} / ${slots.denominator ?? "—"}</div>
+        <div class="sub">summed prescribed slots, 8 weeks</div></div>
+      <div class="card"><div class="label">RIR at target</div>
+        <div class="value">${rir.attainment && rir.attainment.ratio != null ? rir.attainment.numerator + " / " + rir.attainment.denominator : "unknown"}</div>
+        <div class="sub">rated sets inside the tolerance</div></div>
+      <div class="card"><div class="label">Observations</div>
+        <div class="value">${count}</div>
+        <div class="sub">repeated patterns currently supported</div></div>
+    </div>`;
+  } catch (error) {
+    target.innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}

@@ -82,6 +82,7 @@ from strength_coach.features import form_assessment as form_assessment_feature
 from strength_coach.features import high_intensity_exposure as exposure_feature
 from strength_coach.features import measurements as measurements_feature
 from strength_coach.features import monitoring_analysis as monitoring_analysis_feature
+from strength_coach.features import nudges as nudges_feature
 from strength_coach.features import observations as observations_feature
 from strength_coach.features import outcomes as outcomes_feature
 from strength_coach.features import programme as programme_feature
@@ -3006,6 +3007,11 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(
                     lambda c: prospective_feature.report(c, weeks=weeks, on_date=day)
                 ))
+            elif path == "/api/nudge":
+                query = parse_qs(urlparse(self.path).query)
+                day = query.get("date", [datetime.date.today().isoformat()])[0]
+                nudge = self._with_conn(lambda c: nudges_feature.current(c, on_date=day))
+                self._json(200, {"on_date": day, "nudge": nudge})
             elif path == "/api/observations":
                 query = parse_qs(urlparse(self.path).query)
                 weeks = int(query.get("weeks", ["8"])[0])
@@ -3393,6 +3399,12 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._save_break(c, body)))
             elif path == "/api/state/break/cancel":
                 self._json(200, self._with_conn(lambda c: self._cancel_break(c, body)))
+            elif path == "/api/nudge":
+                day = str(body.get("date") or datetime.date.today().isoformat())
+                self._json(200, self._with_conn(lambda c: {"nudge": nudges_feature.record(
+                    c, key=str(body.get("key") or ""), action=str(body.get("action") or ""),
+                    on_date=day, evidence_id=body.get("evidence_id"),
+                )}))
             elif path == "/api/state/test":
                 self._json(200, self._with_conn(lambda c: self._save_test(c, body)))
             else:

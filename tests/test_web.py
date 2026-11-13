@@ -3793,3 +3793,25 @@ def test_observations_endpoint_is_read_only_and_validates_weeks(server):
     with pytest.raises(urllib.error.HTTPError) as excinfo:
         get(server, "/api/observations?weeks=0")
     assert excinfo.value.code == 400
+
+
+def test_nudge_endpoint_returns_one_review_category(server):
+    status, body = get(server, "/api/nudge?date=2024-03-01")
+    assert status == 200
+    data = json.loads(body)
+    assert data["on_date"] == "2024-03-01"
+    assert "nudge" in data
+
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        post(server, "/api/nudge", {
+            "action": "hide", "key": "nudge:rir:session", "date": "2024-03-01",
+        })
+    assert excinfo.value.code == 400
+
+
+def test_observations_payload_carries_a_count(server):
+    status, body = get(server, "/api/observations?date=2024-03-01")
+    assert status == 200
+    data = json.loads(body)
+    assert data["count"] == len(data["observations"])
+    assert isinstance(data["families"], list)

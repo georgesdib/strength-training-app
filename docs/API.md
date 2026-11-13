@@ -73,6 +73,8 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/outcomes?weeks=N&date=N` | read-only 4/8/12-week strength, longevity and coverage review |
 | `GET /api/prospective?weeks=N&date=N` | W5 read-only prospective summary: statuses, attendance, work, RIR, duration, flags |
 | `GET /api/observations?date=N&weeks=N` | AFC-3 longitudinal observations over the AFC-2 evidence contract: repeated RIR deviation, repeated incomplete work, VBT residual deviation; abstentions carry their reason. Persists new observations append-only (idempotent on the evidence id) |
+| `GET /api/nudge?date=N` | at most one AFC-4 review-category nudge from the current AFC-3 observation, or `null` when suppressed or unsupported |
+| `POST /api/nudge` | `{action: dismiss\|snooze, key, evidence_id?, date?}` -> append-only suppression and the next nudge; dismiss is permanent for that evidence window, snooze hides the key for 14 days |
 | `GET /api/regime?weeks=N&date=N` | read-only main-lift/substitute regime check |
 | `GET /api/settings` | masked LLM settings, drop settings, config/database paths and app version |
 | `GET /api/settings/ios` | effective `ios.v1.yaml` values, defaults, ranges, labels, descriptions, path/source and per-request reload semantics |
@@ -204,6 +206,18 @@ prescribed slots, and VBT cohorts whose residuals fall outside their calibration
   evidence appends a new row. Abstentions are never stored.
 - It computes no metric: values come from `adherence` and `vbt_performance` and are rendered,
   not recalculated.
+
+### Coaching nudges (AFC-4)
+
+`GET /api/nudge` promotes at most one AFC-3 observation to a Today review category. A nudge
+carries its family, statement, gate, `n`, `evidence_id` and the full evidence envelope; it has
+no notification channel and never changes a prescription.
+
+Suppression is append-only (`maintenance_review`): `POST /api/nudge` with `action: dismiss`
+records a completed review (`not_applicable`) whose note is the observation/evidence identity, so
+only that evidence window is silenced; `action: snooze` records a 14-day snooze for the nudge key.
+A new evidence id produces a new nudge. Attendance, volume and other signals are deliberately not
+nudge sources.
 
 ### VBT target metadata
 

@@ -4,6 +4,12 @@
 
 ### Changed
 
+- **AFC-4: one coaching nudge and a programme-KPI panel.** Today promotes at most one AFC-3
+  observation as a review category, with dismiss (per evidence window) and a 14-day snooze
+  stored append-only in `maintenance_review`; Progress gains a programme-KPI panel composed
+  from target-based attendance, volume patterns, summed adherence and the observation count.
+  No notification channel, no composite score and no new metric (`DEC-AFC-05`).
+
 - **AFC-3 first cut: longitudinal observations.** `features/observations.py` reads the existing
   `adherence` and `vbt_performance` payloads and reports at most one repeated pattern per family
   — RIR above/below target, sessions ending with unperformed prescribed slots, VBT cohorts
