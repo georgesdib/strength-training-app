@@ -203,8 +203,7 @@ async function loadOverview() {
     loadDropWindow();
     $("#today-title").textContent = data.profile ? "Your training day" : "Set up athlete profile";
     $("#today-sub").textContent = "Block week " + (data.block_week ?? "unknown")
-      + " · " + data.today + " · " + (data.unreviewed.length ? data.unreviewed.length
-        + " unreviewed session(s)" : "reviews up to date");
+      + " · " + data.today;
     const activeWorkout = await api("/api/workout/active").catch(() => ({workout: null}));
     $("#today-session").textContent = todaySessionActionLabel(activeWorkout.workout);
     const readiness = data.readiness;
@@ -228,7 +227,6 @@ async function loadOverview() {
       ["Cardio (4 wk avg)", data.cardio ? data.cardio.average_weekly_minutes + " min/wk" : "unknown",
         data.cardio ? "reference " + data.cardio.reference_min + "-" + data.cardio.reference_max
           + " · " + data.cardio.sessions + " session(s)" : "no entry"],
-      ["Unreviewed", data.unreviewed.length, data.unreviewed.length ? "run review to catch up" : "all caught up"],
     ];
     $("#cards").innerHTML = cards.map(([label, value, sub]) => `
       <div class="card"><div class="label">${esc(label)}</div>
@@ -267,13 +265,12 @@ async function refreshToday() {
 function renderTodayPriorities(data) {
   const target = $("#today-priorities");
   if (!target) return;
-  const open = (data.unreviewed || []).length;
   const followup = data.form_evaluation || {};
   const due = followup.due_on ? `Review due ${followup.due_on}` : followup.message || "No follow-up status available";
   target.innerHTML = `<div class="today-priority-row">
-      <div><strong>${open ? `${open} session${open === 1 ? "" : "s"} need review` : "Reviews are up to date"}</strong>
-        <p class="muted">${open ? "Open Review to inspect stored sessions." : "No unreviewed sessions are currently listed."}</p></div>
-      <a class="button-link" href="#review" data-view-link="review">${open ? "Open Review" : "Review sessions"}</a>
+      <div><strong>Post-workout report</strong>
+        <p class="muted">Finish a workout to read the descriptive report; no review step follows.</p></div>
+      <a class="button-link" href="#workout" data-view-link="workout">Open workout</a>
     </div>
     <div class="today-priority-row">
       <div><strong>Form follow-up: ${esc(followup.status || "unknown")}</strong>

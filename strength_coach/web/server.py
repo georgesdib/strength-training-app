@@ -3799,7 +3799,6 @@ class Handler(BaseHTTPRequestHandler):
             "readiness_score": readiness_score.compute(conn, today).as_dict(),
             "cardio": cardio_feature.compute(conn, weeks=4).as_dict(),
             "injury_signal": signal,
-            "unreviewed": queries.unreviewed_sessions(conn, limit=50),
             "sessions": _session_rows(conn, 12),
             "form_evaluation": form_assessment_feature.followup(conn, as_of=today),
         }
