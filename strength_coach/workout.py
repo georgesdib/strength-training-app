@@ -691,6 +691,137 @@ def _summary_quality_flags(
     return flags
 
 
+def _summary_observation(
+    adherence_payload: Mapping[str, Any],
+    vbt_payload: Mapping[str, Any],
+    for_date: str,
+) -> dict[str, Any] | None:
+    """One deterministic per-workout observation, or None when nothing qualifies.
+
+    Descriptive only: it cites the evidence that produced it, abstains silently when the data
+    cannot support a claim, and never changes a prescription (DEC-AFC-08). The families are the
+    same definitions the reports already use; this function selects, it does not calculate.
+    """
+    candidates: list[tuple[float, int, str, str, EvidenceItem]] = []
+    if adherence_payload.get("status") == "available":
+        final = adherence_payload.get("final_plan") or {}
+        set_ids = tuple(
+            detail.get("set_id")
+            for exercise in final.get("exercises") or []
+            for detail in exercise.get("sets") or []
+            if detail.get("set_id") is not None
+        )
+        rir = final.get("rir") or {}
+        evaluated = int(rir.get("evaluated_sets") or 0)
+        deviation = rir.get("mean_deviation")
+        tolerance = float(rir.get("tolerance") or 1)
+        if evaluated and deviation is not None and abs(float(deviation)) > tolerance:
+            direction = "above" if float(deviation) > 0 else "below"
+            candidates.append((
+                abs(float(deviation)) / tolerance, 0, "rir",
+                f"RIR averaged {float(deviation):+.1f} from target across "
+                f"{evaluated} rated working set(s).",
+                EvidenceItem(
+                    source="adherence.rir",
+                    source_ids=set_ids,
+                    window_start=for_date,
+                    window_end=for_date,
+                    value={
+                        "mean_deviation": deviation,
+                        "tolerance": tolerance,
+                        "direction": direction,
+                        "evaluated_sets": evaluated,
+                    },
+                    unit="rir",
+                    n=evaluated,
+                    gate="signal",
+                    quality_flags=(
+                        ("sets_without_rir",)
+                        if int(rir.get("unavailable_sets") or 0) > 0 else ()
+                    ),
+                    limitations=(
+                        "RIR is self-reported; this is descriptive, not a judgment of effort",
+                    ),
+                    rule_ids=("PRG-RIR-001", "DEC-AFC-01"),
+                ),
+            ))
+        slots = final.get("set_completion") or {}
+        denominator = int(slots.get("denominator") or 0)
+        missing = denominator - int(slots.get("numerator") or 0)
+        if denominator and missing > 0:
+            candidates.append((
+                missing / denominator, 1, "incomplete_work",
+                f"{missing} of {denominator} prescribed working slot(s) were not filled.",
+                EvidenceItem(
+                    source="adherence.set_completion",
+                    source_ids=set_ids,
+                    window_start=for_date,
+                    window_end=for_date,
+                    value={
+                        "missing_sets": missing,
+                        "denominator": denominator,
+                        "set_completion": slots.get("ratio"),
+                    },
+                    unit="sets",
+                    n=denominator,
+                    gate="signal",
+                    limitations=(
+                        "unperformed prescribed slots are descriptive; this is not athlete failure",
+                    ),
+                    rule_ids=("DEC-AFC-01",),
+                ),
+            ))
+    if vbt_payload.get("status") == "available":
+        within = outside = 0
+        for exercise in vbt_payload.get("exercises") or []:
+            ratio = exercise.get("within_calibration_band") or {}
+            within += int(ratio.get("numerator") or 0)
+            outside += int(ratio.get("denominator") or 0) - int(ratio.get("numerator") or 0)
+        comparable = within + outside
+        if comparable and outside / comparable >= 0.5:
+            set_ids = tuple(
+                set_id
+                for exercise in vbt_payload.get("exercises") or []
+                for set_id in exercise.get("comparable_set_ids") or ()
+            )
+            candidates.append((
+                outside / comparable, 2, "vbt",
+                f"{outside} of {comparable} comparable velocity set(s) fell outside the "
+                f"calibration band.",
+                EvidenceItem(
+                    source="vbt_analysis.band",
+                    source_ids=set_ids,
+                    window_start=for_date,
+                    window_end=for_date,
+                    value={
+                        "sets_outside_band": outside,
+                        "comparable_sets": comparable,
+                    },
+                    unit="sets",
+                    n=comparable,
+                    gate="signal",
+                    limitations=(
+                        "a residual outside the calibration band is not a failed session",
+                    ),
+                    rule_ids=("DEC-AFC-01",),
+                ),
+            ))
+    if not candidates:
+        return None
+    severity, _, family, text, item = max(candidates, key=lambda row: (row[0], -row[1]))
+    evidence = item.as_dict()
+    return {
+        "family": family,
+        "text": text,
+        "gate": evidence["gate"],
+        "n": evidence["n"],
+        "evidence_id": evidence["evidence_id"],
+        "evidence": evidence,
+        "limitations": evidence["limitations"],
+        "basis": "deterministic selection over the session's own evidence",
+    }
+
+
 def summary(conn, workout_id: str) -> dict[str, Any]:
     """Read-only descriptive summary for a completed workout.
 
@@ -806,6 +937,9 @@ def summary(conn, workout_id: str) -> dict[str, Any]:
         "comparison": comparison,
         "adherence": adherence_payload,
         "vbt": vbt_payload,
+        "observation": _summary_observation(
+            adherence_payload, vbt_payload, for_date
+        ),
         "evidence": _summary_evidence(
             for_date=for_date,
             adherence_payload=adherence_payload,

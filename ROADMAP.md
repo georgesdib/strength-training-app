@@ -1840,7 +1840,9 @@ delivered `GET /api/workout/<id>/summary` payload through the transport-only iOS
 `adherence`, `vbt`, `feedback`, `quality.flags` and `evidence` — in the existing workout
 completion flow, and adds no calculation, capture, endpoint contract, schema or prescription change
 (`DEC-AFC-03`, [`AFC plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md) §7). It depends on AFC-2 only, not on AFC-3 or AFC-4,
-and it must not manufacture a coaching observation the payload does not carry.
+and it must not manufacture a coaching observation the payload does not carry. The summary now
+carries at most one deterministic observation (`DEC-AFC-08`); the web end screen renders it, and
+the iPhone report is a follow-up view change.
 
 **AFC-3 is completed** (2026-11-13, first cut): `features/observations.py` reads the existing
 `adherence` and `vbt_performance` payloads, applies `config/observations.v1.yaml` (3 of the last

@@ -4,6 +4,12 @@
 
 ### Changed
 
+- **One deterministic observation on the completed-workout summary.** `workout.summary()` now
+  carries an optional `observation` — the strongest qualifying claim among RIR deviation,
+  unperformed prescribed slots and velocity sets outside the calibration band — with the usual
+  evidence envelope, or `null` when nothing qualifies. The web end screen renders it; it is the
+  first-class input the future LLM context builder serialises (`DEC-AFC-08`).
+
 - **AFC-3 closed at its first cut; excluded sessions are now reported.** `GET /api/observations`
   counts imported, abandoned, technique, voided and adherence-unavailable sessions per category
   and lists each in `abstain` with a reason, so a thin comparable sample is explained rather than

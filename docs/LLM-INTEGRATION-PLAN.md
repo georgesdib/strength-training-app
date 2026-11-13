@@ -128,7 +128,10 @@ AthleteContextBuilder as existing.
 AFC is the deterministic producer for this layer. The Athlete Feedback & Coaching plan
 ([the AFC plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md) §6) defines the evidence-item contract — stable id, source rows, window, value,
 n, comparability, gate, quality flags, method versions, limitations and rule ids — and that
-contract is the one this builder serialises. The builder consumes AFC evidence and the existing
+contract is the one this builder serialises. A completed workout now also carries at most one
+deterministic per-workout observation (`DEC-AFC-08`), which is a first-class input for this
+builder: it is already evidence-wrapped, it can be `null`, and the builder must never invent one.
+The builder consumes AFC evidence and the existing
 feature payloads; it must not compute adherence, VBT, readiness or volume metrics, and there must
 not be a second evidence schema under `strength_coach/agents/`.
 

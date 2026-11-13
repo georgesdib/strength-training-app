@@ -27,7 +27,7 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `POST /api/workout/start` | `{date, plan, readiness, readiness_ack?, note?}` -> live workout; a score-ready assessment or explicit acknowledgement is required; partial readiness stays partial |
 | `GET /api/workout/active` | active workout, or `{workout: null}` |
 | `GET /api/workout/<id>` | workout detail |
-| `GET /api/workout/<id>/summary` | completed-workout descriptive summary: adherence, VBT, dose, strength, feedback, data-quality flags and reproducible evidence ids; 404 unknown, 409 in progress |
+| `GET /api/workout/<id>/summary` | completed-workout descriptive summary: adherence, VBT, dose, strength, feedback, data-quality flags, reproducible evidence ids and at most one deterministic observation; 404 unknown, 409 in progress |
 | `GET /api/form-trend?weeks=N&date=N` | descriptive current/baseline form trend |
 | `POST /api/workout/<id>/form` | `{exercise_id, rating 1-5}` -> optional post-lift form rating |
 | `POST /api/workout/<id>/sets` | `{exercise_id, load_kg, reps, rir, velocity?, plan_item_index?}` -> add manual set; explicit plan-item identity is validated against the frozen exercise; omitted identity resolves only a unique item |
@@ -160,6 +160,13 @@ context builder serialises, so there is one schema.
 Imported sessions have no frozen workout prescription and return
 `{"status": "unavailable", "reason": "no_prescription_snapshot"}`; a voided session returns
 `session_voided`; a workout with no plan items returns `no_prescription_items`.
+
+The summary also carries an optional `observation`: one deterministic sentence about the
+session, selected from the strongest qualifying family (RIR deviation beyond the engine's
+tolerance, unperformed prescribed slots, or comparable velocity sets outside the calibration
+band). It is `null` when nothing qualifies, carries `family`, `text`, `gate`, `n`,
+`evidence_id`, `limitations` and the same evidence envelope, and never changes a prescription.
+Selection is descriptive; nothing is recalculated (`DEC-AFC-08`).
 
 History set rows also expose `prescription_item_index` and `set_role`; an audited correction
 preserves both, so later comparison and adherence still resolve the same plan item and set

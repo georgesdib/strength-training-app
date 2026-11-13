@@ -148,9 +148,22 @@ function renderWorkoutSummary(summary) {
   var feedback = summary.feedback || {};
   var special = summary.special || {};
   var spinal = special.spinal || {};
+  var observation = summary.observation;
+  var observationHtml = observation
+    ? "<div class='panel' style='margin:.75rem 0'><p><strong>What stood out</strong> · " +
+      esc(String(observation.family).replace("_", " ")) + "</p>" +
+      "<p>" + esc(observation.text) + "</p>" +
+      "<p class='muted'>" + esc(observation.gate) + " · n=" + observation.n +
+      " · <code>" + esc(observation.evidence_id) + "</code></p>" +
+      "<details class='muted'><summary>Evidence and limitations</summary><ul>" +
+      (observation.limitations || []).map(function (item) {
+        return "<li>" + esc(item) + "</li>";
+      }).join("") + "</ul></details></div>"
+    : "";
   target.innerHTML =
     "<details class='panel' style='margin-top:1rem'><summary><strong>Descriptive session summary</strong></summary>" +
     "<p class='muted'>Raw formula performance; no decay or calibration. No composite score.</p>" +
+    observationHtml +
     summaryAdherenceHtml(summary.adherence) +
     summaryQualityHtml(summary.quality) +
     "<h3>Strength performance</h3>" +
