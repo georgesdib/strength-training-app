@@ -65,7 +65,7 @@ These are known and intentional or still open.
 | UI prescribe preview artifact | `/api/prescribe` is read-only until workout start | intentional; start commits the artifact |
 | CLI `run --propose` / `--llm` narrative | no UI proposal/chat surface today | documented CLI-only (`DEC-LLM-*` / WEB-UI limitations); future analyst/explainer/proposer surfaces are planned in [`LLM-INTEGRATION-PLAN.md`](LLM-INTEGRATION-PLAN.md), not implemented |
 | `review --pending` bulk queue | retired with the rubric (`DEC-EVAL-09`); the Review page is read-only | closed |
-| `state --import` YAML | UI has individual state forms only | open; CLI only since `DEC-WEB-02` |
+| `state --import` YAML | UI has individual state forms only | accepted design choice 2026-11-13 (`LIM-27`); CLI only since `DEC-WEB-02` |
 | `e1rm calibrate --window-days` | UI shows the calibration table, no window control | partial |
 | `e1rm tests-needed --window-days` | UI shows the same coverage table with the default window | partial |
 | `test --status` standalone cadence | cadence shown in prescription notes | partial |
