@@ -174,3 +174,58 @@ def test_evidence_id_is_stable_for_the_same_window(conn):
     two = _analyse(conn)["observations"]
     assert [row["evidence_id"] for row in one] == [row["evidence_id"] for row in two]
     assert len({row["observation_id"] for row in one}) == len(one)
+
+
+def test_excluded_sessions_are_reported_with_reasons(conn):
+    _session(conn, "2024-02-01", rir=4)
+    _session(conn, "2024-02-02", rir=4)
+    # Relabel one completed workout as technique: it is attendance only.
+    conn.execute(
+        "UPDATE workout_session SET session_type = 'technique' WHERE for_date = '2024-02-02'"
+    )
+    _session(conn, "2024-02-03")
+    conn.execute(
+        "UPDATE session SET voided = 1 WHERE session_id = "
+        "(SELECT workout_id FROM workout_session WHERE for_date = '2024-02-03')"
+    )
+    started = workout.start(
+        conn, for_date="2024-02-04",
+        plan={"for_date": "2024-02-04", "session_type": "hinge", "items": [_item(3)]},
+        readiness=dict(READINESS),
+    )
+    workout.abandon(conn, started["workout_id"])
+
+    payload = _analyse(conn)
+    assert payload["excluded"]["technique"] == 1
+    assert payload["excluded"]["voided"] == 1
+    assert payload["excluded"]["abandoned"] == 1
+    reasons = {
+        row.get("excluded"): row["reason"]
+        for row in payload["abstain"] if row.get("excluded")
+    }
+    assert "attendance only" in reasons["technique"]
+    assert "voided" in reasons["voided"]
+    assert "abandoned" in reasons["abandoned"]
+
+
+def test_imported_sessions_are_reported_as_excluded(conn):
+    from conftest import make_readiness, make_training
+
+    from strength_coach.store import importer
+
+    training = make_training([
+        {"Date": "2024-02-01", "Exercise": "Trap Bar Deadlift",
+         "Weight_Used": "150", "RIR": "2", "Reps_Done": "3"},
+    ])
+    readiness = make_readiness([{}])
+    importer.import_export(
+        conn, training, readiness,
+        training_sha256=importer.sha256_frame(training),
+        readiness_sha256=importer.sha256_frame(readiness),
+    )
+    payload = _analyse(conn)
+    assert payload["excluded"]["imported"] == 1
+    assert any(
+        row.get("excluded") == "imported" and "no prescription snapshot" in row["reason"]
+        for row in payload["abstain"]
+    )

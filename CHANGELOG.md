@@ -4,6 +4,12 @@
 
 ### Changed
 
+- **AFC-3 closed at its first cut; excluded sessions are now reported.** `GET /api/observations`
+  counts imported, abandoned, technique, voided and adherence-unavailable sessions per category
+  and lists each in `abstain` with a reason, so a thin comparable sample is explained rather than
+  silent. The deferred second cut (stagnation, stable-effort improvement) moves to AFC-5 scoping
+  (`DEC-AFC-07`).
+
 - **AFC-4: one coaching nudge and a programme-KPI panel.** Today promotes at most one AFC-3
   observation as a review category, with dismiss (per evidence window) and a 14-day snooze
   stored append-only in `maintenance_review`; Progress gains a programme-KPI panel composed

@@ -198,7 +198,9 @@ prescribed slots, and VBT cohorts whose residuals fall outside their calibration
   of the last five comparable sessions (`config/observations.v1.yaml`); VBT inherits the cohort
   gate and additionally requires at most half of comparable sets inside the band.
 - A family that cannot support a claim returns an entry in `abstain` with a reason — never a
-  zero, never a pass/fail.
+  zero, never a pass/fail. Excluded sessions (imported, abandoned, technique, voided and
+  adherence-unavailable) are counted in `excluded` and listed in `abstain`, so a thin sample is
+  explained rather than silent.
 - Every observation carries `gate`, `n`, `evidence_id`, `value` and the full `evidence`
   envelope (`source`, `source_ids`, `window`, `comparability`, `limitations`, `rule_ids`).
 - The endpoint appends each produced observation to the append-only `observation` table,

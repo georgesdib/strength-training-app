@@ -84,10 +84,23 @@ def analyse(
     end = dt.date.fromisoformat(str(as_of))
     start = end - dt.timedelta(days=7 * window_weeks)
     window = {"start": start.isoformat(), "end": end.isoformat()}
-    sessions = _comparable_sessions(conn, start.isoformat(), end.isoformat())
+    sessions, excluded = _comparable_sessions(conn, start.isoformat(), end.isoformat())
 
     observations: list[dict[str, Any]] = []
     abstain: list[dict[str, Any]] = []
+    for key, reason in (
+        ("imported", "imported sessions have no prescription snapshot"),
+        ("abandoned", "abandoned attempts record no durable performed work"),
+        ("technique", "technique sessions are attendance only and have no plan"),
+        ("voided", "voided sessions are excluded from metrics"),
+        ("unavailable", "prescription adherence was unavailable"),
+    ):
+        if excluded.get(key):
+            abstain.append({
+                "family": "eligibility",
+                "reason": f"{excluded[key]} {reason}",
+                "excluded": key,
+            })
 
     rir, rir_abstain = _rir_observation(sessions, config, window)
     _extend(observations, abstain, rir, rir_abstain)
@@ -113,6 +126,7 @@ def analyse(
         "sessions_in_window": len(sessions),
         "count": len(observations),
         "families": sorted({row["family"] for row in observations}),
+        "excluded": excluded,
         "observations": observations,
         "abstain": abstain,
     }
@@ -125,44 +139,69 @@ def _extend(observations, abstain, row, reason) -> None:
         abstain.append(reason)
 
 
-def _comparable_sessions(conn, start: str, end: str) -> list[dict[str, Any]]:
-    """Completed app-tracked workouts in the window, newest first.
+def _comparable_sessions(conn, start: str, end: str) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    """Completed app-tracked workouts in the window, newest first, plus exclusion counts.
 
-    Imports have no prescription snapshot and technique sessions have no normal plan, so both
-    are excluded before any family sees them; the exclusion is reported once in the payload.
+    Imports have no prescription snapshot, technique sessions have no normal plan, abandoned
+    attempts have no session row and voided sessions are excluded from metrics. Each category is
+    counted so the payload can say why a session did not participate, instead of only reporting
+    a thin comparable sample.
     """
     rows = conn.execute(
         """
-        SELECT w.workout_id, w.for_date, w.session_type
+        SELECT w.workout_id, w.for_date, w.session_type, w.status,
+               COALESCE(s.voided, 0) AS voided, s.session_id
           FROM workout_session w
-          JOIN session s ON s.session_id = w.workout_id
-         WHERE w.status = 'completed'
-           AND w.for_date BETWEEN ? AND ?
-           AND COALESCE(s.voided, 0) = 0
+          LEFT JOIN session s ON s.session_id = w.workout_id
+         WHERE w.for_date BETWEEN ? AND ?
          ORDER BY w.for_date DESC, w.workout_id DESC
         """,
         (start, end),
     ).fetchall()
+    excluded: dict[str, int] = {}
     output: list[dict[str, Any]] = []
     for row in rows:
-        workout_id = str(row["workout_id"])
-        if session_identity.is_technique(row["session_type"]):
+        if row["status"] == "abandoned":
+            excluded["abandoned"] = excluded.get("abandoned", 0) + 1
             continue
+        if row["status"] != "completed":
+            continue
+        if int(row["voided"] or 0):
+            excluded["voided"] = excluded.get("voided", 0) + 1
+            continue
+        if session_identity.is_technique(row["session_type"]):
+            excluded["technique"] = excluded.get("technique", 0) + 1
+            continue
+        workout_id = str(row["workout_id"])
         data = workout.get(conn, workout_id)
         if data is None:
+            excluded["unavailable"] = excluded.get("unavailable", 0) + 1
             continue
         payload = adherence.analyse({
             **data,
             "sets": queries.session_clean_sets(conn, workout_id),
         })
         if payload.get("status") != "available":
+            excluded["unavailable"] = excluded.get("unavailable", 0) + 1
             continue
         output.append({
             "workout_id": workout_id,
             "date": str(row["for_date"]),
             "adherence": payload,
         })
-    return output
+    imported = conn.execute(
+        """
+        SELECT COUNT(*) AS c
+          FROM session s
+          LEFT JOIN workout_session w ON w.workout_id = s.session_id
+         WHERE s.occurred_on BETWEEN ? AND ?
+           AND w.workout_id IS NULL
+        """,
+        (start, end),
+    ).fetchone()["c"]
+    if imported:
+        excluded["imported"] = int(imported)
+    return output, excluded
 
 
 def _rir_observation(sessions, config, window):
