@@ -163,9 +163,11 @@ labelled; weekly set-volume attainment already exists in the volume budget. The 
 part is out of scope by `DEC-W7-01`. The remaining items move:
 
 - the programme-level KPI panel becomes part of AFC-4;
-- an abandoned-attempt coverage counter belongs in AFC-2's data-quality block. An abandoned
-  workout is not a missed planned session; the athlete demonstrably started it, no `session`
-  row is written, and it currently vanishes from every denominator without a reason.
+- abandoned attempts are **excluded from AFC reporting**. Abandonment is reachable by a web
+  button, an iOS route and an automatic 24-hour idle sweep (`config/ios.v1.yaml`), so it is not a
+  dependable signal of athlete intent. No `session` row is written, sets logged before the
+  abandon never reach `clean_set`, and the status is execution-only. AFC treats it as neither a
+  missed session nor a failure, and adds no coverage counter for it.
 
 ### AFC-2 — post-workout feedback report
 
@@ -181,7 +183,6 @@ Work:
   engine;
 - populate `summary.quality.flags` from `adherence.quality` and `vbt.quality` (it is
   currently a hardcoded empty list);
-- add the abandoned-attempt coverage counter;
 - render adherence and quality on the end screen, from `final_plan` for the primary table and
   `original` when the plan was modified.
 
