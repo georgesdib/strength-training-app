@@ -99,7 +99,7 @@ contracts and evaluation gates are in
 [`LLM-INTEGRATION-PLAN.md`](LLM-INTEGRATION-PLAN.md); ROADMAP §4.24 tracks status. Iteration 1
 reuses the existing client, proposal, feature, repository, provenance and trace infrastructure
 and adds the new shared deterministic context/evidence builder in Phase 2, which serialises the
-evidence produced by the Athlete Feedback & Coaching layer ([`AFC.md`](AFC.md), ROADMAP §4.33)
+evidence produced by the Athlete Feedback & Coaching layer ([`AFC plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md), ROADMAP §4.33)
 rather than recomputing its metrics; retrieval/RAG and advanced orchestration are conditional
 Iteration 2 work. Nothing in this subsection is a current runtime capability.
 

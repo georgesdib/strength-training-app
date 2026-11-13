@@ -57,7 +57,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | — | Training-day session fragments | **done 2026-11-01** | one local training day may contain multiple session fragments; attendance and budget use days, volume/spinal use combined sets, e1RM uses one day-level observation; no schema migration; see [`docs/TRAINING-DAY-MODEL.md`](docs/TRAINING-DAY-MODEL.md) |
 | — | Deterministic dynamic template resolver | **Steps 0–6 complete 2026-11-01/03; merged to `development` 2026-11-03; released in v1.2.0 as opt-in (`resolver.enabled` default false)** | plan and confirmed decisions at [`docs/archive/PROGRAMME-BUILDER-PLAN.md`](docs/archive/PROGRAMME-BUILDER-PLAN.md) and [`docs/DECISIONS.md`](docs/DECISIONS.md) (`DEC-RESOLVER-01`–`12`); Step 1 delivered policy/settings/provenance; Step 2 delivered and remediated the internal deterministic generator core (`generator.py`, `resolver_settings.py`, accepted pattern-flexibility mapping); remediation covers shared injury/constraint eligibility, power-slot safety, require_can_do/unrated/rotation-default semantics, fallback repair, structural availability, whole-session/duplicate-aggregated authoritative spinal scoring, completed-workout precedence, history merge, retired redundant rotation/preference weights and policy/catalogue digests; Step 3 adds the opt-in top-set/back-off structure, top-set persistence and role-aware workout logging, and the hinge maximal-week programme change; Step 4C wires the flag-on resolver path through candidate pools, bounded beam and read-only evaluator, adds pool-aware scheduler availability, rejects selection overrides, and records generated-session provenance; the 4C audit remediation enforces required patterns on final assignments, separates evaluator failure stages, fingerprints beam configuration and DataFrame schemas, and uses the same auto-candidate/slot matching in scheduling; Step 5 adds the dedicated Settings -> Resolver panel, append-only scalar settings, validated policy YAML with atomic writes and 20 timestamped backups, read-only preview with choices/alternatives/suggestions, inline suitability rating, top-set preview, regenerate/diff and a start handoff; the Step 5 remediation adds shared CLI/web readiness enforcement, atomic backup creation, shared resolver-enable confirmation, deterministic restore with a reported pre-restore snapshot, and a full-prescription preview diff; Step 6 adds generated-slot snapshot provenance for critique/exemption reads with a legacy-null fallback, top-set role-aware critique coverage, a real-database copy smoke test, flag/policy rollback verification and the rollout documentation; forecast remains fixed option (c); the flag remains off |
 | future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.5; Iteration 2 conditional** | phased workstream at §4.24; architecture, iteration gate and selector retirement in [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); no implementation in this pass |
-| future | Athlete Feedback & Coaching (AFC) | **AFC-2 completed 2026-11-13; AFC-2i, AFC-3 and AFC-4 planned; backend, web and (from AFC-2i) native iOS presentation** | §4.33; canonical plan [`docs/AFC.md`](docs/AFC.md); composes the existing adherence, VBT, readiness, feedback and volume services; AFC-1 dissolved and planned-session compliance excluded by `DEC-W7-01`; Phase 5A instruments frozen; AFC-2i renders the same report contract in the iPhone app (`DEC-AFC-03`) |
+| future | Athlete Feedback & Coaching (AFC) | **AFC-2 completed 2026-11-13; AFC-2i, AFC-3 and AFC-4 planned; backend, web and (from AFC-2i) native iOS presentation** | §4.33; canonical plan [`AFC plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md); composes the existing adherence, VBT, readiness, feedback and volume services; AFC-1 dissolved and planned-session compliance excluded by `DEC-W7-01`; Phase 5A instruments frozen; AFC-2i renders the same report contract in the iPhone app (`DEC-AFC-03`) |
 | — | Symptom attribution and injury-signal verification | **done 2026-11-01** | Phases 1–2 closed: verification hygiene and optional session/lift attribution with required onset/confidence, migration `0047`, CLI/API/web and display-only views. Phase 3 was split into a separate roadmap phase (§4.28) |
 | future | Exercise-level symptom research (Phase 3) | **planned; unscheduled** | separate pre-registered descriptive research question; mechanical exposure and regional symptoms, not athlete attribution; no model, score, suitability rule or prescription change; Today follow-up `injury_attribution_phase3`; plan §10 and §4.28 |
 | — | 2026-10-26 pass | **done 2026-10-26** | declared breaks — append-only range, `break` CLI, Athlete panel, freeze in the trained-week cycle (`DEC-CONTINUITY-04`, `LIM-50`); P1 measured-test coverage view (`e1rm tests-needed` + Athlete table); symptom settling made fail-safe — a level-1 reading without a recorded 48 h settlement is a flare (`DEC-SYMPTOM-04`, Q25 closed) and `docs/SYMPTOM-LOGGING.md` documents the episode workflow; minimum-session target shown against the measured clock (`DEC-MIN-02`, `LIM-47` mitigated); gaps table folded into `docs/LIMITATIONS-REGISTER.md` |
@@ -160,7 +160,7 @@ During Phase 5A:
   justified and tested;
 - AFC (§4.33) is read-only composition and must not change `attendance.pct`, the flags in
   `features/prospective.py`, monitoring/exposure/calibration configuration, or the end-screen
-  capture controls for session RPE, duration and productivity ([`docs/AFC.md`](docs/AFC.md) §5).
+  capture controls for session RPE, duration and productivity ([`AFC plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md) §5).
 
 Evaluate/classify every metric using the existing monitoring analysis infrastructure:
 
@@ -1369,7 +1369,7 @@ Its two halves did not belong together:
   `DEC-W7-01` keeps attendance target-based and no planned-session calendar is stored.
 
 Design reference retained for history: [`docs/archive/UI-IMPROVEMENT-PLAN.md`](docs/archive/UI-IMPROVEMENT-PLAN.md).
-Canonical AFC scope: §4.33 and [`docs/AFC.md`](docs/AFC.md).
+Canonical AFC scope: §4.33 and [`AFC plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md).
 
 ### 4.24 Future LLM integration workstream  (planned; dependency-ordered after v1.5)
 
@@ -1390,10 +1390,10 @@ layer but have different permissions:
   choices; Python resolves loads and re-validates; the deterministic baseline remains visible;
   the user must explicitly approve; shadow/opt-in rollout only.
 
-AFC (§4.33, [`docs/AFC.md`](docs/AFC.md)) is the deterministic producer of the metrics,
+AFC (§4.33, [`AFC plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md)) is the deterministic producer of the metrics,
 observations and evidence these capabilities consume. The shared context/evidence builder in
 Iteration 1 phase 2 serialises AFC evidence ids; it does not recompute adherence, VBT, readiness or
-volume metrics. There is one evidence schema, defined in `docs/AFC.md` §6 and section 4 above.
+volume metrics. There is one evidence schema, defined in the AFC plan §6 and section 4 above.
 
 The deterministic engine, taxonomy, comparability rules, history and prescription validation
 remain authoritative. If no LLM is configured, the analyst/explainer/proposer functions are
@@ -1802,7 +1802,7 @@ cascade, and the read-only watch Today); 6.3 and later need a separate go-ahead.
 
 **Status:** AFC-2 completed 2026-11-13. AFC-2i, AFC-3 and AFC-4 are planned and not scheduled.
 Beyond AFC-2 this section is documentation only: no schema, API, rule or threshold change is part
-of it. The full plan is [`docs/AFC.md`](docs/AFC.md).
+of it. The full plan is [`AFC plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md).
 
 AFC-2 was backend and web UI work; AFC-2i is a native iOS presentation phase over AFC-2's report.
 Neither is Phase 7. Phase 7 is the existing LLM narrative layer (status-table row 7) and keeps that
@@ -1837,7 +1837,7 @@ readiness follow-up reads `adherence.analyse`, and the three Phase 5A guards fro
 **AFC-2i is planned.** It consumes the delivered `GET /api/workout/<id>/summary` payload —
 `adherence`, `vbt`, `feedback`, `quality.flags` and `evidence` — in the existing workout
 completion flow, and adds no calculation, capture, endpoint contract, schema or prescription change
-(`DEC-AFC-03`, [`docs/AFC.md`](docs/AFC.md) §7). It depends on AFC-2 only, not on AFC-3 or AFC-4,
+(`DEC-AFC-03`, [`AFC plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md) §7). It depends on AFC-2 only, not on AFC-3 or AFC-4,
 and it must not manufacture a coaching observation the payload does not carry.
 
 **Relationship to the critique rubric.** AFC is the canonical post-workout adherence
@@ -1884,7 +1884,7 @@ rejected ideas are recorded in §6.1; the LLM workstream lives in §4.24.
   volume per group/lift with calibrated uncertainty and a pre-registered prospective gate; no
   prescription change until validated. Fixed budget and safety guards remain authoritative.
   Idea only; see `docs/archive/VOLUME-MODULATION-PLAN.md` §13 and Q28.
-- Athlete Feedback & Coaching (AFC) — programme KPIs, post-workout report, longitudinal observations and nudges (§4.33; [`docs/AFC.md`](docs/AFC.md); not scheduled).
+- Athlete Feedback & Coaching (AFC) — programme KPIs, post-workout report, longitudinal observations and nudges (§4.33; [`AFC plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md); not scheduled).
 
 ### 6.1 Delivered or rejected from the former backlog
 

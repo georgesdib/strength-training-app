@@ -126,7 +126,7 @@ privacy inventory serialisation and independent tests. Until then, do not descri
 AthleteContextBuilder as existing.
 
 AFC is the deterministic producer for this layer. The Athlete Feedback & Coaching plan
-([AFC.md](AFC.md) §6) defines the evidence-item contract — stable id, source rows, window, value,
+([the AFC plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md) §6) defines the evidence-item contract — stable id, source rows, window, value,
 n, comparability, gate, quality flags, method versions, limitations and rule ids — and that
 contract is the one this builder serialises. The builder consumes AFC evidence and the existing
 feature payloads; it must not compute adherence, VBT, readiness or volume metrics, and there must
@@ -646,7 +646,7 @@ shippable; no phase may silently produce the next phase's capability.
 - **Non-goals:** explainer, proposer, autonomous actions. Selection retirement is the separate
   Phase 1b work item, not part of this phase.
 - **Dependencies:** Phase 1; existing features/readiness/outcomes/volume code; the AFC
-  evidence contract ([AFC.md](AFC.md) §6, AFC-2/AFC-3) for frequency, adherence, observation and
+  evidence contract ([the AFC plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md) §6, AFC-2/AFC-3) for frequency, adherence, observation and
   evidence ids. Read AFC evidence; do not recompute those metrics here.
 - **Expected code/docs:** agents/context.py, agents/analyst.py, feature query helpers,
   API/CLI/UI, tests; update this plan and ROADMAP.

@@ -96,7 +96,7 @@ monthly marking habit described in earlier revisions of this page no longer appl
 - Existing marks, sessions and reports stay readable; nothing is deleted, edited or recomputed
   differently.
 - The 2026-11-07 sample is the closed B1 evidence, not a live target.
-- AFC is the canonical post-workout adherence evaluation (`docs/AFC.md`); the rubric is a
+- AFC is the canonical post-workout adherence evaluation ([the AFC plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md)); the rubric is a
   display diagnostic with no training consumer.
 - If a B3 decision is ever scheduled, collect a fresh version-matched sample *before* the review,
   as B2 requires, and pre-declare the acceptance criteria. Do not re-open routine marking.

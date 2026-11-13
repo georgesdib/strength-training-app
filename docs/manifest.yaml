@@ -572,7 +572,7 @@ documents:
 - id: afc-plan
   path: docs/AFC.md
   title: ATHLETE FEEDBACK AND COACHING (AFC) — PLAN
-  description: 'composition plan for evidence-linked coaching feedback and nudges over the existing adherence, VBT, readiness, feedback and volume services: one evidence contract, post-workout report on the web end screen (AFC-2, completed) and in the native iOS completion flow (AFC-2i, planned), longitudinal observations, web UI nudges, Phase 5A protection and separate gated adaptation'
+  description: 'compatibility pointer to the portfolio canonical AFC plan: evidence-linked coaching feedback over adherence, VBT and feedback services, AFC-2i native report, longitudinal observations and Phase 5A protection'
   category: plans
   status: plan
   audience: public
