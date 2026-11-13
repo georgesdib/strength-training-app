@@ -32,11 +32,13 @@ from strength_coach.features import e1rm_source as e1rm_source_feature
 from strength_coach.features import (
     heavy_spinal,
     monitoring,
+    residual,
     strength_observations,
     vbt_analysis,
 )
 from strength_coach.features import relative_strength as relative_strength_feature
 from strength_coach.features import session_feedback as session_feedback_feature
+from strength_coach.features.evidence import EvidenceItem
 from strength_coach.prescribe import config as prescribe_config
 from strength_coach.prescribe import minimum_session as minimum_session_mod
 from strength_coach.prescribe import session_identity
@@ -551,6 +553,146 @@ def _summary_special(
     }
 
 
+def _summary_evidence(
+    *,
+    for_date: str,
+    adherence_payload: Mapping[str, Any],
+    vbt_payload: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    """Evidence items for the numbers this page shows.
+
+    Values are copied from payloads the owning services already produced; nothing is
+    recalculated here. Gates describe whether the evidence is readable, never whether the
+    session was good.
+    """
+    items: list[dict[str, Any]] = []
+    if adherence_payload.get("status") == "available":
+        view = adherence_payload.get("final_plan") or {}
+        set_ids = [
+            row.get("set_id")
+            for exercise in view.get("exercises") or []
+            for row in exercise.get("sets") or []
+            if row.get("set_id") is not None
+        ]
+        slots = view.get("set_completion") or {}
+        denominator = int(slots.get("denominator") or 0)
+        items.append(
+            EvidenceItem(
+                source="adherence.set_completion",
+                source_ids=tuple(set_ids),
+                window_start=for_date,
+                window_end=for_date,
+                value={
+                    "numerator": slots.get("numerator"),
+                    "denominator": slots.get("denominator"),
+                    "ratio": slots.get("ratio"),
+                },
+                n=denominator,
+                gate="signal" if denominator else "insufficient",
+                comparability="comparable" if denominator else "not_comparable",
+                quality_flags=tuple(
+                    str(code)
+                    for code in (adherence_payload.get("quality") or {}).get(
+                        "unavailable_metrics"
+                    )
+                    or ()
+                ),
+                limitations=(
+                    "prescription adherence is descriptive; it is not a training outcome",
+                ),
+                rule_ids=("DEC-AFC-01",),
+            ).as_dict()
+        )
+    if vbt_payload.get("status") == "available":
+        quality = vbt_payload.get("quality") or {}
+        comparable_ids = [
+            row.get("set_id")
+            for row in vbt_payload.get("sets") or []
+            if row.get("comparable") is True and row.get("set_id") is not None
+        ]
+        comparable_sets = int(quality.get("comparable_sets") or 0)
+        gate = (
+            "signal"
+            if comparable_sets >= residual.MIN_OBSERVATIONS
+            else "insufficient"
+        )
+        items.append(
+            EvidenceItem(
+                source="vbt.target_comparison",
+                source_ids=tuple(comparable_ids),
+                window_start=for_date,
+                window_end=for_date,
+                value={
+                    "target_sets": quality.get("target_sets"),
+                    "comparable_sets": quality.get("comparable_sets"),
+                    "excluded_sets": quality.get("excluded_sets"),
+                },
+                n=comparable_sets,
+                gate=gate,
+                comparability="comparable" if comparable_sets else "not_comparable",
+                quality_flags=tuple(
+                    str(code) for code in (quality.get("reasons") or {})
+                ),
+                limitations=(
+                    "targets are conditional on rep count and RIR band; not a success score",
+                ),
+            ).as_dict()
+        )
+    return items
+
+
+def _summary_quality_flags(
+    adherence_payload: Mapping[str, Any],
+    vbt_payload: Mapping[str, Any],
+    feedback: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    """Collect the limitations that qualify a number on this page.
+
+    A flag means "read the number with this in mind", never "the session failed". Codes reuse
+    the vocabulary the owning service already emits; nothing new is inferred here.
+    """
+    flags: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    def add(code: str, detail: Any = None) -> None:
+        if code in seen:
+            return
+        seen.add(code)
+        flags.append({"code": str(code), "detail": None if detail is None else str(detail)})
+
+    if adherence_payload.get("status") != "available":
+        add("adherence_unavailable", adherence_payload.get("reason"))
+    else:
+        quality = adherence_payload.get("quality") or {}
+        if quality.get("plan_modified"):
+            add("plan_modified", "plan edited during the workout")
+        if quality.get("legacy_plan_without_order_index"):
+            add("legacy_plan_without_order_index")
+        if quality.get("sets_without_rir"):
+            add("sets_without_rir", quality.get("sets_without_rir"))
+        unmatched = quality.get("unmatched_sets") or {}
+        if unmatched.get("final_plan"):
+            add("unmatched_sets", unmatched.get("final_plan"))
+        ambiguous = quality.get("ambiguous_attribution") or {}
+        if ambiguous.get("final_plan"):
+            add("ambiguous_attribution", ambiguous.get("final_plan"))
+        for code in quality.get("unavailable_metrics") or ():
+            add(code)
+
+    if vbt_payload.get("status") != "available":
+        add("vbt_unavailable", vbt_payload.get("reason"))
+    else:
+        vbt_quality = vbt_payload.get("quality") or {}
+        if vbt_quality.get("target_sets") and not vbt_quality.get("comparable_sets"):
+            add("vbt_no_comparable_sets")
+        if (vbt_quality.get("target_metadata") or {}).get("legacy"):
+            add("vbt_legacy_target")
+
+    if feedback.get("srpe") is None:
+        add("srpe_not_recorded")
+    return flags
+
+
 def summary(conn, workout_id: str) -> dict[str, Any]:
     """Read-only descriptive summary for a completed workout.
 
@@ -597,13 +739,6 @@ def summary(conn, workout_id: str) -> dict[str, Any]:
             "near_failure_sets": monitoring.near_failure_sets(exercise_sets),
             "load_base": load_info.get(exercise_id, {"kg": None, "source": "unavailable"}),
         })
-    completion = dict(data.get("comparison") or {})
-    completion["planned_sets"] = sum(
-        int(item.get("planned_sets") or 0) for item in completion.get("items") or []
-    )
-    completion["completed_sets"] = sum(
-        int(item.get("actual_sets") or 0) for item in completion.get("items") or []
-    )
     # Adherence reads the materialised leaf rows, not the live workout_set draft, so a later
     # history correction is reflected in the completed summary. A voided session is excluded
     # from metrics, so its adherence is explicitly unavailable rather than silently recomputed.
@@ -657,7 +792,6 @@ def summary(conn, workout_id: str) -> dict[str, Any]:
         "for_date": for_date,
         "session_type": data.get("session_type"),
         "status": data.get("status"),
-        "completion": completion,
         "strength": strength,
         "dose": {
             "per_exercise": per_exercise,
@@ -674,8 +808,13 @@ def summary(conn, workout_id: str) -> dict[str, Any]:
         "comparison": comparison,
         "adherence": adherence_payload,
         "vbt": vbt_payload,
+        "evidence": _summary_evidence(
+            for_date=for_date,
+            adherence_payload=adherence_payload,
+            vbt_payload=vbt_payload,
+        ),
         "quality": {
-            "flags": [],
+            "flags": _summary_quality_flags(adherence_payload, vbt_payload, feedback),
             "coverage": {
                 "rir": rir_coverage,
                 "e1rm": None if not strength else raw_ok / len(strength),
@@ -1746,6 +1885,10 @@ def undo_import(conn, workout_id: str) -> dict:
 
 def _comparison(workout: Mapping[str, Any], *, original: bool = False) -> dict:
     """Compare actual sets with the frozen plan using stored plan-item identity.
+
+    Display contract only. This is the comparison available before a workout is materialised
+    (in progress or abandoned), so `/api/workout/<id>` keeps it. It is not a metric source:
+    completed workouts use `adherence.analyse` (DEC-AFC-01).
 
     The exercise name is never used as the join key. A set written before the item index was
     stored, or one whose index points at a different exercise, remains unmatched and is

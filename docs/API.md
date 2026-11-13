@@ -27,7 +27,7 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `POST /api/workout/start` | `{date, plan, readiness, readiness_ack?, note?}` -> live workout; a score-ready assessment or explicit acknowledgement is required; partial readiness stays partial |
 | `GET /api/workout/active` | active workout, or `{workout: null}` |
 | `GET /api/workout/<id>` | workout detail |
-| `GET /api/workout/<id>/summary` | completed-workout descriptive summary including prescription adherence; 404 unknown, 409 in progress |
+| `GET /api/workout/<id>/summary` | completed-workout descriptive summary: adherence, VBT, dose, strength, feedback, data-quality flags and reproducible evidence ids; 404 unknown, 409 in progress |
 | `GET /api/form-trend?weeks=N&date=N` | descriptive current/baseline form trend |
 | `POST /api/workout/<id>/form` | `{exercise_id, rating 1-5}` -> optional post-lift form rating |
 | `POST /api/workout/<id>/sets` | `{exercise_id, load_kg, reps, rir, velocity?, plan_item_index?}` -> add manual set; explicit plan-item identity is validated against the frozen exercise; omitted identity resolves only a unique item |
@@ -130,9 +130,11 @@ per-exercise/per-set detail. Ratios always carry numerator and denominator and r
 a prescribed slot and still miss its rep, load or RIR target. There is no composite score.
 
 Adherence for a completed workout reads the current `clean_set` leaf rows, so an audited
-history correction is reflected rather than the original live `workout_set` draft. The
-existing summary `completion` block remains the frozen workout-view comparison; use
-`adherence` for adherence questions after a correction. The
+history correction is reflected rather than the original live `workout_set` draft.
+`adherence` is the single metric source for a completed workout: the old summary `completion`
+block was removed in AFC-2 (`DEC-AFC-01`). The raw `comparison`/`original_comparison` on
+`GET /api/workout/<id>` remains the display contract for a workout that has not been
+materialised (in progress or abandoned); it is not a metric source. The
 existing `is_working_set` classification is authoritative and RIR 6 remains the logged
 warm-up sentinel; contradictory rows are reported as ambiguous. Load is compared as external
 load, using the stored `load_basis`/`external_load_kg`; a captured bodyweight total is not
@@ -144,6 +146,15 @@ failure). Unmatched, ambiguous, mismatched and removed-exercise sets remain visi
 original prescription cannot be attributed reliably (a swap removes that item from the
 original denominator), the planned sets appear under `unattributable_planned_sets` with a
 reason instead of a fabricated percentage.
+
+The completed-workout summary also returns `quality.flags` and `evidence`. A flag is
+`{"code", "detail"}` and means a number on the page is qualified — never that the session
+failed; codes are the ones the owning service already emits. `evidence` is a list of
+`{evidence_id, source, source_ids, window, value, unit, n, comparability, gate, quality_flags,
+method_versions, calibration_ids, limitations, rule_ids, assumption_ids}`. The id is
+deterministic for the same source rows, window and value, and `gate` uses the existing
+`insufficient`/`signal`/`evaluation` vocabulary. The same envelope is what the future LLM
+context builder serialises, so there is one schema.
 
 Imported sessions have no frozen workout prescription and return
 `{"status": "unavailable", "reason": "no_prescription_snapshot"}`; a voided session returns

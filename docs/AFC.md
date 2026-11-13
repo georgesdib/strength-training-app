@@ -171,6 +171,9 @@ part is out of scope by `DEC-W7-01`. The remaining items move:
 
 ### AFC-2 — post-workout feedback report
 
+**Status: implemented 2026-11-13**, including the three Phase 5A guards. AFC-3 and AFC-4 remain
+planned.
+
 Scope: compose `workout.summary()` into observations with evidence, render them on the end
 screen, fix the quality block, and remove the duplicate set-count source.
 

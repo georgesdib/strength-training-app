@@ -71,8 +71,19 @@ def test_summary_has_completion_strength_dose_special_and_feedback(conn):
     summary = workout.summary(conn, ended["workout_id"])
 
     assert summary["status"] == "completed"
-    assert summary["completion"]["planned_sets"] == 4
-    assert summary["completion"]["completed_sets"] == 3
+    # DEC-AFC-01: adherence is the single metric source; the duplicate count block is gone.
+    assert "completion" not in summary
+    assert summary["adherence"]["status"] == "available"
+    assert summary["adherence"]["final_plan"]["set_completion"]["denominator"] == 4
+    assert summary["quality"]["flags"]
+    evidence = summary["evidence"]
+    assert evidence
+    assert all(item["evidence_id"].startswith("ev:") for item in evidence)
+    assert {item["source"] for item in evidence} >= {"adherence.set_completion"}
+    assert all(item["window"] == {"start": "2024-01-01", "end": "2024-01-01"}
+               for item in evidence)
+    # Same rows and window reproduce the same ids.
+    assert workout.summary(conn, ended["workout_id"])["evidence"] == evidence
     assert summary["basis"] == {
         "performance": "raw_formula_epley_rir",
         "decay": "not_applied",

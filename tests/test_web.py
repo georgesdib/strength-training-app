@@ -2983,7 +2983,7 @@ def test_completed_summary_and_history_expose_adherence(server):
         assert "load_deviation_kg" in view["exercises"][0]["sets"][0]
         assert "rir_deviation" in view["exercises"][0]["sets"][0]
     assert original["exercises"][0]["extra_sets"] == 1
-    assert summary["completion"]["planned_sets"] == 5
+    assert "completion" not in summary
     assert summary["feedback"]["duration_min"] == 45.0
     assert summary["comparison"]["status"] == "unavailable"
     assert summary["dose"]["per_exercise"]

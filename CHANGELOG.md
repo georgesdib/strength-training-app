@@ -4,6 +4,17 @@
 
 ### Changed
 
+- **AFC-2: one adherence source and a real data-quality block on the completed-workout
+  summary.** The summary no longer returns the duplicate `completion` count block; `adherence`
+  is the single metric source (`DEC-AFC-01`), and the raw `comparison` on
+  `GET /api/workout/<id>` is documented as the display contract for a workout that has not been
+  materialised. `quality.flags` is now populated from the adherence and VBT quality payloads
+  instead of being a hardcoded empty list, and the payload carries `evidence`: deterministic
+  evidence ids (`features/evidence.py`) over the rows each number came from, using the existing
+  `insufficient`/`signal`/`evaluation` gate vocabulary. The end screen renders adherence and
+  data quality, and readiness-follow-up now reads `adherence.analyse` instead of the coarser
+  comparison engine. No schema change.
+
 - **Roadmap consolidation for Athlete Feedback & Coaching (AFC)**: ROADMAP §4.23 is retired and
   its remaining scope moved to the new §4.33. The section never had an approved design, and its
   UI-polish half was already delivered by the P0–P3 UI redesign. AFC is a separately named backend

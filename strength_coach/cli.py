@@ -2015,11 +2015,25 @@ def _cmd_summary(args) -> int:
             print(json.dumps({"summary": payload}, indent=2, default=str))
             return 0
         print(f"summary {payload['for_date']} ({payload['session_type']})")
-        completion = payload["completion"]
-        print(
-            f"  completion      {completion.get('completed_sets', 0)} / "
-            f"{completion.get('planned_sets', 0)} sets"
-        )
+        adherence_payload = payload.get("adherence") or {}
+        if adherence_payload.get("status") == "available":
+            slots = (adherence_payload.get("final_plan") or {}).get("set_completion") or {}
+            ratio = slots.get("ratio")
+            suffix = f" ({ratio:.0%})" if ratio is not None else ""
+            print(
+                f"  completion      {slots.get('numerator', 0)} / "
+                f"{slots.get('denominator', 0)} prescribed slots{suffix}"
+            )
+        else:
+            print(
+                "  completion      unavailable"
+                f" ({adherence_payload.get('reason') or 'unknown'})"
+            )
+        limitations = [
+            flag.get("code") for flag in (payload.get("quality") or {}).get("flags") or []
+        ]
+        if limitations:
+            print("  limitations     " + ", ".join(str(code) for code in limitations))
         print("  strength")
         for row in payload["strength"]:
             post = row["post"]

@@ -13,7 +13,7 @@ import json
 import statistics
 from typing import Any
 
-from strength_coach import workout
+from strength_coach import adherence, workout
 from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.domain.symptoms import flare_from
 from strength_coach.store import queries
@@ -119,27 +119,26 @@ def _symptom_flare(conn, start: str, end: str) -> bool | None:
     )
 
 
-def _adherence(comparison: dict) -> dict:
-    items = comparison.get("items") or []
-    planned = sum(int(item.get("planned_sets") or 0) for item in items)
-    actual = sum(int(item.get("actual_sets") or 0) for item in items)
+def _adherence(conn, workout_id: str, data: dict) -> dict | None:
+    """Planned versus actual sets from the one adherence engine (DEC-AFC-01).
+
+    This used to read `original_comparison`, the coarser display comparison, so the follow-up
+    report could disagree with the session's own adherence payload on swaps and attribution loss.
+    """
+    analysis = adherence.analyse(
+        {**data, "sets": queries.session_clean_sets(conn, workout_id)}
+    )
+    if analysis.get("status") != "available":
+        return None
+    view = analysis.get("original") or {}
+    slots = view.get("set_completion") or {}
     return {
-        "planned_sets": planned,
-        "actual_sets": actual,
-        "ratio": round(actual / planned, 3) if planned else None,
-        "items": [
-            {
-                "exercise_id": item.get("exercise_id"),
-                "status": item.get("status"),
-                "planned_sets": item.get("planned_sets"),
-                "actual_sets": item.get("actual_sets"),
-                "planned_load_kg": item.get("planned_load_kg"),
-                "actual_load_kg": item.get("actual_load_kg"),
-                "planned_rir": item.get("planned_rir"),
-                "actual_rir": item.get("actual_rir"),
-            }
-            for item in items
-        ],
+        "planned_sets": view.get("prescribed_sets"),
+        "actual_sets": view.get("performed_sets"),
+        "ratio": slots.get("ratio"),
+        "matched_sets": view.get("matched_sets"),
+        "unattributable_planned_sets": view.get("unattributable_planned_sets"),
+        "basis": "adherence.analyse(original)",
     }
 
 
@@ -164,7 +163,7 @@ def _workout_event(conn, workout_id: str, for_date: str, plan: dict,
         "completed_within_7d": True,
         "previous": _session_metrics(conn, previous["session_id"], feedback) if previous else {},
         "next": _session_metrics(conn, workout_id, feedback),
-        "adherence": _adherence(data.get("original_comparison") or {}),
+        "adherence": _adherence(conn, workout_id, data),
         "e1rm_before": round(before, 1) if before else None,
         "e1rm_after": round(after, 1) if after else None,
         "e1rm_change_pct": (
