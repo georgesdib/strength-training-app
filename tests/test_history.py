@@ -109,7 +109,8 @@ def test_history_lists_and_edits_with_superseding_rows():
         squat = next(item for item in after["sets"] if item["exercise_id"] == "ssb_squat")
         assert squat["load_kg"] == 105
         assert squat["reps"] == 4
-        assert after["needs_review"] == 1
+        # No rubric review follows a correction any more (DEC-EVAL-09).
+        assert after["needs_review"] == 0
         rows = conn.execute(
             "SELECT set_id, supersedes_id, voided FROM clean_set ORDER BY set_id"
         ).fetchall()

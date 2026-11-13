@@ -245,7 +245,7 @@ def _refresh_session(conn, session_id: str) -> None:
             tonnage_present = True
     conn.execute(
         "UPDATE session SET set_count = ?, working_set_count = ?, exercise_count = ?, "
-        "main_lifts = ?, tonnage_kg = ?, needs_review = 1, edited_at = ?, updated_at = ? "
+        "main_lifts = ?, tonnage_kg = ?, edited_at = ?, updated_at = ? "
         "WHERE session_id = ?",
         (
             len(rows), len(working), len({row["exercise_id"] for row in rows}),
@@ -513,7 +513,7 @@ def void_session(conn, session_id: str, *, reason: str | None = None,
     )
     conn.execute(
         "UPDATE session SET voided = ?, voided_at = ?, void_reason = ?, "
-        "needs_review = 1, updated_at = ? WHERE session_id = ?",
+        "updated_at = ? WHERE session_id = ?",
         (0 if unvoid else 1, _now(), None if unvoid else reason, _now(), session_id),
     )
     return detail(conn, session_id)
@@ -581,7 +581,6 @@ def apply_vbt(conn, session_id: str, entries: list[dict], *, reason: str | None 
                 (session_id, set_id, rep_index, velocity,
                  previous["override_id"] if previous else None),
             )
-    conn.execute("UPDATE session SET needs_review = 1 WHERE session_id = ?", (session_id,))
     after = current_vbt(conn, session_id)
     conn.execute(
         "INSERT INTO session_edit (edit_id, session_id, reason, before_json, after_json) "

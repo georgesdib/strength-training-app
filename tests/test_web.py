@@ -1898,7 +1898,8 @@ def test_history_endpoint_lists_and_edits_a_session(server):
         "reason": "typo",
     })
     assert result["edit_id"]
-    assert result["session"]["needs_review"] == 1
+    # The review flag is historical: a correction no longer requests a rubric review.
+    assert result["session"]["needs_review"] == 0
     assert result["session"]["edited_at"]
     assert result["session"]["forms"][0]["rating"] == 4
 
