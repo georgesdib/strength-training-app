@@ -498,7 +498,7 @@ documents:
 - id: top-set-backoff-evidence
   path: docs/TOP-SET-BACKOFF-EVIDENCE.md
   title: Top set + back-off sets — evidence review
-  description: top set/back-off review; no direct trial, no programme change
+  description: top set/back-off evidence review; no direct trial, no default programme change; opt-in resolver structure exists
   category: features
   status: evidence
   audience: public

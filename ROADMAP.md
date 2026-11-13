@@ -1429,6 +1429,12 @@ selection engine, taxonomy, movement-family classifications, comparability rules
 class-B `selection_confirmed` confirmation and history remain. Only the minimal LLM chooser is
 removed. The new proposer is decision `DEC-LLM-09`; it is not a continuation of the chooser.
 
+**Wider proposal licence.** The current constrained proposer may choose one bounded
+keep/easier/harder/heavier/lighter option. Once the menu has proved itself in real sessions, a
+later extension may allow more than one increment on that Python-computed menu. The menu
+principle and approval path do not change: the model chooses, Python resolves and re-validates,
+and the deterministic baseline stays visible.
+
 ### Iteration 2 — evidence retrieval and advanced architecture (conditional)
 
 Iteration 2 begins only after the Iteration 1 exit gate. It starts with a needs assessment, not
@@ -1802,27 +1808,31 @@ comparability is tracked in §4.14 and the cardio impulse in §4.13a A2/A3.
 
 ## 6. Idea backlog (not approved, not scheduled)
 
-Recorded so good ideas are not lost, explicitly **not** commitments. Delivered ideas were
-removed on 2026-10-25; their record is in `CHANGELOG.md`.
+Recorded so genuinely open ideas are not lost, explicitly **not** commitments. Delivered and
+rejected ideas are recorded in §6.1; the LLM workstream lives in §4.24.
 
-- `sets_per_muscle_group_per_week` feature, so volume is audited in sets rather than sessions.
 - Readiness composite driven by `metric_definition` (not delivered: the table is used for
-  measurements; dynamic readiness needs weight/role/baseline metadata and shadow validation).
-- Rotation scoring split by session provenance (app-assigned vs self-directed).
-- Grip-strength left/right asymmetry as a readiness input and a unilateral-work trigger.
-- Per-lift manual velocity overrides with expiry.
-- Top set + back-off sets — **evidence review only**; a specific overview plus indirect
-  high-load/multiset and autoregulation evidence, but no direct trial against the current
-  4-5 × 3-5 @ RIR 2-3 prescription. Do not replace the programme yet
-  ([TOP-SET-BACKOFF-EVIDENCE.md](docs/TOP-SET-BACKOFF-EVIDENCE.md)).
+  measurements; daily readiness needs weight/role/baseline metadata and shadow validation).
 - Personalised volume-response model — future, shadow-only: estimate productive/tolerable
   volume per group/lift with calibrated uncertainty and a pre-registered prospective gate; no
   prescription change until validated. Fixed budget and safety guards remain authoritative.
   Idea only; see `docs/archive/VOLUME-MODULATION-PLAN.md` §13 and Q28.
 - Nicer UI, adherence encouragement and KPI panel (placeholder §4.23; not scheduled).
-- LLM integration workstream (planned §4.24; analyst, explainer, constrained proposer; not started).
-- Wider proposal licence (more than one increment on the menu) once the menu has proved itself
-  in real sessions.
+
+### 6.1 Delivered or rejected from the former backlog
+
+- Set-based weekly volume auditing — delivered by movement pattern (`features/volume.py`);
+  per-muscle-group accounting is not planned because the programme is organised by movement
+  pattern and no exercise-to-muscle mapping exists.
+- Rotation scoring split by session provenance — delivered (`DEC-CRITIQUE-02`;
+  `critique/rubric.py`): app-assigned rotation is neutral, self-directed churn is penalised.
+- Top set + back-off — delivered as an opt-in resolver structure; the evidence review found no
+  direct trial against the default 4-5 × 3-5 @ RIR 2-3 prescription and does not justify making
+  it the default. See [TOP-SET-BACKOFF-EVIDENCE.md](docs/TOP-SET-BACKOFF-EVIDENCE.md).
+- Per-set/rep manual velocity overrides — delivered (`vbt_override`, append-only); the
+  per-lift override with expiry idea is dropped.
+- Grip-strength readiness input — rejected (`DEC-GRIP-01`); grip remains a periodic
+  measurement, not a daily readiness input.
 
 ## 7. How to change this roadmap
 
