@@ -1811,8 +1811,10 @@ comparability is tracked in §4.14 and the cardio impulse in §4.13a A2/A3.
 Recorded so genuinely open ideas are not lost, explicitly **not** commitments. Delivered and
 rejected ideas are recorded in §6.1; the LLM workstream lives in §4.24.
 
-- Readiness composite driven by `metric_definition` (not delivered: the table is used for
-  measurements; daily readiness needs weight/role/baseline metadata and shadow validation).
+- Readiness composite driven by `metric_definition`: make the daily metric list, direction,
+  weight and baseline config/registry-driven rather than hard-coded. Not delivered: the table
+  is used for measurements; daily readiness needs weight/role/baseline metadata and shadow
+  validation. The daily input cadence and the score's non-authoritative status are unchanged.
 - Personalised volume-response model — future, shadow-only: estimate productive/tolerable
   volume per group/lift with calibrated uncertainty and a pre-registered prospective gate; no
   prescription change until validated. Fixed budget and safety guards remain authoritative.

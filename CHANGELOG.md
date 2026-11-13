@@ -92,6 +92,14 @@
   side files, and writes an automatic `pre-transfer` backup before the atomic replace. No
   authoritative label.
 
+- **Local config in transfers and backups**: `tools/db_transfer.py export --include-local-config`
+  now adds the git-ignored local overlays and `config/llm.local.toml` to the archive, with a
+  per-file size and SHA-256 in the manifest. Import requires the same flag, verifies every
+  file, backs up existing local config, and rolls the database back if the config restore
+  fails. `tools/backup_app.py` now includes non-secret local overlays in the full backup while
+  always excluding `config/llm.local.toml` and `.env`; `--source-only` omits all local
+  overlays. The transfer archive therefore contains the LLM key; handle it as a secret.
+
 ### Fixed
 
 - **iOS plan-item identity validation**: the workout-set endpoint now resolves

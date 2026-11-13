@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import contextlib
+import json
 import shutil
 import sqlite3
+import tarfile
 
 import pytest
 
@@ -444,3 +446,176 @@ def test_default_import_still_requires_exact_versions(tmp_path):
 
     with pytest.raises(db_transfer.TransferError, match="schema mismatch"):
         db_transfer.import_database(archive, target, force=True)
+
+
+def _write_local_config(config_dir, relative: str, text: str):
+    path = config_dir / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def test_export_and_import_include_local_config(tmp_path):
+    source = tmp_path / "source.db"
+    target = tmp_path / "target.db"
+    _make_db(source, "source")
+    _make_db(target, "target")
+    source_config = tmp_path / "source-config"
+    _write_local_config(source_config, "volume.local.yaml", "target: 10\n")
+    _write_local_config(source_config, "exercises/demands.local.yaml", "seal_row: {}\n")
+    _write_local_config(source_config, "llm.local.toml", "api_key = 'secret'\n")
+    archive = tmp_path / "transfer.tar.gz"
+
+    exported = db_transfer.export_database(
+        source, archive, include_local_config=True, config_dir=source_config,
+    )
+
+    assert exported.local_config == (
+        "config/exercises/demands.local.yaml",
+        "config/llm.local.toml",
+        "config/volume.local.yaml",
+    )
+    with tarfile.open(archive, "r:gz") as tar:
+        assert set(tar.getnames()) == {
+            "coach.db", "manifest.json", *exported.local_config,
+        }
+
+    target_config = tmp_path / "target-config"
+    result = db_transfer.import_database(
+        archive,
+        target,
+        force=True,
+        include_local_config=True,
+        config_dir=target_config,
+    )
+
+    assert result.local_config == exported.local_config
+    assert _probe(target) == "source"
+    assert (target_config / "volume.local.yaml").read_text(encoding="utf-8") == "target: 10\n"
+    assert (target_config / "exercises/demands.local.yaml").read_text(
+        encoding="utf-8"
+    ) == "seal_row: {}\n"
+    assert (target_config / "llm.local.toml").read_text(encoding="utf-8") == "api_key = 'secret'\n"
+    assert (target_config / "llm.local.toml").stat().st_mode & 0o777 == 0o600
+
+
+def test_import_requires_the_local_config_flag(tmp_path):
+    source = tmp_path / "source.db"
+    target = tmp_path / "target.db"
+    _make_db(source, "source")
+    _make_db(target, "target")
+    source_config = tmp_path / "source-config"
+    _write_local_config(source_config, "volume.local.yaml", "target: 10\n")
+    archive = tmp_path / "transfer.tar.gz"
+    db_transfer.export_database(
+        source, archive, include_local_config=True, config_dir=source_config,
+    )
+    target_config = tmp_path / "target-config"
+
+    with pytest.raises(db_transfer.TransferError, match="--include-local-config"):
+        db_transfer.import_database(
+            archive, target, force=True, config_dir=target_config,
+        )
+
+    assert _probe(target) == "target"
+    assert not (target_config / "volume.local.yaml").exists()
+
+
+def test_import_backs_up_existing_local_config(tmp_path):
+    source = tmp_path / "source.db"
+    target = tmp_path / "target.db"
+    _make_db(source, "source")
+    _make_db(target, "target")
+    source_config = tmp_path / "source-config"
+    _write_local_config(source_config, "volume.local.yaml", "target: 10\n")
+    archive = tmp_path / "transfer.tar.gz"
+    db_transfer.export_database(
+        source, archive, include_local_config=True, config_dir=source_config,
+    )
+    target_config = tmp_path / "target-config"
+    _write_local_config(target_config, "volume.local.yaml", "old: value\n")
+    backup_dir = tmp_path / "backups"
+
+    result = db_transfer.import_database(
+        archive,
+        target,
+        force=True,
+        backup_dir=backup_dir,
+        include_local_config=True,
+        config_dir=target_config,
+    )
+
+    assert result.config_backup is not None
+    backup = result.config_backup / "volume.local.yaml"
+    assert backup.read_text(encoding="utf-8") == "old: value\n"
+    assert (target_config / "volume.local.yaml").read_text(encoding="utf-8") == "target: 10\n"
+
+
+def test_import_rejects_a_tampered_local_config(tmp_path):
+    source = tmp_path / "source.db"
+    target = tmp_path / "target.db"
+    _make_db(source, "source")
+    _make_db(target, "target")
+    source_config = tmp_path / "source-config"
+    _write_local_config(source_config, "volume.local.yaml", "target: 10\n")
+    archive = tmp_path / "transfer.tar.gz"
+    db_transfer.export_database(
+        source, archive, include_local_config=True, config_dir=source_config,
+    )
+
+    extracted = tmp_path / "extracted"
+    extracted.mkdir()
+    with tarfile.open(archive, "r:gz") as tar:
+        for name in tar.getnames():
+            handle = tar.extractfile(name)
+            assert handle is not None
+            target_path = extracted / name
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            target_path.write_bytes(handle.read())
+    # Same byte length as the original, so the checksum check (not the size check) is hit.
+    (extracted / "config/volume.local.yaml").write_text("tampered!!\n", encoding="utf-8")
+    with tarfile.open(archive, "w:gz") as tar:
+        for name in ("coach.db", "manifest.json", "config/volume.local.yaml"):
+            tar.add(extracted / name, arcname=name)
+
+    with pytest.raises(db_transfer.TransferError, match="local config checksum"):
+        db_transfer.import_database(
+            archive,
+            target,
+            force=True,
+            include_local_config=True,
+            config_dir=tmp_path / "target-config",
+        )
+    assert _probe(target) == "target"
+
+
+def test_version_one_archive_without_config_still_imports(tmp_path):
+    source = tmp_path / "source.db"
+    target = tmp_path / "target.db"
+    _make_db(source, "source")
+    _make_db(target, "target")
+    archive = tmp_path / "transfer.tar.gz"
+    _export(source, archive)
+
+    extracted = tmp_path / "extracted"
+    extracted.mkdir()
+    with tarfile.open(archive, "r:gz") as tar:
+        for name in tar.getnames():
+            handle = tar.extractfile(name)
+            assert handle is not None
+            target_path = extracted / name
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            target_path.write_bytes(handle.read())
+    manifest_path = extracted / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["format_version"] = 1
+    manifest.pop("local_config", None)
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    with tarfile.open(archive, "w:gz") as tar:
+        tar.add(extracted / "coach.db", arcname="coach.db")
+        tar.add(manifest_path, arcname="manifest.json")
+
+    result = db_transfer.import_database(archive, target, force=True)
+
+    assert result.local_config == ()
+    assert _probe(target) == "source"

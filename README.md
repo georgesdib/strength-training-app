@@ -105,16 +105,23 @@ the case where one machine is authoritative and another is used for development;
 
 ```bash
 # authoritative machine
-python tools/db_transfer.py export --db data/coach.db
+python tools/db_transfer.py export --db data/coach.db --include-local-config
 scp data/exports/coach-db-*.tar.gz dev-host:
 
 # development machine: stop the app first
-python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --dry-run
-python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --force
+python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --dry-run --include-local-config
+python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --force --include-local-config
 
 # new machine with no target database yet
-python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --create --force
+python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --create --force --include-local-config
 ```
+
+The database-only archive is the default. Add `--include-local-config` on export to carry the
+git-ignored local overlays (`config/*.local.yaml`, `config/exercises/*.local.yaml` and
+`config/llm.local.toml`) and to record their hashes in the manifest. Import requires the same
+flag when the archive contains them, backs up any existing local config files, and rolls the
+database back if the config restore fails. When `config/llm.local.toml` is present, the archive
+includes the LLM key, so handle it as a secret.
 
 The archive contains the SQLite snapshot, a manifest with the full applied migration set
 (version and checksum), the app version and the database SHA-256. Import verifies the
@@ -146,6 +153,10 @@ Neither side is labelled authoritative: you choose which archive to import and m
 and it is deliberately conservative. Anything the fill cannot prove safe aborts before the
 target is touched. The archive contains personal health data and is not encrypted, so
 transfer it over SSH or an encrypted disk.
+
+`tools/backup_app.py` is the full-app backup. Its default archive includes non-secret local
+config overlays but always excludes local secrets such as `config/llm.local.toml` and `.env`;
+`--source-only` excludes the database, raw exports, private data and all local overlays.
 
 ## CI and releases
 

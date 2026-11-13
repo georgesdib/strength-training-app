@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Create a restorable Strength Training App archive without the virtualenv or caches.
 
-Default: source, docs, config, .git, the current SQLite database (consistent snapshot),
-raw exports and private local data. Excluded: .venv, caches, build artifacts, logs and old
-pre-migration database copies. The archive contains health data and possibly local API keys;
-it is written mode 600, but it is not encrypted by this script.
+Default: source, docs, config (including non-secret local config overlays), .git, the current
+SQLite database (consistent snapshot), raw exports and private local data. Excluded: .venv,
+caches, build artifacts, logs, old pre-migration database copies, and local secrets such as
+config/llm.local.toml and .env. The archive contains health data and private local state; it is
+written mode 600, but it is not encrypted by this script.
 
 Use --source-only for a code/docs/config backup that excludes the database, raw exports,
-private files and local secret overlays.
+private files, local config overlays and local secrets.
 """
 
 # Usage
@@ -18,7 +19,8 @@ private files and local secret overlays.
 # Choose the backup directory:
 #   python3 tools/backup_app.py /path/to/backups
 #
-# Source-only backup (no database, raw exports, private data or local secrets):
+# Source-only backup (no database, raw exports, private data, local config overlays or
+# local secrets):
 #   python3 tools/backup_app.py --source-only /path/to/backups
 #
 # The default destination is ../<repo-name>-backups, outside the repository. The script
@@ -30,8 +32,8 @@ private files and local secret overlays.
 #   cd ~/restore/strength-training-app
 #   python3 -m venv .venv && .venv/bin/pip install -e .
 #
-# Full archives contain health data and possibly API keys and are NOT encrypted by this
-# script. Store them encrypted and restrict access.
+# Full archives contain health data and private local state and are NOT encrypted by this
+# script. Local secrets are excluded; store the archive encrypted and restrict access.
 
 from __future__ import annotations
 
@@ -52,7 +54,8 @@ HELP_TEXT = """Full backup (source, docs, config, .git, current DB snapshot, dat
 Choose the backup directory:
   python3 tools/backup_app.py /path/to/backups
 
-Source-only backup (no database, raw exports, private data or local secrets):
+Source-only backup (no database, raw exports, private data, local config overlays or local
+secrets):
   python3 tools/backup_app.py --source-only /path/to/backups
 
 Default destination: ../<repo-name>-backups (outside the repository).
@@ -64,8 +67,8 @@ Restore outline:
   cd ~/restore/strength-training-app
   python3 -m venv .venv && .venv/bin/pip install -e .
 
-Full archives contain health data and possibly API keys and are NOT encrypted by this
-script. Store them encrypted and restrict access.
+Full archives contain health data and private local state and are NOT encrypted by this
+script. Local secrets are excluded; store the archive encrypted and restrict access.
 """
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -84,12 +87,11 @@ def _relative(path: Path) -> Path:
 
 
 def _is_local_secret(name: str) -> bool:
-    return (
-        name == ".env"
-        or name.startswith(".env.")
-        or name == "llm.local.toml"
-        or name.endswith(".local.yaml")
-    )
+    return name == ".env" or name.startswith(".env.") or name == "llm.local.toml"
+
+
+def _is_local_config(name: str) -> bool:
+    return name.endswith(".local.yaml")
 
 
 def _ignore(source_only: bool):
@@ -103,10 +105,12 @@ def _ignore(source_only: bool):
             if rel == Path(".") and name in {"data", "private"} and source_only:
                 skipped.add(name)
                 continue
-            if rel == Path("config") and _is_local_secret(name):
+            # Secrets are excluded in both modes. Non-secret local config overlays are
+            # athlete state, so the full backup carries them and source-only skips them.
+            if _is_local_secret(name):
                 skipped.add(name)
                 continue
-            if name == ".env" or name.startswith(".env."):
+            if source_only and _is_local_config(name):
                 skipped.add(name)
                 continue
             # The current DB is snapshotted separately; old DB/WAL files are not copied.
@@ -153,7 +157,14 @@ def main() -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("destination", nargs="?", help="Backup directory (default: sibling directory outside the repo)")
-    parser.add_argument("--source-only", action="store_true", help="Exclude database, raw exports, private data and local secrets")
+    parser.add_argument(
+        "--source-only",
+        action="store_true",
+        help=(
+            "Exclude database, raw exports, private data, local config overlays and local "
+            "secrets"
+        ),
+    )
     args = parser.parse_args()
 
     destination = Path(args.destination).expanduser().resolve() if args.destination else ROOT.parent / f"{ROOT.name}-backups"
@@ -193,9 +204,15 @@ def main() -> int:
     print(f"SHA256:   {digest}")
     print(f"Checksum: {checksum}")
     if args.source_only:
-        print("Mode:     source only (no database, raw exports, private data or local secrets)")
+        print(
+            "Mode:     source only (no database, raw exports, private data, local config "
+            "overlays or local secrets)"
+        )
     else:
-        print("Mode:     full (contains health data and possibly API keys; store encrypted)")
+        print(
+            "Mode:     full (contains health data and private local state; local secrets "
+            "excluded; store encrypted)"
+        )
         if snapshot is None:
             print("Note:     data/coach.db was not present; database snapshot skipped")
     return 0

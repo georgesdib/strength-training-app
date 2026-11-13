@@ -6,19 +6,25 @@ conservative exception for target-only rows. It is built for the case where one 
 authoritative and another is used for development:
 
     # authoritative machine
-    python tools/db_transfer.py export --db data/coach.db
+    python tools/db_transfer.py export --db data/coach.db --include-local-config
     scp data/exports/coach-db-*.tar.gz dev-host:
 
     # development machine (stop the web server first)
-    python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --force
-    python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --create --force
+    python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --force --include-local-config
+    python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --create --force --include-local-config
     python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --upgrade
     python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --upgrade-fill
 
-The archive contains exactly two files: a consistent SQLite snapshot and a JSON manifest.
-The manifest records the full applied migration set (version and checksum), the app version,
-the database size and the database SHA-256. Import verifies all of it before replacing
-anything. By default the source and target schemas must match exactly.
+The archive contains a consistent SQLite snapshot and a JSON manifest, plus optional local
+config files. The manifest records the full applied migration set (version and checksum), the
+app version, the database size, the database SHA-256 and one size/SHA-256 entry per local
+config file. Import verifies all of it before replacing anything. By default the source and
+target schemas must match exactly.
+
+--include-local-config adds the git-ignored local overlays (config/**/*.local.yaml) and
+config/llm.local.toml, including the LLM key. Import requires the same flag when the archive
+contains them, backs up existing local config files, and rolls the database back if the
+config restore fails.
 
 Two schema opt-in modes exist. --upgrade accepts an older source, applies the missing local
 migrations to a copy, and fails on a downgrade or a divergent migration. --upgrade-fill does
@@ -49,7 +55,7 @@ import tarfile
 import tempfile
 import time
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -58,9 +64,13 @@ if str(ROOT) not in sys.path:
 from strength_coach.store import db as store_db  # noqa: E402 - ROOT must be on sys.path first
 
 FORMAT = "strength-coach-db-transfer"
-FORMAT_VERSION = 1
+# Version 2 adds optional local config overlays. Version 1 archives remain importable.
+FORMAT_VERSION = 2
+SUPPORTED_FORMAT_VERSIONS = (1, 2)
 ARCHIVE_DB = "coach.db"
 ARCHIVE_MANIFEST = "manifest.json"
+ARCHIVE_CONFIG_DIR = "config"
+LOCAL_CONFIG_DIR = ROOT / "config"
 
 
 class TransferError(RuntimeError):
@@ -104,6 +114,7 @@ class ExportResult:
     fingerprint: SchemaFingerprint
     db_sha256: str
     db_bytes: int
+    local_config: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -117,6 +128,8 @@ class ImportResult:
     created_target: bool = False
     upgraded_from: str | None = None
     filled_rows: int = 0
+    local_config: tuple[str, ...] = ()
+    config_backup: Path | None = None
 
 
 def _sha256(path: Path) -> str:
@@ -125,6 +138,144 @@ def _sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _is_local_config_name(name: str) -> bool:
+    return name == "llm.local.toml" or name.endswith(".local.yaml")
+
+
+def _local_config_files(config_dir: Path) -> list[Path]:
+    if not config_dir.is_dir():
+        return []
+    files: list[Path] = []
+    for path in config_dir.rglob("*"):
+        if not _is_local_config_name(path.name):
+            continue
+        if path.is_symlink():
+            raise TransferError(
+                f"local config is a symlink; replace it with a regular file: {path}"
+            )
+        if path.is_file():
+            files.append(path)
+    return sorted(files)
+
+
+def _config_manifest_entries(files: list[Path], config_dir: Path) -> list[dict[str, object]]:
+    entries: list[dict[str, object]] = []
+    for path in files:
+        relative = path.relative_to(config_dir).as_posix()
+        entries.append({
+            "path": f"{ARCHIVE_CONFIG_DIR}/{relative}",
+            "sha256": _sha256(path),
+            "bytes": path.stat().st_size,
+        })
+    return entries
+
+
+def _safe_config_member(name: str) -> bool:
+    if not name.startswith(f"{ARCHIVE_CONFIG_DIR}/"):
+        return False
+    relative = PurePosixPath(name)
+    if relative.is_absolute() or ".." in relative.parts:
+        return False
+    if relative.as_posix() != name:
+        return False
+    return _is_local_config_name(relative.name)
+
+
+def _config_target_path(config_dir: Path, archive_path: str) -> Path:
+    if not _safe_config_member(archive_path):
+        raise TransferError(f"unsafe local config path: {archive_path!r}")
+    relative = PurePosixPath(archive_path).relative_to(ARCHIVE_CONFIG_DIR)
+    return config_dir.joinpath(*relative.parts)
+
+
+def _validate_config_targets(config_dir: Path, entries: list[dict[str, object]]) -> None:
+    root = config_dir.expanduser().resolve()
+    for entry in entries:
+        archive_path = str(entry["path"])
+        target = _config_target_path(root, archive_path)
+        relative = PurePosixPath(archive_path).relative_to(ARCHIVE_CONFIG_DIR)
+        current = root
+        for part in relative.parts[:-1]:
+            current = current / part
+            if current.is_symlink():
+                raise TransferError(
+                    f"local config target uses a symlinked directory: {current}"
+                )
+        if target.is_symlink():
+            raise TransferError(f"local config target is a symlink: {target}")
+        try:
+            target.resolve(strict=False).relative_to(root)
+        except ValueError as exc:
+            raise TransferError(f"local config target escapes {root}: {target}") from exc
+
+
+def _backup_local_config(
+    config_dir: Path,
+    entries: list[dict[str, object]],
+    backup_root: Path,
+) -> Path | None:
+    existing = [
+        _config_target_path(config_dir, str(entry["path"]))
+        for entry in entries
+        if _config_target_path(config_dir, str(entry["path"])).is_file()
+    ]
+    if not existing:
+        return None
+    backup_root = backup_root.expanduser().resolve()
+    backup_root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    directory = backup_root / f"local-config-pre-transfer-{stamp}"
+    counter = 1
+    while directory.exists():
+        directory = backup_root / f"local-config-pre-transfer-{stamp}-{counter}"
+        counter += 1
+    directory.mkdir(mode=0o700)
+    for target in existing:
+        destination = directory / target.relative_to(config_dir)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(target, destination)
+        os.chmod(destination, 0o600)
+    return directory
+
+
+def _apply_local_config(
+    archive_root: Path,
+    config_dir: Path,
+    entries: list[dict[str, object]],
+    backup_root: Path,
+) -> Path | None:
+    _validate_config_targets(config_dir, entries)
+    staged: list[tuple[Path, Path]] = []
+    replaced: list[tuple[Path, Path | None]] = []
+    try:
+        for entry in entries:
+            target = _config_target_path(config_dir, str(entry["path"]))
+            target.parent.mkdir(parents=True, exist_ok=True)
+            staged_path = target.with_name(f".{target.name}.transfer-{os.getpid()}")
+            shutil.copyfile(archive_root / str(entry["path"]), staged_path)
+            os.chmod(staged_path, 0o600)
+            staged.append((staged_path, target))
+        backup = _backup_local_config(config_dir, entries, backup_root)
+        for staged_path, target in staged:
+            backup_path = (
+                backup / target.relative_to(config_dir) if backup is not None else None
+            )
+            os.replace(staged_path, target)
+            replaced.append((target, backup_path))
+        return backup
+    except Exception:
+        for target, backup_path in reversed(replaced):
+            if backup_path is not None and backup_path.exists():
+                shutil.copyfile(backup_path, target)
+                os.chmod(target, 0o600)
+            else:
+                target.unlink(missing_ok=True)
+        raise
+    finally:
+        for staged_path, _ in staged:
+            staged_path.unlink(missing_ok=True)
 
 
 def _app_version() -> str:
@@ -396,6 +547,8 @@ def export_database(
     archive: Path,
     *,
     force: bool = False,
+    include_local_config: bool = False,
+    config_dir: Path | None = None,
 ) -> ExportResult:
     """Create a single archive containing a consistent snapshot and its manifest."""
     db_path = db_path.expanduser().resolve()
@@ -406,6 +559,10 @@ def export_database(
         raise TransferError("archive path must not be the database itself")
     if archive.exists() and not force:
         raise TransferError(f"archive already exists: {archive} (pass --force to replace it)")
+
+    config_root = Path(config_dir or LOCAL_CONFIG_DIR).expanduser().resolve()
+    config_files = _local_config_files(config_root) if include_local_config else []
+    config_entries = _config_manifest_entries(config_files, config_root)
 
     archive.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="strength-db-export-") as temp_dir:
@@ -424,6 +581,7 @@ def export_database(
             "db_sha256": digest,
             "db_bytes": size,
             "schema": fingerprint.as_manifest(),
+            "local_config": config_entries,
         }
         manifest_path = temp / ARCHIVE_MANIFEST
         manifest_path.write_text(
@@ -433,6 +591,8 @@ def export_database(
         with tarfile.open(archive, "w:gz") as tar:
             tar.add(snapshot, arcname=ARCHIVE_DB)
             tar.add(manifest_path, arcname=ARCHIVE_MANIFEST)
+            for source, entry in zip(config_files, config_entries, strict=True):
+                tar.add(source, arcname=str(entry["path"]))
 
     os.chmod(archive, 0o600)
     return ExportResult(
@@ -441,29 +601,33 @@ def export_database(
         fingerprint=fingerprint,
         db_sha256=digest,
         db_bytes=size,
+        local_config=tuple(str(entry["path"]) for entry in config_entries),
     )
 
 
 def _extract_archive(archive: Path, destination: Path) -> tuple[Path, dict]:
-    """Extract only the two expected members; reject everything else."""
+    """Extract the database, manifest and any declared local config files."""
     try:
         with tarfile.open(archive, "r:gz") as tar:
             members: dict[str, tarfile.TarInfo] = {}
             for member in tar.getmembers():
-                if member.name not in {ARCHIVE_DB, ARCHIVE_MANIFEST}:
+                expected = member.name in {ARCHIVE_DB, ARCHIVE_MANIFEST}
+                if not expected and not _safe_config_member(member.name):
                     raise TransferError(f"unexpected archive member: {member.name!r}")
                 if not member.isfile():
                     raise TransferError(f"archive member is not a regular file: {member.name!r}")
                 if member.name in members:
                     raise TransferError(f"duplicate archive member: {member.name!r}")
                 members[member.name] = member
-            if set(members) != {ARCHIVE_DB, ARCHIVE_MANIFEST}:
+            if not {ARCHIVE_DB, ARCHIVE_MANIFEST}.issubset(members):
                 raise TransferError("archive must contain coach.db and manifest.json")
             for name, member in members.items():
                 handle = tar.extractfile(member)
                 if handle is None:
                     raise TransferError(f"cannot read archive member: {name}")
-                (destination / name).write_bytes(handle.read())
+                target = destination / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(handle.read())
     except tarfile.TarError as exc:
         raise TransferError(f"archive is not a valid .tar.gz: {exc}") from exc
     try:
@@ -475,13 +639,68 @@ def _extract_archive(archive: Path, destination: Path) -> tuple[Path, dict]:
     return destination / ARCHIVE_DB, manifest
 
 
-def _validate_manifest(manifest: dict, db_path: Path, fingerprint: SchemaFingerprint) -> None:
+def _validate_local_config_manifest(
+    manifest: dict,
+    archive_root: Path,
+    format_version: int,
+) -> list[dict[str, object]]:
+    entries = manifest.get("local_config")
+    if format_version == 1:
+        if entries not in (None, []):
+            raise TransferError("format version 1 must not declare local config")
+        entries = []
+    if not isinstance(entries, list):
+        raise TransferError("manifest local_config must be a list")
+    declared: list[dict[str, object]] = []
+    seen: set[str] = set()
+    for entry in entries:
+        if not isinstance(entry, dict):
+            raise TransferError("manifest local config entries are malformed")
+        path = entry.get("path")
+        expected_sha = entry.get("sha256")
+        expected_bytes = entry.get("bytes")
+        if not isinstance(path, str) or not _safe_config_member(path):
+            raise TransferError(f"unsafe local config path in manifest: {path!r}")
+        if path in seen:
+            raise TransferError(f"duplicate local config entry: {path}")
+        seen.add(path)
+        target = archive_root / path
+        if not target.is_file():
+            raise TransferError(f"local config file missing from archive: {path}")
+        if expected_bytes != target.stat().st_size:
+            raise TransferError(f"local config size does not match the manifest: {path}")
+        if expected_sha != _sha256(target):
+            raise TransferError(f"local config checksum does not match the manifest: {path}")
+        declared.append({"path": path, "sha256": expected_sha, "bytes": expected_bytes})
+    config_root = archive_root / ARCHIVE_CONFIG_DIR
+    actual = {
+        path.relative_to(archive_root).as_posix()
+        for path in config_root.rglob("*")
+        if path.is_file()
+    }
+    if actual != seen:
+        extra = sorted(actual - seen)
+        missing = sorted(seen - actual)
+        details = []
+        if extra:
+            details.append(f"undeclared: {', '.join(extra)}")
+        if missing:
+            details.append(f"missing: {', '.join(missing)}")
+        raise TransferError("local config members do not match the manifest (" + "; ".join(details) + ")")
+    return declared
+
+
+def _validate_manifest(
+    manifest: dict,
+    db_path: Path,
+    fingerprint: SchemaFingerprint,
+    archive_root: Path,
+) -> list[dict[str, object]]:
     if manifest.get("format") != FORMAT:
         raise TransferError(f"not a {FORMAT} archive")
-    if manifest.get("format_version") != FORMAT_VERSION:
-        raise TransferError(
-            f"unsupported archive format version: {manifest.get('format_version')!r}"
-        )
+    format_version = manifest.get("format_version")
+    if format_version not in SUPPORTED_FORMAT_VERSIONS:
+        raise TransferError(f"unsupported archive format version: {format_version!r}")
     if manifest.get("db_sha256") != _sha256(db_path):
         raise TransferError("database checksum does not match the manifest")
     if manifest.get("db_bytes") != db_path.stat().st_size:
@@ -501,6 +720,7 @@ def _validate_manifest(manifest: dict, db_path: Path, fingerprint: SchemaFingerp
         raise TransferError("manifest schema latest version does not match the archive")
     if schema.get("fingerprint_sha256") != fingerprint.digest:
         raise TransferError("manifest schema fingerprint does not match the archive")
+    return _validate_local_config_manifest(manifest, archive_root, int(format_version))
 
 
 def _require_same_schema(source: SchemaFingerprint, target: SchemaFingerprint) -> None:
@@ -580,10 +800,13 @@ def import_database(
     upgrade: bool = False,
     fill: bool = False,
     create: bool = False,
+    include_local_config: bool = False,
+    config_dir: Path | None = None,
 ) -> ImportResult:
     """Verify an archive and replace the target database if every check passes."""
     archive = archive.expanduser().resolve()
     db_path = db_path.expanduser().resolve()
+    config_root = Path(config_dir or LOCAL_CONFIG_DIR).expanduser().resolve()
     if not archive.is_file():
         raise TransferError(f"archive not found: {archive}")
     if db_path.exists() and not db_path.is_file():
@@ -601,7 +824,15 @@ def import_database(
         temp = Path(temp_dir)
         source_db, manifest = _extract_archive(archive, temp)
         source_fingerprint = read_fingerprint(source_db)
-        _validate_manifest(manifest, source_db, source_fingerprint)
+        local_config = _validate_manifest(
+            manifest, source_db, source_fingerprint, temp
+        )
+        if local_config and not include_local_config:
+            raise TransferError(
+                "archive contains local config; pass --include-local-config to restore it"
+            )
+        if local_config:
+            _validate_config_targets(config_root, local_config)
         # A missing target has the local code's schema: it will be created at that schema if
         # the transfer succeeds. A dry run checks against that same fingerprint without
         # creating the file or a backup.
@@ -628,6 +859,7 @@ def import_database(
             _require_same_schema(source_fingerprint, target_fingerprint)
         _require_not_in_use(db_path)
 
+        config_paths = tuple(str(entry["path"]) for entry in local_config)
         if dry_run:
             return ImportResult(
                 archive=archive,
@@ -639,6 +871,7 @@ def import_database(
                 created_target=target_missing,
                 upgraded_from=upgraded_from,
                 filled_rows=filled_rows,
+                local_config=config_paths,
             )
         if not force:
             raise TransferError(
@@ -651,6 +884,7 @@ def import_database(
         _require_not_in_use(db_path)
         staged = db_path.with_name(f".{db_path.name}.transfer-{os.getpid()}")
         replaced = False
+        config_backup = None
         try:
             _snapshot_database(source_db, staged)
             os.chmod(staged, 0o600)
@@ -658,6 +892,25 @@ def import_database(
             os.replace(staged, db_path)
             replaced = True
             _verify_database(db_path, source_fingerprint, temp)
+            if local_config:
+                try:
+                    config_backup = _apply_local_config(
+                        temp,
+                        config_root,
+                        local_config,
+                        backup_dir or db_path.parent,
+                    )
+                except Exception as exc:
+                    # A failed config restore must not leave the database silently ahead of
+                    # the local config; roll the database back as well.
+                    if backup is not None:
+                        shutil.copyfile(backup, db_path)
+                        os.chmod(db_path, 0o600)
+                    else:
+                        db_path.unlink(missing_ok=True)
+                    raise TransferError(
+                        f"local config restore failed; database import was rolled back: {exc}"
+                    ) from exc
         except Exception:
             if replaced:
                 # The replacement was written but did not verify; put the previous target
@@ -682,6 +935,8 @@ def import_database(
         created_target=target_missing,
         upgraded_from=upgraded_from,
         filled_rows=filled_rows,
+        local_config=config_paths,
+        config_backup=config_backup,
     )
 
 
@@ -691,9 +946,11 @@ def _build_parser() -> argparse.ArgumentParser:
         epilog=(
             "Default import requires exact schema equality. --upgrade applies missing local "
             "migrations to an older source and fails on downgrade. --upgrade-fill also copies "
-            "target-only rows and fails if any row cannot be merged safely. Import is "
-            "destructive: stop the app, verify the source, and pass --force. Use --dry-run "
-            "to check everything without replacing the target."
+            "target-only rows and fails if any row cannot be merged safely. Use "
+            "--include-local-config to carry git-ignored local overlays; import requires it "
+            "when the archive contains them. Import is destructive: stop the app, verify the "
+            "source, and pass --force. Use --dry-run to check everything without replacing "
+            "the target."
         ),
     )
     sub = parser.add_subparsers(dest="command", required=True)
@@ -702,12 +959,25 @@ def _build_parser() -> argparse.ArgumentParser:
     export.add_argument("--db", type=Path, default=ROOT / "data" / "coach.db")
     export.add_argument("--out", type=Path, default=None, help="archive path (.tar.gz)")
     export.add_argument("--force", action="store_true", help="replace an existing archive")
+    export.add_argument(
+        "--include-local-config",
+        action="store_true",
+        help=(
+            "also include git-ignored config/*.local.yaml and config/llm.local.toml; "
+            "this includes the LLM key"
+        ),
+    )
 
     imp = sub.add_parser("import", help="verify an archive and replace a local database")
     imp.add_argument("--archive", type=Path, required=True)
     imp.add_argument("--db", type=Path, default=ROOT / "data" / "coach.db")
     imp.add_argument("--backup-dir", type=Path, default=None)
     imp.add_argument("--force", action="store_true", help="required to replace the database")
+    imp.add_argument(
+        "--include-local-config",
+        action="store_true",
+        help="restore local config files from the archive; required when the archive has them",
+    )
     imp.add_argument(
         "--create",
         action="store_true",
@@ -733,12 +1003,22 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "export":
             output = args.out.expanduser() if args.out else _default_export_path()
-            result = export_database(args.db, output, force=args.force)
+            result = export_database(
+                args.db,
+                output,
+                force=args.force,
+                include_local_config=args.include_local_config,
+            )
             print(f"Archive: {result.archive}")
             print(f"Source:  {result.db_path}")
             print(f"Schema:  {result.fingerprint.latest} ({len(result.fingerprint.migrations)} migrations)")
             print(f"Size:    {result.db_bytes / (1024 * 1024):.1f} MiB")
             print(f"SHA256:  {result.db_sha256}")
+            if result.local_config:
+                print(
+                    f"Local config: {len(result.local_config)} file(s) "
+                    "(may include the LLM key)"
+                )
             print("Warning: contains personal health data; the archive is not encrypted.")
             return 0
 
@@ -751,6 +1031,7 @@ def main(argv: list[str] | None = None) -> int:
             upgrade=args.upgrade or args.upgrade_fill,
             fill=args.upgrade_fill,
             create=args.create,
+            include_local_config=args.include_local_config,
         )
         print(f"Source schema: {result.source.latest}")
         print(f"Target schema: {result.target.latest}")
@@ -760,10 +1041,14 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Upgraded source: {result.upgraded_from} -> {result.source.latest}")
         if result.filled_rows:
             print(f"Filled target-only rows: {result.filled_rows}")
+        if result.local_config:
+            print(f"Local config: {len(result.local_config)} file(s)")
         if result.dry_run:
             print("Dry run: checks passed; target was not changed.")
         else:
             print(f"Backup: {result.backup}" if result.backup else "Backup: none (new target)")
+            if result.config_backup:
+                print(f"Config backup: {result.config_backup}")
             print(f"Imported: {result.db_path}")
         return 0
     except TransferError as exc:
