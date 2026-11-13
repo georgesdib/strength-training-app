@@ -69,7 +69,7 @@ for current status and next actions. [`AGENTS.md`](../AGENTS.md) holds the engin
 
 ## Active and gated plans
 
-- [AFC.md](AFC.md) — compatibility pointer; canonical plan in the [portfolio docs/plans](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md) (AFC-2 completed; AFC-2i, AFC-3 and AFC-4 planned)
+- [AFC.md](AFC.md) — compatibility pointer; canonical plan in the [portfolio docs/plans](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md) (AFC-2, AFC-2i, AFC-3 first cut and AFC-4 implemented 2026-11-13)
 - [HIGH-INTENSITY-EXPOSURE-PLAN.md](HIGH-INTENSITY-EXPOSURE-PLAN.md) (Phase 3 pending)
 - [INJURY-ATTRIBUTION-PLAN.md](INJURY-ATTRIBUTION-PLAN.md) (Phase 3 open)
 - [LLM-INTEGRATION-PLAN.md](LLM-INTEGRATION-PLAN.md)

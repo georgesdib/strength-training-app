@@ -1094,6 +1094,21 @@ class Handler(BaseHTTPRequestHandler):
                     except ValueError:
                         self._error(404, "session not found")
                         return
+                elif path.startswith("/api/ios/v1/workouts/") and path.endswith("/summary"):
+                    workout_id = unquote(
+                        path[len("/api/ios/v1/workouts/"):-len("/summary")]
+                    ).strip("/")
+                    if not workout_id:
+                        self._error(404, "not found")
+                        return
+                    try:
+                        payload = {"summary": workout.summary(conn, workout_id)}
+                    except workout.WorkoutNotCompleted as exc:
+                        self._error(409, str(exc))
+                        return
+                    except ValueError:
+                        self._error(404, "workout not found")
+                        return
                 elif path.startswith("/api/ios/v1/workouts/") and path.endswith("/execution"):
                     workout_id = unquote(
                         path[len("/api/ios/v1/workouts/"):-len("/execution")]
