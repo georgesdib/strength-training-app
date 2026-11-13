@@ -648,6 +648,15 @@ workout/set_id and workout/local_set_id. A batch is all-or-nothing and is capped
 Late replay is allowed only when `occurred_at` falls within the workout's start/end bounds;
 original occurrence time is never replaced by receipt time.
 
+## 16b. `observation` — append-only AFC-3 output
+
+One row per rendered longitudinal observation, written by `features/observations.py` when the
+read-only report is requested. `observation_id` is deterministic over family, window, gate `n`
+and the AFC evidence id, so re-requesting the same evidence is a no-op (`ON CONFLICT DO
+NOTHING`) and changed evidence appends a new row rather than rewriting the old one. The table is
+append-only by trigger, holds `payload_json` for reproducibility, and is never read by the
+training engine. Abstentions are not stored — a family that cannot support a claim has no row.
+
 Derived execution analytics are computed on read from this stream plus `workout_session`; there
 is no materialised analytics table. `set_started`/`set_completed` pairing produces a duration
 only when both timestamps exist. Rest intervals require explicit `rest_started` and
@@ -658,8 +667,9 @@ Historical workouts with no events report missing coverage rather than fabricate
 
 ## 17. Deleting or voiding a session
 
-**There is no hard-delete path.** `clean_set`, prescriptions, critiques, rubric marks and
-calibrations are append-only; deleting a session would retroactively change e1RM, volume,
+**There is no hard-delete path.** `clean_set`, prescriptions, critiques, rubric marks,
+calibrations and AFC observations are append-only; deleting a session would retroactively change
+e1RM, volume,
 review and future prescriptions. The store's delete triggers enforce this for `clean_set`.
 
 What exists:

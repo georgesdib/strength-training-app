@@ -72,6 +72,7 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/volume/budget?date=N` | read-only weekly volume budget: target, exemptions, completed, projection, session cap, feasibility and per-group status/persistent/top-up capacity |
 | `GET /api/outcomes?weeks=N&date=N` | read-only 4/8/12-week strength, longevity and coverage review |
 | `GET /api/prospective?weeks=N&date=N` | W5 read-only prospective summary: statuses, attendance, work, RIR, duration, flags |
+| `GET /api/observations?date=N&weeks=N` | AFC-3 longitudinal observations over the AFC-2 evidence contract: repeated RIR deviation, repeated incomplete work, VBT residual deviation; abstentions carry their reason. Persists new observations append-only (idempotent on the evidence id) |
 | `GET /api/regime?weeks=N&date=N` | read-only main-lift/substitute regime check |
 | `GET /api/settings` | masked LLM settings, drop settings, config/database paths and app version |
 | `GET /api/settings/ios` | effective `ios.v1.yaml` values, defaults, ranges, labels, descriptions, path/source and per-request reload semantics |
@@ -184,6 +185,25 @@ A documented display guard marks a period or exercise `small_sample` when it has
 three workouts or fewer than five prescribed sets. The Progress UI omits those points from the
 trend charts and keeps them in the tables with the exact counts. The guard is not a statistical
 confidence claim and never changes a numerator or denominator.
+
+### Longitudinal observations (AFC-3)
+
+`GET /api/observations` reads completed app-tracked workouts and reports at most one repeated
+pattern per family: RIR sitting above or below target, sessions ending with unperformed
+prescribed slots, and VBT cohorts whose residuals fall outside their calibration band.
+
+- A family only speaks when its own evidence gate allows it: RIR and incomplete work need three
+  of the last five comparable sessions (`config/observations.v1.yaml`); VBT inherits the cohort
+  gate and additionally requires at most half of comparable sets inside the band.
+- A family that cannot support a claim returns an entry in `abstain` with a reason — never a
+  zero, never a pass/fail.
+- Every observation carries `gate`, `n`, `evidence_id`, `value` and the full `evidence`
+  envelope (`source`, `source_ids`, `window`, `comparability`, `limitations`, `rule_ids`).
+- The endpoint appends each produced observation to the append-only `observation` table,
+  idempotent on its deterministic id; re-requesting the same evidence writes nothing and changed
+  evidence appends a new row. Abstentions are never stored.
+- It computes no metric: values come from `adherence` and `vbt_performance` and are rendered,
+  not recalculated.
 
 ### VBT target metadata
 

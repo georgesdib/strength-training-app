@@ -82,6 +82,7 @@ from strength_coach.features import form_assessment as form_assessment_feature
 from strength_coach.features import high_intensity_exposure as exposure_feature
 from strength_coach.features import measurements as measurements_feature
 from strength_coach.features import monitoring_analysis as monitoring_analysis_feature
+from strength_coach.features import observations as observations_feature
 from strength_coach.features import outcomes as outcomes_feature
 from strength_coach.features import programme as programme_feature
 from strength_coach.features import progress as progress_feature
@@ -3004,6 +3005,15 @@ class Handler(BaseHTTPRequestHandler):
                 day = query.get("date", [None])[0]
                 self._json(200, self._with_conn(
                     lambda c: prospective_feature.report(c, weeks=weeks, on_date=day)
+                ))
+            elif path == "/api/observations":
+                query = parse_qs(urlparse(self.path).query)
+                weeks = int(query.get("weeks", ["8"])[0])
+                day = query.get("date", [datetime.date.today().isoformat()])[0]
+                if not 1 <= weeks <= 52:
+                    raise ValueError("weeks must be between 1 and 52")
+                self._json(200, self._with_conn(
+                    lambda c: observations_feature.analyse(c, as_of=day, weeks=weeks)
                 ))
             elif path == "/api/form-trend":
                 query = parse_qs(urlparse(self.path).query)

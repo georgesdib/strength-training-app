@@ -53,6 +53,7 @@ from strength_coach.features import fatigue_fitness as fatigue_fitness_feature
 from strength_coach.features import high_intensity_exposure as exposure_feature
 from strength_coach.features import injury_signal as injury_signal_mod
 from strength_coach.features import measurements as measurements_feature
+from strength_coach.features import observations as observations_feature
 from strength_coach.features import outcomes as outcomes_feature
 from strength_coach.features import programme as programme_feature
 from strength_coach.features import prospective as prospective_feature
@@ -489,6 +490,13 @@ def main(argv: list[str] | None = None) -> int:
     prospective.add_argument("--date", default=None)
     prospective.add_argument("--json", action="store_true")
 
+    observe = sub.add_parser(
+        "observations", help="AFC-3 read-only longitudinal observations"
+    )
+    observe.add_argument("--date", default=None, help="as-of date (default today)")
+    observe.add_argument("--weeks", type=int, default=None, help="window in weeks (default 8)")
+    observe.add_argument("--json", action="store_true")
+
     regime = sub.add_parser("regime", help="read-only regime-change review")
     regime.add_argument("--weeks", type=int, choices=(8, 12), default=8)
     regime.add_argument("--date", default=None)
@@ -572,6 +580,7 @@ def main(argv: list[str] | None = None) -> int:
         "shadow": _cmd_shadow,
         "outcomes": _cmd_outcomes,
         "prospective": _cmd_prospective,
+        "observations": _cmd_observations,
         "regime": _cmd_regime,
         "validate": _cmd_validate,
         "workout": _cmd_workout,
@@ -1803,6 +1812,33 @@ def _cmd_workout(args) -> int:
         return 0
     finally:
         store.close()
+
+
+def _cmd_observations(args) -> int:
+    store = db.Store(args.db)
+    try:
+        payload = observations_feature.analyse(
+            store.connection,
+            as_of=args.date or datetime.date.today().isoformat(),
+            weeks=args.weeks,
+        )
+    finally:
+        store.close()
+    if args.json:
+        print(json.dumps(payload, indent=2, default=str))
+        return 0
+    print(
+        f"observations {payload['from']} .. {payload['to']} "
+        f"({payload['window_weeks']} weeks, {payload['sessions_in_window']} sessions)"
+    )
+    if not payload["observations"]:
+        print("  no observation met its family's gate")
+    for row in payload["observations"]:
+        print(f"  [{row['family']}] {row['statement']}")
+        print(f"    {row['gate']}, n={row['n']}, evidence {row['evidence_id']}")
+    for row in payload["abstain"]:
+        print(f"  abstain [{row['family']}]: {row['reason']}")
+    return 0
 
 
 def _cmd_summary(args) -> int:

@@ -1,13 +1,14 @@
-"""The command line, and the calibration loop it closes.
+"""The command line: the deterministic slice and its read-only reports.
 
-`run` must persist a critique and a prescription inside one trace; `review` must append
-marks; `calibrate` must report from those marks. The loop is the product: every review should
-leave the system with more evidence than before.
+`run` must persist a prescription inside one trace. The rubric calibration loop is retired
+(DEC-EVAL-09), so there is no `review` or `calibrate` command; `observations` reports the
+AFC-3 longitudinal observations.
 """
 
 from __future__ import annotations
 
 import datetime
+import json
 
 import pytest
 from conftest import make_readiness, make_training
@@ -208,3 +209,18 @@ def test_rerunning_the_same_date_appends_nothing(database, capsys):
     # --force is the explicit way to regenerate.
     assert cli.main(["--db", str(database), "run", "--date", "2024-02-01", "--force"]) == 0
     assert count(database, "prescription") - before["prescription"] == 1
+
+
+def test_observations_command_reports_and_abstains(database, capsys):
+    assert cli.main([
+        "--db", str(database), "observations", "--date", "2024-03-01",
+    ]) == 0
+    out = capsys.readouterr().out
+    assert "observations 2024-01-05 .. 2024-03-01" in out
+    assert "abstain" in out
+
+    assert cli.main([
+        "--db", str(database), "observations", "--date", "2024-03-01", "--json",
+    ]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert "observations" in payload and "abstain" in payload

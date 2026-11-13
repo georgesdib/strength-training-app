@@ -356,8 +356,34 @@ async function loadProgress() {
       <tbody>${rows || "<tr><td colspan='3' class='muted'>no targeted volume</td></tr>"}</tbody></table>
       <p class="muted">${esc(data.note)} Attendance is an aggregate, not adherence to planned dates.</p>
       <p><a href="#progress" data-view-link="progress">Open Progress overview</a></p>`;
+    loadObservations();
   } catch (error) {
     $("#progress").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
+
+async function loadObservations() {
+  const target = $("#progress-observations");
+  if (!target) return;
+  try {
+    const data = await api("/api/observations");
+    const rows = (data.observations || []).map((row) => `
+      <div class="observation">
+        <p><strong>${esc(String(row.family).replace("_", " "))}</strong> · ${esc(row.statement)}</p>
+        <p class="muted">${esc(row.gate)} · n=${row.n} · <code>${esc(row.evidence_id)}</code></p>
+        <details class="muted"><summary>Limitations</summary>
+          <ul>${(row.evidence.limitations || []).map((item) => `<li>${esc(item)}</li>`).join("")}</ul>
+        </details>
+      </div>`).join("");
+    const abstain = (data.abstain || []).map((row) =>
+      `<li>${esc(row.family)}: ${esc(row.reason)}</li>`).join("");
+    target.innerHTML =
+      (rows || "<p class='muted'>No observation met its family's gate.</p>") +
+      (abstain
+        ? `<details class="muted"><summary>What could not be supported</summary><ul>${abstain}</ul></details>`
+        : "");
+  } catch (error) {
+    target.innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
 }
 

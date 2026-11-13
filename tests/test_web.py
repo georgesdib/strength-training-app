@@ -3782,3 +3782,14 @@ def test_performance_vbt_panel_is_wired_to_the_read_only_endpoint(server):
     _, css = get(server, "/static/style.css")
     assert ".vbt-performance-table" in css
     assert ".vbt-performance-summary" in css
+
+
+def test_observations_endpoint_is_read_only_and_validates_weeks(server):
+    status, body = get(server, "/api/observations?date=2024-03-01")
+    assert status == 200
+    data = json.loads(body)
+    assert {"from", "to", "window_weeks", "observations", "abstain"} <= set(data)
+
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        get(server, "/api/observations?weeks=0")
+    assert excinfo.value.code == 400

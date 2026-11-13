@@ -4,6 +4,16 @@
 
 ### Changed
 
+- **AFC-3 first cut: longitudinal observations.** `features/observations.py` reads the existing
+  `adherence` and `vbt_performance` payloads and reports at most one repeated pattern per family
+  — RIR above/below target, sessions ending with unperformed prescribed slots, VBT cohorts
+  outside their calibration band — over the last five comparable sessions in an eight-week
+  window (`config/observations.v1.yaml`). Every claim carries the evidence envelope; a family
+  that cannot support one abstains with a reason. Produced observations are appended to the new
+  append-only `observation` table, idempotent on the evidence id. Exposed at
+  `GET /api/observations`, `strength-coach observations` and a Progress panel. No metric is
+  recomputed and `workout.summary()` is unchanged.
+
 - **The critique rubric is retired.** Ending a workout no longer scores or persists a critique,
   a history correction no longer rebuilds one, and the rubric engine, eval harness, mark
   ingestion, `critique`/`review`/`calibrate` CLI commands, `/api/calibrate` and
