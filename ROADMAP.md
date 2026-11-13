@@ -41,10 +41,10 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 4 | Rules loader + policy engine | **done** | `rules/loader.py`, `registry.py`, `context.py`, `policy.py`; predicates for all five rules |
 | 5 | Prescription engine (four session types) + deterministic fallback | **done** | `prescribe/templates.py`, `config.py`, `loads.py`, `engine.py`, `fallback.py`; `config/thresholds.v1.yaml` |
 | 5.5 | Athlete state — DATA-MODEL §11 tables | **done** | `store/migrations/0003_athlete_state.sql`, `prescribe/constraints.py`, `cli state` / `cli block`; hard constraints veto |
-| 6 | Critique rubric + trace | **done** | `critique/facts.py`, `critique/rubric.py`, `trace/run.py`; 7 measurable items; velocity loss remains unmeasured, imported duration unavailable |
+| 6 | Critique rubric + trace | **done, since retired** | `critique/facts.py` (facts only) and `trace/run.py` remain; the scoring rubric was removed 2026-11-13 (`DEC-EVAL-09`), and historical `critique`/`rubric_score` rows stay readable |
 | 7 | LLM layer (narrative only) | **done** | `agents/client.py`, `config.py`, `narrative.py`; `config/llm.example.toml`, `tools/llm_check.py` |
-| 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; small high-confidence labelled set; exact counts private |
-| 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; `review --pending` catches up; calibration loop closed |
+| 8 | Backtest harness + labelled eval set | **done, since retired** | the harness, labelled-set format and mark loader were removed 2026-11-13 (`DEC-EVAL-09`); `eval/fatigue_diagnostics.py` remains |
+| 9 | CLI (`run` / `import` / reports) | **done** | `cli.py`; prescriptions persisted; `review` and `calibrate` were retired 2026-11-13 (`DEC-EVAL-09`), and marks stay readable through the read-only review sheet |
 | v0.2 | Input flexibility + programme view | **done** | readiness entry/score/devices/settings + gate (§4.1/4.9), continuity (§4.6), injury signal (§4.7), local web UI with import/state editing/Programme/Cardio/Terminal/calibration (§4.10/4.11), cardio capture + weekly summary (§4.13), labelled set (§4.14), session RPE/length, recent stress, per-lift readiness, e1RM calibration + bounded correction + age decay |
 | v0.3 | Strength/data depth | **done** | manual logging via live workout mode (§4.2/§4.21, closed), import adapters closed (§4.3), learned readiness weights evaluated and closed (§4.9), LLM proposal view closed as CLI-only (§4.11), continuity calibration (§4.12; calibrated factor rejected, fixed fallback), exercise selection apply + comparability + display-only history (§4.15; weakness/ratios in §4.20), strength fitness-fatigue shadow model (§4.16; retrospective rejected), rolling session types / upper-body balance / set reduction / volume management v1 / under-MEV accessory progression / warm-up ramp / 3RM cadence / descriptive progress dashboard (§4.17), live workout mode (§4.21, closed), read-only 4/8/12-week outcomes review, longevity context, prescription-modifier provenance and quick readiness presets/context and readiness feedback, UI prescription persistence (A0/A/B/C/E), minimum effective sessions (D) the methodology/privacy docs (F), W1/W7 attendance metrics and the session-time cap |
 | v0.4 | Audit, documentation and form closeout | **done 2026-10-25** | form assessment/prospective follow-up, fatigue diagnostic closure, UI documentation P0–P4, parent-ratio evidence review, weakness test plan, calibration milestone (§4.22) |
@@ -53,7 +53,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v1.2 | Stable release + opt-in resolver | **released 2026-11-03** | beta label removed; deterministic template resolver shipped as opt-in (`resolver.enabled` default false) with acceptance audit closed; cardio depth, reproducible impulse/shadow load and comparable calibration depth deferred to v1.5 (§4.13a/§4.14) |
 | v1.3 | UI closure, measurement/readiness cleanup and documentation infrastructure | **released 2026-11-06** | UI redesign P0–P3 closed; body fat moved to measurements with historical migration, readiness inputs cleaned up, measurement chart windows, readiness override beside the score, and the manifest-backed documentation archive; no prescription change |
 | v1.4 | VBT target analytics | **released 2026-11-13** | structured/frozen target metadata; Prescribe and Active Workout target visibility and feedback; completed-workout and History target comparisons; Performance longitudinal cohorts with band/RIR evidence and within-set drift; no migration, prescription change or iOS model change |
-| v1.5 | Cardio depth and calibration | **planned** | cardio data audit, reproducible cardio impulse/shadow load and comparable calibration data (§4.13a/§4.14); B1 rubric calibration review closed 2026-11-07 |
+| v1.5 | Cardio depth and calibration | **planned** | cardio data audit, reproducible cardio impulse/shadow load and comparable calibration data (§4.13a/§4.14); B1 rubric calibration review closed 2026-11-07 (loop since retired, `DEC-EVAL-09`) |
 | — | Training-day session fragments | **done 2026-11-01** | one local training day may contain multiple session fragments; attendance and budget use days, volume/spinal use combined sets, e1RM uses one day-level observation; no schema migration; see [`docs/TRAINING-DAY-MODEL.md`](docs/TRAINING-DAY-MODEL.md) |
 | — | Deterministic dynamic template resolver | **Steps 0–6 complete 2026-11-01/03; merged to `development` 2026-11-03; released in v1.2.0 as opt-in (`resolver.enabled` default false)** | plan and confirmed decisions at [`docs/archive/PROGRAMME-BUILDER-PLAN.md`](docs/archive/PROGRAMME-BUILDER-PLAN.md) and [`docs/DECISIONS.md`](docs/DECISIONS.md) (`DEC-RESOLVER-01`–`12`); Step 1 delivered policy/settings/provenance; Step 2 delivered and remediated the internal deterministic generator core (`generator.py`, `resolver_settings.py`, accepted pattern-flexibility mapping); remediation covers shared injury/constraint eligibility, power-slot safety, require_can_do/unrated/rotation-default semantics, fallback repair, structural availability, whole-session/duplicate-aggregated authoritative spinal scoring, completed-workout precedence, history merge, retired redundant rotation/preference weights and policy/catalogue digests; Step 3 adds the opt-in top-set/back-off structure, top-set persistence and role-aware workout logging, and the hinge maximal-week programme change; Step 4C wires the flag-on resolver path through candidate pools, bounded beam and read-only evaluator, adds pool-aware scheduler availability, rejects selection overrides, and records generated-session provenance; the 4C audit remediation enforces required patterns on final assignments, separates evaluator failure stages, fingerprints beam configuration and DataFrame schemas, and uses the same auto-candidate/slot matching in scheduling; Step 5 adds the dedicated Settings -> Resolver panel, append-only scalar settings, validated policy YAML with atomic writes and 20 timestamped backups, read-only preview with choices/alternatives/suggestions, inline suitability rating, top-set preview, regenerate/diff and a start handoff; the Step 5 remediation adds shared CLI/web readiness enforcement, atomic backup creation, shared resolver-enable confirmation, deterministic restore with a reported pre-restore snapshot, and a full-prescription preview diff; Step 6 adds generated-slot snapshot provenance for critique/exemption reads with a legacy-null fallback, top-set role-aware critique coverage, a real-database copy smoke test, flag/policy rollback verification and the rollout documentation; forecast remains fixed option (c); the flag remains off |
 | future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.5; Iteration 2 conditional** | phased workstream at §4.24; architecture, iteration gate and selector retirement in [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); no implementation in this pass |
@@ -378,7 +378,7 @@ verify nothing personal is baked into config or defaults; keep `--db` as the onl
 needed; keep the exercise taxonomy editable so a different exercise vocabulary is a YAML edit.
 
 Acceptance: a second database with a different athlete's synthetic history runs `import`,
-`run`, `review` and `calibrate` with no code change and no access to the first database; no
+`run` and the reporting commands with no code change and no access to the first database; no
 personal value appears in any committed file; the user guide has a "new athlete" checklist.
 
 Delivered: `tests/test_portability.py` runs the whole loop on two databases with different
@@ -494,8 +494,8 @@ Three input paths, one downstream shape:
 
 Manual entry is also the only path that can capture **session duration**, because the export
 has no timestamps. `session.duration_min` becomes measurable (`duration_basis = measured`),
-and the rubric's `SESSION_DURATION` flips from `measurable = 0` to a real score — the first
-time that item can move.
+and the rubric's (now retired) `SESSION_DURATION` used to flip from `measurable = 0` to a real
+score — the first time that item could move.
 
 Manual entry must pass the same gates as cleaning: unknown exercise names are quarantined or
 reported (never dropped), `RIR 6` is a warm-up, and seconds-vs-reps follows the taxonomy.
@@ -505,13 +505,13 @@ Capture post-session fatigue (1-5) with the session; it feeds §4.12 and is not 
 **Status 2026-10-23:** manual logging is closed through live workout mode — Start from a
 prescription with the seven required readiness fields, manual/imported sets, inline correction,
 measured/editable duration, sRPE or not-recorded, end/abandon, plan overrides, materialisation
-into `clean_set`/`session`, and rubric/review. The standard dated training export remains the
+into `clean_set`/`session`. The standard dated training export remains the
 backfill path; the separate adapter work is §4.3.
 
 Acceptance: a manually logged session is indistinguishable downstream from an imported one
-(same tables, same critique); concluding a workout also catches up unreviewed sessions via
-`review --pending`; duration is stored when given and stays `unavailable` when not
-— never estimated; the rubric scores duration only when it exists.
+(same tables and downstream reports); completion no longer triggers a review step
+(`DEC-EVAL-09`); duration is stored when given and stays `unavailable` when not — never
+estimated.
 
 ### 4.3 Column-mapping adapters for other exports  (CLOSED 2026-10-23 — not needed)
 
@@ -771,9 +771,10 @@ Planned surfaces, in suggested order:
 3. **LLM proposals** — **closed as CLI-only.** `run --propose` keeps the proposal view, citations,
    warnings and policy veto in the terminal; the web UI does not duplicate it.
 4. **Manual workout logging** (4.2) — **done** via Workout mode: per-set entry, plan overrides,
-   import, end, review and calibration.
+   import, end and reports.
 5. **Programme view** (4.4) — **done**. Rolling session-type horizon with recomputation on the day; canonical session types are the only label.
-6. **Post-lift form** (4.8) — optional 1–5 per exercise, editable in History, rubric-only.
+6. **Post-lift form** (4.8) — optional 1–5 per exercise, editable in History; captured input,
+   not a rubric.
 7. **Readiness settings** (4.9) — **done**. Baseline window, minimum readings, slopes and
    weights; shadow baseline report.
 8. **Terminal** — **done**, then **removed 2026-10-28** (`DEC-WEB-02`): a browser surface that
@@ -973,15 +974,16 @@ No automatic cardio load effect and no parent-variant/weakness implementation in
 |---|---|---|
 | B0. Comparable data | Use Workout mode so prescriptions have snapshots; collect optional per-rep CSV where available | Comparable counts are reported per item, not just mark counts |
 | B1. Review the measurable items | **done 2026-11-07** — written review in [RUBRIC-CALIBRATION.md](docs/RUBRIC-CALIBRATION.md); rotation is a definitional split (app-assigned neutral), essential work is coverage-limited | Acceptance met: the review classifies the remaining disagreements as rubric, measurement or data-coverage; no retune |
-| B2. Reach the item gate | Priority gaps: progression, essential work, duration and velocity loss | No rubric retune until each targeted item has enough comparable observations; unknowns stay unknown |
-| B3. Rubric decision | Change a definition/weight only after the gate and a pre-declared review | Decision recorded in DECISIONS; no automatic tuning from the latest report |
+| B2. Reach the item gate | **retired 2026-11-13** — the loop ended before the gate was reached (`DEC-EVAL-09`) | No further marks are collected; the historical counts stay in RUBRIC-CALIBRATION.md |
+| B3. Rubric decision | **not taken; retired with the rubric** (`DEC-EVAL-09`) | No definition or weight change; this is closed, not deferred |
 
 **Sequence and timing**
 
 - **Weeks 1–2:** A0, A1, B0.
 - **Weeks 3–4:** A2, A3; start the shadow load display.
 - **Weeks 5–12:** collect cardio and comparable workout data; B1 review at the midpoint.
-- **Week 12+:** A4 model decision and B2/B3 rubric decision, only if the gates are met.
+- **Week 12+:** A4 model decision; the B2/B3 rubric decision was retired with the rubric
+  (`DEC-EVAL-09`).
 These are planning windows, not promises; missing data pauses the dependent phase.
 
 **Success criteria**
@@ -1916,7 +1918,8 @@ rejected ideas are recorded in §6.1; the LLM workstream lives in §4.24.
   per-muscle-group accounting is not planned because the programme is organised by movement
   pattern and no exercise-to-muscle mapping exists.
 - Rotation scoring split by session provenance — delivered (`DEC-CRITIQUE-02`;
-  `critique/rubric.py`): app-assigned rotation is neutral, self-directed churn is penalised.
+  `critique/rubric.py`, since retired with the rubric in `DEC-EVAL-09`): app-assigned rotation is
+  neutral, self-directed churn is penalised.
 - Top set + back-off — delivered as an opt-in resolver structure; the evidence review found no
   direct trial against the default 4-5 × 3-5 @ RIR 2-3 prescription and does not justify making
   it the default. See [TOP-SET-BACKOFF-EVIDENCE.md](docs/TOP-SET-BACKOFF-EVIDENCE.md).
