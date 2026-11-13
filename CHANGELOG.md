@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Roadmap consolidation for Athlete Feedback & Coaching (AFC)**: ROADMAP §4.23 is retired and
+  its remaining scope moved to the new §4.33. The section never had an approved design, and its
+  UI-polish half was already delivered by the P0–P3 UI redesign. AFC is a separately named backend
+  and web UI initiative: it is not an iOS phase and not Phase 7, which remains the LLM narrative
+  layer. The new canonical plan `docs/AFC.md` records the composition rules, the single evidence
+  contract shared with the LLM context builder, the Phase 5A instrument freeze and the separately
+  gated AFC-5 adaptation work. `DEC-AFC-01` and `DEC-AFC-02` are added; `DEC-W7-01` stands, so
+  planned-session compliance stays out of scope and `LIM-05` is reaffirmed rather than reopened.
+  Documentation only: no code, API, schema, threshold or prescription change.
+
 ## [1.4.0] — 2026-11-13
 
 ### Added

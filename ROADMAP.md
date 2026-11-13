@@ -57,6 +57,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | — | Training-day session fragments | **done 2026-11-01** | one local training day may contain multiple session fragments; attendance and budget use days, volume/spinal use combined sets, e1RM uses one day-level observation; no schema migration; see [`docs/TRAINING-DAY-MODEL.md`](docs/TRAINING-DAY-MODEL.md) |
 | — | Deterministic dynamic template resolver | **Steps 0–6 complete 2026-11-01/03; merged to `development` 2026-11-03; released in v1.2.0 as opt-in (`resolver.enabled` default false)** | plan and confirmed decisions at [`docs/archive/PROGRAMME-BUILDER-PLAN.md`](docs/archive/PROGRAMME-BUILDER-PLAN.md) and [`docs/DECISIONS.md`](docs/DECISIONS.md) (`DEC-RESOLVER-01`–`12`); Step 1 delivered policy/settings/provenance; Step 2 delivered and remediated the internal deterministic generator core (`generator.py`, `resolver_settings.py`, accepted pattern-flexibility mapping); remediation covers shared injury/constraint eligibility, power-slot safety, require_can_do/unrated/rotation-default semantics, fallback repair, structural availability, whole-session/duplicate-aggregated authoritative spinal scoring, completed-workout precedence, history merge, retired redundant rotation/preference weights and policy/catalogue digests; Step 3 adds the opt-in top-set/back-off structure, top-set persistence and role-aware workout logging, and the hinge maximal-week programme change; Step 4C wires the flag-on resolver path through candidate pools, bounded beam and read-only evaluator, adds pool-aware scheduler availability, rejects selection overrides, and records generated-session provenance; the 4C audit remediation enforces required patterns on final assignments, separates evaluator failure stages, fingerprints beam configuration and DataFrame schemas, and uses the same auto-candidate/slot matching in scheduling; Step 5 adds the dedicated Settings -> Resolver panel, append-only scalar settings, validated policy YAML with atomic writes and 20 timestamped backups, read-only preview with choices/alternatives/suggestions, inline suitability rating, top-set preview, regenerate/diff and a start handoff; the Step 5 remediation adds shared CLI/web readiness enforcement, atomic backup creation, shared resolver-enable confirmation, deterministic restore with a reported pre-restore snapshot, and a full-prescription preview diff; Step 6 adds generated-slot snapshot provenance for critique/exemption reads with a legacy-null fallback, top-set role-aware critique coverage, a real-database copy smoke test, flag/policy rollback verification and the rollout documentation; forecast remains fixed option (c); the flag remains off |
 | future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.5; Iteration 2 conditional** | phased workstream at §4.24; architecture, iteration gate and selector retirement in [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); no implementation in this pass |
+| future | Athlete Feedback & Coaching (AFC) | **planned; not scheduled; backend and web only** | §4.33; canonical plan [`docs/AFC.md`](docs/AFC.md); composes the existing adherence, VBT, readiness, feedback and volume services; AFC-1 dissolved and planned-session compliance excluded by `DEC-W7-01`; Phase 5A instruments frozen |
 | — | Symptom attribution and injury-signal verification | **done 2026-11-01** | Phases 1–2 closed: verification hygiene and optional session/lift attribution with required onset/confidence, migration `0047`, CLI/API/web and display-only views. Phase 3 was split into a separate roadmap phase (§4.28) |
 | future | Exercise-level symptom research (Phase 3) | **planned; unscheduled** | separate pre-registered descriptive research question; mechanical exposure and regional symptoms, not athlete attribution; no model, score, suitability rule or prescription change; Today follow-up `injury_attribution_phase3`; plan §10 and §4.28 |
 | — | 2026-10-26 pass | **done 2026-10-26** | declared breaks — append-only range, `break` CLI, Athlete panel, freeze in the trained-week cycle (`DEC-CONTINUITY-04`, `LIM-50`); P1 measured-test coverage view (`e1rm tests-needed` + Athlete table); symptom settling made fail-safe — a level-1 reading without a recorded 48 h settlement is a flare (`DEC-SYMPTOM-04`, Q25 closed) and `docs/SYMPTOM-LOGGING.md` documents the episode workflow; minimum-session target shown against the measured clock (`DEC-MIN-02`, `LIM-47` mitigated); gaps table folded into `docs/LIMITATIONS-REGISTER.md` |
@@ -161,7 +162,10 @@ During Phase 5A:
 - do not introduce predictive models or tune thresholds to observations;
 - do not treat correlations as causal or silently change a metric because its result is unexpected;
 - data-integrity or incorrect-calculation bug fixes are permitted only when documented,
-  justified and tested.
+  justified and tested;
+- AFC (§4.33) is read-only composition and must not change `attendance.pct`, the flags in
+  `features/prospective.py`, monitoring/exposure/calibration configuration, or the end-screen
+  capture controls for session RPE, duration and productivity ([`docs/AFC.md`](docs/AFC.md) §5).
 
 Evaluate/classify every metric using the existing monitoring analysis infrastructure:
 
@@ -1249,7 +1253,7 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | v1.5 | Deeper labelled calibration set | planned (§4.14) |
 | future | LLM integration: analyst, explainer, constrained proposer | Iteration 1 planned; Iteration 2 conditional (§4.24; selector retirement is Phase 1b) |
 | future | Personalised volume-response model | idea only; shadow/gated (§13, Q28) |
-| future | Nicer UI, adherence encouragement and KPIs | placeholder only (§4.23) |
+| future | Athlete Feedback & Coaching (AFC) — KPIs, post-workout report, longitudinal observations, nudges | planned; not scheduled (§4.33) |
 | done (Phases 0–3A) | Native iPhone online-first client | Phase 0 complete 2026-11-07; **Phase 1 complete 2026-11-07** (server facade + Swift client, simulator-verified and owner-confirmed on the physical iPhone); **Phase 2 complete 2026-11-07** (online readiness/prescription/workout/completion + Progress, simulator-verified and owner-confirmed on the physical iPhone); **Phase 3A closed 2026-11-08** (opt-in read-only HealthKit HRV/RHR/bodyweight readiness; physical HealthKit acceptance owner-confirmed); Apple PCC is an optional AI-only network exception (§4.29; [`iOS client plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/IOS-CLIENT-PLAN.md)) |
 
 ### 4.19.1 Deferred: web authentication and per-user data
@@ -1354,25 +1358,20 @@ unscheduled.
 **v1.5:** see §4.13a. First actions are the cardio data audit, capture completion, impulse
 contract, and comparable workout data collection.
 
-### 4.23 Nicer UI, adherence encouragement and KPIs  (future; not scheduled)
+### 4.23 Nicer UI, adherence encouragement and KPIs  (retired 2026-11-13; scope moved to §4.33)
 
-**Status:** placeholder only. No implementation date, no approved design, no rule change.
+**Status:** closed as a placeholder. It never had an implementation date or an approved design.
 
-The goal is to make the local UI easier to use and to make adherence visible without turning
-training into a streak contest. Planned scope:
+Its two halves did not belong together:
 
-- **UI polish:** clearer visual hierarchy, less repetitive form work, better empty/loading/error
-  states, and a guided path from readiness to review.
-- **Adherence encouragement:** weekly planned-vs-completed view, gentle nudges, and explicit
-  handling of planned breaks, illness and deloads so they are not counted as failure.
-- **KPI panel:** planned sessions, completed sessions, adherence %, set completion, skipped or
-  voided sessions, and volume target hit/miss, with the same definitions exposed by the CLI/API.
-  Adherence is descriptive, never a reason to override pain, readiness or a safety rule.
-- **No new prescription controller:** KPIs and nudges are read-only; they do not add sets, change
-  loads, or punish a legitimate break.
+- **UI polish** was delivered by the P0–P3 UI redesign, which closed on 2026-11-06
+  (`docs/archive/UI-DESIGN-IMPLEMENTATION-PLAN.md`). It is no longer open work.
+- **Adherence encouragement, gentle nudges and the KPI panel** are now AFC-4, composed from metrics
+  that already exist. The planned-vs-completed and skipped-session items are **not** carried over:
+  `DEC-W7-01` keeps attendance target-based and no planned-session calendar is stored.
 
-Design reference: [`docs/archive/UI-IMPROVEMENT-PLAN.md`](docs/archive/UI-IMPROVEMENT-PLAN.md). This placeholder
-does not schedule that plan; it records the next UI/adherence direction for a future pass.
+Design reference retained for history: [`docs/archive/UI-IMPROVEMENT-PLAN.md`](docs/archive/UI-IMPROVEMENT-PLAN.md).
+Canonical AFC scope: §4.33 and [`docs/AFC.md`](docs/AFC.md).
 
 ### 4.24 Future LLM integration workstream  (planned; dependency-ordered after v1.5)
 
@@ -1393,6 +1392,11 @@ layer but have different permissions:
   choices; Python resolves loads and re-validates; the deterministic baseline remains visible;
   the user must explicitly approve; shadow/opt-in rollout only.
 
+AFC (§4.33, [`docs/AFC.md`](docs/AFC.md)) is the deterministic producer of the metrics,
+observations and evidence these capabilities consume. The shared context/evidence builder in
+Iteration 1 phase 2 serialises AFC evidence ids; it does not recompute adherence, VBT, readiness or
+volume metrics. There is one evidence schema, defined in `docs/AFC.md` §6 and section 4 above.
+
 The deterministic engine, taxonomy, comparability rules, history and prescription validation
 remain authoritative. If no LLM is configured, the analyst/explainer/proposer functions are
 simply unavailable; deterministic training is unchanged. External calls require the
@@ -1412,7 +1416,7 @@ framework.
 |---|---|---|---|
 | 1 | Architecture and contracts: capability boundaries, permissions, context/evidence schema, prompt/schema versions, privacy, iteration boundary | owner approval | **planned** |
 | 1b | **Retire the minimal LLM exercise selector** as a separate work item: remove only selector-specific chooser/CLI/API/UI/engine/tests/docs plumbing; preserve shared LLM client/config, narrative/proposal, deterministic selection, taxonomy, comparability, class-B confirmation and history; acceptance in plan §8.2 | phase 1; **independent of the proposer** | **planned** |
-| 2 | **New** shared context/evidence builder + athlete analyst: lift progression, programme status, strength/power/longevity review | phase 1; existing features/repositories/provenance | **planned** |
+| 2 | **New** shared context/evidence builder + athlete analyst: lift progression, programme status, strength/power/longevity review | phase 1; existing features/repositories/provenance; the AFC evidence contract (AFC-2/AFC-3) | **planned** |
 | 3 | Programme explainer: persisted prescription, modifiers, baseline/previous comparison, concise + detailed | phase 2; prescription provenance | **planned** |
 | 4 | Constrained proposer in shadow: structured schema, deterministic validation, Python load resolution, baseline comparison; no application | phases 1–3; existing proposal/validator path | **planned** |
 | 5 | Opt-in approval + evaluation: diff UI/CLI, explicit approval, provenance, shadow/opt-in gates; no selector work | phase 4; phase 1b; approved gates; privacy review | **planned** |
@@ -1796,6 +1800,46 @@ pending-session shell) and the “Send to iPhone” relay are deferred. 6.0, 6.1
 are implemented (watch target, credential handoff, mint/list/revoke, the phone-revocation watch
 cascade, and the read-only watch Today); 6.3 and later need a separate go-ahead.
 
+### 4.33 Athlete Feedback & Coaching (AFC)  (planned; backend and web UI only)
+
+**Status:** planned, not scheduled. Documentation only: no schema, API, rule or threshold change is
+part of this section. The full plan is [`docs/AFC.md`](docs/AFC.md).
+
+AFC is **not** an iOS phase and is **not** Phase 7. Phase 7 is the existing LLM narrative layer
+(status-table row 7) and keeps that designation.
+
+**Purpose.** Turn the training, adherence, VBT, readiness and performance data the server already
+computes into reliable, evidence-linked and actionable feedback. Deterministic calculations stay
+authoritative, feedback stays traceable to stored rows, and missing data is reported as unknown
+rather than as poor performance.
+
+**Composition, not reimplementation.** AFC adds no second calculation of any metric owned by
+`adherence.py`, `adherence_analytics.py`, `attendance.py`, `volume_budget.py`, `vbt_analysis.py`,
+`vbt_performance.py`, `residual.py`, `readiness_feedback.py`, `session_feedback.py` or
+`monitoring_analysis.py`. It composes them, starting from `workout.summary()`, which already
+returns completion, strength, dose, special exposure, feedback, ratios, comparison, adherence and
+VBT for a completed workout.
+
+| phase | scope | data change |
+|---|---|---|
+| AFC-2 | post-workout report: shared evidence contract, end-screen observations and evidence, real quality flags, removal of the duplicate `summary.completion` | none |
+| AFC-3 | longitudinal observations: repeated RIR deviation, repeated incomplete work, VBT residual deviation | small, append-only |
+| AFC-4 | web UI coaching and nudges on existing hosts, with suppression | small, append-only |
+| AFC-5 | evidence-gated prescription adaptation — **separate** and gated; does not block AFC-2 to AFC-4 | separate |
+
+**AFC-1 is dissolved.** Attendance is already computed, rendered and correctly labelled as
+target-based; weekly set-volume attainment already exists in the volume budget. Planned-session
+compliance stays out of scope under `DEC-W7-01` ([`LIM-05`](docs/LIMITATIONS-REGISTER.md) is
+unchanged). The programme-level KPI panel is part of AFC-4.
+
+**Phase 5A.** AFC is read-only composition and changes no instrumented definition: `attendance.pct`,
+the prospective flags, monitoring/exposure/calibration configuration, or the end-screen capture
+controls for session RPE, duration and productivity. AFC-2 may extend `workout.summary()` and
+`summary.js`; no feature module reads `summary()`.
+
+**Out of scope.** Native iOS or watchOS work, cardio models, VBT calibration, the training engine,
+automatic adaptation, and the LLM capabilities in §4.24.
+
 ## 5. Known gaps and risks
 
 This section keeps **no list**. Every accepted limitation is registered with an id, a status and
@@ -1819,7 +1863,7 @@ rejected ideas are recorded in §6.1; the LLM workstream lives in §4.24.
   volume per group/lift with calibrated uncertainty and a pre-registered prospective gate; no
   prescription change until validated. Fixed budget and safety guards remain authoritative.
   Idea only; see `docs/archive/VOLUME-MODULATION-PLAN.md` §13 and Q28.
-- Nicer UI, adherence encouragement and KPI panel (placeholder §4.23; not scheduled).
+- Athlete Feedback & Coaching (AFC) — programme KPIs, post-workout report, longitudinal observations and nudges (§4.33; [`docs/AFC.md`](docs/AFC.md); not scheduled).
 
 ### 6.1 Delivered or rejected from the former backlog
 

@@ -125,6 +125,13 @@ selection, relevance rules, stable evidence ids, hashing/versioning, capability 
 privacy inventory serialisation and independent tests. Until then, do not describe an
 AthleteContextBuilder as existing.
 
+AFC is the deterministic producer for this layer. The Athlete Feedback & Coaching plan
+([AFC.md](AFC.md) §6) defines the evidence-item contract — stable id, source rows, window, value,
+n, comparability, gate, quality flags, method versions, limitations and rule ids — and that
+contract is the one this builder serialises. The builder consumes AFC evidence and the existing
+feature payloads; it must not compute adherence, VBT, readiness or volume metrics, and there must
+not be a second evidence schema under `strength_coach/agents/`.
+
 Create one Python-owned AthleteContextBuilder (future path:
 strength_coach/agents/context.py) used by every capability. It must not call an LLM. It
 assembles facts from existing functions and stores a canonical JSON package plus a hash.
@@ -212,9 +219,10 @@ is a separate, additive migration decision (Phase 4/5), not part of this plan.
 
 1. **Lift-specific progression** — e1RM/test distinction, comparison windows, load/reps/RIR/VBT
    trends, exposure/volume, data sufficiency and a progress/plateau/inconclusive verdict.
-2. **Overall programme status** — adherence vs intended frequency, main-lift and pattern
+2. **Overall programme status** — training frequency vs target, main-lift and pattern
    progression, volume distribution, readiness/symptom/deload history, recent modifiers and
-   missing data.
+   missing data. Frequency, adherence and volume-attainment figures are consumed from AFC; the
+   analyst never recalculates them, and there is no planned-session calendar (`DEC-W7-01`).
 3. **Strength, power and longevity review** — priority alignment, coverage gaps and questions
    for review; never a clinical claim or a promise that a change improves longevity.
 
@@ -637,7 +645,9 @@ shippable; no phase may silently produce the next phase's capability.
   first two pass). Read-only CLI/API/UI.
 - **Non-goals:** explainer, proposer, autonomous actions. Selection retirement is the separate
   Phase 1b work item, not part of this phase.
-- **Dependencies:** Phase 1; existing features/readiness/outcomes/volume code.
+- **Dependencies:** Phase 1; existing features/readiness/outcomes/volume code; the AFC
+  evidence contract ([AFC.md](AFC.md) §6, AFC-2/AFC-3) for frequency, adherence, observation and
+  evidence ids. Read AFC evidence; do not recompute those metrics here.
 - **Expected code/docs:** agents/context.py, agents/analyst.py, feature query helpers,
   API/CLI/UI, tests; update this plan and ROADMAP.
 - **Acceptance:** deterministic context hash; every supported claim has evidence; e1RM/test and

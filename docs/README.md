@@ -69,6 +69,7 @@ for current status and next actions. [`AGENTS.md`](../AGENTS.md) holds the engin
 
 ## Active and gated plans
 
+- [AFC.md](AFC.md) (planned; backend and web UI only)
 - [HIGH-INTENSITY-EXPOSURE-PLAN.md](HIGH-INTENSITY-EXPOSURE-PLAN.md) (Phase 3 pending)
 - [INJURY-ATTRIBUTION-PLAN.md](INJURY-ATTRIBUTION-PLAN.md) (Phase 3 open)
 - [LLM-INTEGRATION-PLAN.md](LLM-INTEGRATION-PLAN.md)

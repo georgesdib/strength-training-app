@@ -569,6 +569,14 @@ documents:
   status: canonical
   audience: public
   nav: true
+- id: afc-plan
+  path: docs/AFC.md
+  title: ATHLETE FEEDBACK AND COACHING (AFC) — PLAN
+  description: 'composition plan for evidence-linked coaching feedback and nudges over the existing adherence, VBT, readiness, feedback and volume services: one evidence contract, post-workout report, longitudinal observations, web UI nudges, Phase 5A protection and separate gated adaptation'
+  category: plans
+  status: plan
+  audience: public
+  nav: true
 - id: high-intensity-exposure-plan
   path: docs/HIGH-INTENSITY-EXPOSURE-PLAN.md
   title: HIGH-INTENSITY EXPOSURE — evidence, model and implementation plan
