@@ -1,7 +1,9 @@
 # Rubric calibration — B1 review
 
 **Status:** B1 closed 2026-11-07. Rubric 1.2.0 is unchanged; no weight or definition was
-retuned. B2/B3 remain gated to the 2027-01-22 Phase 5A review.
+retuned. **2026-11-13: the loop is dormant (`DEC-EVAL-08`) — no marks are requested, the
+`rubric_labels` review prompt is retired, and no B3 decision is pending.** B2/B3 remain gated to
+the 2027-01-22 Phase 5A review if a decision is ever scheduled.
 
 **Scope:** the calibration loop around the deterministic critique rubric. It does not change a
 load, a prescription, a rule or a programme decision.
@@ -86,16 +88,18 @@ and velocity loss have too few comparable observations to conclude anything.
 
 ## 4. What to do now
 
-- Mark a session on the day, from memory, with `high` confidence.
-- Prefer a live workout: the prescription snapshot is what makes essential work comparable.
-- Skip an item you cannot judge; a blank is better than a guess.
-- Do not backfill old imports just to create calibration labels.
-- Run `strength-coach calibrate` (or **Run rubric calibration** on the Review page) monthly
-  or at the Phase 5A gate, not after every session.
-- Do not change a weight or definition. B3 is gated.
+**Nothing routine: the loop is dormant.** The `rubric_labels` review prompt is retired and the
+monthly marking habit described in earlier revisions of this page no longer applies.
 
-The loop is intentionally thin now. Its job is to keep a fresh, comparable sample alive, not to
-re-prove the same agreement every week.
+- Existing marks, sessions and reports stay readable; nothing is deleted, edited or recomputed
+  differently.
+- The 2026-11-07 sample is the closed B1 evidence, not a live target.
+- AFC is the canonical post-workout adherence evaluation (`docs/AFC.md`); the rubric is a
+  display diagnostic with no training consumer.
+- If a B3 decision is ever scheduled, collect a fresh version-matched sample *before* the review,
+  as B2 requires, and pre-declare the acceptance criteria. Do not re-open routine marking.
+- `strength-coach calibrate` and **Run rubric calibration** still read the historical marks if
+  the old evidence needs re-reporting.
 
 ## 5. What this cannot conclude
 

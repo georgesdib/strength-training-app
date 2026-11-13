@@ -85,7 +85,8 @@ def test_review_status_reports_data_gaps_without_writing():
     finally:
         store.close()
     tasks = {task["key"]: task for task in report["tasks"]}
-    assert tasks["rubric_labels"]["status"] == "attention"
+    # The rubric calibration prompt is retired (DEC-EVAL-08); its absence is the contract.
+    assert "rubric_labels" not in tasks
     assert tasks["srpe_coverage"]["status"] == "attention"
     assert tasks["readiness_baseline"]["status"] == "insufficient"
     assert tasks["back_pattern"]["status"] == "ok"

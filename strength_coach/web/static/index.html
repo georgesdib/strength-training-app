@@ -988,15 +988,13 @@
           <li><strong>Check the report above.</strong> New raw rows/sessions are the history that
             was added; <em>overlapping</em> means it was already loaded. A high
             <em>quarantined</em> count means dates or exercise names need attention.</li>
-          <li><strong>Mark a fresh session.</strong> Open <strong>Review</strong> and mark a
-            session you remember, ideally one just completed in Workout mode so a prescription
-            snapshot exists (or run <code>strength-coach review --pending</code>). Those marks are
-            the calibration labels; only <code>high</code>-confidence marks count. Do not backfill
-            old imports just to create labels.</li>
-          <li><strong>Calibrate later.</strong> Monthly, or at the Phase 5A gate, run
-            <strong>Run rubric calibration</strong> on the Review page
-            (or <code>strength-coach calibrate</code>). Re-importing does not invalidate marks,
-            and importing does not require a re-run on its own.</li>
+          <li><strong>Marking is dormant.</strong> The rubric calibration loop was retired on
+            2026-11-13 (<code>DEC-EVAL-08</code>): no new marks are requested and the review prompt
+            is gone. <strong>Review</strong> keeps the historical marks readable; do not backfill old
+            imports.</li>
+          <li><strong>Calibration is historical.</strong> <strong>Run rubric calibration</strong> on
+            the Review page (or <code>strength-coach calibrate</code>) still re-reads the existing
+            marks. It is not a routine task, and re-importing does not require a re-run.</li>
         </ol>
         <p class="muted">Review the recent sessions, not the distant past: the pending review stops
           at your last reviewed session. Rubric calibration and readiness calibration are

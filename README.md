@@ -180,11 +180,12 @@ python -m strength_coach.cli calibrate                 # agreement report so far
 requested date, then prints every item with the rule id or stored set that justifies its
 load. Re-running the same date writes nothing unless you pass `--force`.
 
-`review` is the calibration loop. It shows the session beside the rubric's scores, asks for
-your mark on each item, stores them append-only, and immediately prints running agreement.
-Do it after any session you want to judge: the report gets sharper with every review, and an
-item is flagged for revisiting only once it has five marks and still disagrees by more than
-0.25. Nothing is retuned automatically — a rubric change is a decision, not a side effect.
+`review` is the historical calibration loop. It shows the session beside the rubric's scores,
+can record a mark per item append-only, and prints running agreement; an item is flagged for
+revisiting once it has five marks and still disagrees by more than 0.25. **The loop is dormant
+since 2026-11-13** (`DEC-EVAL-08`): no marks are requested and the review prompt is retired,
+but existing marks and reports stay readable. Nothing is retuned automatically — a rubric
+change is a decision, not a side effect.
 
 ## Privacy
 

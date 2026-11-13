@@ -20,23 +20,6 @@ readiness_thresholds:
   dont:
   - Do not change thresholds automatically.
   - Do not choose and validate a cutoff on the same data.
-rubric_labels:
-  label: Deepen rubric calibration labels
-  target_per_item: 10
-  measurable_items:
-  - RIR_ADHERENCE
-  - PROGRESSION_ADHERENCE
-  - WEEKLY_SPINAL_COST
-  - ESSENTIAL_WORK
-  - REDUNDANCY
-  - ROTATION
-  doc: docs/STRENGTH-PROGRAM-REVIEW.md
-  why: Only high-confidence human marks count; the rubric is not retuned on a thin
-    sample.
-  steps:
-  - Open Review and mark recent sessions.
-  - Use high confidence only when the session is genuinely remembered.
-  - Aim for 10 high-confidence marks per measurable item.
 strength_test:
   label: 3RM/5RM strength test
   every_weeks: 10

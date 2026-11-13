@@ -64,12 +64,12 @@ for current status and next actions. [`AGENTS.md`](../AGENTS.md) holds the engin
 - [REFERENCES.md](REFERENCES.md) — bibliography with DOIs and usage
 - [LIMITATIONS-REGISTER.md](LIMITATIONS-REGISTER.md) — living limitation index
 - [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) — live ambiguities and defaults
-- [RUBRIC-CALIBRATION.md](RUBRIC-CALIBRATION.md) — calibration loop, B1 outcome and what to do next
+- [RUBRIC-CALIBRATION.md](RUBRIC-CALIBRATION.md) — dormant calibration loop, B1 outcome and historical-data policy
 - [SANITY-CHECKS.md](SANITY-CHECKS.md), [V0-SCOPE.md](V0-SCOPE.md)
 
 ## Active and gated plans
 
-- [AFC.md](AFC.md) (planned; backend and web UI only)
+- [AFC.md](AFC.md) (AFC-2 completed 2026-11-13; AFC-2i native iOS report, AFC-3 and AFC-4 planned)
 - [HIGH-INTENSITY-EXPOSURE-PLAN.md](HIGH-INTENSITY-EXPOSURE-PLAN.md) (Phase 3 pending)
 - [INJURY-ATTRIBUTION-PLAN.md](INJURY-ATTRIBUTION-PLAN.md) (Phase 3 open)
 - [LLM-INTEGRATION-PLAN.md](LLM-INTEGRATION-PLAN.md)

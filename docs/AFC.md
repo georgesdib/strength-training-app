@@ -1,10 +1,15 @@
 # ATHLETE FEEDBACK AND COACHING (AFC) — PLAN
 
-**Status:** proposed 2026-11-13. Documentation only: no runtime behaviour, prompt, API, schema,
-dependency or training-rule change is included in this plan.
+**Status:** AFC-2 completed 2026-11-13 (`2d0fc15`). AFC-2i, AFC-3 and AFC-4 planned;
+documentation only beyond AFC-2 — no runtime behaviour, prompt, API, schema, dependency or
+training-rule change is included in this plan.
 **Roadmap workstream:** ROADMAP section 4.33.
-**Owner:** the athlete. AFC-2, AFC-3 and AFC-4 require explicit approval before implementation.
-**Scope:** backend and web UI only, for the local server and its own browser UI.
+**Owner:** the athlete. AFC-2i, AFC-3, AFC-4 and AFC-5 require explicit approval before
+implementation.
+**Scope:** composition over the backend services in section 2, rendered by the server's browser
+UI and, from AFC-2i, by the native iOS client. AFC-2 itself is backend and web UI only; AFC-2i
+adds iPhone presentation of the same report and no calculation, capture or prescription change
+anywhere.
 
 This is a plan, not a claim that any described interface or capability exists. The current
 implementation remains the source of truth until a phase is implemented and tested.
@@ -24,8 +29,18 @@ The principles are fixed:
 - initial functionality never changes a prescription;
 - existing services are reused rather than reimplemented;
 - the web UI consumes backend-generated metrics and observations;
+- the native iOS client, from AFC-2i, renders the same report contract the web end screen renders
+  and computes no metric, gate or eligibility itself;
 - the same architecture can later supply an LLM without letting it calculate authoritative
   metrics.
+
+**Relationship to the critique rubric.** The deterministic critique rubric
+(`critique/rubric.py`, 1.2.0) is not a second post-workout evaluation: its calibration loop is
+dormant and its review prompt is retired (`DEC-EVAL-08`). AFC is canonical for what the athlete
+sees after a session, and RIR effort and session duration — the rubric's only athlete-relevant
+items — are computed here from `adherence` and `feedback`. The rubric's remaining items are
+programme-drift diagnostics with no training consumer; its historical `critique`,
+`rubric_score` and `rubric_mark` rows stay read-only.
 
 ## 2. What already exists
 
@@ -66,7 +81,10 @@ Out of scope, permanently or until a separate approved decision:
 - **Prescription nudges.** A "nudge" in AFC is informative only. The completion-based volume nudge
   discussed in [`FREQUENCY-AND-VOLUME.md`](FREQUENCY-AND-VOLUME.md) would change a prescription
   and remains training-engine scope, not AFC.
-- **Native iOS or watchOS work.** AFC is backend and web UI only.
+- **Native iOS or watchOS calculation.** AFC-2i renders the AFC-2 report on the iPhone; it adds
+  no Swift calculation, no new capture, no watchOS report and no change to any endpoint's
+  contract. AFC-2 itself remains backend and web UI only, and no AFC phase moves training
+  authority out of Python.
 - **Cardio, VBT calibration and training-engine scope.** They generate metrics but keep their
   own ownership, acceptance criteria and roadmap sections.
 - **Changing any Phase 5A instrument** (see section 5).
@@ -87,6 +105,7 @@ Out of scope, permanently or until a separate approved decision:
 | Q7 | CLI parity for the read-only observation report; no CLI for nudge rendering |
 | Q8 | Snooze 14 days, permanent dismissal per `nudge_key` and window, at most one nudge per surface per day |
 | Q9 | A declared break may be annotated beside attendance as a footnote; the percentage and denominator are unchanged |
+| AFC-2i | The AFC-2 report is one cross-platform contract: the web end screen and the native iOS client render the same `workout.summary()` payload, and neither derives a metric, ratio, gate, comparability verdict or observation locally (`DEC-AFC-03`) |
 
 ## 5. Phase 5A protection
 
@@ -171,8 +190,9 @@ part is out of scope by `DEC-W7-01`. The remaining items move:
 
 ### AFC-2 — post-workout feedback report
 
-**Status: implemented 2026-11-13**, including the three Phase 5A guards. AFC-3 and AFC-4 remain
-planned.
+**Status: completed 2026-11-13** (`2d0fc15`, merged to `development`), including the
+three Phase 5A guards. This scope is frozen: AFC-2i is a separate presentation phase and does not
+reopen it. AFC-3 and AFC-4 remain planned.
 
 Scope: compose `workout.summary()` into observations with evidence, render them on the end
 screen, fix the quality block, and remove the duplicate set-count source.
@@ -190,6 +210,110 @@ Work:
   `original` when the plan was modified.
 
 No schema change.
+
+**What shipped.** The delivered implementation added the evidence envelope, populated
+`quality.flags` and rendered adherence and data quality on the end screen. It did not add a
+per-workout observation record: the payload carries evidence items and quality flags, and no
+"observation" object exists to render (section 9). Recording that here does not reopen AFC-2.
+
+### AFC-2i — native post-workout feedback report
+
+**Status: planned. Documentation only: no Swift, API, schema or capture change is defined here.**
+It depends on AFC-2 being completed and on the report contract AFC-2 delivered. It does not depend
+on AFC-3 or AFC-4, and it does not reopen AFC-2.
+
+**Purpose.** Expose the completed AFC-2 report in the native iOS workout completion experience, so
+the athlete reads the same evidence-linked report the web end screen shows, without a browser. It
+is a concise report, not an analytics dashboard and not a Progress replacement.
+
+**Dependency on the delivered contract.** AFC-2i consumes, and adds no field to:
+
+- `GET /api/workout/<id>/summary` (`strength_coach/workout.py` `summary()`), the canonical
+  completed-workout payload: `adherence` (`original`, `final_plan`, `changes`, `quality`),
+  `vbt`, `feedback`, `quality.flags`, `quality.coverage` and `evidence`;
+- the evidence envelope `strength_coach/features/evidence.py` (`evidence_id`, `source`,
+  `source_ids`, `window`, `value`, `n`, `comparability`, `gate`, `quality_flags`,
+  `method_versions`, `calibration_ids`, `limitations`, `rule_ids`, `assumption_ids`);
+- the calculations and interpretations owned by `adherence.py`, `vbt_analysis.py`,
+  `session_feedback.py` and the other services in section 2.
+
+The payload is documented in [`docs/API.md`](API.md) under "Prescription adherence" and in
+section 6 above.
+
+**Scope.**
+
+| Area | Renders from the payload | Must not do |
+|---|---|---|
+| Workout completion | `adherence.final_plan` (`original` too when `plan_modified`): `set_completion` numerator, denominator and ratio, missing and extra sets, `changes`, `unattributable_planned_sets`, and `quality` (unmatched, ambiguous, removed) | Recompute a ratio, label incomplete work as athlete failure, or drop an unattributable denominator |
+| Effort / RIR | `adherence` repetition, load and RIR attainment; `quality.sets_without_rir`; `quality.unavailable_metrics` | Recalculate RIR adherence, or turn the backend interpretation into a pass/fail |
+| Velocity | `vbt` `status`, `reason`, `quality.target_sets`/`comparable_sets`/`excluded_sets`, `target_metadata`, and the matching `evidence` items (`gate`, `comparability`) | Decide comparability, eligibility or validity in Swift |
+| Coaching observation | At most one observation, and only if the payload carries an eligible one | Manufacture an observation, or borrow AFC-3/AFC-4 behaviour |
+| Session feedback | `feedback` `srpe`, `duration_min`, `duration_source`, `session_load_au`, `session_load_status`, `productivity` | Treat a missing value as zero, or collapse "not recorded" and "unavailable" into one state |
+| Data quality | `quality.flags` (`code`, `detail`) and `evidence[].limitations` | Map a code to a client-side severity, or hide a flag on a small screen |
+
+**Delivery note on the observation.** The AFC-2 payload as delivered carries evidence items and
+quality flags; it does not carry a per-workout observation record. AFC-2i therefore ships without a
+coaching-observation block unless a later backend change adds one. That gap is recorded in section
+9; it is not a licence to write client-side coaching logic.
+
+**Navigation.** The report is reached from the existing finish flow
+(`POST /api/ios/v1/workouts/<id>/complete`), which keeps its current contract:
+
+- present the report only after the completion is acknowledged, reusing the existing idempotency
+  key and finish lock so a retry cannot submit the workout twice;
+- dismissing returns to the surface the athlete came from; the completed workout stays reachable
+  from History, which is also the return path for reading a report later;
+- a report read failure after a successful completion retries the *read*, never the completion, and
+  never traps the athlete in the flow;
+- the report is read-only: no control changes a load, set, rep or prescription.
+
+**Exclusions.** No new backend metric, field, endpoint contract, schema, migration, capture
+control, Phase 5A instrument, configuration value, prescription rule or LLM call. No watchOS
+report. No web redesign. No dependency on AFC-3, AFC-4 or AFC-5. No re-derivation of adherence,
+attendance, volume, VBT, ratios or gates in Swift, including "just for layout" totals.
+
+**Acceptance criteria.**
+
+1. The screen renders the AFC-2 payload fields above for a completed workout, and every displayed
+   value exists in that payload; a recorded contract fixture decoded by the client fails the build
+   or test if the view needs a field the payload does not carry.
+2. `status: unavailable` cases (`no_prescription_snapshot`, `session_voided`,
+   `no_prescription_items`, `vbt_unavailable`) render as an explicit reason, not a zero, a dash
+   read as poor performance, or an empty chart.
+3. Missing, excluded and low-quality data carry the payload's own wording; each `quality.flags`
+   entry is shown with its `detail`; no flag is reworded into a client judgement.
+4. No client-side calculation of adherence, attendance, volume, VBT, ratios, gates or eligibility:
+   review of the diff finds no arithmetic over report fields.
+5. When the payload contains no eligible observation, no coaching message appears and no empty
+   placeholder implies one is missing.
+6. The finish flow issues exactly one completion request; the report opens after acknowledgement,
+   and dismissing it never re-submits and never loses the completed workout.
+7. Read failures and offline behaviour follow the existing client pattern (bounded retry, idempotent
+   read, no duplicate completion), and the athlete can always leave the flow.
+8. Existing completion behaviour — idempotency lock, ambiguous-response handling, History
+   visibility — is unchanged and still covered by its current tests.
+9. Native UI tests cover: the full report, unavailable/excluded data, an absent observation, and
+   completion → report → dismiss.
+10. Report correctness stays backend-owned: `tests/test_adherence.py`, `tests/test_evidence.py`,
+    the summary API tests and the Phase 5A guards remain authoritative; the client adds no
+    expected-value arithmetic.
+
+**Implementation considerations (not requirements).** These depend on the client and facade as they
+stand today; they are resolved at kickoff, not invented here:
+
+- The iPhone reaches only the device-authenticated `/api/ios/v1/...` facade, while
+  `GET /api/workout/<id>/summary` is the browser surface. Whether the facade exposes that payload
+  (transport only, no calculation) or a later `GET /api/ios/v1/history/<id>` revision carries
+  `evidence` and `quality.flags` is a contract change to agree before implementation. Neither
+  option permits a second payload shape or client arithmetic.
+- The delivered `evidence` list is small (adherence set-completion and VBT), so an expandable
+  "why" per claim is optional in the first cut; a flag still has to be visible wherever it
+  qualifies a number.
+- Sheet versus pushed screen is a UI decision; the navigation rules above are the constraint.
+
+**Verification.** At implementation time the narrowest checks are the iOS scheme's report and
+completion tests, with the backend summary, adherence, evidence and Phase 5A tests unchanged. AFC-2i
+is not expected to change any backend test.
 
 ### AFC-3 — longitudinal observations
 
@@ -235,17 +359,25 @@ recommended without one.
 
 ## 8. Sequence
 
-Documentation consolidation (AFC-0.5) → AFC-2 → AFC-3 → AFC-4 → AFC-5 (separate and gated).
+Documentation consolidation (AFC-0.5) → AFC-2 (completed) → AFC-2i → AFC-3 → AFC-4 → AFC-5
+(separate and gated).
 
-AFC-1 is dissolved and is not a step. AFC-2 comes first because it needs no schema, no decision
+AFC-1 is dissolved and is not a step. AFC-2 came first because it needed no schema, no decision
 change and no new calculation, and because it produces the evidence contract AFC-3, AFC-4 and
-LLM Iteration 1 phase 2 all consume.
+LLM Iteration 1 phase 2 all consume. AFC-2i follows AFC-2 immediately because it is pure
+presentation of that delivered contract; it is independent of AFC-3 and AFC-4 and may ship before,
+beside or after them, but never before AFC-2.
 
 ## 9. Open items
 
 - **Stagnation definition (deferred).** Re-ask when AFC-3's second cut is scoped. The definition
   must be written before any stagnation number is generated or inspected; a threshold chosen
   after seeing the output is post-hoc. Do not reuse a percentage band invented during Phase 5A.
+- **Per-workout observation (AFC-2i dependency).** AFC-2 delivered the evidence envelope and
+  quality flags but no per-workout observation record, so the native report cannot show a coaching
+  observation without a backend addition. Decide at AFC-3 scoping whether `workout.summary()`
+  gains one gated observation (it already owns the evidence) or whether the native report ships
+  without coaching text. Do not synthesise one in Swift.
 - **Interpretation caveat for the gate.** A declared break depresses `attendance.pct` and can
   raise `ATTENDANCE_LOW` in the Phase 5A read-out. This is expected behaviour under
   `DEC-W7-01`, not a defect. Note it when reading the 2027-01-22 review.
@@ -254,5 +386,10 @@ LLM Iteration 1 phase 2 all consume.
 
 - [ROADMAP](../ROADMAP.md) section 4.33 — roadmap summary of this plan.
 - [LLM-INTEGRATION-PLAN.md](LLM-INTEGRATION-PLAN.md) — the shared context and evidence layer.
-- [DECISIONS.md](DECISIONS.md) — `DEC-W7-01`, `DEC-AFC-01`, `DEC-AFC-02`.
+- [API.md](API.md) "Prescription adherence" — the completed-workout summary payload and its
+  stable fields.
+- [DECISIONS.md](DECISIONS.md) — `DEC-W7-01`, `DEC-AFC-01`, `DEC-AFC-02`, `DEC-AFC-03`.
+- [iOS client plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/IOS-CLIENT-PLAN.md)
+  — the shared iOS phase plan AFC-2i's client work would sit beside (cross-repository, portfolio
+  canonical).
 - [LIMITATIONS-REGISTER.md](LIMITATIONS-REGISTER.md) — `LIM-05`, unchanged.
