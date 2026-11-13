@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.4.0] — 2026-11-13
+
 ### Added
 
 - **Longitudinal VBT performance dashboard**: new read-only `GET /api/performance/vbt` and
