@@ -344,6 +344,11 @@ unconfirmed.
 
 ## 9. `critique` / `rubric_score`
 
+**Historical since 2026-11-13 (`DEC-EVAL-09`).** Nothing writes these tables any more: ending a
+workout or editing history does not score a session. Existing rows stay append-only and are read
+only by `GET /api/review/<session>` and History's mark count; `workout_session.critique_id` keeps
+the last historical link.
+
 `critique` stores the narrative plus `facts_hash`; `rubric_score` stores one row per
 rubric item (`RIR_ADHERENCE` …) with `score`, `weight`, `evidence_refs`, `rule_ids`, and
 `measurable` (0/1). Metrics that the data cannot support — imported-session duration, within-set velocity loss —

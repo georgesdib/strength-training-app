@@ -1,9 +1,11 @@
 # Rubric calibration — B1 review
 
 **Status:** B1 closed 2026-11-07. Rubric 1.2.0 is unchanged; no weight or definition was
-retuned. **2026-11-13: the loop is dormant (`DEC-EVAL-08`) — no marks are requested, the
-`rubric_labels` review prompt is retired, and no B3 decision is pending.** B2/B3 remain gated to
-the 2027-01-22 Phase 5A review if a decision is ever scheduled.
+retuned. **2026-11-13: the rubric is retired from the runtime (`DEC-EVAL-09`).** The loop went
+dormant first (`DEC-EVAL-08`), then the scoring engine, eval harness, mark ingestion, CLI
+commands and web endpoints were removed. No marks are requested, no B3 decision is pending, and
+the historical rows stay read-only. B2/B3 remain gated to the 2027-01-22 Phase 5A review if a
+decision is ever scheduled.
 
 **Scope:** the calibration loop around the deterministic critique rubric. It does not change a
 load, a prescription, a rule or a programme decision.
@@ -98,8 +100,9 @@ monthly marking habit described in earlier revisions of this page no longer appl
   display diagnostic with no training consumer.
 - If a B3 decision is ever scheduled, collect a fresh version-matched sample *before* the review,
   as B2 requires, and pre-declare the acceptance criteria. Do not re-open routine marking.
-- `strength-coach calibrate` and **Run rubric calibration** still read the historical marks if
-  the old evidence needs re-reporting.
+- Historical marks stay readable through `GET /api/review/<session>`. The `calibrate` command
+  and the on-page report were removed with the engine (`DEC-EVAL-09`); re-reporting the old
+  evidence would be a new tool, not a re-enable.
 
 ## 5. What this cannot conclude
 

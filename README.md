@@ -171,21 +171,17 @@ protection and recovery from a failed release.
 
 ```bash
 python -m strength_coach.cli import                    # data/raw -> data/coach.db
-python -m strength_coach.cli run --date 2026-10-20     # critique the last session, prescribe
-python -m strength_coach.cli review --session 2026-10-15  # mark it; calibration updates
-python -m strength_coach.cli calibrate                 # agreement report so far
+python -m strength_coach.cli run --date 2026-10-20     # prescribe from the latest session
+python -m strength_coach.cli state                     # goals, limits, suitability
 ```
 
-`run` is the v0 slice: it critiques the most recent stored session and prescribes the
-requested date, then prints every item with the rule id or stored set that justifies its
-load. Re-running the same date writes nothing unless you pass `--force`.
+`run` is the v0 slice: it prescribes the requested date from the most recent stored session and
+prints every item with the rule id or stored set that justifies its load. Re-running the same
+date writes nothing unless you pass `--force`.
 
-`review` is the historical calibration loop. It shows the session beside the rubric's scores,
-can record a mark per item append-only, and prints running agreement; an item is flagged for
-revisiting once it has five marks and still disagrees by more than 0.25. **The loop is dormant
-since 2026-11-13** (`DEC-EVAL-08`): no marks are requested and the review prompt is retired,
-but existing marks and reports stay readable. Nothing is retuned automatically — a rubric
-change is a decision, not a side effect.
+The deterministic critique rubric is retired (`DEC-EVAL-09`): `run` no longer scores a session,
+and the `review` and `calibrate` commands are gone. Historical `critique`, `rubric_score` and
+`rubric_mark` rows stay readable through `GET /api/review/<session>`.
 
 ## Privacy
 
@@ -254,10 +250,10 @@ strength_coach/
   features/                    derived features, baselines, VBT calibration
   rules/                       constitution loader, predicates, policy verdicts
   prescribe/                   deterministic session-type engine and load solver
-  critique/                    rubric over a stored session
+  critique/                    historical rubric facts (scoring retired)
   agents/                      LLM interface, config, narrative (NullLLM by default)
   trace/                       run lifecycle
-  eval/                        backtest harness and labelled-set comparison
+  eval/                        read-only diagnostics (fatigue diagnostics)
 tools/profile_data.py          reproducible data profile
 tools/baseline.py              reproducible strength baseline
 tools/llm_check.py             shows the effective LLM settings; --call tests them

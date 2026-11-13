@@ -147,21 +147,18 @@ with a proportional timeline and prescribed-versus-actual rest table. These are 
 observations, not a fatigue or readiness score; older workouts without execution events are not
 backfilled with estimated timestamps.
 
-### After training — finish and review
+### After training — finish and read the report
 
 1. End the live workout, or import the updated external log.
-2. Open **Review workout** or the **Review** page.
-3. Compare the recorded session with the rubric and enter marks you can justify.
-4. Optionally record session RPE (1–10) and duration.
-5. Leave uncertain rubric items blank and use `high` memory confidence only when appropriate.
+2. Read the descriptive report on the end screen: prescription adherence, RIR attainment, VBT
+   results with their quality limits, session feedback and data-quality flags.
+3. Optionally record session RPE (1–10), length and productivity before ending — they appear in
+   the report.
+4. Nothing else is required. There is no rubric review step and no marks to enter.
 
-CLI example:
-
-```bash
-.venv/bin/strength-coach review --session YYYY-MM-DD
-```
-
-Marks and run history are append-only. A later correction adds a new record; it does not erase the earlier record.
+The **Review** page keeps the historical session sheets read-only; sessions completed after
+2026-11-13 have no rubric rows. Run history stays append-only, and a later correction adds a new
+record rather than erasing the earlier one.
 
 ## 5. Weekly maintenance
 
@@ -176,7 +173,6 @@ Once a week, or after a meaningful change:
 Useful CLI commands:
 
 ```bash
-.venv/bin/strength-coach calibrate
 .venv/bin/strength-coach readiness calibrate
 .venv/bin/strength-coach readiness shadow
 .venv/bin/strength-coach programme --weeks 4 --remaining

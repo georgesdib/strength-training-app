@@ -1353,16 +1353,6 @@ async function fillSessionSelect() {
   if (current) select.value = current;
 }
 
-$("#rubric-calibration-run").addEventListener("click", async () => {
-  $("#rubric-calibration").innerHTML = "<p class='empty'>Loading…</p>";
-  try {
-    const data = await api("/api/calibrate");
-    $("#rubric-calibration").innerHTML = `<pre>${esc(data.text)}</pre>`;
-  } catch (error) {
-    $("#rubric-calibration").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
-  }
-});
-
 $("#review-form").addEventListener("submit", (event) => {
   event.preventDefault();
   loadReview($("#review-session").value);
@@ -1376,15 +1366,11 @@ async function loadReview(session) {
   $("#review-result").innerHTML = "<p class='empty'>Loading sheet…</p>";
   try {
     const data = await api("/api/review/" + encodeURIComponent(session));
-    const items = data.items.map((item) => `<tr>
-      <td data-label="Item"><strong>${esc(item.key)}</strong><div class="muted">${esc(item.question)}</div>
-        <details class="review-anchors"><summary>Anchors</summary>
-          <p class="muted">${esc(item.anchors)}</p></details></td>
+    const rows = (data.items || []).map((item) => `<tr>
+      <td data-label="Item"><strong>${esc(item.key)}</strong>
+        <div class="muted">${esc((item.rules || []).join(", "))}${item.evidence_count ? " · " + item.evidence_count + " evidence ref(s)" : ""}</div></td>
       <td data-label="Engine" class="muted">${item.measurable ? fmt(item.score, 2) : "n/a"}</td>
-      <td data-label="Your score"><input type="number" min="0" max="1" step="0.05" data-key="${esc(item.key)}"
-        aria-label="Your score for ${esc(item.key)}" value="${item.existing ?? ""}" placeholder="skip"></td>
-      <td data-label="Why" class="muted"><details class="review-why"><summary>Why</summary>
-        <p>${esc(item.detail)}</p></details></td></tr>`).join("");
+      <td data-label="Your mark" class="muted">${item.existing == null ? "—" : fmt(item.existing, 2)}</td></tr>`).join("");
     const formRows = (data.form_context?.forms || []).map((form) => `
       <tr><td><code>${esc(form.exercise_id)}</code></td><td>${form.rating}/5</td>
       <td>${form.prior_avg ?? "—"} <span class="muted">(n=${form.prior_n})</span></td>
@@ -1393,89 +1379,26 @@ async function loadReview(session) {
       ? `<h3>Form context</h3><div class="table-scroll"><table><thead><tr><th>Lift</th><th>this session</th>
          <th>prior average</th><th>prior latest</th></tr></thead><tbody>${formRows}</tbody></table></div>`
       : "";
+    const table = rows
+      ? `<div class="table-scroll review-table-wrap"><table class="review-table">
+         <thead><tr><th>Item</th><th>engine</th><th>your mark</th></tr></thead>
+         <tbody>${rows}</tbody></table></div>`
+      : "<p class='muted'>No stored critique for this session: it was completed after the rubric was retired.</p>";
     $("#review-result").innerHTML = `<div class="panel">
       <div class="panel-head"><h2>${esc(data.session)} · ${esc(sessionLabel(data.session_type))}</h2>
-        <span class="badge">composite ${fmt(data.composite, 2)}</span></div>
+        <span class="badge">historical · read only</span></div>
       <p class="muted">Week ${esc(data.week)} · spinal cost ${fmt(data.week_cost, 2)}</p>
       ${reviewWorkoutSummary(data.workout)}
       ${formContext}
-      <div class="table-scroll review-table-wrap"><table class="review-table">
-      <thead><tr><th>Item</th><th>engine</th><th>your score</th><th>why</th></tr></thead>
-      <tbody>${items}</tbody></table></div>
-      <div class="form-row">
-        <label>Remembrance <select id="review-confidence">
-          <option value="high" ${data.confidence === "high" ? "selected" : ""}>high</option>
-          <option value="low" ${data.confidence === "low" ? "selected" : ""}>low</option>
-          <option value="unknown" ${data.confidence === "unknown" ? "selected" : ""}>unknown</option>
-        </select></label>
-        <label>Session RPE <input id="review-srpe" type="number" min="1" max="10"
-          step="0.5" placeholder="optional"
-          value="${data.feedback && data.feedback.srpe != null ? data.feedback.srpe : ""}"></label>
-        <label>Length (min) <input id="review-minutes" type="number" min="1" max="600"
-          step="1" placeholder="optional"
-          value="${data.feedback && data.feedback.duration_min != null ? data.feedback.duration_min : ""}"></label>
-        <label>Productivity
-          <select id="review-productivity">
-            <option value="">Not recorded</option>
-            <option value="1" ${data.feedback && data.feedback.productivity === 1 ? "selected" : ""}>1 — not at all</option>
-            <option value="2" ${data.feedback && data.feedback.productivity === 2 ? "selected" : ""}>2 — slightly</option>
-            <option value="3" ${data.feedback && data.feedback.productivity === 3 ? "selected" : ""}>3 — moderately</option>
-            <option value="4" ${data.feedback && data.feedback.productivity === 4 ? "selected" : ""}>4 — very</option>
-            <option value="5" ${data.feedback && data.feedback.productivity === 5 ? "selected" : ""}>5 — extremely</option>
-          </select>
-        </label>
-        <label class="grow">Note <input id="review-note" placeholder="optional"></label>
-        <button class="primary" id="save-review">End review</button>
-      </div>
-      <p class="muted">Only high-confidence marks count toward agreement. Blank = skip.</p>
-      <div id="review-calibration"></div>
+      ${table}
+      <p class="muted">The rubric calibration loop is dormant (DEC-EVAL-09). Engine scores and
+        human marks are shown as stored; nothing is re-scored or recorded here, and post-workout
+        evaluation lives in the workout report.</p>
     </div>`;
-    $("#save-review").addEventListener("click", () => saveReview(session));
   } catch (error) {
     $("#review-result").innerHTML = `<div class="panel warnbox">${esc(error.message)}</div>`;
   }
 }
-
-async function saveReview(session) {
-  const button = $("#save-review");
-  const label = button.textContent;
-  button.disabled = true;
-  button.textContent = "Saving…";
-  const scores = {};
-  document.querySelectorAll("#review-result input[data-key]").forEach((input) => {
-    if (input.value !== "") scores[input.dataset.key] = Number(input.value);
-  });
-  const payload = {
-    scores,
-    confidence: $("#review-confidence").value,
-    note: $("#review-note").value || null,
-    session_rpe: $("#review-srpe").value || null,
-    session_minutes: $("#review-minutes").value || null,
-    productivity: $("#review-productivity").value || null,
-  };
-  try {
-    const data = await api("/api/review/" + encodeURIComponent(session), {
-      method: "POST", body: JSON.stringify(payload),
-    });
-    const saved = data.written
-      ? `Saved ${data.written} marks`
-      : "Saved session details (no marks)";
-    const post = data.postprocess
-      ? `<p class="muted">Rubric: ${esc(data.postprocess.rubric)} · calibration: ${esc(data.postprocess.calibration)} · workout closed: ${data.postprocess.workout_closed ? "yes" : "no"}</p>`
-      : "";
-    $("#review-calibration").innerHTML = `<div class="warnbox"><strong>${esc(saved)}</strong>${post}
-      <pre>${esc(data.calibration.text)}</pre></div>`;
-    notify(saved + " · review saved.");
-    loadOverview();
-  } catch (error) {
-    notify(error.message, "error");
-    $("#review-calibration").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
-  } finally {
-    button.disabled = false;
-    button.textContent = label;
-  }
-}
-
 /* --- exercise selection -------------------------------------------------- */
 async function loadSelection() {
   const date = $("#prescribe-date").value;

@@ -1,17 +1,14 @@
-"""The command line: the v0 slice, plus the calibration loop.
+"""The command line: the v0 slice.
 
     strength-coach import
     strength-coach run --date 2026-10-20 [--llm on]
-    strength-coach review --session 2026-10-15
-    strength-coach calibrate
 
-`run` is docs/V0-SCOPE.md section 1: ingest if needed, critique the most recent session,
-prescribe the requested day, persist both inside a run trace, and print a rationale that
-cites a rule or a stored fact for every number.
+`run` is docs/V0-SCOPE.md section 1: ingest if needed, prescribe the requested day, persist the
+prescription inside a run trace, and print a rationale that cites a rule or a stored fact for
+every number.
 
-`review` is the calibration loop: it shows the session next to the rubric's scores, takes your
-marks, stores them append-only, and immediately reports running agreement. Calibration is
-therefore continuous -- every review is another data point -- rather than a one-off audit.
+The rubric calibration loop is retired (`DEC-EVAL-09`): there is no `review` or `calibrate`
+command, and historical marks are readable through `GET /api/review/<session>`.
 """
 
 from __future__ import annotations
@@ -30,18 +27,13 @@ from strength_coach import __version__, modalities, settings_profile, workout
 from strength_coach.agents import (
     LLMError,
     build_client,
-    explain_critique,
     explain_prescription,
     load_settings,
 )
 from strength_coach.agents import proposal as proposal_mod
 from strength_coach.agents import selection as agent_selection
-from strength_coach.critique import UnknownSessionError, build_facts, score_session
-from strength_coach.critique import persist as persist_critique
-from strength_coach.critique.rubric import RUBRIC_VERSION
+from strength_coach.critique import UnknownSessionError
 from strength_coach.domain import e1rm as e1rm_mod
-from strength_coach.eval import backtest, load_marks, record_marks
-from strength_coach.eval.report import format_report, format_session_sheet, item_guide_lines
 from strength_coach.features import breaks as breaks_feature
 from strength_coach.features import cardio as cardio_feature
 from strength_coach.features import (
@@ -68,7 +60,6 @@ from strength_coach.features import readiness as readiness_feature
 from strength_coach.features import regime_change as regime_feature
 from strength_coach.features import relative_strength as relative_strength_feature
 from strength_coach.features import residual as residual_feature
-from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.features import shadow_report as shadow_report_feature
 from strength_coach.features import strength_trend as strength_trend_feature
 from strength_coach.features import volume as volume_feature
@@ -107,7 +98,6 @@ from strength_coach.utils import readiness as readiness_utils
 READINESS_CLI_FIELDS = {field: field for field in readiness_utils.INPUT_SCORE_FIELDS}
 READINESS_CLI_FIELDS.update({field: field for field in readiness_utils.MEASURE_FIELDS})
 
-DEFAULT_TOLERANCE = 0.25
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -118,7 +108,7 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("import", help="load data/raw into the store")
 
-    run = sub.add_parser("run", help="critique the last session and prescribe a date")
+    run = sub.add_parser("run", help="prescribe a date from the latest session")
     run.add_argument("--date", required=True, help="date to prescribe, YYYY-MM-DD")
     run.add_argument("--session-type", choices=("auto", "squat", "hinge", "bench_squat", "bench_hinge", "accessory"),
                      default="auto", help="session emphasis (default: auto rolling)")
@@ -152,25 +142,6 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--throttle-pattern", action="append", default=None, metavar="PATTERN",
                      help="restrict the throttle to a movement pattern (e.g. squat, hinge); "
                           "repeat for several patterns; default is the session's main lifts")
-
-    review = sub.add_parser("review", help="mark a session and update calibration")
-    review.add_argument("--session", default=None, help="session id (YYYY-MM-DD)")
-    review.add_argument("--pending", action="store_true",
-                        help="review unreviewed sessions after the last reviewed one, oldest first")
-    review.add_argument("--limit", type=int, default=10,
-                        help="maximum sessions for --pending (default 10)")
-    review.add_argument("--scores", default=None, help="read marks from a YAML file")
-    review.add_argument("--confidence", choices=("high", "low", "unknown"), default=None)
-    review.add_argument("--note", default=None)
-    review.add_argument("--session-rpe", type=float, default=None,
-                        help="optional session RPE 1-10 (also asked interactively at review)")
-    review.add_argument("--session-minutes", type=float, default=None,
-                        help="optional session length in minutes")
-    review.add_argument("--productivity", type=int, choices=range(1, 6), default=None,
-                        help="optional productivity rating 1-5")
-
-    calibrate = sub.add_parser("calibrate", help="report agreement between rubric and marks")
-    calibrate.add_argument("--tolerance", type=float, default=None)
 
     state = sub.add_parser("state", help="show or import athlete state (goals, limits, suitability)")
     state.add_argument("--import", dest="import_file", default=None,
@@ -584,8 +555,6 @@ def main(argv: list[str] | None = None) -> int:
         "import": _cmd_import,
         "run": _cmd_run,
         "programme": _cmd_programme,
-        "review": _cmd_review,
-        "calibrate": _cmd_calibrate,
         "state": _cmd_state,
         "settings": _cmd_settings,
         "resolver": _cmd_resolver,
@@ -671,8 +640,6 @@ def _cmd_run(args) -> int:
             return 2
         session_id = str(sessions.iloc[-1]["session_id"])
 
-        facts = build_facts(conn, session_id)
-        critique = score_session(conn, session_id, facts=facts)
         if args.minimum_include_main and not args.minimum_session:
             print("--minimum-include-main requires --minimum-session")
             return 2
@@ -735,7 +702,6 @@ def _cmd_run(args) -> int:
 
         with RunTrace.start(conn, input_hash=f"{session_id}:{args.date}",
                             window_end=args.date) as trace:
-            critique_id = persist_critique(conn, critique, run_id=trace.run_id)
             approved_by = "deterministic"
             if args.propose:
                 if args.llm != "on":
@@ -775,175 +741,11 @@ def _cmd_run(args) -> int:
             )
             prescription_provenance.record(conn, prescription_id, prescription)
             shadow_feature.record_prescription(conn, prescription_id, prescription)
-            trace.event("artifact", {
-                "critique": critique_id,
-                "prescription": prescription_id,
-            })
+            trace.event("artifact", {"prescription": prescription_id})
             if args.llm == "on":
-                _narrate(conn, trace, critique, facts, prescription)
+                _narrate(conn, trace, prescription)
 
         _print_prescription(prescription)
-        _print_critique(critique)
-        pending = queries.unreviewed_sessions(conn, limit=100)
-        if pending:
-            print(f"\n{len(pending)} unreviewed session(s); run "
-                  "'strength-coach review --pending' to catch up")
-        return 0
-    finally:
-        store.close()
-
-
-def _cmd_review(args) -> int:
-    store = db.Store(args.db)
-    try:
-        conn = store.connection
-        _ensure_imported(conn)
-
-        if args.pending:
-            sessions = queries.unreviewed_sessions(conn, limit=args.limit)
-            if not sessions:
-                print("no unreviewed sessions")
-                return 0
-            print(f"reviewing {len(sessions)} unreviewed session(s)")
-            reviewed = 0
-            for session_id in sessions:
-                if _review_one(conn, session_id, args) == 0:
-                    reviewed += 1
-            if reviewed:
-                _print_calibration(conn, DEFAULT_TOLERANCE)
-            return 0
-
-        if not args.session:
-            print("pass --session DATE, or --pending to catch up on unreviewed sessions")
-            return 2
-        code = _review_one(conn, args.session, args)
-        if code == 0:
-            _print_calibration(conn, DEFAULT_TOLERANCE)
-        return code
-    finally:
-        store.close()
-
-
-def _review_one(conn, session_id: str, args) -> int:
-    facts = build_facts(conn, session_id)
-    critique = score_session(conn, session_id, facts=facts)
-
-    print(format_session_sheet(facts, critique))
-    for line in item_guide_lines():
-        print(line)
-
-    if args.scores:
-        from strength_coach.eval import load_labels
-
-        labels = load_labels(args.scores)
-        if session_id not in labels.sessions:
-            print(f"{args.scores} has no marks for {session_id}; skipped")
-            return 2
-        scores = dict(labels.sessions[session_id].scores)
-        confidence = args.confidence or labels.sessions[session_id].confidence
-    else:
-        scores = _ask_scores(critique)
-        confidence = args.confidence or _ask_confidence()
-
-    feedback = _collect_session_feedback(args)
-    stored_feedback = None
-    if feedback:
-        try:
-            stored_feedback = session_feedback_feature.record(conn, session_id, **feedback)
-        except ValueError as exc:
-            print(f"session detail: {exc}")
-            return 2
-        if stored_feedback:
-            print(_format_session_feedback(stored_feedback))
-
-    written = record_marks(
-        conn,
-        session_id,
-        scores,
-        confidence=confidence,
-        rubric_version=RUBRIC_VERSION,
-        note=args.note,
-    )
-    if written == 0:
-        print("\nno marks recorded: every item was skipped. This session is still "
-              "unreviewed.")
-        if stored_feedback:
-            print("session detail was saved; review again to add marks.")
-        return 2
-    print(f"\nrecorded {written} marks for {session_id} (confidence {confidence})")
-    return 0
-
-
-def _collect_session_feedback(args) -> dict | None:
-    """Optional session RPE/length: flags first, then a skippable prompt.
-
-    A file-based review (`--scores`) stays non-interactive; flags still work there. The prompt
-    is only for the interactive path, because these fields are useful but never required.
-    """
-    if (
-        args.session_rpe is not None
-        or args.session_minutes is not None
-        or args.productivity is not None
-    ):
-        return {
-            key: value for key, value in {
-                "srpe": args.session_rpe,
-                "duration_min": args.session_minutes,
-                "productivity": args.productivity,
-            }.items() if value is not None
-        }
-    if args.scores:
-        return None
-
-    print("\noptional session detail (Enter to skip)")
-    srpe = _ask_optional_number("  session RPE 1-10: ", 1, 10)
-    minutes = _ask_optional_number("  session length minutes: ", 1, 600)
-    values = {"srpe": srpe, "duration_min": minutes}
-    return {key: value for key, value in values.items() if value is not None} or None
-
-
-def _ask_optional_number(prompt: str, low: float, high: float) -> float | None:
-    raw = input(prompt).strip()
-    if not raw:
-        return None
-    try:
-        value = float(raw)
-    except ValueError:
-        print("  skipped (not a number)")
-        return None
-    if not low <= value <= high:
-        print(f"  skipped (outside {low:g}-{high:g})")
-        return None
-    return value
-
-
-def _format_session_feedback(feedback: dict) -> str:
-    pieces = []
-    if feedback.get("srpe") is not None:
-        pieces.append(f"RPE {feedback['srpe']:g}")
-    if feedback.get("duration_min") is not None:
-        pieces.append(f"{feedback['duration_min']:g} min")
-    return "session detail: " + ", ".join(pieces)
-
-
-def _cmd_calibrate(args) -> int:
-    if args.db is None and not paths.data_dir("coach.db").exists():
-        print("no database yet; run 'strength-coach import' first")
-        return 2
-    store = db.Store(args.db)
-    try:
-        labels = load_marks(store.connection)
-        note = _excluded_marks_note(labels)
-        if note:
-            print(note)
-        if not labels.sessions:
-            print("no marks yet; run 'strength-coach review --session DATE' first")
-            return 2
-        report = backtest(
-            store.connection, labels,
-            tolerance=args.tolerance if args.tolerance is not None else DEFAULT_TOLERANCE,
-        )
-        print(format_report(report))
         return 0
     finally:
         store.close()
@@ -3052,23 +2854,17 @@ def _propose(conn, trace, prescription, args):
     return outcome.prescription, "llm+policy"
 
 
-def _narrate(conn, trace, critique, facts, prescription) -> None:
+def _narrate(conn, trace, prescription) -> None:
     settings = load_settings()
     client = build_client(settings)
     if not client.available:
         print("\n(llm off: no model configured, see config/llm.example.toml)")
         return
-    if getattr(trace, "run_id", None):
-        pass
-    text = explain_critique(client, critique, facts, trace)
+    text = explain_prescription(client, prescription, trace)
     if text:
         print("\nnarrative\n" + text)
     else:
         trace.finish(status="llm_failed")
-        return
-    text = explain_prescription(client, prescription, trace)
-    if text:
-        print("\nprescription narrative\n" + text)
 
 
 def _print_import(report) -> None:
@@ -3076,10 +2872,9 @@ def _print_import(report) -> None:
           f"{report.raw_rows_overlap} overlapping, "
           f"{report.clean_sets_inserted} clean sets, {report.sessions_written} sessions, "
           f"{report.readiness_days} readiness days, {report.quarantined} quarantined")
-    # Import and calibration are separate steps: sessions are not labels. Without marks,
-    # `calibrate` has nothing to compare, so point at review rather than implying a next run.
-    print("next: review recent sessions (`strength-coach review --pending`) to create marks; "
-          "rubric calibration runs after reviews, not as part of the import")
+    # Marks are no longer collected: the rubric calibration loop is dormant (DEC-EVAL-08).
+    print("next: prescribe a date (`strength-coach run --date YYYY-MM-DD`); "
+          "importing does not need a review step")
 
 
 def _print_prescription(prescription) -> None:
@@ -3139,73 +2934,6 @@ def _print_prescription(prescription) -> None:
             if region.get("recommendation"):
                 print(f"    {region['label']}: {region['recommendation']}")
         print(f"    {signal['disclaimer']}")
-
-
-def _print_critique(critique) -> None:
-    composite = "-" if critique.composite is None else f"{critique.composite:.2f}"
-    print(f"\ncritique {critique.session_id}: composite {composite}")
-    for item in critique.items:
-        if item.measurable and item.score is not None:
-            print(f"  {item.key:<24}{item.score:>6.2f}   {item.detail[:60]}")
-        else:
-            print(f"  {item.key:<24}{'  n/a':>6}   {item.detail[:60]}")
-
-
-def _excluded_marks_note(labels) -> str | None:
-    """Say how many marks were dropped for a rubric-version mismatch (DEC-EVAL-06)."""
-    excluded = getattr(labels, "excluded_rubric_versions", {}) or {}
-    if not excluded:
-        return None
-    versions = ", ".join(f"{version}: {count}" for version, count in sorted(excluded.items()))
-    return (
-        f"excluded {sum(excluded.values())} session(s) marked under a different rubric "
-        f"version ({versions}); current is {RUBRIC_VERSION}"
-    )
-
-
-def _print_calibration(conn, tolerance: float) -> None:
-    labels = load_marks(conn)
-    note = _excluded_marks_note(labels)
-    if note:
-        print(note)
-    if not labels.sessions:
-        return
-    report = backtest(conn, labels, tolerance=tolerance)
-    print("\n" + format_report(report))
-
-
-def _ask_scores(critique) -> dict[str, float | None]:
-    scores: dict[str, float | None] = {}
-    print("\nenter a score for each item (enter = skip, 'q' = stop)")
-    for item in critique.items:
-        engine = item.score if item.measurable else None
-        shown = "n/a" if engine is None else f"{engine:.2f}"
-        while True:
-            raw = input(f"  {item.key:<24} engine {shown:>4}  score 0-1: ").strip()
-            if raw.lower() == "q":
-                return scores
-            if raw == "":
-                scores[item.key] = None
-                break
-            try:
-                value = float(raw)
-            except ValueError:
-                print("    not a number")
-                continue
-            if 0.0 <= value <= 1.0:
-                scores[item.key] = value
-                break
-            print("    must be between 0 and 1")
-    return scores
-
-
-def _ask_confidence() -> str:
-    raw = input("\nhow well do you remember this session? [high/low/unknown] (default high): ")
-    value = raw.strip().lower() or "high"
-    if value not in {"high", "low", "unknown"}:
-        print("    unrecognised; treating as unknown")
-        return "unknown"
-    return value
 
 
 def _new_id() -> str:

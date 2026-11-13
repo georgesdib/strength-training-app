@@ -4,6 +4,15 @@
 
 ### Changed
 
+- **The critique rubric is retired.** Ending a workout no longer scores or persists a critique,
+  a history correction no longer rebuilds one, and the rubric engine, eval harness, mark
+  ingestion, `critique`/`review`/`calibrate` CLI commands, `/api/calibrate` and
+  `POST /api/review/<session>` are removed (`DEC-EVAL-09`). `critique`, `rubric_score` and
+  `rubric_mark` rows stay as historical data, readable through the now read-only
+  `GET /api/review/<session>`; AFC is the canonical post-workout adherence evaluation. The web
+  Review page loses its mark form, calibration button and end-screen "Review workout" entry
+  point.
+
 - **AFC-2: one adherence source and a real data-quality block on the completed-workout
   summary.** The summary no longer returns the duplicate `completion` count block; `adherence`
   is the single metric source (`DEC-AFC-01`), and the raw `comparison` on

@@ -34,13 +34,13 @@ The principles are fixed:
 - the same architecture can later supply an LLM without letting it calculate authoritative
   metrics.
 
-**Relationship to the critique rubric.** The deterministic critique rubric
-(`critique/rubric.py`, 1.2.0) is not a second post-workout evaluation: its calibration loop is
-dormant and its review prompt is retired (`DEC-EVAL-08`). AFC is canonical for what the athlete
-sees after a session, and RIR effort and session duration — the rubric's only athlete-relevant
-items — are computed here from `adherence` and `feedback`. The rubric's remaining items are
-programme-drift diagnostics with no training consumer; its historical `critique`,
-`rubric_score` and `rubric_mark` rows stay read-only.
+**Relationship to the critique rubric.** The deterministic critique rubric is retired
+(`DEC-EVAL-08` dormant, `DEC-EVAL-09` removed from the runtime): no session is scored any more,
+and the end screen no longer offers a review step. AFC is canonical for what the athlete sees
+after a session, and RIR effort and session duration — the rubric's only athlete-relevant items —
+are computed here from `adherence` and `feedback`. Historical `critique`, `rubric_score` and
+`rubric_mark` rows and the read-only `GET /api/review/<session>` sheet are retained for audit;
+nothing recomputes or extends them.
 
 ## 2. What already exists
 

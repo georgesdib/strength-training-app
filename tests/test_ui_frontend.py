@@ -461,7 +461,7 @@ def test_remaining_ui_controls_are_present() -> None:
     assert 'id="exercise-detail-extra"' in page and '<details class="advanced">' in page
     assert 'id="settings-volume-form"' in page
     assert 'id="settings-volume-fields"' in page
-    assert "review-table" in app and "review-why" in app
+    assert "review-table" in app and "historical · read only" in app
     assert "search-select" in core and "filterNativeSelect" in core
     assert "exercisePickerHtml" in app
     assert 'id="workout-swap-dialog"' in page

@@ -817,32 +817,16 @@
 
     <section id="view-review" class="view">
       <div class="panel">
-        <div class="panel-head"><h2>Review a session</h2><span class="muted">human marks, engine scores shown</span></div>
-        <p class="section-help"><span>Human rubric marks; engine values are shown for context and never copied.</span> <a class="doc-link" href="#docs?doc=docs/RUBRIC-CALIBRATION.md">Rubric calibration</a></p>
+        <div class="panel-head"><h2>Session record</h2><span class="muted">historical rubric · read only</span></div>
+        <p class="section-help"><span>Stored engine scores and human marks for a completed session. Nothing is recorded here; post-workout evaluation lives in the workout report.</span> <a class="doc-link" href="#docs?doc=docs/RUBRIC-CALIBRATION.md">Calibration history</a></p>
         <form id="review-form" class="form-row">
           <label>Session <select id="review-session"></select></label>
           <button type="submit">Load sheet</button>
         </form>
-        <p class="muted">Only high-confidence marks count toward agreement. Leave an item blank to skip;
-          the engine value is shown for context, not copied.</p>
+        <p class="muted">The rubric calibration loop is dormant (DEC-EVAL-09). Sessions completed after
+          the retirement have no critique and show no items.</p>
       </div>
       <div id="review-result"></div>
-      <div class="panel">
-        <div class="panel-head"><h2>Rubric agreement</h2><span class="muted">the <code>calibrate</code> report</span></div>
-        <p class="section-help"><span>Runs the calibration report; only high-confidence marks count.</span> <a class="doc-link" href="#docs?doc=docs/RUBRIC-CALIBRATION.md">Calibration loop</a></p>
-        <button class="ghost" id="rubric-calibration-run">Run rubric calibration</button>
-        <div id="rubric-calibration"></div>
-      </div>
-      <div class="panel">
-        <div class="panel-head"><h2>Calibration review (B1)</h2><span class="muted">closed 2026-11-07 · rubric 1.2.0 unchanged</span></div>
-        <p class="section-help"><span>No weight or definition changed. Keep a thin stream of fresh marks and run the report later.</span> <a class="doc-link" href="#docs?doc=docs/RUBRIC-CALIBRATION.md">Calibration review</a></p>
-        <ul class="muted">
-          <li>Mark a session on the day, from memory, with <strong>high</strong> confidence.</li>
-          <li>Prefer a live workout with a prescription snapshot; skip an item you cannot judge.</li>
-          <li>Do not backfill old imports just to create calibration labels.</li>
-          <li>Run the report monthly or at the Phase 5A gate (2027-01-22); retuning is deferred.</li>
-        </ul>
-      </div>
     </section>
 
     <section id="view-readiness" class="view">

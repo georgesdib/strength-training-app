@@ -75,8 +75,7 @@ current destinations; they do not duplicate their forms or imply new data contra
 |---|---|---|
 | Recent sessions | Shows the newest stored sessions; **Details** opens a read-only view, **Edit** opens append-only correction | [WEB-UI.md](WEB-UI.md) |
 | Progress snapshot | Recent observed ratio points, aggregate attendance and current average volume. The session ratio (best e1RM vs prior 84-day best, median across lifts, last 56 days) is defined in [WEB-UI.md](WEB-UI.md#progress-snapshot-ratio-today). Full Progress additionally charts recorded dates, working-set history and bounded completed-workout comparisons; no planned-date calendar is inferred | [WEB-UI.md](WEB-UI.md) |
-| Calibration review (B1) | Closed 2026-11-07; no retune; mark fresh live workouts, skip unmeasurable items, run the report monthly or at the gate | [RUBRIC-CALIBRATION.md](RUBRIC-CALIBRATION.md) |
-| Rubric calibration | Human marks vs engine scores; counts and gaps; never an automatic rubric change | [RUBRIC-CALIBRATION.md](RUBRIC-CALIBRATION.md) |
+| Session record (Review) | Read-only historical sheet: stored engine scores and human marks. The rubric is retired (`DEC-EVAL-09`); no marks are recorded and no report runs | [RUBRIC-CALIBRATION.md](RUBRIC-CALIBRATION.md) |
 | Per-rep velocity | Optional device data and descriptive associations, now in Performance rather than Today | [REP-VELOCITY.md](REP-VELOCITY.md) |
 | Periodic reviews | Prompt list from `config/reviews.v1.yaml`; no automatic change. Includes the 8-week **Fatigue-signal review** (rate unrated exercises, read the exposure ratio, open the shadow review, record a decision) | [FATIGUE-SIGNALS.md](FATIGUE-SIGNALS.md), [ROADMAP.md](../ROADMAP.md) |
 | Session details | Read-only stored sets, RIR, VBT, reps, notes | [DATA-MODEL.md](DATA-MODEL.md) |

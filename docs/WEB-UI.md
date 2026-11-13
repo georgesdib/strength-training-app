@@ -68,12 +68,9 @@ The page uses a **collapsible left menu**: the ☰ button opens it, and ×, the 
   procedure: check the report, mark fresh live-workout sessions to create marks, then calibrate
   later — importing alone does not require a calibration, and old imports are not backfilled for
   labels.
-- **Review** — unreviewed/recent session sheet; engine scores shown for context; human marks, optional session RPE and session length,
-  plus a **Run rubric calibration** button (same report as `strength-coach calibrate`),
-  confidence and note; calibration report after saving. A **Calibration review (B1)** panel
-  records the 2026-11-07 outcome and the thin ongoing routine: mark fresh live workouts, skip
-  unmeasurable items, do not backfill imports, and run the report monthly or at the Phase 5A
-  gate. No automatic rubric change.
+- **Review** — read-only historical session sheet: the stored critique scores and the human marks
+  recorded against them. The rubric is retired (`DEC-EVAL-09`): there is no mark form, no
+  calibration button and no report. Sessions completed after the retirement show no items.
 - **Workflow** — guided readiness → preview → start → active workout → post-workout comparison; owns the daily readiness form, the computed global/category score and the **Override the score** panel beside it. The panel names the date it writes (the readiness date above it), offers global or per-pattern scopes, and states that a category override wins over global and that both expire with the date. The prescription preview is also here.
 - **Readiness** — baseline and policy settings; the daily log and score overrides live in Workflow;
   per-athlete baseline settings and the shadow baseline report are available; quick presets show

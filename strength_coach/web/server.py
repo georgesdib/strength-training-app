@@ -52,11 +52,9 @@ from strength_coach.agents.config import (
     load_settings,
     update_llm_settings,
 )
-from strength_coach.critique import UnknownSessionError, build_facts, score_session
-from strength_coach.critique.rubric import RUBRIC_VERSION
+from strength_coach.critique import UnknownSessionError, build_facts
 from strength_coach.domain import athlete_state
 from strength_coach.domain import e1rm as e1rm_mod
-from strength_coach.eval import ITEM_GUIDE, ITEM_KEYS, backtest, format_report, load_marks, record_marks
 from strength_coach.features import (
     adherence_analytics,
     config_inventory,
@@ -93,7 +91,6 @@ from strength_coach.features import regime_change as regime_feature
 from strength_coach.features import relative_strength as relative_strength_feature
 from strength_coach.features import residual as residual_feature
 from strength_coach.features import reviews as reviews_feature
-from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.features import shadow_report as shadow_report_feature
 from strength_coach.features import strength_trend as strength_trend_feature
 from strength_coach.features import test_cadence as test_cadence_feature
@@ -138,7 +135,6 @@ from strength_coach.web import options as options_mod
 
 ROOT = Path(__file__).resolve().parents[2]
 STATIC = Path(__file__).resolve().parent / "static"
-TOLERANCE = 0.25
 
 # Two 20 MiB CSVs plus JSON escaping and keys; see docs/WEB-UI.md. The per-file limit
 # remains in _import; this is the HTTP-boundary guard.
@@ -2824,8 +2820,6 @@ class Handler(BaseHTTPRequestHandler):
                         in {"1", "true", "yes", "on"},
                     )
                 ))
-            elif path == "/api/calibrate":
-                self._json(200, self._with_conn(self._calibrate))
             elif path == "/api/readiness/shadow":
                 self._json(200, self._with_conn(
                     lambda c: {"text": readiness_baseline.report(c)}
@@ -3391,9 +3385,6 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._cancel_break(c, body)))
             elif path == "/api/state/test":
                 self._json(200, self._with_conn(lambda c: self._save_test(c, body)))
-            elif path.startswith("/api/review/"):
-                session = path[len("/api/review/"):]
-                self._json(200, self._with_conn(lambda c: self._save_review(c, session, body)))
             else:
                 self._error(404, "not found")
         except ReadinessRequired as exc:
@@ -3810,7 +3801,6 @@ class Handler(BaseHTTPRequestHandler):
             "injury_signal": signal,
             "unreviewed": queries.unreviewed_sessions(conn, limit=50),
             "sessions": _session_rows(conn, 12),
-            "calibration": self._calibration_status(conn),
             "form_evaluation": form_assessment_feature.followup(conn, as_of=today),
         }
 
@@ -4562,13 +4552,44 @@ class Handler(BaseHTTPRequestHandler):
         return prescription_dict(prescription)
 
     def _review_sheet(self, conn, session: str) -> dict:
+        """Read-only historical rubric sheet.
+
+        The rubric is a retired diagnostic (DEC-EVAL-09): nothing is re-scored here. The engine
+        values are the `rubric_score` rows persisted when the session was completed, and the
+        human marks are the latest `rubric_mark` rows. A session completed after the retirement
+        has no critique and returns no items.
+        """
         facts = build_facts(conn, session)
-        critique = score_session(conn, session, facts=facts)
-        marks = load_marks(conn).sessions.get(session)
-        existing = dict(marks.scores) if marks else {}
+        critique_row = conn.execute(
+            "SELECT critique_id FROM critique WHERE session_id = ? "
+            "ORDER BY created_at DESC LIMIT 1",
+            (session,),
+        ).fetchone()
+        critique_id = critique_row["critique_id"] if critique_row is not None else None
+        engine: dict[str, dict] = {}
+        if critique_id is not None:
+            for row in conn.execute(
+                "SELECT item, score, weight, measurable, evidence_refs, rule_ids "
+                "FROM rubric_score WHERE critique_id = ? ORDER BY score_id",
+                (critique_id,),
+            ):
+                engine[str(row["item"])] = {
+                    "score": row["score"],
+                    "weight": row["weight"],
+                    "measurable": bool(row["measurable"]),
+                    "rules": json.loads(row["rule_ids"] or "[]"),
+                    "evidence_count": len(json.loads(row["evidence_refs"] or "[]")),
+                }
+        marks = {
+            str(row["item"]): row
+            for row in queries.latest_rubric_marks(conn)
+            if str(row["session_id"]) == session
+        }
         workout_data = workout.get(conn, session)
         return {
             "session": session,
+            "read_only": True,
+            "critique_id": critique_id,
             "workout": ({
                 "workout_id": workout_data["workout_id"],
                 "plan_modified": workout_data.get("plan_modified"),
@@ -4579,71 +4600,23 @@ class Handler(BaseHTTPRequestHandler):
             "session_type": facts.session_type,
             "week": facts.week,
             "week_cost": facts.week_cost,
-            "composite": critique.composite,
-            "confidence": marks.confidence if marks else "unknown",
+            "confidence": (
+                str(next(iter(marks.values()))["confidence"]) if marks else "unknown"
+            ),
             "feedback": queries.session_feedback(conn, session),
             "form_context": form_assessment_feature.review_context(conn, session),
             "items": [
                 {
-                    "key": item.key,
-                    "score": item.score,
-                    "measurable": item.measurable,
-                    "detail": item.detail,
-                    "question": ITEM_GUIDE.get(item.key, ("", ""))[0],
-                    "anchors": ITEM_GUIDE.get(item.key, ("", ""))[1],
-                    "existing": existing.get(item.key),
+                    "key": key,
+                    "score": value["score"],
+                    "measurable": value["measurable"],
+                    "weight": value["weight"],
+                    "rules": value["rules"],
+                    "evidence_count": value["evidence_count"],
+                    "existing": (marks[key]["score"] if key in marks else None),
                 }
-                for item in critique.items
+                for key, value in engine.items()
             ],
-        }
-
-    def _calibration_status(self, conn) -> dict:
-        from collections import Counter
-        labels = load_marks(conn)
-        report = backtest(conn, labels, tolerance=TOLERANCE)
-        high = {
-            str(row["session_id"]): int(row["n"])
-            for row in conn.execute(
-                "SELECT session_id, COUNT(DISTINCT item) AS n FROM rubric_mark "
-                "WHERE confidence = 'high' AND rubric_version = ? GROUP BY session_id",
-                (RUBRIC_VERSION,),
-            )
-        }
-        marks = Counter()
-        for row in conn.execute(
-            "SELECT item, COUNT(DISTINCT session_id) AS n FROM rubric_mark "
-            "WHERE confidence = 'high' AND rubric_version = ? GROUP BY item",
-            (RUBRIC_VERSION,),
-        ):
-            marks[str(row["item"])] = int(row["n"])
-        comparable = Counter(str(item.key) for item in report.comparable_items)
-        items = []
-        for key in ITEM_KEYS:
-            items.append({
-                "item": key,
-                "marks": marks.get(key, 0),
-                "comparable": comparable.get(key, 0),
-                "status": "ready" if marks.get(key, 0) >= 10 and comparable.get(key, 0) >= 10
-                          else "collect",
-            })
-        gaps = [item["item"] for item in items if item["status"] != "ready"]
-        return {
-            "high_sessions": len(high),
-            "excluded_sessions": labels.excluded_sessions,
-            "excluded_versions": dict(labels.excluded_rubric_versions),
-            "rubric_version": RUBRIC_VERSION,
-            "comparable_items": len(report.comparable_items),
-            "agreement": (round(report.agreement_rate * 100, 1)
-                          if report.agreement_rate is not None else None),
-            "mae": (round(report.mean_abs_error, 3)
-                    if report.mean_abs_error is not None else None),
-            "items": items,
-            "gaps": gaps,
-            "next_action": (
-                "Use live Workout mode and the optional per-rep CSV to build comparable "
-                "progression, essential-work, duration and velocity-loss scores; then review "
-                "the rubric. Do not retune from labels alone."
-            ),
         }
 
     def _edit_history(self, conn, session: str, body: dict) -> dict:
@@ -4698,54 +4671,6 @@ class Handler(BaseHTTPRequestHandler):
             notes=body.get("notes"),
             reason=body.get("reason"),
         )
-
-    def _save_review(self, conn, session: str, body: dict) -> dict:
-        build_facts(conn, session)  # refuse marks for a session that does not exist
-        raw_scores = body.get("scores") or {}
-        if not isinstance(raw_scores, dict):
-            raise ValueError("scores must be an object")
-        scores: dict[str, float | None] = {}
-        for key, value in raw_scores.items():
-            if key not in ITEM_KEYS:
-                raise ValueError(f"unknown rubric item {key}")
-            if value is None or value == "":
-                scores[key] = None
-                continue
-            number = float(value)
-            if not 0.0 <= number <= 1.0:
-                raise ValueError(f"{key} must be between 0 and 1")
-            scores[key] = number
-        confidence = str(body.get("confidence") or "unknown")
-        if confidence not in {"high", "low", "unknown"}:
-            raise ValueError("confidence must be high, low or unknown")
-        feedback = session_feedback_feature.record(
-            conn, session,
-            srpe=body.get("session_rpe"),
-            duration_min=body.get("session_minutes"),
-            productivity=body.get("productivity"),
-        )
-        written = record_marks(
-            conn, session, scores, confidence=confidence,
-            rubric_version=RUBRIC_VERSION, note=body.get("note") or None,
-        )
-        if written == 0 and feedback is None:
-            raise ValueError("no marks recorded; give at least one score")
-        conn.execute(
-            "UPDATE session SET needs_review = 0 WHERE session_id = ?", (session,)
-        )
-        workout_reviewed = workout.mark_reviewed(conn, session)
-        return {
-            "written": written,
-            "feedback": feedback,
-            "calibration": self._calibrate(conn),
-            "reviewed_workout": workout_reviewed,
-            "postprocess": {
-                "rubric": "persisted at end workout",
-                "marks": written,
-                "calibration": "report only",
-                "workout_closed": workout_reviewed,
-            },
-        }
 
     def _readiness(self, conn, day: str) -> dict:
         data = dict(queries.readiness_day(conn, day) or {"on_date": day, "known": False})
@@ -5429,13 +5354,6 @@ class Handler(BaseHTTPRequestHandler):
             main_lift_policy=current.get("main_lift_policy", "preserve"),
         )
         return self._state(conn)
-
-    def _calibrate(self, conn) -> dict:
-        labels = load_marks(conn)
-        if not labels.sessions:
-            return {"text": "no marks yet; review a session first", "empty": True}
-        report = backtest(conn, labels, tolerance=TOLERANCE)
-        return {"text": format_report(report), "empty": False}
 
     def _doc(self, name: str) -> dict:
         allowed = {entry["name"]: entry for entry in _docs()}

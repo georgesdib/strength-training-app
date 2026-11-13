@@ -46,8 +46,7 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/rep-velocity?session=<id>` | descriptive per-rep report after completion |
 | `GET /api/rep-velocity/analysis?weeks=&date=` | stratified cross-session descriptive report |
 | `POST /api/workout/<id>/abandon` | abandon the active workout |
-| `GET /api/review/<session>` | session sheet |
-| `POST /api/review/<session>` | `{scores, confidence, note, session_rpe, session_minutes, productivity}` -> marks + optional session detail |
+| `GET /api/review/<session>` | read-only historical rubric sheet: stored `rubric_score` rows and `rubric_mark` marks; nothing is re-scored | session detail |
 | `GET /api/readiness/<date>` | merged readiness |
 | `GET /api/readiness/history?from=&to=&fields=` | inclusive observed readiness/bodyweight series with per-field sources; requires date bounds, merges manual-over-import per field, no fill |
 | `POST /api/readiness` | `{date, values, note}` -> merged readiness + score |
@@ -108,7 +107,6 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/measurements?metric_key=&from=&to=&limit=&offset=` | metric catalogue, summary and newest-first exact-record pages; offset walks older, entries stay date-ascending, date bounds are inclusive |
 | `POST /api/measurements` | `{metric, value, date, method, note}` -> summary |
 | `POST /api/state/profile` / `constraint` / `suitability` / `e1rm` / `test` / `symptom` / `block` | append-only state writes; profile includes `volume_budget_enabled` and `main_lift_policy`; goals, constraint kinds/regions, forbidden patterns/exercises and exercise ids are validated against the canonical vocabulary; `symptom` accepts optional `timing`, `attributed_session_id`, `attributed_exercise_id`, `onset_on` and `attribution_confidence`, plus the short aliases the UI uses |
-| `GET /api/calibrate` | calibration report |
 | `GET /api/docs` / `GET /api/docs/<name>` | doc list and rendered doc from `docs/manifest.yaml`; public entries only, grouped by category; `private/` and maintainer-only design docs are never served |
 
 ### Prescription adherence

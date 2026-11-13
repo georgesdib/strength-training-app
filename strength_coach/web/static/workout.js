@@ -951,12 +951,9 @@ function renderWorkoutEnded(w) {
       : "") +
     postBlock +
     '<div class="form-row" style="margin-top:1rem">' +
-    '<button class="primary" type="button" id="workout-review">Review workout</button>' +
     '<button class="ghost" type="button" id="workout-start-another">Start another session today</button>' +
     '<button class="ghost" type="button" id="workout-log-symptom">Log a symptom for this session</button>' +
-    '<span class="muted">The deterministic rubric was saved at End workout.</span></div>';
-  var review = document.getElementById("workout-review");
-  if (review) review.addEventListener("click", function () { openReview(w.workout_id); });
+    '<span class="muted">The descriptive report above is read-only; no review step is required.</span></div>';
   var symptomLink = document.getElementById("workout-log-symptom");
   if (symptomLink) symptomLink.addEventListener("click", function () {
     if (typeof window.openSymptomForSession === "function") {
