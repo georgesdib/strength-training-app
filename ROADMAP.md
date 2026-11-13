@@ -1833,7 +1833,7 @@ VBT for a completed workout.
 ids, the summary's duplicate `completion` block is gone with `adherence` as the single metric
 source, `quality.flags` is populated, the end screen renders adherence and data quality, the
 readiness follow-up reads `adherence.analyse`, and the three Phase 5A guards from
-`DEC-AFC-02` are in place. AFC-3 and AFC-4 remain planned.
+`DEC-AFC-02` are in place. AFC-3 and AFC-4 are implemented below.
 
 **AFC-2i is implemented** (2026-11-13; physical iPhone acceptance pending). It consumes the
 delivered `GET /api/workout/<id>/summary` payload through the transport-only iOS facade —
