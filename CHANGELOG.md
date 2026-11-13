@@ -4,6 +4,11 @@
 
 ### Changed
 
+- **AFC follow-ups are tracked as review tasks.** `afc_device_acceptance` (physical iPhone
+  acceptance of the session report and its observation) and `afc_5a_historical` (AFC-5a
+  historical analysis, waiting until 2027-01-23) now appear in the periodic-review panel like the
+  Phase 5A gate. Neither starts work by itself.
+
 - **One deterministic observation on the completed-workout summary.** `workout.summary()` now
   carries an optional `observation` — the strongest qualifying claim among RIR deviation,
   unperformed prescribed slots and velocity sets outside the calibration band — with the usual

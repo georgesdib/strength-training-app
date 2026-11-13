@@ -1859,6 +1859,11 @@ observation, with dismiss (per evidence window) and 14-day snooze recorded appen
 adherence and the observation count. No notification channel and no new metric
 (`DEC-AFC-05`).
 
+**Tracked follow-ups.** The remaining AFC work is recorded as periodic review tasks rather than
+prose: `afc_device_acceptance` (physical iPhone report acceptance) and `afc_5a_historical`
+(AFC-5a, waiting until 2027-01-23). They appear in the review panel and change nothing by
+themselves.
+
 **Relationship to the critique rubric.** AFC is the canonical post-workout adherence
 evaluation. The deterministic critique rubric is retired from the runtime (`DEC-EVAL-09`): no
 session is scored, no review step follows completion, and its RIR and duration items are

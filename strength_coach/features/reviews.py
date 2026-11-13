@@ -63,7 +63,7 @@ def snooze_days(task_key: str) -> int:
     config = _config()
     if task_key in {
         "readiness_thresholds", "exercise_substitution", "fatigue_signals",
-        "phase5a_review",
+        "phase5a_review", "afc_device_acceptance", "afc_5a_historical",
     }:
         return int((config.get(task_key) or {}).get("snooze_days", 14))
     raise ValueError(f"no snooze policy for {task_key!r}")
@@ -89,6 +89,8 @@ def _task(conn, key: str, on_date: str, config: dict) -> ReviewTask:
         return _phase5a_task(conn, on_date, cfg)
     if key == "injury_attribution_phase3":
         return _phase3_task(cfg)
+    if key in {"afc_device_acceptance", "afc_5a_historical"}:
+        return _followup_task(conn, on_date, key, cfg)
     raise ValueError(f"unknown review task {key!r}")
 
 
@@ -146,6 +148,37 @@ def _phase3_task(cfg: dict) -> ReviewTask:
         tuple(cfg.get("steps") or ()),
         tuple(cfg.get("dont") or ()),
         str(cfg.get("doc", "")),
+    )
+
+
+def _followup_task(conn, on_date: str, key: str, cfg: dict) -> ReviewTask:
+    """A dated follow-up that never starts work by itself.
+
+    It is a reminder with a precondition date: before that date it waits, after it it is due,
+    and a recorded completion hides it. It never changes a prescription or a configuration.
+    """
+    label = str(cfg.get("label", key.replace("_", " ").title()))
+    last = _latest(conn, key)
+    if last and last["action"] == "completed":
+        return ReviewTask(
+            key, label, "followup", "done", None,
+            f"Completed {last['reviewed_on']}.", str(cfg.get("why", "")),
+            tuple(cfg.get("steps") or ()), tuple(cfg.get("dont") or ()),
+            str(cfg.get("doc", "")),
+        )
+    not_before = cfg.get("not_before")
+    if not_before and on_date < str(not_before):
+        return ReviewTask(
+            key, label, "followup", "waiting", str(not_before),
+            f"Waits until {not_before}.", str(cfg.get("why", "")),
+            tuple(cfg.get("steps") or ()), tuple(cfg.get("dont") or ()),
+            str(cfg.get("doc", "")),
+        )
+    return ReviewTask(
+        key, label, "followup", str(cfg.get("status", "due")), on_date,
+        "Ready; this follow-up does not start any work by itself.", str(cfg.get("why", "")),
+        tuple(cfg.get("steps") or ()), tuple(cfg.get("dont") or ()),
+        str(cfg.get("doc", "")), True,
     )
 
 
@@ -296,6 +329,7 @@ def status(conn, on_date: str) -> dict:
         "readiness_thresholds", "exercise_substitution", "fatigue_signals",
         "strength_test", "srpe_coverage", "readiness_baseline",
         "back_pattern", "phase5a_review", "injury_attribution_phase3",
+        "afc_device_acceptance", "afc_5a_historical",
     ):
         tasks.append(_task(conn, key, on_date, config).as_dict())
     profile = queries.athlete_profile(conn) or {}
