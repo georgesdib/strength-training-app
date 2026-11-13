@@ -557,10 +557,12 @@ async function loadPerformance() {
         return "<option value='" + esc(row.id) + "'>" + esc(row.display || row.id) + "</option>";
       }).join("");
       performanceExercisesLoaded = true;
+      populateVbtPerformanceExercises(exercises);
     } catch (error) {
       select.innerHTML = "";
     }
   }
+  wireVbtPerformance();
   var analysisDate = document.getElementById("monitoring-analysis-date");
   if (analysisDate && !analysisDate.value) analysisDate.value = today();
   var analysisButton = document.getElementById("monitoring-analysis-run");
@@ -762,5 +764,284 @@ async function loadMonitoringAnalysis() {
     renderMonitoringAnalysis(data);
   } catch (error) {
     target.innerHTML = "<p class='warnbox'>Analysis unavailable: " + esc(error.message) + "</p>";
+  }
+}
+
+/* Performance → VBT target analysis. The server owns cohorting and arithmetic; this layer
+ * only formats the read-only payload. No cross-exercise roll-up is shown. */
+var vbtPerformanceExercisesLoaded = false;
+var vbtPerformanceInitialised = false;
+
+function vbtPerformanceRatio(value) {
+  if (!value || !value.denominator) return "0 / 0";
+  return value.numerator + " / " + value.denominator +
+    " (" + Math.round(Number(value.ratio) * 100) + "%)";
+}
+
+function vbtPerformanceCi(value) {
+  if (!value) return "";
+  return " [" + fmt(value.low, 2) + ", " + fmt(value.high, 2) + "]";
+}
+
+function vbtPerformanceCohortLabel(cohort) {
+  var scope = cohort.scope || "legacy";
+  var family = cohort.family ? " · " + cohort.family : "";
+  return scope + family + " · " + (cohort.target_rep_count == null ? "—" : cohort.target_rep_count) +
+    " reps · RIR " + (cohort.target_rir_low == null ? "—" : cohort.target_rir_low) +
+    "–" + (cohort.target_rir_high == null ? "—" : cohort.target_rir_high);
+}
+
+function vbtPerformanceSetTable(rows) {
+  if (!rows || !rows.length) return "<p class='empty'>No target sets in this cohort.</p>";
+  var body = rows.slice().sort(function (a, b) {
+    return String(a.workout_date || "").localeCompare(String(b.workout_date || "")) ||
+      Number(a.set_id || 0) - Number(b.set_id || 0);
+  }).map(function (row) {
+    var rir = (row.actual_rir == null ? "—" : row.actual_rir) + " / " +
+      (row.prescribed_rir == null ? "—" : row.prescribed_rir) +
+      (row.target_rir_low == null ? "" :
+        " (band " + row.target_rir_low + "–" + row.target_rir_high + ")");
+    var target = row.target_mps == null ? "—" : fmt(row.target_mps, 2) +
+      (row.low_mps == null || row.high_mps == null ? "" :
+        " (" + fmt(row.low_mps, 2) + "–" + fmt(row.high_mps, 2) + ")");
+    return "<tr><td>" + esc(row.workout_date || "—") + "</td><td>" +
+      esc(row.set_index == null ? "—" : row.set_index) + "</td><td>" +
+      esc(row.reps == null ? "—" : row.reps) + "</td><td>" +
+      (row.load_kg == null ? "—" : fmt(row.load_kg, 1) + " kg") + "<br><span class='muted'>" +
+      esc(row.load_basis || "—") + "</span></td><td>" + esc(rir) + "</td><td>" + target +
+      "</td><td>" + (row.actual_velocity_mps == null ? "—" : fmt(row.actual_velocity_mps, 2)) +
+      "</td><td>" + vbtSigned(row.delta_mps, 2) + "</td><td>" +
+      (row.delta_pct == null ? "—" : vbtSigned(row.delta_pct, 1) + "%") + "</td><td>" +
+      esc(vbtBandText(row)) + "</td><td>" + (row.comparable ? "comparable" : "excluded") +
+      "</td><td class='muted'>" + esc(vbtSetNotes(row) || "—") + "</td></tr>";
+  }).join("");
+  return "<div class='table-scroll'><table class='vbt-performance-table'><thead><tr>" +
+    "<th scope='col'>Date</th><th scope='col'>Set</th><th scope='col'>Reps</th>" +
+    "<th scope='col'>Load</th><th scope='col'>RIR actual / prescribed (band)</th><th scope='col'>Target m/s</th>" +
+    "<th scope='col'>Actual m/s</th><th scope='col'>Δ m/s</th><th scope='col'>Δ %</th>" +
+    "<th scope='col'>Band</th><th scope='col'>Comparable</th><th scope='col'>Notes</th>" +
+    "</tr></thead><tbody>" + body + "</tbody></table></div>";
+}
+
+function vbtPerformanceCohortDetails(cohort, rows) {
+  var matching = (rows || []).filter(function (row) {
+    return String(row.exercise_id) === String(cohort.exercise_id) &&
+      String(row.scope || "legacy") === String(cohort.scope || "legacy") &&
+      String(row.family || "") === String(cohort.family || "") &&
+      String(row.target_rep_count == null ? "" : row.target_rep_count) ===
+        String(cohort.target_rep_count == null ? "" : cohort.target_rep_count) &&
+      String(row.target_rir_low == null ? "" : row.target_rir_low) ===
+        String(cohort.target_rir_low == null ? "" : cohort.target_rir_low) &&
+      String(row.target_rir_high == null ? "" : row.target_rir_high) ===
+        String(cohort.target_rir_high == null ? "" : cohort.target_rir_high);
+  });
+  return "<details class='vbt-performance-cohort'><summary><strong>" +
+    esc(cohort.exercise_name || cohort.exercise_id) + "</strong> · " +
+    esc(vbtPerformanceCohortLabel(cohort)) + " · " + cohort.n + " comparable</summary>" +
+    "<p class='muted'>Target " + (cohort.target && cohort.target.target_mps != null
+      ? esc(vbtTargetInline(cohort.target)) : "—") +
+    " · method " + esc((cohort.method_versions || []).join(", ") || "—") +
+    " · calibration id " + esc((cohort.calibration_ids || []).join(", ") || "—") +
+    " · sources " + esc((cohort.target_sources || []).join(", ") || "—") + "</p>" +
+    vbtPerformanceSetTable(matching) + vbtPerformanceCohortWeekly(cohort.weekly) + "</details>";
+}
+
+function vbtPerformanceWeekly(weekly, note) {
+  var rows = (weekly || []).filter(function (row) { return row.mean_residual_mps != null; });
+  if (!rows.length) return "<p class='empty'>" +
+    esc(note || "No comparable weekly residuals.") + "</p>";
+  var svg = dateSeriesChart({
+    title: "Weekly mean VBT residual",
+    xTitle: "Week starting",
+    yTitle: "Observed − target (m/s)",
+    series: [{
+      id: "mean", label: "Weekly mean residual", className: "chart-series-raw",
+      points: rows.map(function (row) {
+        return {date: row.week_start, value: row.mean_residual_mps,
+          label: row.comparable_sets + " comparable sets"};
+      }),
+    }],
+    referenceLines: [{value: 0, label: "0 = target"}],
+    formatY: function (value) { return Number(value).toFixed(2); },
+    tooltip: function (point) {
+      return point.date + ": " + Number(point.value).toFixed(2) + " m/s; " + point.label;
+    },
+    note: "Each week is a mean of comparable residuals; gaps are absent, not zero. No causal or predictive claim.",
+  });
+  var table = rows.map(function (row) {
+    return "<tr><td>" + esc(row.week_start) + "</td><td>" + row.sets + "</td><td>" +
+      row.comparable_sets + "</td><td>" + (row.mean_residual_mps == null ? "—" : vbtSigned(row.mean_residual_mps, 2)) +
+      "</td><td>" + (row.median_residual_mps == null ? "—" : vbtSigned(row.median_residual_mps, 2)) +
+      "</td><td>" + (row.mean_absolute_error_mps == null ? "—" : fmt(row.mean_absolute_error_mps, 2)) +
+      "</td><td>" + vbtPerformanceRatio(row.within_band_ratio) + "</td><td>" +
+      row.below_band + " / " + row.above_band + "</td></tr>";
+  }).join("");
+  return chartFrame("Weekly mean VBT residual", svg,
+    "Observed mean velocity minus the frozen target; zero is the target.") +
+    "<details><summary>Weekly observations</summary><div class='table-scroll'><table class='vbt-performance-table'><thead><tr>" +
+    "<th>Week</th><th>Sets</th><th>Comparable</th><th>Mean Δ</th><th>Median Δ</th><th>Mean |Δ|</th>" +
+    "<th>Within band</th><th>Below / above band</th></tr></thead><tbody>" + table + "</tbody></table></div></details>";
+}
+
+function vbtPerformanceCohortWeekly(weekly) {
+  var rows = (weekly || []).filter(function (row) { return row.mean_residual_mps != null; });
+  if (!rows.length) return "";
+  return "<details><summary>Weekly residuals for this cohort</summary>" +
+    "<div class='table-scroll'><table class='vbt-performance-table'><thead><tr>" +
+    "<th>Week</th><th>Sets</th><th>Comparable</th><th>Mean Δ</th><th>Median Δ</th>" +
+    "<th>Mean |Δ|</th><th>Within band</th><th>Below / above band</th></tr></thead><tbody>" +
+    rows.map(function (row) {
+      return "<tr><td>" + esc(row.week_start) + "</td><td>" + row.sets + "</td><td>" +
+        row.comparable_sets + "</td><td>" + vbtSigned(row.mean_residual_mps, 2) +
+        "</td><td>" + vbtSigned(row.median_residual_mps, 2) + "</td><td>" +
+        (row.mean_absolute_error_mps == null ? "—" : fmt(row.mean_absolute_error_mps, 2)) +
+        "</td><td>" + vbtPerformanceRatio(row.within_band_ratio) + "</td><td>" +
+        row.below_band + " / " + row.above_band + "</td></tr>";
+    }).join("") + "</tbody></table></div></details>";
+}
+
+function vbtPerformanceDrift(drift) {
+  var exercises = (drift && drift.exercises) || [];
+  if (!exercises.length) return "<p class='empty'>No set with at least two valid per-rep velocities.</p>";
+  var rows = exercises.map(function (exercise) {
+    return "<tr><td>" + esc(exercise.exercise_name || exercise.exercise_id) + "</td><td>" +
+      exercise.n_sets + " / " + exercise.n_reps + "</td><td>" + exercise.weeks + " / " +
+      exercise.consecutive_weeks + "</td><td>" +
+      (exercise.median_loss_pct == null ? "—" : fmt(exercise.median_loss_pct, 2) + "%") +
+      "</td><td>" + (exercise.change_pct_points == null ? "—" : vbtSigned(exercise.change_pct_points, 2) + " pp") +
+      "</td><td>" + esc(exercise.gate) + "</td></tr>";
+  }).join("");
+  var details = exercises.map(function (exercise) {
+    var sets = (exercise.sets || []).map(function (set) {
+      return "<tr><td>" + esc(set.date) + "</td><td>" + esc(set.set_id) + "</td><td>" +
+        set.rep_count + "</td><td>" + fmt(set.first_mps, 2) + "</td><td>" +
+        fmt(set.last_mps, 2) + "</td><td>" + vbtSigned(set.loss_mps, 2) + "</td><td>" +
+        (set.loss_pct == null ? "—" : fmt(set.loss_pct, 2) + "%") + "</td></tr>";
+    }).join("");
+    return "<details class='vbt-performance-cohort'><summary><strong>" +
+      esc(exercise.exercise_name || exercise.exercise_id) + "</strong> · " + exercise.n_sets +
+      " sets · median loss " + (exercise.median_loss_pct == null ? "—" : fmt(exercise.median_loss_pct, 2) + "%") +
+      "</summary><p class='muted'>" + esc(exercise.reason) +
+      ". Positive loss means the last rep was slower than the first; this is descriptive and separate from target residuals.</p>" +
+      "<div class='table-scroll'><table class='vbt-performance-table'><thead><tr><th>Date</th><th>Set ID</th>" +
+      "<th>Reps with velocity</th><th>First m/s</th><th>Last m/s</th><th>Loss m/s</th><th>Loss %</th>" +
+      "</tr></thead><tbody>" + sets + "</tbody></table></div></details>";
+  }).join("");
+  return "<div class='table-scroll'><table class='vbt-performance-table'><thead><tr>" +
+    "<th>Exercise</th><th>Sets / reps</th><th>Weeks / consecutive</th><th>Median loss</th>" +
+    "<th>First→last week change</th><th>Gate</th></tr></thead><tbody>" + rows +
+    "</tbody></table></div><p class='muted'>Drift gate: " + (drift.gates ? drift.gates.min_sets : 5) +
+    " sets over " + (drift.gates ? drift.gates.min_weeks : 3) +
+    " consecutive weeks before a descriptive summary is shown. No trend is fitted.</p>" + details;
+}
+
+function renderVbtPerformance(data) {
+  var target = document.getElementById("vbt-performance-result");
+  if (!target) return;
+  var summary = data.summary || {};
+  var abstain = (summary.abstain || []).map(function (text) {
+    return "<li>" + esc(text) + "</li>";
+  }).join("");
+  var scopeText = Object.keys(summary.scopes || {}).map(function (key) {
+    return esc(key) + ": " + summary.scopes[key];
+  }).join(" · ") || "none";
+  var gateText = summary.evaluation_ready
+    ? "At least two cohorts meet the 20-observation / 8-week evaluation gate; this is not an authorization to change training."
+    : "No two cohorts meet the 20-observation / 8-week evaluation gate; results remain descriptive.";
+  var cohortRows = (data.cohorts || []).map(function (cohort) {
+    var rir = cohort.rir || {};
+    return "<tr><td><strong>" + esc(cohort.exercise_name || cohort.exercise_id) + "</strong><br>" +
+      "<span class='muted'>" + esc(vbtPerformanceCohortLabel(cohort)) + "</span></td><td>" +
+      cohort.n + " / " + cohort.weeks + " wk<br><span class='muted'>" + cohort.comparable_sets +
+      " comparable / " + cohort.sets + " target sets</span></td><td>" +
+      (cohort.mean_residual_mps == null ? "—" : vbtSigned(cohort.mean_residual_mps, 2)) +
+      "<br><span class='muted'>" + esc(vbtPerformanceCi(cohort.bootstrap_mean_ci) || "CI needs n≥5") +
+      "</span></td><td>" + (cohort.median_residual_mps == null ? "—" : vbtSigned(cohort.median_residual_mps, 2)) +
+      "</td><td>" + (cohort.mean_absolute_error_mps == null ? "—" : fmt(cohort.mean_absolute_error_mps, 2)) +
+      "</td><td>" + vbtPerformanceRatio(cohort.within_calibration_band) + "</td><td>" +
+      (cohort.band_evidence ? cohort.band_evidence.below_band + " / " +
+        cohort.band_evidence.within_band + " / " + cohort.band_evidence.above_band : "—") +
+      "</td><td>" + (rir.mean_actual_rir == null ? "—" : fmt(rir.mean_actual_rir, 1)) +
+      " / " + (rir.mean_prescribed_rir == null ? "—" : fmt(rir.mean_prescribed_rir, 1)) +
+      "<br><span class='muted'>" + (rir.outside_band || 0) + " outside · " +
+      (rir.missing_rir || 0) + " missing</span></td><td>" + esc(cohort.gate) + "</td></tr>";
+  }).join("");
+  var cohortDetails = (data.cohorts || []).map(function (cohort) {
+    return vbtPerformanceCohortDetails(cohort, data.sets || []);
+  }).join("");
+  target.innerHTML =
+    "<p class='section-help'>Frozen targets only. Cohorts are split by exercise, scope/family, rep count and target RIR band; they are not pooled. " +
+    "Residual = observed mean velocity − issued target. Band counts are descriptive, not success criteria.</p>" +
+    "<div class='vbt-performance-summary'><span><strong>" + (summary.target_sets || 0) + "</strong> target sets</span>" +
+    "<span><strong>" + (summary.comparable_sets || 0) + "</strong> comparable</span>" +
+    "<span><strong>" + (summary.excluded_sets || 0) + "</strong> excluded</span>" +
+    "<span><strong>" + (summary.cohorts || 0) + "</strong> cohorts</span>" +
+    "<span><strong>" + esc(scopeText) + "</strong></span></div>" +
+    "<p class='muted'>" + esc(gateText) + "</p>" +
+    (abstain ? "<details class='vbt-quality'><summary>Insufficient-data notes</summary><ul class='list'>" + abstain + "</ul></details>" : "") +
+    vbtPerformanceWeekly(data.weekly, data.weekly_note) +
+    "<h4>Target cohorts</h4>" +
+    (cohortRows ? "<div class='table-scroll'><table class='vbt-performance-table'><thead><tr>" +
+      "<th>Exercise / cohort</th><th>n / weeks</th><th>Mean residual (95% CI)</th><th>Median residual</th>" +
+      "<th>Mean |error|</th><th>Within band</th><th>Below / within / above band</th>" +
+      "<th>Actual / prescribed RIR</th><th>Gate</th></tr></thead><tbody>" + cohortRows +
+      "</tbody></table></div>" : "<p class='empty'>No target cohort in this range.</p>") +
+    "<h4>Per-set drill-down</h4>" + (cohortDetails || "<p class='empty'>No target sets.</p>") +
+    "<h4>Within-set rep velocity drift</h4>" + vbtPerformanceDrift(data.drift) +
+    "<p class='muted'>No cross-exercise score, prediction interval, load recommendation or autoregulation is produced. Target bands are descriptive.</p>";
+}
+
+async function loadVbtPerformance() {
+  var target = document.getElementById("vbt-performance-result");
+  var status = document.getElementById("vbt-performance-status");
+  if (!target) return;
+  var form = document.getElementById("vbt-performance-form");
+  var from = document.getElementById("vbt-performance-from");
+  var to = document.getElementById("vbt-performance-to");
+  var exercise = document.getElementById("vbt-performance-exercise");
+  if (!from || !to) return;
+  if (!from.value) from.value = performanceDate(84);
+  if (!to.value) to.value = today();
+  target.innerHTML = "<p class='empty'>Running VBT analysis…</p>";
+  if (status) status.textContent = "Loading…";
+  var params = new URLSearchParams({from: from.value, to: to.value});
+  if (exercise && exercise.value) params.set("exercise_id", exercise.value);
+  try {
+    var data = await api("/api/performance/vbt?" + params.toString());
+    renderVbtPerformance(data);
+    if (status) status.textContent = "Loaded " + data.from + " → " + data.to + ".";
+  } catch (error) {
+    target.innerHTML = "<p class='warnbox'>VBT performance unavailable: " + esc(error.message) + "</p>";
+    if (status) status.textContent = "";
+  }
+  if (form) form.dataset.loaded = "1";
+}
+
+function populateVbtPerformanceExercises(exercises) {
+  var select = document.getElementById("vbt-performance-exercise");
+  if (!select || select.dataset.loaded || !exercises || !exercises.length) return;
+  select.innerHTML = "<option value=''>All VBT cohorts</option>" + exercises.map(function (row) {
+    return "<option value='" + esc(row.id) + "'>" + esc(row.display || row.id) + "</option>";
+  }).join("");
+  select.dataset.loaded = "1";
+  vbtPerformanceExercisesLoaded = true;
+}
+
+function wireVbtPerformance() {
+  var form = document.getElementById("vbt-performance-form");
+  if (form && !form.dataset.wired) {
+    form.dataset.wired = "1";
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      loadVbtPerformance();
+    });
+  }
+  var from = document.getElementById("vbt-performance-from");
+  var to = document.getElementById("vbt-performance-to");
+  if (from && !from.value) from.value = performanceDate(84);
+  if (to && !to.value) to.value = today();
+  if (!vbtPerformanceInitialised) {
+    vbtPerformanceInitialised = true;
+    loadVbtPerformance();
   }
 }

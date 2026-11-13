@@ -596,14 +596,6 @@ documents:
   status: plan
   audience: public
   nav: true
-- id: ios-client-plan
-  path: docs/IOS-CLIENT-PLAN.md
-  title: Native iPhone Client — Online-First Implementation Plan
-  description: 'Phases 0-3A closed 2026-11-08; authenticated online-first native strength workflow with Python-authoritative training; R7 asynchronous prescription request implemented and closed 2026-11-08, R8 active-workout plan editing closed 2026-11-08; later HealthKit workout imports with manual-over-import precedence, then offline capture, optional Apple on-device/PCC AI'
-  category: plans
-  status: plan
-  audience: public
-  nav: true
 - id: weakness-targeting-plan
   path: docs/WEAKNESS-TARGETING-PLAN.md
   title: Weakness targeting and testing — plan
@@ -919,6 +911,14 @@ documents:
   status: design
   audience: maintainer
   nav: false
+- id: design-ios-watch-contract
+  path: docs/design/IOS-WATCH-CONTRACT.md
+  title: iOS Phase 6 watchOS companion contract (6.0-6.1 complete; 6.2+ not started)
+  description: '6.0 (S1-S4) and 6.1 (server watch contract) complete 2026-11-10; 6.2+ not started; remediated 2026-11-09: watch as the set-logging client for a plan with an explicit execution target on iOS 27.0/watchOS 27.0; four-stage StrengthCore extraction, credential-epoch and home-config handoff with acknowledgement, home-server pinning (no Away switching), offline-first execution with partial flushes and backoff, HK-session lifecycle and persist-first capture, watch-only ownership with phone mirror/take-over, plan-revision and off-plan conflict handling, exactly-once HealthKit workout by external UUID, 4h plan TTL, idle warning and 24h abandonment; offline start and phone relay deferred; tests, acceptance and rollback'
+  category: design
+  status: design
+  audience: maintainer
+  nav: false
 - id: design-ios-r7-contract
   path: docs/design/IOS-R7-CONTRACT.md
   title: iOS R7 asynchronous prescription request contract
@@ -959,10 +959,34 @@ documents:
   status: design
   audience: maintainer
   nav: false
+- id: agent-debugging
+  path: docs/AGENT-DEBUGGING.md
+  title: Agent debugging
+  description: Logs, failure triage, data incidents and long-running test procedures.
+  category: development
+  status: development
+  audience: maintainer
+  nav: false
+- id: agent-migrations
+  path: docs/AGENT-MIGRATIONS.md
+  title: Agent migrations
+  description: Append-only, schema, migration, transaction and preservation rules.
+  category: development
+  status: development
+  audience: maintainer
+  nav: false
+- id: agent-workflows
+  path: docs/AGENT-WORKFLOWS.md
+  title: Agent workflows
+  description: Detailed server orientation, code, test, documentation and parity procedures.
+  category: development
+  status: development
+  audience: maintainer
+  nav: false
 - id: agents
   path: AGENTS.md
   title: AGENTS.md — how to work in this repository
-  description: Engineering rules, invariants, code layout and definition of done.
+  description: Lean repository entry point and guardrails.
   category: development
   status: development
   audience: maintainer

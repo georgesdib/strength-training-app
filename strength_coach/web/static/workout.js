@@ -210,6 +210,8 @@ function nextWorkoutSetNumber(exerciseId) {
 
 function updateWorkoutSetTarget() {
   var target = document.getElementById("workout-set-target");
+  var feedback = document.getElementById("workout-set-vbt-feedback");
+  if (feedback) feedback.innerHTML = "";
   if (!target) return;
   var exerciseId = $("#workout-set-exercise").value;
   var item = workoutPlanItem(exerciseId);
@@ -221,13 +223,42 @@ function updateWorkoutSetTarget() {
     target.textContent = "This exercise is not in the current plan; log it anyway if intended.";
     return;
   }
-  var effort = item.effort_model === "quality"
-    ? (item.quality_stop || "quality stop")
-    : (item.rir_target == null ? "no RIR target" : "RIR " + item.rir_target);
-  target.innerHTML = "Planned <strong>" + esc(item.sets) + " × " + esc(item.reps_low) +
-    "–" + esc(item.reps_high) + " @ " + (item.load_kg == null ? "load unknown" : fmt(item.load_kg) + " kg") +
-    "</strong>, " + esc(effort) + ". Logging set <strong>" +
-    nextWorkoutSetNumber(exerciseId) + "</strong>.";
+  var role = $("#workout-set-role") ? $("#workout-set-role").value : "";
+  var group = vbtGroupForRole(item, role);
+  var planned = group
+    ? group.sets + " × " + group.reps_low + "–" + group.reps_high + " @ " +
+      (group.load_kg == null ? "load unknown" : fmt(group.load_kg) + " kg") +
+      (group.rir_target == null ? "" : ", RIR " + group.rir_target)
+    : item.sets + " × " + item.reps_low + "–" + item.reps_high + " @ " +
+      (item.load_kg == null ? "load unknown" : fmt(item.load_kg) + " kg") +
+      ", " + (item.effort_model === "quality"
+        ? (item.quality_stop || "quality stop")
+        : (item.rir_target == null ? "no RIR target" : "RIR " + item.rir_target));
+  target.innerHTML = "Planned <strong>" + esc(planned) + "</strong>. Logging set <strong>" +
+    nextWorkoutSetNumber(exerciseId) + "</strong>.<br>" +
+    vbtApplicabilityHtml(
+      item, role,
+      $("#workout-set-reps") ? $("#workout-set-reps").value : "",
+      $("#workout-set-rir") ? $("#workout-set-rir").value : ""
+    );
+}
+
+function renderWorkoutVbtFeedback(workout) {
+  var host = document.getElementById("workout-set-vbt-feedback");
+  if (!host) return;
+  var comparisons = (workout.vbt && workout.vbt.sets) || [];
+  if (!comparisons.length) {
+    host.innerHTML = "";
+    return;
+  }
+  var latest = comparisons.slice().sort(function (a, b) {
+    return Number(b.set_id || 0) - Number(a.set_id || 0);
+  })[0];
+  if (!latest || (latest.actual_velocity_mps == null && latest.target_mps == null)) {
+    host.innerHTML = "";
+    return;
+  }
+  host.innerHTML = vbtFeedbackHtml(latest);
 }
 
 function workoutSetGroupsHtml(item) {
@@ -529,6 +560,7 @@ function renderWorkout(w) {
       '<p class="workout-plan-prescription">' + item.reps_low + "–" + item.reps_high +
       ' reps · ' + (item.load_kg == null ? "load unknown" : fmt(item.load_kg) + " kg") +
       ' · ' + esc(effort) + '</p>' +
+      vbtTargetDetails(item) +
       workoutSetGroupsHtml(item) +
       (item.substitution_for ? '<p class="muted">swapped from ' + esc(item.substitution_for) + '</p>' : "") +
       (item.added_during_workout ? '<p class="muted">added during workout</p>' : "") +
@@ -661,6 +693,8 @@ function renderWorkout(w) {
   updateWorkoutSetTarget();
   var selectedPlanItem = workoutPlanItem($("#workout-set-exercise").value);
   prefillWorkoutSetFields(!keptSelection || Boolean(selectedPlanItem && selectedPlanItem.set_groups && selectedPlanItem.set_groups.length));
+  updateWorkoutSetTarget();
+  renderWorkoutVbtFeedback(w);
   document.querySelectorAll("[data-remove-set]").forEach(function (button) {
     button.addEventListener("click", function () { removeWorkoutSet(button.dataset.removeSet); });
   });
@@ -908,6 +942,7 @@ function renderWorkoutEnded(w) {
     "<div class='table-scroll'><table><thead><tr><th>Exercise</th><th>Status</th><th>Sets actual / planned</th>" +
     "<th>Reps</th><th>kg</th><th>RIR</th></tr></thead><tbody>" + compRows + "</tbody></table></div>" +
     extra +
+    vbtSectionHtml(w.vbt) +
     repBlock +
     (w.plan_modified
       ? '<h3>Original prescription</h3><div class="table-scroll"><table><thead><tr><th>Exercise</th><th>Status</th>' +
@@ -1171,6 +1206,14 @@ document.addEventListener("DOMContentLoaded", function () {
     var item = workoutPlanItem($("#workout-set-exercise").value);
     if (!item) return;
     applyWorkoutGroup(item, workoutGroupForRole(item, setRole.value));
+    updateWorkoutSetTarget();
+  });
+  ["#workout-set-reps", "#workout-set-rir"].forEach(function (selector) {
+    var input = document.querySelector(selector);
+    if (!input) return;
+    ["input", "change"].forEach(function (eventName) {
+      input.addEventListener(eventName, updateWorkoutSetTarget);
+    });
   });
   var endForm = document.getElementById("workout-end-form");
   if (endForm) endForm.addEventListener("submit", submitWorkoutEnd);

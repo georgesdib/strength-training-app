@@ -246,6 +246,36 @@ def test_readiness_write_replays_without_a_second_manual_entry(ios):
     assert body["sleep"] == 4.0
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("hrv_ms", -1),
+        ("hrv_ms", 0),
+        ("hrv_ms", "nan"),
+        ("rhr_bpm", 0),
+        ("rhr_bpm", "inf"),
+        ("bodyweight_kg", -1),
+        ("bodyweight_kg", "nan"),
+        ("wearable_score", 101),
+        ("wearable_score", "-inf"),
+    ],
+)
+def test_readiness_write_rejects_invalid_optional_device_values(ios, field, value):
+    token, _ = _paired(ios)
+    payload = {
+        "values": {
+            "sleep": 4, "energy": 4, "mood": 4, "soreness": 2, "stress": 3,
+            field: value,
+        },
+    }
+    status, body = _request(
+        ios["base"], "/api/ios/v1/readiness", method="POST",
+        payload=payload, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 400, body
+    assert field in body.get("fields", {}), body
+
+
 def _healthkit_sample(field="hrv_ms", value=55.0, *, sample_id=None, sample_at=None,
                       source_name="Apple Watch", source_class="apple_watch",
                       source_model="Watch6,18", source_manufacturer="Apple Inc."):
@@ -555,6 +585,16 @@ def test_ios_plan_swap_expected_guard_and_idempotent_replay(ios):
     assert status == 200, swapped
     assert swapped["plan"]["items"][0]["exercise_id"] == new_id
     assert swapped["original_plan"]["items"][0]["exercise_id"] == item["exercise_id"]
+
+    # The execution envelope carries the edited plan with its revision so a watch can apply it
+    # without a second request (contract §10.1/§10.3).
+    status, execution = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/execution",
+        token=token,
+    )
+    assert status == 200, execution
+    assert execution["plan_revision"] >= 1
+    assert execution["plan"]["items"][0]["exercise_id"] == new_id
     assert swapped["plan"]["items"][0]["load_kg"] is None
     assert swapped["plan"]["items"][0]["substitution_for"] == item["exercise_id"]
 
@@ -686,6 +726,54 @@ def test_ios_set_and_complete_preserve_local_timestamps(ios):
     assert status == 200, completed
     assert completed["status"] == "completed"
     assert completed["duration_source"] == "measured"
+
+
+def test_ios_set_resolves_stable_plan_item_identity_after_removal(ios):
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(ios, token, issued["issued_plan_id"])
+    assert status == 200, workout
+    items = workout["plan"]["items"]
+    assert len(items) >= 3
+    first, second, third = items[0], items[1], items[2]
+    second_identity = second.get("order_index", 1)
+    first_identity = first.get("order_index", 0)
+    # The old positional lookup would read items[1], which is now this different exercise.
+    assert third["exercise_id"] != second["exercise_id"]
+
+    status, current = _plan_edit(
+        ios, token, workout["workout_id"], "/items/0/remove",
+        {"expected_exercise_id": first["exercise_id"]},
+    )
+    assert status == 200, current
+    assert current["plan"]["items"][0]["exercise_id"] == second["exercise_id"]
+
+    status, added = _add_set(
+        ios, token, workout["workout_id"], second,
+        set_index=1, plan_item_index=second_identity,
+    )
+    assert status == 200, added
+    assert _scalar(
+        ios["path"],
+        "SELECT prescription_item_index FROM workout_set "
+        "WHERE workout_id = ? ORDER BY rowid DESC LIMIT 1",
+        (workout["workout_id"],),
+    ) == second_identity
+
+    status, removed = _add_set(
+        ios, token, workout["workout_id"], first,
+        set_index=1, plan_item_index=first_identity,
+    )
+    assert status == 409, removed
+    assert removed["code"] == "plan_item_mismatch"
+
+    status, missing = _add_set(
+        ios, token, workout["workout_id"], second,
+        set_index=2, plan_item_index=999,
+    )
+    assert status == 409, missing
+    assert missing["code"] == "plan_item_mismatch"
 
 
 def test_ios_removing_an_item_keeps_later_set_identity(ios):
@@ -1004,8 +1092,8 @@ def test_start_rejects_other_device_and_client_plan_content(ios):
     assert status == 200, second
 
     status, body = _start(ios, second["token"], issued["issued_plan_id"])
-    assert status == 404, body
-    assert body["code"] == "plan_not_found"
+    assert status == 409, body
+    assert body["code"] == "wrong_execution_target"
 
     status, body = _start(
         ios, token, issued["issued_plan_id"],
@@ -1102,6 +1190,33 @@ def test_add_set_stores_manual_velocity_and_retries_without_duplicates(ios):
     assert "rir" in invalid["fields"]
 
 
+def test_ios_remove_performed_set(ios):
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(ios, token, issued["issued_plan_id"])
+    assert status == 200, workout
+    item = _first_item(issued["plan"])
+    status, added = _add_set(ios, token, workout["workout_id"], item)
+    assert status == 200, added
+    set_id = added["sets"][-1]["set_id"]
+
+    key = uuid.uuid4().hex
+    status, removed = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/remove-set",
+        method="POST", payload={"set_id": set_id}, token=token, key=key,
+    )
+    assert status == 200, removed
+    assert all(row["set_id"] != set_id for row in removed["sets"])
+
+    status, replay, headers = _request_full(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/remove-set",
+        method="POST", payload={"set_id": set_id}, token=token, key=key,
+    )
+    assert status == 200, replay
+    assert headers.get("Idempotent-Replay") == "true"
+
+
 def test_form_and_complete_materialise_once(ios):
     token, _ = _paired(ios)
     status, issued = _issue(ios, token)
@@ -1126,8 +1241,19 @@ def test_form_and_complete_materialise_once(ios):
     assert status == 400, invalid
     assert invalid["code"] == "session_rpe_required"
 
+    status, invalid_productivity = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/complete",
+        method="POST", payload={"session_rpe": 7, "productivity": 6},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 400, invalid_productivity
+    assert invalid_productivity["fields"]["productivity"] == "must be an integer from 1 to 5"
+
     key = uuid.uuid4().hex
-    payload = {"session_rpe": 7, "duration_min": 45, "notes": "test session"}
+    payload = {
+        "session_rpe": 7, "duration_min": 45, "notes": "test session",
+        "productivity": 4,
+    }
     status, completed = _request(
         ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/complete",
         method="POST", payload=payload, token=token, key=key,
@@ -1135,6 +1261,10 @@ def test_form_and_complete_materialise_once(ios):
     assert status == 200, completed
     assert completed["status"] == "completed"
     assert completed["session_rpe"] == 7.0
+    assert _scalar(
+        ios["path"], "SELECT productivity FROM session_feedback WHERE session_id = ?",
+        (workout["workout_id"],),
+    ) == 4
     assert int(_scalar(
         ios["path"], "SELECT COUNT(*) FROM session WHERE session_id = ?",
         (workout["workout_id"],),
@@ -1791,6 +1921,200 @@ def test_plans_current_reports_none_for_an_expired_ready_plan(ios):
         store.close()
     state = _plan_state(ios, token)
     assert state == {"status": "none"}
+
+
+def test_ios_execution_events_are_idempotent_and_analysable(ios):
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(ios, token, issued["issued_plan_id"])
+    assert status == 200, workout
+    item = _first_item(issued["plan"])
+    status, added = _add_set(ios, token, workout["workout_id"], item)
+    assert status == 200, added
+    set_id = added["sets"][-1]["set_id"]
+
+    # Give the synthetic session enough elapsed time for a set and rest without inventing
+    # future timestamps in the API request.
+    workout_start = datetime.datetime.now(datetime.UTC) - datetime.timedelta(seconds=60)
+    store = db.Store(ios["path"])
+    try:
+        store.connection.execute(
+            "UPDATE workout_session SET started_at = ? WHERE workout_id = ?",
+            (workout_start.isoformat(), workout["workout_id"]),
+        )
+        store.connection.commit()
+    finally:
+        store.close()
+
+    def stamp(offset):
+        return (workout_start + datetime.timedelta(seconds=offset)).isoformat()
+
+    event_ids = [str(uuid.uuid4()) for _ in range(4)]
+    events = [
+        {"event_id": event_ids[0], "event_type": "set_started",
+         "occurred_at": stamp(1), "local_set_id": "local-set-1"},
+        {"event_id": event_ids[1], "event_type": "set_completed",
+         "occurred_at": stamp(21), "local_set_id": "local-set-1", "set_id": set_id},
+        {"event_id": event_ids[2], "event_type": "rest_started",
+         "occurred_at": stamp(22), "payload": {"prescribed_rest_s": 60}},
+        {"event_id": event_ids[3], "event_type": "rest_completed",
+         "occurred_at": stamp(27)},
+    ]
+    key = uuid.uuid4().hex
+    status, result = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/execution-events",
+        method="POST", payload={"events": events}, token=token, key=key,
+    )
+    assert status == 200, result
+    assert result["accepted"] == event_ids
+    assert result["duplicates"] == []
+    assert _scalar(
+        ios["path"],
+        "SELECT COUNT(*) FROM workout_execution_event WHERE workout_id = ?",
+        (workout["workout_id"],),
+    ) == 4
+
+    status, replay = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/execution-events",
+        method="POST", payload={"events": events}, token=token,
+        key=uuid.uuid4().hex,
+    )
+    assert status == 200, replay
+    assert replay["accepted"] == []
+    assert replay["duplicates"] == event_ids
+
+    status, analytics = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/execution",
+        token=token,
+    )
+    assert status == 200, analytics
+    assert analytics["data_quality"]["event_count"] == 4
+    assert analytics["sets"][0]["duration_s"] == 20
+    assert analytics["rests"][0]["actual_rest_s"] == 5
+    assert analytics["rests"][0]["deviation_s"] == -55
+    assert analytics["summary"]["active_lifting_s"] == 20
+    assert analytics["summary"]["recorded_recovery_s"] == 5
+
+    status, web_analytics = _request(
+        ios["base"], f"/api/history/{workout['workout_id']}/execution"
+    )
+    assert status == 200, web_analytics
+    assert web_analytics["data_quality"]["event_count"] == 4
+
+
+def test_ios_execution_events_reject_bad_timestamps_atomically(ios):
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(ios, token, issued["issued_plan_id"])
+    assert status == 200, workout
+    valid = {
+        "event_id": str(uuid.uuid4()), "event_type": "set_started",
+        "occurred_at": datetime.datetime.now(datetime.UTC).isoformat(),
+        "local_set_id": "local-set-1",
+    }
+    invalid = {
+        "event_id": str(uuid.uuid4()), "event_type": "set_started",
+        "occurred_at": "2000-01-01T00:00:00+00:00",
+        "local_set_id": "local-set-2",
+    }
+    status, result = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/execution-events",
+        method="POST", payload={"events": [valid, invalid]}, token=token,
+        key=uuid.uuid4().hex,
+    )
+    assert status == 409, result
+    assert _scalar(
+        ios["path"],
+        "SELECT COUNT(*) FROM workout_execution_event WHERE workout_id = ?",
+        (workout["workout_id"],),
+    ) == 0
+
+def test_ios_exercise_library_detail_e1rm_and_history(ios):
+    token, _ = _paired(ios)
+    status, detail = _request(
+        ios["base"], "/api/ios/v1/exercises/competition_squat", token=token
+    )
+    assert status == 200, detail
+    assert detail["exercise"]["id"] == "competition_squat"
+    assert detail["exercise"]["display"] == "Competition Squat"
+    assert detail["properties"]["pattern"] == "squat"
+    assert detail["e1rm_applicable"] is True
+    assert detail["e1rm"]["exercise_id"] == "competition_squat"
+    assert detail["e1rm"]["summary"]["n"] >= 1
+    assert detail["e1rm"]["basis"] == "raw_formula_epley_rir"
+
+    # bench_press has no explicit e1rm_applicable field; the endpoint must use the shared
+    # structural default rather than treating absence as false.
+    status, default_applicable = _request(
+        ios["base"], "/api/ios/v1/exercises/bench_press", token=token
+    )
+    assert status == 200, default_applicable
+    assert default_applicable["e1rm_applicable"] is True
+
+    status, history = _request(
+        ios["base"], "/api/ios/v1/exercises/competition_squat/history?limit=1",
+        token=token,
+    )
+    assert status == 200, history
+    assert history["exercise_id"] == "competition_squat"
+    assert history["total"] >= 1
+    assert history["sessions"]
+    assert history["sessions"][0]["sets"]
+
+    status, not_applicable = _request(
+        ios["base"], "/api/ios/v1/exercises/medicine_ball_chest_pass",
+        token=token,
+    )
+    assert status == 200, not_applicable
+    assert not_applicable["e1rm_applicable"] is False
+    assert not_applicable["e1rm"] is None
+
+    status, missing = _request(
+        ios["base"], "/api/ios/v1/exercises/not_an_exercise", token=token
+    )
+    assert status == 404, missing
+
+
+def test_top_set_setting_is_validated_and_echoed(ios):
+    token, _ = _paired(ios)
+    status, accepted = _issue(
+        ios, token, wait=False,
+        body={"settings": {"session_type": "squat", "top_set": True}},
+    )
+    assert status == 202, accepted
+    assert accepted["settings"]["top_set"] is True
+
+    status, rejected = _issue(
+        ios, token, wait=False,
+        body={"settings": {"top_set": "yes"}},
+    )
+    assert status == 400, rejected
+    assert rejected["code"] == "validation_failed"
+    assert rejected["fields"]["top_set"] == "must be true or false"
+
+
+def test_top_set_setting_reaches_the_builder(ios, monkeypatch):
+    from strength_coach.web import ios_plan_worker
+
+    calls = []
+    original = ios_plan_worker.build_prescription
+
+    def spy(*args, **kwargs):
+        calls.append(kwargs)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(ios_plan_worker, "build_prescription", spy)
+    token, _ = _paired(ios)
+    status, state = _issue(
+        ios, token,
+        body={"settings": {"session_type": "squat", "top_set": False}},
+    )
+    assert status == 200, state
+    assert calls, "the plan builder was not called"
+    assert calls[-1]["top_set_requested"] is False
+    assert state["settings"]["top_set"] is False
 
 
 def test_queue_selection_is_fifo(tmp_path):

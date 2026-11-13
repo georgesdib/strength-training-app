@@ -66,6 +66,9 @@ class CalibrationTarget:
     velocity_high: float | None
     n_sets: int
     n_sessions: int
+    velocity_mad: float | None = None
+    vbt_family: str | None = None
+    source: str = "computed"
     method_version: str = METHOD_VERSION
     params: dict = field(default_factory=dict)
 
@@ -187,7 +190,8 @@ def _calibrate_uncached(
     targets: list[CalibrationTarget] = []
     for (exercise_id, reps), group in frame.groupby(["exercise_id", "reps"]):
         target = _target_from_group(
-            group, exercise_id=str(exercise_id), reps=int(reps), scope="lift", params=params
+            group, exercise_id=str(exercise_id), reps=int(reps), scope="lift",
+            params=params, vbt_family=family_of.get(str(exercise_id)),
         )
         if target and len(group) >= params.min_sets_lift and group["date"].nunique() >= params.min_sessions_lift:
             targets.append(target)
@@ -202,7 +206,8 @@ def _calibrate_uncached(
             if (str(exercise_id), int(reps)) in covered:
                 continue
             target = _target_from_group(
-                group, exercise_id=str(exercise_id), reps=int(reps), scope="family", params=params
+                group, exercise_id=str(exercise_id), reps=int(reps), scope="family",
+                params=params, vbt_family=str(_family),
             )
             if target:
                 targets.append(target)
@@ -217,11 +222,13 @@ def _target_from_group(
     reps: int,
     scope: str,
     params: CalibrationParams,
+    vbt_family: str | None = None,
 ) -> CalibrationTarget | None:
     velocities = group["velocity_mps"].to_numpy(dtype="float64")
     if velocities.size == 0:
         return None
     median = stats.median(velocities)
+    spread = stats.mad(velocities)
     low, high = stats.robust_band(
         velocities, k=params.k, min_relative_spread=params.min_relative_spread
     )
@@ -237,6 +244,8 @@ def _target_from_group(
         velocity_high=round(float(high), 4),
         n_sets=int(len(group)),
         n_sessions=int(group["date"].nunique()),
+        velocity_mad=round(float(spread), 4) if np.isfinite(spread) else None,
+        vbt_family=vbt_family,
         params=params.as_dict(),
     )
 

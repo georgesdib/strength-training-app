@@ -2,6 +2,7 @@
 var progressCurrent = {from: null, to: null, weeks: 8, volume: null, days: [], attendance: null, exerciseLabel: ""};
 var progressLoadGeneration = 0;
 var progressLiftGeneration = 0;
+var progressAdherenceGeneration = 0;
 var progressExerciseChoices = [];
 
 function progressShiftDate(dateValue, days) {
@@ -352,6 +353,338 @@ async function loadProgressExecution(workoutId) {
   }
 }
 
+function progressAdherenceMetric(period, key) {
+  if (!period) return null;
+  if (key === "set_completion") return period.set_completion;
+  if (key === "reps") return (period.reps || {}).attainment;
+  if (key === "load") return (period.load || {}).attainment;
+  if (key === "rir") return (period.rir || {}).attainment;
+  return null;
+}
+
+function progressAdherencePoints(periods, key) {
+  return (periods || []).filter(function (period) {
+    return period.has_data && !period.small_sample;
+  }).map(function (period) {
+    var metric = progressAdherenceMetric(period, key);
+    if (!metric || metric.ratio == null) return null;
+    return {
+      date: period.end,
+      value: Number(metric.ratio) * 100,
+      label: metric.numerator + "/" + metric.denominator + " (" + adherencePct(metric.ratio) +
+        ") · " + (period.workouts || 0) + " workout(s)",
+    };
+  }).filter(Boolean);
+}
+
+function progressAdherenceChart(title, data, key, yTitle) {
+  var omittedKeys = {};
+  ["original", "final_plan"].forEach(function (view) {
+    (((data[view] || {}).periods) || []).forEach(function (period) {
+      if (period.has_data && period.small_sample) omittedKeys[period.key] = true;
+    });
+  });
+  var omitted = Object.keys(omittedKeys).length;
+  return dateSeriesChart({
+    title: title,
+    xTitle: "Period end",
+    yTitle: yTitle || "Percent",
+    yMin: 0,
+    yMax: 100,
+    zeroBaseline: true,
+    formatY: function (value) { return chartNumber(value, 0) + "%"; },
+    series: [
+      {id: "original", label: "Original prescription", className: "chart-series-0",
+       points: progressAdherencePoints((data.original || {}).periods, key)},
+      {id: "final", label: "Final modified prescription", className: "chart-series-1",
+       points: progressAdherencePoints((data.final_plan || {}).periods, key)},
+    ],
+    note: "Each point is the period's summed numerator / summed denominator, never an average " +
+      "of workout percentages. " + omitted + " observed period(s) omitted from the trend because " +
+      "they are below the small-sample guard; they remain in the period table.",
+    emptyMessage: "No periods with enough data for this trend. Small-sample periods remain in the table.",
+  });
+}
+
+function progressAdherenceSample(metric, noData) {
+  if (noData) return "<span class='muted'>no workouts</span>";
+  return metric && metric.small_sample
+    ? "<span class='badge warn'>small sample</span>"
+    : "<span class='muted'>—</span>";
+}
+
+function progressAdherenceSummary(data) {
+  var original = data.original || {};
+  var final = data.final_plan || {};
+  function row(label, first, second) {
+    return "<tr><th scope='row'>" + esc(label) + "</th><td>" + first + "</td><td>" +
+      second + "</td></tr>";
+  }
+  return "<div class='table-scroll'><table class='adherence-summary-table' " +
+    "aria-label='Adherence summary by prescription'><thead><tr><th scope='col'>Metric</th>" +
+    "<th scope='col'>Original prescription</th><th scope='col'>Final modified prescription</th>" +
+    "</tr></thead><tbody>" +
+    row("Workouts", String(original.workouts || 0), String(final.workouts || 0)) +
+    row("Prescribed sets", String(original.prescribed_sets || 0),
+        String(final.prescribed_sets || 0)) +
+    row("Set completion", adherenceRatio(original.set_completion),
+        adherenceRatio(final.set_completion)) +
+    row("Repetition attainment", adherenceRatio((original.reps || {}).attainment),
+        adherenceRatio((final.reps || {}).attainment)) +
+    row("Load attainment", adherenceRatio((original.load || {}).attainment),
+        adherenceRatio((final.load || {}).attainment)) +
+    row("RIR attainment", adherenceRatio((original.rir || {}).attainment),
+        adherenceRatio((final.rir || {}).attainment)) +
+    row("Missing / extra sets", (original.missing_sets || 0) + " / " + (original.extra_sets || 0),
+        (final.missing_sets || 0) + " / " + (final.extra_sets || 0)) +
+    row("Sample", progressAdherenceSample(original), progressAdherenceSample(final)) +
+    "</tbody></table></div>" +
+    "<p class='adherence-note'>Set completion, repetition attainment, load attainment and RIR " +
+    "attainment use separate denominators and are not combined into a score.</p>";
+}
+
+function progressAdherencePlanCells(metric, label, cls, noData) {
+  return "<td><span class='badge " + cls + "'>" + label + "</span></td><td>" +
+    (metric.workouts || 0) + "</td><td>" + adherenceRatio(metric.set_completion) + "</td><td>" +
+    adherenceRatio((metric.reps || {}).attainment) + "</td><td>" +
+    adherenceRatio((metric.load || {}).attainment) + "</td><td>" +
+    adherenceRatio((metric.rir || {}).attainment) + "</td><td>" +
+    progressAdherenceSample(metric, noData) + "</td>";
+}
+
+function progressAdherenceRowsByPlan(rows, plans) {
+  return (rows || []).map(function (row) {
+    var plan = plans[row.key] || {};
+    var noData = !row.has_data && !plan.has_data;
+    return "<tr><td rowspan='2'>" + esc(row.key) + "<br><span class='muted'>" +
+      esc(row.start) + "–" + esc(row.end) + "</span></td>" +
+      progressAdherencePlanCells(row, "Original", "", noData) + "</tr>" +
+      "<tr>" + progressAdherencePlanCells(plan, "Final", "warn", noData) + "</tr>";
+  }).join("");
+}
+
+function progressAdherencePeriodTable(data) {
+  var finalByKey = {};
+  ((data.final_plan || {}).periods || []).forEach(function (period) {
+    finalByKey[period.key] = period;
+  });
+  var rows = progressAdherenceRowsByPlan(
+    (data.original || {}).periods || [], finalByKey
+  );
+  return "<div class='table-scroll'><table class='progress-adherence-table' " +
+    "aria-label='Adherence by period'><thead><tr><th scope='col'>Period</th>" +
+    "<th scope='col'>Plan</th><th scope='col'>Workouts</th><th scope='col'>Set completion</th>" +
+    "<th scope='col'>Reps</th><th scope='col'>Load</th><th scope='col'>RIR</th>" +
+    "<th scope='col'>Sample</th></tr></thead><tbody>" +
+    (rows || "<tr><td colspan='8' class='muted'>No periods in this range.</td></tr>") +
+    "</tbody></table></div>";
+}
+
+function progressAdherenceExerciseTable(data) {
+  var original = (data.original || {}).exercises || [];
+  var final = (data.final_plan || {}).exercises || [];
+  var byId = {};
+  original.forEach(function (row) { byId[row.exercise_id] = {original: row, final: null}; });
+  final.forEach(function (row) {
+    if (!byId[row.exercise_id]) byId[row.exercise_id] = {original: null, final: row};
+    else byId[row.exercise_id].final = row;
+  });
+  var rows = Object.keys(byId).map(function (id) {
+    var pair = byId[id];
+    var label = (pair.original && pair.original.exercise_name) ||
+      (pair.final && pair.final.exercise_name) || id;
+    var maxPrescribed = Math.max(
+      (pair.original && pair.original.prescribed_sets) || 0,
+      (pair.final && pair.final.prescribed_sets) || 0
+    );
+    return {id: id, label: label, pair: pair, maxPrescribed: maxPrescribed};
+  }).sort(function (a, b) {
+    return b.maxPrescribed - a.maxPrescribed || a.label.localeCompare(b.label);
+  });
+  var html = rows.map(function (entry) {
+    function planCells(row, label, cls) {
+      if (!row) {
+        return "<td><span class='badge " + cls + "'>" + label + "</span></td>" +
+          "<td>—</td><td>not prescribed</td><td>—</td><td>—</td><td>—</td><td>—</td>";
+      }
+      return "<td><span class='badge " + cls + "'>" + label + "</span></td><td>" +
+        (row.workouts || 0) + "</td><td>" + adherenceRatio(row.set_completion) + "</td><td>" +
+        adherenceRatio((row.reps || {}).attainment) + "</td><td>" +
+        adherenceRatio((row.load || {}).attainment) + "</td><td>" +
+        adherenceRatio((row.rir || {}).attainment) + "</td><td>" +
+        progressAdherenceSample(row, !row.has_data) + "</td>";
+    }
+    return "<tr><td rowspan='2'><strong>" + esc(entry.label) + "</strong><br><span class='muted'>" +
+      esc(entry.id) + "</span></td>" + planCells(entry.pair.original, "Original", "") +
+      "</tr><tr>" + planCells(entry.pair.final, "Final", "warn") + "</tr>";
+  }).join("");
+  return "<div class='table-scroll'><table class='progress-adherence-table adherence-exercise-table' " +
+    "aria-label='Adherence comparison by exercise'><thead><tr><th scope='col'>Exercise</th>" +
+    "<th scope='col'>Plan</th><th scope='col'>Workouts</th><th scope='col'>Set completion</th>" +
+    "<th scope='col'>Reps</th><th scope='col'>Load</th><th scope='col'>RIR</th>" +
+    "<th scope='col'>Sample</th></tr></thead><tbody>" +
+    (html || "<tr><td colspan='8' class='muted'>No prescribed exercises in this range.</td></tr>") +
+    "</tbody></table></div>";
+}
+
+function progressAdherenceWorkoutTable(data) {
+  var rows = (data.workouts || []).map(function (row) {
+    function planCells(metric, label, cls) {
+      return "<td><span class='badge " + cls + "'>" + label + "</span></td><td>" +
+        adherenceRatio(metric.set_completion) + "</td><td>" +
+        adherenceRatio((metric.reps || {}).attainment) + "</td><td>" +
+        adherenceRatio((metric.load || {}).attainment) + "</td><td>" +
+        adherenceRatio((metric.rir || {}).attainment) + "</td>";
+    }
+    return "<tr><td rowspan='2'>" + esc(row.for_date) + "<br><span class='muted'>" +
+      esc(row.session_type || "") + "</span></td><td rowspan='2'>" +
+      "<button class='ghost' type='button' data-progress-adherence-workout='" +
+      esc(row.workout_id) + "' aria-label='Open session details for " + esc(row.for_date) +
+      "'>Open</button></td>" + planCells(row.original, "Original", "") + "</tr>" +
+      "<tr>" + planCells(row.final_plan, "Final", "warn") + "</tr>";
+  }).join("");
+  return "<details class='progress-subsection'><summary>Workout drill-down (" +
+    (data.workouts || []).length + ")</summary>" +
+    "<div class='table-scroll'><table class='progress-adherence-table' " +
+    "aria-label='Adherence by workout'><thead><tr><th scope='col'>Workout</th>" +
+    "<th scope='col'>Details</th><th scope='col'>Plan</th><th scope='col'>Set completion</th>" +
+    "<th scope='col'>Reps</th><th scope='col'>Load</th><th scope='col'>RIR</th></tr></thead>" +
+    "<tbody>" + (rows || "<tr><td colspan='7' class='muted'>No workouts in this range.</td></tr>") +
+    "</tbody></table></div>" +
+    "<p class='muted'>Open a session in History for its per-exercise and per-set breakdown, " +
+    "unmatched work and data-quality notes.</p></details>";
+}
+
+function progressAdherenceCoverage(data) {
+  var coverage = data.coverage || {};
+  var bits = [
+    (coverage.workouts_analysed || 0) + " analysed",
+    (coverage.workouts_in_range || 0) + " completed in range",
+  ];
+  if (coverage.workouts_unavailable) bits.push(coverage.workouts_unavailable + " unavailable");
+  if (coverage.workouts_voided) bits.push(coverage.workouts_voided + " voided");
+  if (coverage.workouts_without_session) bits.push(coverage.workouts_without_session + " without a session");
+  if (coverage.invalid_plan_rows) bits.push(coverage.invalid_plan_rows + " invalid snapshot(s)");
+  if (coverage.workouts_filtered_out) bits.push(coverage.workouts_filtered_out + " filtered out");
+  return "<p class='muted'>Coverage: " + esc(bits.join(" · ")) + ".</p>";
+}
+
+function progressAdherenceDefinitions(data) {
+  var definitions = data.definitions || {};
+  var rows = Object.keys(definitions).map(function (key) {
+    return "<li><strong>" + esc(key.replace(/_/g, " ")) + "</strong>: " +
+      esc(definitions[key]) + "</li>";
+  }).join("");
+  var excluded = (data.coverage || {}).excluded || [];
+  var excludedHtml = excluded.length
+    ? "<details class='progress-subsection'><summary>Excluded workouts (" + excluded.length +
+      ")</summary><ul class='list'>" + excluded.map(function (row) {
+        return "<li>" + esc(row.for_date) + " · " + esc(row.workout_id) + " · " +
+          esc(adherenceReason(row.reason)) + "</li>";
+      }).join("") + "</ul></details>"
+    : "";
+  return "<details class='progress-subsection'><summary>Definitions, coverage and exclusions</summary>" +
+    "<ul class='list'>" + rows + "</ul>" +
+    "<p class='muted'>Training-block grouping is unavailable because no reliable per-workout " +
+    "block identity is stored.</p>" + excludedHtml + "</details>";
+}
+
+function progressAdherenceRender(data) {
+  if (!data || data.status !== "available") {
+    return "<p class='warnbox'>" + esc(adherenceReason(data && data.reason)) + "</p>";
+  }
+  var range = data.range || {};
+  var analysed = (data.coverage || {}).workouts_analysed || 0;
+  var head = "<p class='muted'>" + esc(range.from) + " to " + esc(range.to) + " · " +
+    esc(range.group_by === "month" ? "monthly" : "weekly") + " periods · " +
+    (data.filters && data.filters.exercise_id
+      ? "exercise " + esc(data.filters.exercise_id) + " · "
+      : "all prescribed exercises · ") +
+    (data.filters && data.filters.session_type
+      ? "session type " + esc(data.filters.session_type)
+      : "all session types") + "</p>" +
+    progressAdherenceCoverage(data);
+  if (!analysed) {
+    return head + "<p class='empty'>No completed app-tracked workouts with a usable prescription " +
+      "snapshot in this range. Imported and voided sessions are not compared.</p>" +
+      progressAdherenceDefinitions(data);
+  }
+  var omitted = ((data.original || {}).periods || []).filter(function (period) {
+    return period.has_data && period.small_sample;
+  }).length;
+  return head + progressAdherenceSummary(data) +
+    "<h4>Time-series trends</h4>" +
+    "<p class='adherence-note'>Periods with fewer than 3 workouts or fewer than 5 prescribed sets " +
+    "are omitted from the charts and remain in the table. " + omitted + " observed period(s) " +
+    "were omitted.</p>" +
+    "<div class='adherence-analytics-grid'>" +
+    progressAdherenceChart("Set completion by period", data, "set_completion") +
+    progressAdherenceChart("Repetition attainment by period", data, "reps") +
+    progressAdherenceChart("Load attainment by period", data, "load") +
+    progressAdherenceChart("RIR attainment by period", data, "rir") +
+    "</div>" +
+    "<h4>Periods and denominators</h4>" + progressAdherencePeriodTable(data) +
+    "<h4>Exercise comparison</h4>" + progressAdherenceExerciseTable(data) +
+    "<h4>Workouts</h4>" + progressAdherenceWorkoutTable(data) +
+    progressAdherenceDefinitions(data);
+}
+
+function progressAdherenceFillFilters(data) {
+  var exercise = $("#progress-adherence-exercise");
+  if (exercise) {
+    var currentExercise = exercise.value;
+    var choices = (data.filters || {}).exercises || [];
+    exercise.innerHTML = "<option value=''>All prescribed exercises</option>" +
+      choices.map(function (row) {
+        return "<option value='" + esc(row.id) + "'>" + esc(row.name) + "</option>";
+      }).join("");
+    if (choices.some(function (row) { return row.id === currentExercise; })) {
+      exercise.value = currentExercise;
+    }
+  }
+  var sessionType = $("#progress-adherence-session-type");
+  if (sessionType) {
+    var currentType = sessionType.value;
+    var types = (data.filters || {}).session_types || [];
+    sessionType.innerHTML = "<option value=''>All</option>" + types.map(function (value) {
+      return "<option value='" + esc(value) + "'>" + esc(sessionLabel(value)) + "</option>";
+    }).join("");
+    if (types.indexOf(currentType) >= 0) sessionType.value = currentType;
+  }
+}
+
+async function loadProgressAdherence() {
+  var host = $("#progress-adherence");
+  var status = $("#progress-adherence-status");
+  if (!host) return;
+  var generation = ++progressAdherenceGeneration;
+  var dateInput = $("#progress-adherence-date");
+  if (dateInput && !dateInput.value) dateInput.value = today();
+  var weeks = $("#progress-adherence-weeks") && $("#progress-adherence-weeks").value || "8";
+  var group = $("#progress-adherence-group") && $("#progress-adherence-group").value || "week";
+  var exercise = $("#progress-adherence-exercise") && $("#progress-adherence-exercise").value || "";
+  var sessionType = $("#progress-adherence-session-type") &&
+    $("#progress-adherence-session-type").value || "";
+  var query = "?weeks=" + encodeURIComponent(weeks) +
+    "&date=" + encodeURIComponent(dateInput ? dateInput.value : today()) +
+    "&group_by=" + encodeURIComponent(group);
+  if (exercise) query += "&exercise_id=" + encodeURIComponent(exercise);
+  if (sessionType) query += "&session_type=" + encodeURIComponent(sessionType);
+  host.innerHTML = "<p class='empty'>Loading prescription adherence…</p>";
+  if (status) status.textContent = "Loading";
+  try {
+    var data = await api("/api/adherence/analytics" + query);
+    if (generation !== progressAdherenceGeneration) return;
+    progressAdherenceFillFilters(data);
+    host.innerHTML = progressAdherenceRender(data);
+    if (status) status.textContent = "Updated";
+  } catch (error) {
+    if (generation !== progressAdherenceGeneration) return;
+    host.innerHTML = "<p class='warnbox'>" + esc(error.message) + "</p>";
+    if (status) status.textContent = "Could not load";
+  }
+}
+
 async function loadProgressOverview() {
   var target = $("#progress-dashboard");
   var status = $("#progress-overview-status");
@@ -431,6 +764,7 @@ async function loadProgressOverview() {
     await loadProgressLiftCharts(exerciseSelect && exerciseSelect.value);
     if (workoutSelect && workoutSelect.value) await loadProgressExecution(workoutSelect.value);
     else if ($("#progress-execution")) $("#progress-execution").innerHTML = "<p class='empty'>Select a completed app-tracked workout with a stored original plan snapshot.</p>";
+    loadProgressAdherence();
   } catch (error) {
     if (generation !== progressLoadGeneration) return;
     target.innerHTML = "<p class='warnbox'>" + esc(error.message) + "</p>";
@@ -451,6 +785,20 @@ if (typeof document !== "undefined" && typeof document.addEventListener === "fun
   $("#progress-accounting")?.addEventListener("change", function () { loadProgressOverview(); });
   $("#progress-load-association")?.addEventListener("click", loadProgressAssociation);
   $("#progress-workout")?.addEventListener("change", function () { loadProgressExecution(this.value); });
+  $("#progress-adherence-form")?.addEventListener("submit", function (event) {
+    event.preventDefault();
+    loadProgressAdherence();
+  });
+  var adherenceHost = $("#progress-adherence");
+  if (adherenceHost) adherenceHost.addEventListener("click", function (event) {
+    var button = event.target.closest?.("[data-progress-adherence-workout]");
+    if (!button || typeof button.getAttribute !== "function") return;
+    var workoutId = button.getAttribute("data-progress-adherence-workout");
+    if (!workoutId) return;
+    if (typeof setView === "function") setView("history");
+    else location.hash = "#history";
+    if (typeof openHistoryDetails === "function") openHistoryDetails(workoutId);
+  });
 }
 
 

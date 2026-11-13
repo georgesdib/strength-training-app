@@ -7,7 +7,7 @@
 --
 -- The rebuild is required: SQLite cannot relax the NOT NULL constraints on prescription_id,
 -- plan_json, readiness_json and session_type in place. Every existing Phase 2 row is copied
--- with the mapping in docs/design/IOS-R7-CONTRACT.md §3.1: a legacy row was already built, so
+-- with the mapping in https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-R7-CONTRACT.md §3.1: a legacy row was already built, so
 -- it is 'ready'; expires_at is reused for both deadlines so a legacy plan neither gains nor
 -- loses life; created_at stands in for the publish time because the real one was never
 -- recorded. No legacy row is deleted, and prescription/receipt rows are untouched.

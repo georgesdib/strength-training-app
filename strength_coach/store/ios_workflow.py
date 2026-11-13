@@ -7,7 +7,7 @@ the store layer.
 R7 splits the old "issued plan" into a request lifecycle (`status`) and a liveness axis
 (`consumed_at`/`superseded_at`). Every conditional write below is deliberate: the dispatcher and
 the request handler can race, and a guarded UPDATE is how a superseded request is stopped from
-publishing a plan (docs/design/IOS-R7-CONTRACT.md §4.4).
+publishing a plan (https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-R7-CONTRACT.md §4.4).
 """
 
 from __future__ import annotations
@@ -103,6 +103,8 @@ def enqueue_plan_request(
     device_id: str,
     for_date: str,
     requested_session_type: str,
+    target_device_id: str,
+    execution_target: str,
     settings: dict[str, Any],
     build_inputs: dict[str, Any],
     readiness_json: str,
@@ -118,10 +120,14 @@ def enqueue_plan_request(
     """
     with transaction(conn):
         # Include an expired-but-never-started row so the partial unique index is clear.
+        # One live row per requester and per executor: a phone asking for a watch plan
+        # replaces its own live plan, and the watch's plan replaces a previous watch plan
+        # even when a different device requested it.
         conn.execute(
             "UPDATE ios_issued_plan SET superseded_at = ? "
-            "WHERE device_id = ? AND consumed_at IS NULL AND superseded_at IS NULL",
-            (created_at, device_id),
+            "WHERE (device_id = ? OR COALESCE(target_device_id, device_id) = ?) "
+            "  AND consumed_at IS NULL AND superseded_at IS NULL",
+            (created_at, device_id, target_device_id),
         )
         conn.execute(
             "INSERT INTO ios_issued_plan "
@@ -129,32 +135,41 @@ def enqueue_plan_request(
             " settings_json, build_inputs_json, prescription_id, for_date, plan_json, "
             " readiness_json, readiness_ack, created_at, building_started_at, ready_at, "
             " finished_at, error_code, error_message, request_expires_at, plan_expires_at, "
-            " consumed_at, superseded_at, workout_id) "
+            " consumed_at, superseded_at, workout_id, target_device_id, execution_target) "
             "VALUES (?, ?, 'queued', ?, NULL, ?, ?, NULL, ?, NULL, ?, ?, ?, NULL, NULL, "
-            "        NULL, NULL, NULL, ?, NULL, NULL, NULL, NULL)",
+            "        NULL, NULL, NULL, ?, NULL, NULL, NULL, NULL, ?, ?)",
             (
                 issued_plan_id, device_id, requested_session_type,
                 _json(settings), _json(build_inputs), for_date,
                 readiness_json, 1 if readiness_ack else 0,
-                created_at, request_expires_at,
+                created_at, request_expires_at, target_device_id, execution_target,
             ),
         )
 
 
 def current_plan(conn, device_id: str):
-    """The device's live row: not consumed and not superseded, whatever its status."""
+    """The device's live row, whether it requested it or is its execution target."""
     row = conn.execute(
         "SELECT * FROM ios_issued_plan "
-        "WHERE device_id = ? AND consumed_at IS NULL AND superseded_at IS NULL",
-        (str(device_id),),
+        "WHERE (device_id = ? OR target_device_id = ?) "
+        "  AND consumed_at IS NULL AND superseded_at IS NULL "
+        "ORDER BY created_at DESC LIMIT 1",
+        (str(device_id), str(device_id)),
     ).fetchone()
     return dict(row) if row is not None else None
 
 
 def get_plan(conn, issued_plan_id: str, device_id: str):
+    """One plan by id for an authenticated caller.
+
+    The start handler enforces that the caller is the execution target; this lookup does not
+    filter by device because a mismatched caller must receive wrong_execution_target rather
+    than a misleading 404.
+    """
+    del device_id
     row = conn.execute(
-        "SELECT * FROM ios_issued_plan WHERE issued_plan_id = ? AND device_id = ?",
-        (str(issued_plan_id), str(device_id)),
+        "SELECT * FROM ios_issued_plan WHERE issued_plan_id = ?",
+        (str(issued_plan_id),),
     ).fetchone()
     return dict(row) if row is not None else None
 

@@ -21,7 +21,7 @@ LLM call fails entirely.
 
 ## Status
 
-**v1.3.0 is released; v1.4 is planned.** The full slice runs:
+**v1.4.0 is released; v1.5 is planned.** The full slice runs:
 import → readiness → prescribe a day → critique the last session → review it → calibrate. Days
 are prescribable through rolling session types (squat, hinge, bench+squat, bench+hinge); athlete
 state, constraints, suitability, e1RM overrides, symptoms and the exercise catalogue are editable
@@ -37,11 +37,12 @@ complete. v0.4 packaged the audit, documentation and form closeout. **v1.0 beta*
 workable app and guided Workflow UI for user testing. **v1.1 beta** adds the raw Performance
 view, configured relative-strength ratios, read-only monitoring analysis and the Phase 5A
 review follow-up. **v1.2.0** removed the beta label and shipped the deterministic template resolver as an
-opt-in feature behind `resolver.enabled` (default false). **v1.3.0 is the
-current stable release:** UI redesign closure, measurement/readiness cleanup and
-documentation infrastructure. The
-cardio capture audit, a reproducible cardio impulse/shadow load and comparable calibration
-depth are deferred to v1.4 (ROADMAP §4.13a/§4.14). Prospective validation
+opt-in feature behind `resolver.enabled` (default false). **v1.3.0** closed the UI redesign,
+measurement/readiness cleanup and documentation infrastructure. **v1.4.0 is the current stable
+release:** structured VBT target metadata, active-workout target feedback, completed-workout and
+History target comparisons, and the longitudinal Performance VBT dashboard. The cardio capture
+audit, a reproducible cardio impulse/shadow load and comparable calibration depth are deferred to
+v1.5 (ROADMAP §4.13a/§4.14). Prospective validation
 remains a future gate, not an active candidate; review follow-ups are in ROADMAP §4.20.
 See [ROADMAP.md](ROADMAP.md).
 
@@ -110,17 +111,25 @@ scp data/exports/coach-db-*.tar.gz dev-host:
 # development machine: stop the app first
 python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --dry-run
 python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --force
+
+# new machine with no target database yet
+python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --create --force
 ```
 
 The archive contains the SQLite snapshot, a manifest with the full applied migration set
 (version and checksum), the app version and the database SHA-256. Import verifies the
 archive, compares the complete migration set with the target, and **fails before replacing
 anything** if any migration, checksum or database hash differs. It refuses while the target
-has SQLite WAL side files, writes a `coach.db.pre-transfer-*` backup beside the target, and
-then replaces the file atomically.
+has SQLite WAL side files, writes a `coach.db.pre-transfer-*` backup beside an existing
+target, and then replaces the file atomically.
 
-Default import requires the source and target schemas to match exactly. Two opt-in modes are
-available:
+`--create` permits a missing target. The tool creates it at the local code's schema only after all
+archive, schema and `--force` checks pass; a dry run does not create it. A newly created
+target has no prior data, so no backup is written. If the archive is older than the local
+code, combine `--create` with `--upgrade`.
+
+Default import requires the source and target schemas to match exactly. Two schema opt-in
+modes are available:
 
 - **`--upgrade`** accepts a source that is older than the local code, applies the missing
   migrations to a copy, and then replaces the target. It fails if the source or target has a

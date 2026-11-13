@@ -127,8 +127,9 @@ def test_warmup_uses_the_final_throttled_top_set_load() -> None:
     )
     assert throttle_main.set_groups[0].load_kg == expected_top
     assert throttle_main.warmup
+    assert throttle_main.warmup[0].load_kg == 20.0
     assert throttle_main.warmup[0].load_kg < throttle_main.set_groups[0].load_kg
-    assert throttle_main.warmup[0].load_kg == loads.round_down(
+    assert throttle_main.warmup[1].load_kg == loads.round_down(
         expected_top * 0.50, throttle_main.rounding_increment_kg
     )
 

@@ -3,6 +3,8 @@
 **Status:** implemented and measured on the deployment target 2026-11-04 on `development`.
 Updated 2026-11-05: per-generation `clean_sets` snapshot implemented and A/B rebenchmarked;
 §8 statuses clarified.
+Updated 2026-11-10: §9 adds an iMac coding-host re-run of the resolver and programme forecast;
+the ODROID-C4 figures in §2–§8 are unchanged.
 No prescription behaviour changed.
 **Workload:** deterministic resolver build for 2026-11-04, squat, target field 30 minutes
 (minimum-session trimming not applied), resolver enabled, against the owner's local database
@@ -10,7 +12,8 @@ No prescription behaviour changed.
 The 2026-11-05 A/B below uses the current 375-session database with the same seven-item output.
 
 **Hardware:** Hardkernel ODROID-C4, 4× ARM Cortex-A55, 3.7 GB visible RAM, Linux aarch64,
-Python 3.13.5. All benchmark and test results below were produced on this machine.
+Python 3.13.5. All benchmark results in §2–§8 were produced on this machine; §9 is a
+separately labelled re-run on the iMac coding host.
 
 ## 1. Baseline method
 
@@ -193,3 +196,49 @@ persistence complexity by default.
    4 GB device outweigh the benefit; one CPU-heavy build runs at a time.
 5. **Informational only — hardware/Python-specific numbers.** Benchmarks use the ODROID-C4 and
    Python 3.13.5; re-run after OS or Python upgrades if absolute latency matters.
+
+## 9. iMac coding-host re-run (2026-11-10)
+
+**Not the deployment target.** This section repeats the resolver build and the programme
+forecast on the **iMac coding host**. It records local build times and the hardware gap only:
+the ODROID-C4 figures in §2 and §7 remain the deployment numbers and are unchanged.
+
+**Hardware:** iMac, Intel Core i5-6500 (4 cores), 8 GB RAM, macOS 12.7.6, Python 3.14.8.
+**Database:** a SQLite backup of `data/coach.db` (376 sessions) at a temporary path; the
+resolver was enabled on that copy only. The live database was opened read-only for the backup.
+
+### 9.1 Resolver build
+
+Same inputs as §2: date 2026-11-04, squat, `minimum_target_minutes=30`,
+`top_set_requested=False`, public `resolver.build_resolved` with the clean-set snapshot on.
+
+| Run | Wall | CPU |
+|---|---:|---:|
+| iMac, run 1 | 6.98 s | 6.84 s |
+| iMac, run 2 | 6.84 s | 6.72 s |
+| iMac, run 3 | 6.74 s | 6.67 s |
+| ODROID-C4, 2026-11-05 A/B with snapshot (§2) | 35.41 s | 35.06 s |
+
+All three runs returned the same seven items in the same order as the ODROID run:
+`box_jump`, `ssb_squat`, `bench_press_narrow`, `back_extension`, `dumbbell_row`,
+`lying_leg_curls`, `ab_wheel`. The iMac database is one session newer (376 vs 375), so this is
+a close re-run, not a byte-identical A/B. The iMac is about **5×** faster — expected of a
+desktop Core i5 against four Cortex-A55 cores, and not evidence about deployed latency.
+
+### 9.2 Programme forecast
+
+`features.programme.build_programme` with its fixed path (`use_resolver=False`), start
+2026-11-10, three sessions per week, one fresh process per row:
+
+| Horizon | Sessions | Wall | CPU |
+|---|---:|---:|---:|
+| 2 weeks | 6 | 29.0 s | 28.6 s |
+| 4 weeks | 12 | 50.3 s | 49.7 s |
+| 26 weeks (maximum) | 78 | 323.0 s | 319.2 s |
+
+Cost grows roughly linearly with session count, with a small shared history load at the start.
+DEC-PROGRAMME-09 records "about a minute" for a six-session forecast on an unnamed reference
+machine; the iMac completes that horizon in 29 s. The 26-week maximum takes over five minutes
+here, which is why the forecast is one background job and the horizon is clamped to 26 weeks
+rather than unbounded. These session builds use the fixed path; the resolver figures in §9.1 do
+not apply to them.

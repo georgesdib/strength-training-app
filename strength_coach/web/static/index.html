@@ -137,7 +137,7 @@
         <div class="panel-head"><h2 id="history-detail-title">Session details</h2>
           <span class="muted">read only</span></div>
         <p class="section-help"><span>Session-level RPE, duration, note and edit reason; set corrections remain append-only.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md&amp;anchor=17-1-corrections-for-completed-sessions">Correction model</a></p>
-        <p class="section-help"><span>Read-only stored sets, RIR, VBT and notes for the selected session.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md">Session data model</a></p>
+        <p class="section-help"><span>Read-only stored sets, RIR, VBT and notes for the selected session. Prescription adherence compares performed working sets with the original and final plan; set completion is shown separately from rep, load and RIR target attainment.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md">Session data model</a></p>
         <div id="history-details"></div>
         <div class="form-row"><button class="ghost" type="button" id="history-details-close">Close</button></div>
       </div>
@@ -194,6 +194,20 @@
           <span class="muted" id="progress-overview-status" role="status" aria-live="polite"></span>
         </form>
         <div id="progress-dashboard"><p class="empty">Loading progress…</p></div>
+        <section class="panel progress-dashboard-panel state-wide" id="progress-adherence-panel">
+          <div class="panel-head"><h2>Prescription adherence over time</h2><span class="muted">summed counts; no composite score</span></div>
+          <p class="section-help"><span>Completed app-tracked workouts only. Set completion, rep-range attainment, load-target attainment and RIR-target attainment stay separate, each with its own summed numerator and denominator.</span> <a class="doc-link" href="#docs?doc=docs/WEB-UI.md">Adherence definitions</a></p>
+          <form id="progress-adherence-form" class="form-row">
+            <label>Period<select id="progress-adherence-weeks"><option value="4">4 weeks</option><option value="8" selected>8 weeks</option><option value="12">12 weeks</option></select></label>
+            <label>As of<input type="date" id="progress-adherence-date"></label>
+            <label>Exercise<select id="progress-adherence-exercise"><option value="">All prescribed exercises</option></select></label>
+            <label>Session type<select id="progress-adherence-session-type"><option value="">All</option></select></label>
+            <label>Group by<select id="progress-adherence-group"><option value="week">Week</option><option value="month">Month</option></select></label>
+            <button class="primary" type="submit">Update adherence</button>
+            <span class="muted" id="progress-adherence-status" role="status" aria-live="polite"></span>
+          </form>
+          <div id="progress-adherence"><p class="empty">Loading prescription adherence…</p></div>
+        </section>
         <div class="progress-dashboard-grid">
           <section class="panel progress-dashboard-panel"><div class="panel-head"><h2>Strength trend</h2><span class="muted">eligible raw e1RM observations</span></div>
             <p class="section-help"><span>Raw eligible daily estimates only; gaps and equipment changes are not imputed.</span> <a class="doc-link" href="#docs?doc=docs/OUTCOMES.md">Strength and outcome definitions</a></p>
@@ -240,7 +254,7 @@
             <p class="muted">Completed app-tracked workouts only; imported sessions without a frozen plan are unavailable.</p>
             <label>Completed workout<select id="progress-workout"><option value="">No workout selected</option></select></label>
             <div id="progress-execution"><p class="empty">Select a completed workout with a stored plan snapshot.</p></div>
-            <p class="muted">The actual is a count of logged set rows (which can include different roles), not a working-set-only or exercise-matched compliance score. Repetitions, loads and RIR remain in workout detail because ranges, nullable actuals and differing load bases do not form one comparable longitudinal total.</p>
+            <p class="muted">The actual is a count of logged set rows (which can include different roles), not a working-set-only or exercise-matched compliance score. Repetitions, loads and RIR remain in workout detail because ranges, nullable actuals and differing load bases do not form one comparable longitudinal total. The separate adherence panel above sums each metric's own numerator and denominator instead of combining them.</p>
           </details>
         </div>
         <div class="today-quick-links"><a href="#performance" data-view-link="performance">Detailed Performance analysis</a><a href="#outcomes" data-view-link="outcomes">Detailed Outcomes review</a></div>
@@ -308,6 +322,18 @@
         <div id="performance-e1rm"></div>
         <div id="performance-dose"></div>
         <div id="performance-ratios"></div>
+        <div class="panel" id="vbt-performance-panel">
+          <div class="panel-head"><h3>VBT target performance</h3><span class="muted">cohorts; descriptive only</span></div>
+          <p class="section-help"><span>Frozen-target residuals, calibration-band evidence, actual/prescribed RIR and within-set velocity drift. Cohorts are kept separate; no composite score and no prescription change.</span> <a class="doc-link" href="#docs?doc=docs/VBT-CALIBRATION.md">VBT analysis rules</a></p>
+          <form id="vbt-performance-form" class="form-row">
+            <label>Exercise<select id="vbt-performance-exercise"><option value="">All VBT cohorts</option></select></label>
+            <label>From <input type="date" id="vbt-performance-from"></label>
+            <label>To <input type="date" id="vbt-performance-to"></label>
+            <button class="primary" type="submit">Run VBT analysis</button>
+            <span class="muted" id="vbt-performance-status" role="status" aria-live="polite"></span>
+          </form>
+          <div id="vbt-performance-result"><p class="empty">Loading VBT performance…</p></div>
+        </div>
         <div class="panel" id="monitoring-analysis-panel">
           <div class="panel-head"><h3>Monitoring analysis</h3><span class="muted">exploratory; read-only</span></div>
           <p class="section-help"><span>Descriptive dose and lagged associations plus calibration transparency. It never changes a prescription or calibration.</span> <a class="doc-link" href="#docs?doc=docs/MONITORING-ANALYSIS.md">Analysis documentation</a></p>
@@ -667,6 +693,7 @@
             <label class="grow">Per-rep m/s <input type="text" id="workout-set-rep-velocities" placeholder="e.g. 0.62, 0.58, 0.55"></label>
             <button class="primary" type="submit">Add set</button>
           </form>
+          <div id="workout-set-vbt-feedback" class="vbt-feedback" role="status" aria-live="polite"></div>
           <p class="field-hint">RIR 0 = failure; 6 = warm-up. Load is added load for bodyweight movements. Per-rep m/s is optional; values map to reps 1..n and the set mean is derived when the mean field is blank.</p>
           <div id="workout-set-msg" role="status" aria-live="polite"></div>
         </section>
@@ -1102,6 +1129,27 @@
           the file; if they do, the status says so.</p>
       </div>
 
+      <div class="panel" id="settings-ios-panel">
+        <div class="panel-head"><h2>iOS settings</h2>
+          <span class="badge" id="settings-ios-status">loading…</span></div>
+        <p class="section-help"><span>Server-side iOS facade configuration. Saving updates <code>config/ios.v1.yaml</code>; the server re-reads it for every request, so no restart is required.</span> <a class="doc-link" href="#docs?doc=docs/API.md">iOS facade API</a></p>
+        <p class="muted" id="settings-ios-source">Effective values below · source loading…</p>
+        <form id="settings-ios-form">
+          <label><input type="checkbox" id="settings-ios-mutations"> Enable iOS mutations</label>
+          <p class="muted">Master write switch for the iOS facade. Off returns every iOS mutation as 503 while bootstrap, today, history and progress stay available.</p>
+          <div class="form-row">
+            <label>Issued plan TTL (seconds, 60–86400) <input type="number" id="settings-ios-issued-ttl" min="60" max="86400" step="1" required></label>
+            <label>Plan request TTL (seconds, 60–3600) <input type="number" id="settings-ios-request-ttl" min="60" max="3600" step="1" required></label>
+            <label>Receipt retention (days, 1–365) <input type="number" id="settings-ios-receipt-days" min="1" max="365" step="1" required></label>
+          </div>
+          <p class="muted">Issued plan TTL bounds how long a ready plan can be started. Plan request TTL bounds queued/building time before a failed build; it is not the plan lifetime. Receipt retention bounds idempotency records used for safe retries.</p>
+          <div class="form-row">
+            <button class="primary" type="submit">Save iOS settings</button>
+            <span class="muted" id="settings-ios-msg" role="status" aria-live="polite"></span>
+          </div>
+        </form>
+      </div>
+
       <div class="panel">
         <div class="panel-head"><h2>Prescribe defaults</h2><span class="muted">browser-only preferences</span></div>
         <p class="section-help"><span>Browser-only form preferences; they do not change server rules.</span> <a class="doc-link" href="#docs?doc=docs/WEB-UI.md">Web UI</a></p>
@@ -1466,6 +1514,8 @@
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   <footer class="foot">Same core as <code>strength-coach</code>. The CLI remains the automation interface.</footer>
   <script src="/static/core.js"></script>
+  <script src="/static/adherence.js"></script>
+  <script src="/static/vbt.js"></script>
   <script src="/static/prescription-cache.js"></script>
   <script src="/static/settings.js"></script>
   <script src="/static/performance.js"></script>

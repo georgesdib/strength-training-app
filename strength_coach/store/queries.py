@@ -129,6 +129,43 @@ def clean_sets(
     return frame.copy(deep=True)
 
 
+def session_clean_sets(conn, session_id: str) -> list[dict]:
+    """Current leaf actual sets for one session, in performed order.
+
+    History corrections insert a superseding row and tombstone the old one, so the leaf row is
+    the authoritative performed set. Adherence for a completed workout must read these rows,
+    not the live workout_set draft, or a later correction would be ignored.
+    """
+    rows = conn.execute(
+        "SELECT s.* FROM clean_set s WHERE s.session_id = ? AND s.voided = 0 "
+        "AND NOT EXISTS (SELECT 1 FROM clean_set child "
+        "WHERE child.supersedes_id = s.set_id) "
+        "ORDER BY COALESCE(s.raw_id, s.set_id), s.set_id",
+        (str(session_id),),
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def session_vbt_overrides(conn, session_id: str) -> dict[int, dict]:
+    """Latest set-mean VBT override per set for one session.
+
+    Only `rep_index IS NULL` overrides replace the set mean; per-rep overrides remain rep
+    detail. The append-only chain is resolved by `override_id`, not by wall-clock text.
+    """
+    rows = conn.execute(
+        "SELECT o.set_id, o.velocity_mps, o.source, o.override_id "
+        "FROM vbt_override o WHERE o.session_id = ? AND o.rep_index IS NULL "
+        "AND NOT EXISTS (SELECT 1 FROM vbt_override child "
+        "WHERE child.supersedes_id = o.override_id) "
+        "ORDER BY o.override_id DESC",
+        (str(session_id),),
+    ).fetchall()
+    latest: dict[int, dict] = {}
+    for row in rows:
+        latest.setdefault(int(row["set_id"]), dict(row))
+    return latest
+
+
 def _clean_sets_query(
     conn,
     *,

@@ -18,16 +18,23 @@ from typing import Any
 
 import pandas as pd
 
-from strength_coach import __version__
+from strength_coach import __version__, adherence
 from strength_coach.critique import build_facts, score_session
 from strength_coach.critique.rubric import persist as persist_critique
 from strength_coach.domain import load as load_mod
+from strength_coach.domain.plan_identity import item_identity as _item_identity
+from strength_coach.domain.plan_identity import row_plan_identity
 from strength_coach.features import comparisons as comparisons_feature
 from strength_coach.features import demands as demands_feature
 from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
 from strength_coach.features import e1rm_decay as e1rm_decay_feature
 from strength_coach.features import e1rm_source as e1rm_source_feature
-from strength_coach.features import heavy_spinal, monitoring, strength_observations
+from strength_coach.features import (
+    heavy_spinal,
+    monitoring,
+    strength_observations,
+    vbt_analysis,
+)
 from strength_coach.features import relative_strength as relative_strength_feature
 from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.prescribe import config as prescribe_config
@@ -41,6 +48,7 @@ from strength_coach.prescribe.models import (
 from strength_coach.rules import RuleContext, load_document, registry
 from strength_coach.store import db, queries, repositories
 from strength_coach.utils import exercises
+from strength_coach.utils import readiness as readiness_utils
 
 REQUIRED_READINESS = ("sleep", "energy", "mood", "soreness", "stress")
 OPTIONAL_READINESS = ("hrv_ms", "rhr_bpm", "bodyweight_kg", "wearable_score")
@@ -80,8 +88,13 @@ def validate_readiness(values: Mapping[str, Any], *,
         clean[key] = number
     for key in OPTIONAL_READINESS:
         value = values.get(key)
-        if value not in (None, ""):
-            clean[key] = float(value)
+        if value in (None, ""):
+            continue
+        try:
+            readiness_utils.validate(key, value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"readiness.{key}: {exc}") from None
+        clean[key] = float(value)
     return clean
 
 
@@ -105,6 +118,7 @@ def start(
     readiness: Mapping[str, Any],
     session_type: str | None = None,
     prescription_id: str | None = None,
+    owner_device_id: str | None = None,
     note: str | None = None,
     allow_partial_readiness: bool = False,
 ) -> dict:
@@ -134,18 +148,20 @@ def start(
             "plan.session_type must be a normal type, volume_fill_<original> or technique"
         )
     workout_id = str(uuid.uuid4())
+    started_at = _now()
     conn.execute(
         """
         INSERT INTO workout_session
             (workout_id, prescription_id, for_date, session_type, status,
-             plan_json, readiness_json, started_at, notes)
-        VALUES (?, ?, ?, ?, 'in_progress', ?, ?, ?, ?)
+             plan_json, readiness_json, started_at, notes, owner_device_id,
+             plan_revision, last_activity_at)
+        VALUES (?, ?, ?, ?, 'in_progress', ?, ?, ?, ?, ?, 0, ?)
         """,
         (
             workout_id, prescription_id, for_date, resolved_type,
             json.dumps(plan_data, separators=(",", ":")),
             json.dumps(readiness_data, separators=(",", ":")),
-            _now(), note,
+            started_at, note, owner_device_id, started_at,
         ),
     )
     _event(conn, workout_id, "start", {"readiness": readiness_data})
@@ -176,6 +192,11 @@ def get(conn, workout_id: str) -> dict | None:
     data["readiness"] = json.loads(data.pop("readiness_json"))
     data["sets"] = _sets(conn, workout_id)
     data["forms"] = _form_ratings(conn, workout_id)
+    # The API names the stable plan-item identity plan_item_index; the stored column is
+    # prescription_item_index. Expose both so existing web consumers keep the column name and
+    # the iOS client can decode the documented API field.
+    for row in data["sets"]:
+        row.setdefault("plan_item_index", row.get("prescription_item_index"))
     rep_state = _current_reps(conn, workout_id)
     for row in data["sets"]:
         detail = rep_state.get(int(row["set_id"]))
@@ -186,6 +207,23 @@ def get(conn, workout_id: str) -> dict | None:
     data["comparison"] = _comparison(data)
     data["original_comparison"] = _comparison({**data, "plan": original}, original=True)
     data["minimum_session"] = _minimum_session_summary(data)
+    if data["status"] == "in_progress":
+        data["vbt"] = vbt_analysis.active_feedback(data)
+    elif data["status"] == "completed":
+        # Completed analysis must use corrected clean_set leaf rows, not the live workout_set
+        # draft, and the latest set-mean override when one exists. A voided session is excluded
+        # from analysis rather than silently retaining a stale comparison.
+        voided = conn.execute(
+            "SELECT voided FROM session WHERE session_id = ?", (workout_id,)
+        ).fetchone()
+        if voided is not None and int(voided["voided"] or 0):
+            data["vbt"] = vbt_analysis.unavailable("session_voided")
+        else:
+            data["vbt"] = vbt_analysis.completed(
+                data,
+                queries.session_clean_sets(conn, workout_id),
+                overrides=queries.session_vbt_overrides(conn, workout_id),
+            )
     return data
 
 
@@ -516,9 +554,9 @@ def _summary_special(
 def summary(conn, workout_id: str) -> dict[str, Any]:
     """Read-only descriptive summary for a completed workout.
 
-    Sections 1-5 only. No historical comparability, ratios or longitudinal trend is computed
-    in Phase 2. Raw performance is formula-derived; load-base provenance is used only for
-    relative intensity.
+    Includes the Phase 3 target-versus-actual comparison alongside the existing descriptive
+    sections. No historical comparability, ratios or longitudinal trend is computed here. Raw
+    performance is formula-derived; load-base provenance is used only for relative intensity.
     """
     data = get(conn, workout_id)
     if data is None:
@@ -566,6 +604,21 @@ def summary(conn, workout_id: str) -> dict[str, Any]:
     completion["completed_sets"] = sum(
         int(item.get("actual_sets") or 0) for item in completion.get("items") or []
     )
+    # Adherence reads the materialised leaf rows, not the live workout_set draft, so a later
+    # history correction is reflected in the completed summary. A voided session is excluded
+    # from metrics, so its adherence is explicitly unavailable rather than silently recomputed.
+    session_row = conn.execute(
+        "SELECT voided FROM session WHERE session_id = ?", (session_id,)
+    ).fetchone()
+    if session_row is not None and int(session_row["voided"] or 0):
+        adherence_payload = adherence.unavailable("session_voided")
+        vbt_payload = vbt_analysis.unavailable("session_voided")
+    else:
+        adherence_payload = adherence.analyse({
+            **data,
+            "sets": queries.session_clean_sets(conn, session_id),
+        })
+        vbt_payload = data.get("vbt") or vbt_analysis.unavailable("vbt_unavailable")
     feedback = _summary_feedback(conn, data, session_id)
     strength = _summary_strength(
         conn, session_id, for_date, frame, entities, excluded_set_kinds, config
@@ -619,6 +672,8 @@ def summary(conn, workout_id: str) -> dict[str, Any]:
             for value in ratios
         ],
         "comparison": comparison,
+        "adherence": adherence_payload,
+        "vbt": vbt_payload,
         "quality": {
             "flags": [],
             "coverage": {
@@ -701,6 +756,7 @@ def set_form_rating(conn, workout_id: str, *, exercise_id: str, rating: int,
         (str(workout_id), exercise_id, value, note or None),
     )
     _event(conn, workout_id, "form_rating", {"exercise_id": exercise_id, "rating": value})
+    _touch(conn, workout_id)
     return get(conn, workout_id)
 
 
@@ -796,6 +852,14 @@ def _elapsed(data: Mapping[str, Any]) -> int:
         return 0
     end = _parse(data.get("ended_at")) or dt.datetime.now(dt.UTC)
     return max(0, int((end - start).total_seconds()))
+
+
+def _touch(conn, workout_id: str) -> None:
+    """Record user activity for the idle warning and abandonment sweep."""
+    conn.execute(
+        "UPDATE workout_session SET last_activity_at = ? WHERE workout_id = ?",
+        (_now(), workout_id),
+    )
 
 
 def _event(conn, workout_id: str, event_type: str, payload: dict,
@@ -976,6 +1040,7 @@ def add_set(
         _event(conn, workout_id, "add_set", {"exercise_id": exercise_id,
                                               "set_index": set_index},
                target_set_id=int(cursor.lastrowid))
+        _touch(conn, workout_id)
         if rep_detail:
             _append_reps(
                 conn, workout_id, int(cursor.lastrowid), rep_detail,
@@ -1030,6 +1095,7 @@ def remove_set(conn, workout_id: str, set_id: int) -> dict:
         raise ValueError("set not found")
     _event(conn, workout_id, "remove_set", {"set_id": int(set_id)},
            target_set_id=int(set_id))
+    _touch(conn, workout_id)
     return get(conn, workout_id)
 
 
@@ -1091,8 +1157,9 @@ def _write_plan(conn, workout_id: str, plan: dict, event_type: str,
                 payload: dict) -> dict:
     validate_plan_items(plan.get("items") or (), where="plan")
     conn.execute(
-        "UPDATE workout_session SET plan_modified_json = ? WHERE workout_id = ?",
-        (json.dumps(plan, separators=(",", ":")), workout_id),
+        "UPDATE workout_session SET plan_modified_json = ?, "
+        "plan_revision = plan_revision + 1, last_activity_at = ? WHERE workout_id = ?",
+        (json.dumps(plan, separators=(",", ":")), _now(), workout_id),
     )
     _event(conn, workout_id, event_type, payload)
     return get(conn, workout_id)
@@ -1104,39 +1171,15 @@ def _editable(workout: dict) -> list[dict]:
     return [dict(item) for item in (workout.get("plan") or {}).get("items") or []]
 
 
-def _item_identity(item: Mapping[str, Any], position: int) -> int:
-    """Stable identity within a workout; legacy rows fall back to their original position.
-
-    Plan edits preserve ``order_index`` and never renumber it. It is therefore an identity,
-    not the item's current display position. Old plan JSON without the field still gets a
-    deterministic identity from its initial order.
-    """
-    return int(item.get("order_index", position))
-
-
 def _row_plan_identity(workout: Mapping[str, Any], row: Mapping[str, Any]) -> int | None:
-    """Resolve a stored set to a stable item identity, including legacy positional rows.
+    """Resolve a stored set against the workout's current plan snapshot.
 
-    New rows store the stable identity. Rows written before the identity fix store the list
-    position at write time; when that value no longer names an item of the same exercise, the
-    current position is accepted only if it names the same exercise, which preserves old
-    unmodified workouts without guessing across a moved item.
+    The identity rules live in strength_coach.domain.plan_identity so adherence analysis can
+    resolve a set against the original and final plans without a second implementation.
     """
-    value = row.get("prescription_item_index")
-    if value is None:
-        return None
-    try:
-        index = int(value)
-    except (TypeError, ValueError):
-        return None
-    items = list((workout.get("plan") or {}).get("items") or [])
-    exercise = str(row.get("exercise_id"))
-    for position, item in enumerate(items):
-        if _item_identity(item, position) == index and str(item.get("exercise_id")) == exercise:
-            return index
-    if 0 <= index < len(items) and str(items[index].get("exercise_id")) == exercise:
-        return _item_identity(items[index], index)
-    return None
+    return row_plan_identity(
+        list((workout.get("plan") or {}).get("items") or []), row
+    )
 
 
 def _logged_sets_for_item(workout: dict, item_index: int, exercise_id: str) -> tuple[int, int]:
@@ -1195,6 +1238,11 @@ def swap_exercise(conn, workout_id: str, item_index: int, exercise_id: str) -> d
         # The old load belongs to the old lift; do not silently carry it across.
         "load_kg": None,
         "unknown_load_reason": "swapped during workout; load not re-solved",
+        # The old VBT target belongs to the old lift's velocity profile; carrying it across
+        # would be a fabricated target for the replacement exercise.
+        "velocity_target": None,
+        "vbt_basis": None,
+        "vbt": None,
         # The old top-set/back-off structure belongs to the old lift; discard it rather
         # than carry a stale load or role onto the replacement.
         "set_groups": [],
@@ -1228,10 +1276,16 @@ def add_exercise(
     sets = max(1, min(20, int(sets)))
     low = max(1, min(50, int(reps_low)))
     high = max(low, min(50, int(reps_high)))
-    next_index = max(
-        (_item_identity(item, position) for position, item in enumerate(items)),
-        default=-1,
-    ) + 1
+    # Allocate across the original snapshot as well as the edited plan. Reusing the identity
+    # of a removed item would make a removal plus an addition indistinguishable from a swap
+    # when original and final prescriptions are compared.
+    original_items = list((workout.get("original_plan") or {}).get("items") or [])
+    identities = [
+        _item_identity(item, position)
+        for collection in (original_items, items)
+        for position, item in enumerate(collection)
+    ]
+    next_index = max(identities, default=-1) + 1
     item = {
         "order_index": next_index,
         "exercise_id": new_id,
@@ -1242,6 +1296,11 @@ def add_exercise(
         "rir_target": rir_target,
         "essential": False,
         "added_during_workout": True,
+        # A workout-time addition has no issued calibration target; keep the shape explicit
+        # rather than making consumers guess from an absent key.
+        "velocity_target": None,
+        "vbt_basis": None,
+        "vbt": None,
     }
     plan = {**(workout.get("plan") or {}), "items": items + [item]}
     return _write_plan(conn, workout_id, plan, "add_exercise", item)
@@ -1975,7 +2034,46 @@ def end(
     return get(conn, workout_id)
 
 
-def abandon(conn, workout_id: str) -> dict:
+def abandon_stale(conn, before_iso: str) -> int:
+    """Lazily abandon in-progress sessions whose last activity predates the cutoff."""
+    rows = conn.execute(
+        "SELECT workout_id FROM workout_session "
+        "WHERE status = 'in_progress' "
+        "  AND COALESCE(last_activity_at, started_at) < ?",
+        (str(before_iso),),
+    ).fetchall()
+    count = 0
+    with db.transaction(conn):
+        for row in rows:
+            abandon(conn, row["workout_id"], reason="idle")
+            count += 1
+    return count
+
+
+def take_over(conn, workout_id: str, device_id: str) -> dict:
+    """Transfer ownership to a phone; idempotent when it already owns the session."""
+    workout = get(conn, workout_id)
+    if workout is None:
+        raise ValueError("workout not found")
+    if workout["status"] != "in_progress":
+        raise ValueError("workout is not in progress")
+    previous = workout.get("owner_device_id")
+    if previous == device_id:
+        return workout
+    with db.transaction(conn):
+        conn.execute(
+            "UPDATE workout_session SET owner_device_id = ?, last_activity_at = ? "
+            "WHERE workout_id = ?",
+            (device_id, _now(), workout_id),
+        )
+        _event(conn, workout_id, "takeover", {
+            "from": previous,
+            "to": device_id,
+        })
+    return get(conn, workout_id)
+
+
+def abandon(conn, workout_id: str, *, reason: str | None = None) -> dict:
     workout = get(conn, workout_id)
     if workout is None:
         raise ValueError("workout not found")
@@ -1986,5 +2084,5 @@ def abandon(conn, workout_id: str) -> dict:
         "duration_measured_s = ? WHERE workout_id = ?",
         (_now(), _elapsed(workout), workout_id),
     )
-    _event(conn, workout_id, "abandon", {})
+    _event(conn, workout_id, "abandon", {"reason": reason} if reason else {})
     return get(conn, workout_id)

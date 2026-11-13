@@ -172,6 +172,62 @@ def test_start_accepts_explicitly_acknowledged_partial_readiness(conn):
     assert workout.active_workout(conn)["workout_id"] == started["workout_id"]
 
 
+CORE_READINESS = {"sleep": 4, "energy": 4, "mood": 4, "soreness": 2, "stress": 3}
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("hrv_ms", -1, "readiness.hrv_ms"),
+        ("hrv_ms", 0, "readiness.hrv_ms"),
+        ("rhr_bpm", -1, "readiness.rhr_bpm"),
+        ("rhr_bpm", 0, "readiness.rhr_bpm"),
+        ("bodyweight_kg", -1, "readiness.bodyweight_kg"),
+        ("bodyweight_kg", 0, "readiness.bodyweight_kg"),
+        ("wearable_score", -1, "readiness.wearable_score"),
+        ("wearable_score", 101, "readiness.wearable_score"),
+        ("hrv_ms", "nan", "readiness.hrv_ms"),
+        ("rhr_bpm", "inf", "readiness.rhr_bpm"),
+        ("bodyweight_kg", "-inf", "readiness.bodyweight_kg"),
+        ("wearable_score", "nan", "readiness.wearable_score"),
+    ],
+)
+def test_validate_readiness_rejects_invalid_optional_device_values(field, value, message):
+    with pytest.raises(ValueError, match=message):
+        workout.validate_readiness({**CORE_READINESS, field: value})
+
+
+def test_validate_readiness_accepts_valid_optional_device_values():
+    clean = workout.validate_readiness({
+        **CORE_READINESS,
+        "hrv_ms": 55,
+        "rhr_bpm": 52,
+        "bodyweight_kg": 80.5,
+        "wearable_score": 0,
+    })
+    assert clean == {
+        **CORE_READINESS,
+        "hrv_ms": 55.0,
+        "rhr_bpm": 52.0,
+        "bodyweight_kg": 80.5,
+        "wearable_score": 0.0,
+    }
+
+
+def test_validate_readiness_preserves_missing_optional_and_partial_fields():
+    assert workout.validate_readiness(CORE_READINESS) == {
+        key: float(value) for key, value in CORE_READINESS.items()
+    }
+    assert workout.validate_readiness({"sleep": 2}, allow_partial=True) == {"sleep": 2.0}
+
+
+def test_validate_readiness_keeps_required_field_validation():
+    with pytest.raises(ValueError, match="readiness.energy is required"):
+        workout.validate_readiness({**CORE_READINESS, "energy": None})
+    with pytest.raises(ValueError, match="readiness.sleep must be between 1 and 5"):
+        workout.validate_readiness({**CORE_READINESS, "sleep": 6})
+
+
 def test_start_add_remove_and_end(conn):
     started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
     assert started["status"] == "in_progress"

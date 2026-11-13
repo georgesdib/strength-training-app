@@ -14,6 +14,8 @@ the evidence unit.
 
 from __future__ import annotations
 
+import math
+
 # DEC-READINESS-20: nutrition and hydration are no longer readiness inputs. They never
 # entered the score or any modifier, so keeping them in the accepted set implied an input that
 # did not exist. The historical readiness_day/readiness_entry rows remain for provenance.
@@ -60,6 +62,8 @@ def validate(field: str, value: float) -> None:
     if field not in READINESS_FIELDS:
         raise ValueError(f"unknown readiness field {field!r}")
     number = float(value)
+    if not math.isfinite(number):
+        raise ValueError(f"{field} must be finite")
     if field in SCORE_FIELDS:
         if not 1 <= number <= 5 or number != int(number):
             raise ValueError(f"{field} must be an integer from 1 to 5")

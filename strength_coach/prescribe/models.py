@@ -126,6 +126,48 @@ def resize_plan_item_set_groups(item: Mapping[str, Any]) -> dict[str, Any]:
 
 
 @dataclass(frozen=True)
+class VbtTarget:
+    """Structured provenance for one issued velocity target.
+
+    The target is conditional on a rep count and an RIR band. The calibration id links to the
+    append-only vbt_calibration row, so a historical prescription can explain the exact target
+    it was issued with even after later recalibration. Values are never reconstructed from a
+    current calibration.
+    """
+
+    target_mps: float
+    low_mps: float | None
+    high_mps: float | None
+    rep_count: int
+    rir_low: int
+    rir_high: int
+    scope: str
+    family: str | None
+    n_sets: int
+    n_sessions: int
+    method_version: str
+    calibration_id: str | None = None
+    source: str = "computed"
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "target_mps": self.target_mps,
+            "low_mps": self.low_mps,
+            "high_mps": self.high_mps,
+            "rep_count": self.rep_count,
+            "rir_low": self.rir_low,
+            "rir_high": self.rir_high,
+            "scope": self.scope,
+            "family": self.family,
+            "n_sets": self.n_sets,
+            "n_sessions": self.n_sessions,
+            "method_version": self.method_version,
+            "calibration_id": self.calibration_id,
+            "source": self.source,
+        }
+
+
+@dataclass(frozen=True)
 class PrescriptionItem:
     order_index: int
     exercise_id: str
@@ -147,6 +189,9 @@ class PrescriptionItem:
     # None means "no target", never a guessed velocity (docs/VBT-CALIBRATION.md).
     velocity_target: float | None = None
     vbt_basis: str | None = None
+    # Structured target provenance; additive to velocity_target/vbt_basis and frozen into
+    # plan_json. None means no trustworthy target was issued, never "reconstruct later".
+    vbt: VbtTarget | None = None
     # Number of usable sets behind a formula e1RM; None for overrides/fallbacks/accessories.
     e1rm_source_sets: int | None = None
     # Plan-snapshot provenance. These are serialised into plan_json, never prescription_item.

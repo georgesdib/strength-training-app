@@ -1205,7 +1205,8 @@ function renderPrescription(p, options = {}) {
     <td><strong>${esc(item.exercise_id)}</strong>${item.essential ? ' <span class="badge">essential</span>' : ""}
       ${item.unknown_load_reason ? '<div class="muted">' + esc(item.unknown_load_reason) + "</div>" : ""}
       ${item.warmup && item.warmup.length ? '<div class="muted">warm-up: ' + item.warmup.map((w) => `${Math.round(w.percent * 100)}% × ${w.reps} @ ${fmt(w.load_kg)} kg`).join(" · ") + "</div>" : ""}
-      ${setGroupsHtml(item)}</td>
+      ${setGroupsHtml(item)}
+      ${vbtTargetDetails(item)}</td>
     <td>${item.sets}</td><td>${item.reps_low}–${item.reps_high}</td>
     <td>${fmt(item.load_kg)}</td><td>${item.effort_model === "quality"
       ? `quality stop<div class="muted">${esc(item.quality_stop || "")}</div>`
@@ -1256,6 +1257,7 @@ function renderPrescription(p, options = {}) {
   const cadenceBox = cadence?.enabled ? `<p class="muted">Strength test:
     <strong>${esc(cadence.due ? "due" : "not due")}</strong>
     — ${esc(cadence.next_scheme)} by ${esc(cadence.next_due)}. ${esc(cadence.reason)}</p>` : "";
+  const vbtNoteBox = vbtPrescriptionNote(p.notes?.vbt);
   const topSet = p.notes?.top_set;
   const topSetBox = topSet?.reason
     ? `<p class="muted"><strong>${topSet.applied ? "Top set" : "Top set not applied"}:</strong> ${esc(topSet.reason)}</p>`
@@ -1299,6 +1301,7 @@ function renderPrescription(p, options = {}) {
       ${item.unknown_load_reason ? `<p class="muted">${esc(item.unknown_load_reason)}</p>` : ""}
       ${item.warmup && item.warmup.length ? `<p class="muted">warm-up: ${item.warmup.map((w) => `${Math.round(w.percent * 100)}% × ${w.reps} @ ${fmt(w.load_kg)} kg`).join(" · ")}</p>` : ""}
       ${setGroupsHtml(item)}
+      ${vbtTargetDetails(item)}
       <p class="muted">${esc(item.refs.slice(-2).join(", "))}</p>
     </article>`;
   }).join("");
@@ -1321,7 +1324,7 @@ function renderPrescription(p, options = {}) {
     ${cachedBox}
     <div class="panel-head"><h2>${esc(p.for_date)} · ${esc(p.session_label || sessionLabel(p.session_type || "unknown"))}</h2>
       <span class="badge ${p.executable ? "" : "bad"}">${p.executable ? "executable" : "not executable"}</span></div>
-    ${timeLine}${volumeBox}${compBox}${topSetBox}${pendingBox}${warnings}${spinalBox}${minimumBox}${deloadBox}${suggestionBox}${selectionBox}${signalBox}${cadenceBox}
+    ${timeLine}${vbtNoteBox}${volumeBox}${compBox}${topSetBox}${pendingBox}${warnings}${spinalBox}${minimumBox}${deloadBox}${suggestionBox}${selectionBox}${signalBox}${cadenceBox}
     <div class="table-scroll desktop-table"><table><thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>kg</th><th>RIR</th><th>recent stress</th><th>readiness</th><th>e1RM n</th><th>refs</th></tr></thead>
     <tbody>${rows}</tbody></table></div>
     <div class="mobile-cards prescription-cards">${cards}</div>

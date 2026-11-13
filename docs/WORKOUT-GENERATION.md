@@ -142,7 +142,7 @@ This example is generated from a deterministic synthetic fixture, [`tests/fixtur
 The block below is rendered from the actual `build_prescription` output by [`tools/workout_generation_example.py`](../tools/workout_generation_example.py). Do not edit it by hand: after a template, threshold or engine change run `python tools/workout_generation_example.py --write`. [`tests/test_workout_generation_doc.py`](../tests/test_workout_generation_doc.py) fails when the committed block is stale.
 
 <!-- BEGIN GENERATED WORKOUT EXAMPLE -->
-<!-- source:sha256:b716af4052744bcd -->
+<!-- source:sha256:f51c209c79b3d55f -->
 
 ### 12.1 Inputs
 
@@ -174,14 +174,14 @@ The Lateral Raise row is part of the shared fixture but has no slot in the `hing
 | Order | Exercise selected | Sets | Reps | Target effort | Load | Load basis | Rest | Warm-up | Provenance |
 |---:|---|---:|---:|---|---:|---|---:|---|---|
 | 1 | Broad Jump | 3 | 3–5 | quality stop | bodyweight (0 kg external) | Bodyweight | 120 s | — | — |
-| 2 | Trap-Bar Deadlift | 5 | 3–5 | RIR 2 | 158.5 kg | e1RM | 180 s | 79 kg × 5; 110.5 kg × 3; 134.5 kg × 2 | PRG-RIR-001, set:2024-01-01/1 |
-| 3 | Bench Press (narrow grip) | 4 | 3–5 | RIR 2 | 95 kg | e1RM | 180 s | 47.5 kg × 5; 66.5 kg × 3; 80.5 kg × 2 | PRG-RIR-001, set:2024-01-01/2 |
+| 2 | Trap-Bar Deadlift | 5 | 3–5 | RIR 2 | 158.5 kg | e1RM | 180 s | 20 kg × 10; 79 kg × 5; 110.5 kg × 3; 134.5 kg × 2 | PRG-RIR-001, set:2024-01-01/1 |
+| 3 | Bench Press (narrow grip) | 4 | 3–5 | RIR 2 | 95 kg | e1RM | 180 s | 20 kg × 10; 47.5 kg × 5; 66.5 kg × 3; 80.5 kg × 2 | PRG-RIR-001, set:2024-01-01/2 |
 | 4 | Pull-up | 4 | 6–10 | RIR 2 | bodyweight (0 kg external) | Bodyweight | 90 s | — | PRG-DP-001, set:2024-01-01/5, MOD-VOL-002 |
 | 5 | Dumbbell Row | 4 | 8–12 | RIR 2 | 30 kg | Double progression | 90 s | — | PRG-DP-001, set:2024-01-01/6, MOD-VOL-002 |
 | 6 | Split Squat | 4 | 8–10 | RIR 2 | 30 kg | Double progression | 90 s | — | PRG-DP-001, set:2024-01-01/4, MOD-VOL-002 |
 | 7 | Lying Leg Curls | 4 | 8–12 | RIR 2 | 30 kg | Double progression | 90 s | — | PRG-DP-001, set:2024-01-01/7, MOD-VOL-002 |
 
-Time cap: **5,400 s** (90 min). Engine estimate: **74.0 min**. The cap is a planning ceiling, not a measured duration.
+Time cap: **5,400 s** (90 min). Engine estimate: **75.0 min**. The cap is a planning ceiling, not a measured duration.
 Spinal cost: **2.3** against a cap of **6.0** (week 2024-W02).
 
 Executable: **True**. Issues: none.

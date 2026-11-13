@@ -148,6 +148,13 @@ Power work is quality-limited: stop when movement quality or output declines rat
 
 If you use an external workout tracker instead, import its updated export afterwards.
 
+The native iPhone app has its own user guide in the StrengthApp repository (USER-GUIDE.md);
+use that for pairing, Home/Away routing, set and rest controls, notifications, offline behaviour
+and HealthKit. The local web UI shows the recorded execution observation in **History → Details**,
+with a proportional timeline and prescribed-versus-actual rest table. These are recorded
+observations, not a fatigue or readiness score; older workouts without execution events are not
+backfilled with estimated timestamps.
+
 ### After training — finish and review
 
 1. End the live workout, or import the updated external log.

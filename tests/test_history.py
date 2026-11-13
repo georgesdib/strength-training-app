@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from conftest import make_readiness, make_training
 
-from strength_coach import history
+from strength_coach import history, workout
 from strength_coach.store import db, importer, queries
 
 ROWS = [
@@ -267,3 +267,59 @@ def test_injected_failure_rolls_back_the_whole_edit(monkeypatch):
         assert conn.execute("SELECT COUNT(*) AS n FROM session_edit").fetchone()["n"] == 0
     finally:
         store.close()
+
+
+def test_history_edit_preserves_set_role_and_plan_identity():
+    plan = {
+        "for_date": "2024-01-01",
+        "session_type": "hinge",
+        "items": [{
+            "exercise_id": "trap_bar_deadlift",
+            "sets": 2,
+            "reps_low": 3,
+            "reps_high": 5,
+            "load_kg": 90,
+            "load_basis": "external",
+            "rir_target": 2,
+            "set_groups": [
+                {"role": "top_set", "sets": 1, "load_kg": 110, "reps_low": 3,
+                 "reps_high": 5, "rir_target": 1, "percent_of_top": None},
+                {"role": "back_off", "sets": 1, "load_kg": 90, "reps_low": 3,
+                 "reps_high": 5, "rir_target": 2, "percent_of_top": 0.82},
+            ],
+        }],
+    }
+    readiness = {"sleep": 4, "energy": 4, "mood": 4, "soreness": 2, "stress": 3}
+    store = db.Store(":memory:")
+    try:
+        conn = store.connection
+        started = workout.start(
+            conn, for_date="2024-01-01", plan=plan, readiness=readiness,
+        )
+        workout.add_set(
+            conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+            load_kg=110, reps=3, rir=1, set_role="top_set",
+        )
+        workout.add_set(
+            conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+            load_kg=90, reps=5, rir=2, set_role="back_off",
+        )
+        workout.end(conn, started["workout_id"], session_rpe=7, duration_min=30)
+        detail = history.detail(conn, started["workout_id"])
+        first, second = detail["sets"]
+        history.edit_session(
+            conn, started["workout_id"],
+            sets=[{**first, "reps": 4}, second],
+            reason="correct reps",
+        )
+        rows = conn.execute(
+            "SELECT s.set_role, s.prescription_item_index FROM clean_set s "
+            "WHERE s.session_id = ? AND s.voided = 0 AND NOT EXISTS "
+            "(SELECT 1 FROM clean_set child WHERE child.supersedes_id = s.set_id) "
+            "ORDER BY s.set_role",
+            (started["workout_id"],),
+        ).fetchall()
+    finally:
+        store.close()
+    assert [row["set_role"] for row in rows] == ["back_off", "top_set"]
+    assert {row["prescription_item_index"] for row in rows} == {0}

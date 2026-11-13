@@ -194,6 +194,17 @@ not content deduplication. Two identical rows *inside the same new file* still c
 rows and two clean sets, preserving DQ-DUP-01. A correction with a changed load/reps/date is a
 new row, not a silent merge.
 
+## 5a. Execution telemetry coverage
+
+`workout_execution_event` is a separate, append-only observation stream. A set duration exists
+only when both `set_started` and `set_completed` were recorded; a completion timestamp alone is
+never converted into a duration. Rest duration exists only from explicit `rest_started` and
+`rest_completed`/`rest_skipped` events. Workouts without events remain valid but are explicitly
+shown as having no execution timeline; they are never backfilled with estimated starts or rests.
+Overlapping intervals are unioned, not summed twice. Prescribed rest comes from the captured
+event payload; actual rest is always measured from timestamps. These metrics describe execution
+and are not muscular fatigue, readiness or compliance verdicts.
+
 ## 6. Flags that must not be resolved silently
 
 | issue | handling |

@@ -22,12 +22,13 @@ SESSION_TYPES = ("squat", "hinge", "bench_squat", "bench_hinge")
 # Provenance: computed at baseline 6cf77d5, the parent of the selector-extraction commit
 # 5e40080, by running the same build_store/build_prescription fixture and hashing
 # json.dumps(p.as_rows(), sort_keys=True, separators=(",", ":")). They are not regenerated
-# from the extracted implementation.
+# from the extracted implementation. Regenerated 2026-11-11 for the approved empty-bar warm-up
+# rung (first warm-up = min(20 kg, 50% ramp), 10 reps), a deliberate prescription change.
 GOLDEN_ROWS_SHA256 = {
-    "squat": "25383ba7654467afb316b7b6fff8cb3d6719f752f5e75581d7237f2fbe65de22",
-    "hinge": "43c547c85ebbd2e9c15044654f9142201dd4710144d8acb94240a34dbe920697",
-    "bench_squat": "892dd89783cf2e5807651d210557ba7941177a2fedfd7c2bdde9c2ca5e19c191",
-    "bench_hinge": "df85e13b772c72cb44d2a1fda5ba08bd3afd8a12e9d902593fda2e58ef1603a5",
+    "squat": "f49c0065e4baebbd06bf4747bf6215a3b6174a748b739e628b75e057510255d4",
+    "hinge": "d94f49565d7e5e3a64b01f07d4ac933a3ec7d414ca95acc2e90c03fdc6887f69",
+    "bench_squat": "e48cd98e3e708519e79620d243710c5daa95bf2749c7ebcc09cc8f6ca0d7407a",
+    "bench_hinge": "8f015bdf99df4b8a43de823f789d80ccfe006a35260ad864054fdf7e83b5b1ef",
 }
 
 

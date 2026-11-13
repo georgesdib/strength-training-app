@@ -39,6 +39,7 @@ from strength_coach import (
     settings_profile,
     settings_registry,
     workout,
+    workout_execution,
 )
 from strength_coach.agents import selection as agent_selection
 from strength_coach.agents.client import LLMError
@@ -56,9 +57,8 @@ from strength_coach.critique.rubric import RUBRIC_VERSION
 from strength_coach.domain import athlete_state
 from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.eval import ITEM_GUIDE, ITEM_KEYS, backtest, format_report, load_marks, record_marks
-from strength_coach.features import breaks as breaks_feature
-from strength_coach.features import cardio as cardio_feature
 from strength_coach.features import (
+    adherence_analytics,
     config_inventory,
     continuity_calibration,
     heavy_spinal,
@@ -71,6 +71,8 @@ from strength_coach.features import (
     rep_velocity,
     retrospective_validation,
 )
+from strength_coach.features import breaks as breaks_feature
+from strength_coach.features import cardio as cardio_feature
 from strength_coach.features import deload as deload_feature
 from strength_coach.features import demands as demands_feature
 from strength_coach.features import derived as derived_feature
@@ -95,6 +97,7 @@ from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.features import shadow_report as shadow_report_feature
 from strength_coach.features import strength_trend as strength_trend_feature
 from strength_coach.features import test_cadence as test_cadence_feature
+from strength_coach.features import vbt_performance as vbt_performance_feature
 from strength_coach.features import volume as volume_feature
 from strength_coach.features import weekly as weekly_feature
 from strength_coach.features.readiness_score import ReadinessRequired
@@ -356,6 +359,7 @@ def _item_dict(item) -> dict:
         "time_cap_s": item.time_cap_s,
         "substitution_for": item.substitution_for,
         "vbt_basis": item.vbt_basis,
+        "vbt": item.vbt.as_dict() if item.vbt is not None else None,
         "e1rm_source_sets": item.e1rm_source_sets,
         "e1rm_kg": item.e1rm_kg,
         "e1rm_ref": item.e1rm_ref,
@@ -1021,13 +1025,19 @@ class Handler(BaseHTTPRequestHandler):
             with db.Store(self.db_path) as store:
                 device = self._ios_authenticate(store.connection)
                 conn = store.connection
-                if path == "/api/ios/v1/bootstrap":
+                if path == "/api/ios/v1/devices":
+                    devices = ios_devices.list_devices(conn)
+                    if device["kind"] == "watch":
+                        devices = [d for d in devices if d["device_id"] == device["device_id"]]
+                    payload = {"devices": devices}
+                elif path == "/api/ios/v1/bootstrap":
                     payload = {
                         "api_version": IOS_API_VERSION,
                         **_ios_clock(),
                         "capabilities": _ios_capabilities(),
                     }
                 elif path == "/api/ios/v1/today":
+                    self._ios_idle_sweep(conn)
                     clock = _ios_clock()
                     readiness = self._readiness(conn, clock["server_date"])
                     payload = {
@@ -1047,6 +1057,21 @@ class Handler(BaseHTTPRequestHandler):
                         parse_qs(urlparse(self.path).query, keep_blank_values=True)
                     )
                     payload = history.list_sessions(conn, **params)
+                elif path.startswith("/api/ios/v1/exercises/"):
+                    tail = unquote(path[len("/api/ios/v1/exercises/"):]).strip("/")
+                    query = parse_qs(urlparse(self.path).query, keep_blank_values=True)
+                    if tail.endswith("/history"):
+                        exercise_id = tail[:-len("/history")].strip("/")
+                        payload = self._ios_exercise_history(
+                            conn, exercise_id,
+                            limit=int(query.get("limit", ["20"])[0]),
+                            offset=int(query.get("offset", ["0"])[0]),
+                        )
+                    else:
+                        payload = self._ios_exercise_detail(conn, tail)
+                    if payload is None:
+                        self._error(404, "exercise not found")
+                        return
                 elif path == "/api/ios/v1/exercises":
                     payload = {
                         "exercises": sorted(
@@ -1071,6 +1096,41 @@ class Handler(BaseHTTPRequestHandler):
                     except ValueError:
                         self._error(404, "session not found")
                         return
+                elif path.startswith("/api/ios/v1/workouts/") and path.endswith("/execution"):
+                    workout_id = unquote(
+                        path[len("/api/ios/v1/workouts/"):-len("/execution")]
+                    ).strip("/")
+                    self._ios_idle_sweep(conn)
+                    payload = workout_execution.analytics(
+                        conn, workout_id, device["device_id"], require_owner=False
+                    )
+                    if payload is None:
+                        self._error(404, "workout not found")
+                        return
+                    data = workout.get(conn, workout_id)
+                    if data is not None:
+                        config = ios_config.load_config()
+                        last = data.get("last_activity_at")
+                        stale = False
+                        if last:
+                            try:
+                                last_dt = datetime.datetime.fromisoformat(
+                                    str(last).replace("Z", "+00:00")
+                                )
+                                stale = (
+                                    datetime.datetime.now(datetime.UTC) - last_dt
+                                ).total_seconds() >= config.idle_warn_seconds
+                            except ValueError:
+                                stale = False
+                        payload.update({
+                            "owner_device_id": data.get("owner_device_id"),
+                            "plan_revision": data.get("plan_revision", 0),
+                            "last_activity_at": last,
+                            "stale": stale,
+                            # The current plan (phone edits included) so a watch can apply a
+                            # newer revision without a second request (contract §10.1/§10.3).
+                            "plan": data.get("plan"),
+                        })
                 elif path == "/api/ios/v1/progress":
                     params = _ios_progress_params(
                         parse_qs(urlparse(self.path).query, keep_blank_values=True)
@@ -1091,6 +1151,55 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             LOGGER.exception("unhandled iOS GET %s", path)
             self._error(500, "internal server error")
+
+    def _ios_exercise_detail(self, conn, exercise_id: str) -> dict | None:
+        """Read-only exercise configuration and the existing e1RM series."""
+        row = next(
+            (item for item in exercise_admin.catalog()["entities"]
+             if item["id"] == exercise_id),
+            None,
+        )
+        if row is None:
+            return None
+        properties = dict(row.get("props") or {})
+        # Explicit taxonomy values win; otherwise use the canonical structural rule used by
+        # prescriptions and strength observations. Most exercises rely on that default.
+        applicable = derived_feature.e1rm_applicable(properties)
+        e1rm = None
+        if applicable:
+            clock = _ios_clock()
+            to_date = clock["server_date"]
+            from_date = (
+                datetime.date.fromisoformat(to_date) - datetime.timedelta(days=365)
+            ).isoformat()
+            e1rm = self._performance_e1rm(conn, {
+                "exercise_id": [exercise_id],
+                "from": [from_date],
+                "to": [to_date],
+                "quality": ["degraded"],
+            })
+        return {
+            "exercise": {
+                "id": row["id"],
+                "display": row["display"],
+                "pattern": row.get("pattern"),
+                "source": row.get("source"),
+            },
+            "properties": properties,
+            "e1rm_applicable": applicable,
+            "e1rm": e1rm,
+            "e1rm_reason": None if applicable else "not marked e1RM-applicable",
+        }
+
+    def _ios_exercise_history(
+        self, conn, exercise_id: str, *, limit: int, offset: int
+    ) -> dict | None:
+        if exercise_id not in exercises.taxonomy().entities:
+            return None
+        return exercise_history_feature.history(
+            conn, exercise_id, limit=max(1, min(100, limit)),
+            offset=max(0, offset), include_analytics=False,
+        )
 
     def _ios_pair(self) -> None:
         # The pairing exchange is the only unauthenticated iOS route. It is the one place a
@@ -1126,7 +1235,10 @@ class Handler(BaseHTTPRequestHandler):
             with db.Store(self.db_path) as store:
                 device = self._ios_authenticate(store.connection)
                 conn = store.connection
-                if path == "/api/ios/v1/readiness":
+                if path == "/api/ios/v1/devices/watch":
+                    config = self._ios_require_mutations()
+                    self._ios_mint_watch(conn, device, config)
+                elif path == "/api/ios/v1/readiness":
                     config = self._ios_require_mutations()
                     body = self._body()
                     self._ios_mutation(
@@ -1163,7 +1275,7 @@ class Handler(BaseHTTPRequestHandler):
                         body = self._body()
                         self._ios_workout_mutation(
                             conn, device, path, body, config, parts[4],
-                            self._ios_workout_plan_add,
+                            self._ios_workout_plan_add, access="phone",
                         )
                     elif len(parts) == 9 and parts[:5] == [
                         "api", "ios", "v1", "workouts", parts[4]
@@ -1190,12 +1302,20 @@ class Handler(BaseHTTPRequestHandler):
 
                         self._ios_workout_mutation(
                             conn, device, path, body, config, parts[4], plan_handler,
+                            access="phone",
                         )
                     elif len(parts) == 6 and parts[:4] == ["api", "ios", "v1", "workouts"]:
                         workout_id = parts[4]
                         action = parts[5]
+                        if action == "takeover":
+                            config = self._ios_require_mutations()
+                            body = self._body()
+                            self._ios_takeover(conn, device, workout_id, body)
+                            return
                         handlers = {
                             "sets": self._ios_workout_set,
+                            "remove-set": self._ios_workout_remove_set,
+                            "execution-events": self._ios_workout_execution_events,
                             "form": self._ios_workout_form,
                             "complete": self._ios_workout_complete,
                             "abandon": self._ios_workout_abandon,
@@ -1206,8 +1326,19 @@ class Handler(BaseHTTPRequestHandler):
                             return
                         config = self._ios_require_mutations()
                         body = self._body()
+                        if action == "execution-events":
+                            device_id = device["device_id"]
+                            self._ios_workout_mutation(
+                                conn, device, path, body, config, workout_id,
+                                lambda c, wid, payload, did=device_id:
+                                    self._ios_workout_execution_events(
+                                        c, wid, payload, did
+                                    ),
+                            )
+                            return
                         self._ios_workout_mutation(
                             conn, device, path, body, config, workout_id, handler,
+                            access="any" if action == "abandon" else "owner",
                         )
                     else:
                         self._error(404, "not found")
@@ -1234,6 +1365,13 @@ class Handler(BaseHTTPRequestHandler):
         if exc.details:
             payload["details"] = exc.details
         self._json(exc.status, payload)
+
+    def _ios_idle_sweep(self, conn) -> int:
+        config = ios_config.load_config()
+        cutoff = ios_workflow.iso(
+            ios_workflow.now() - datetime.timedelta(seconds=config.idle_abandon_seconds)
+        )
+        return workout.abandon_stale(conn, cutoff)
 
     def _ios_require_mutations(self) -> ios_config.IOSConfig:
         config = ios_config.load_config()
@@ -1342,10 +1480,40 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._json(status, result)
 
+    def _ios_takeover(self, conn, device: dict, workout_id: str, body: dict) -> None:
+        if device["kind"] != "phone":
+            raise ios_workflow.IOSWorkflowError(
+                403, "not_phone", "only the phone may take over a session"
+            )
+        self._ios_closed_fields(body, {"confirm"})
+        if body.get("confirm") is not True:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "confirm must be true",
+                fields={"confirm": "required"},
+            )
+        self._ios_workout(conn, workout_id)
+        result = workout.take_over(conn, workout_id, device["device_id"])
+        self._json(200, result)
+
     def _ios_workout_mutation(self, conn, device: dict, route: str, body: dict,
                               config: ios_config.IOSConfig, workout_id: str,
-                              handler) -> None:
+                              handler, *, access: str = "owner") -> None:
         def callback(c, _device, payload):
+            # A retry whose response was lost must replay its stored receipt before the
+            # workout state (possibly completed/abandoned) is re-checked.
+            data = self._ios_workout(c, workout_id)
+            if access == "owner" and data.get("owner_device_id") not in (
+                None, device["device_id"]
+            ):
+                raise ios_workflow.IOSWorkflowError(
+                    409, "not_owner",
+                    "this workout is owned by another device",
+                    details={"owner_device_id": data.get("owner_device_id")},
+                )
+            if access == "phone" and device["kind"] != "phone":
+                raise ios_workflow.IOSWorkflowError(
+                    403, "not_phone", "only the phone may edit the plan"
+                )
             return handler(c, workout_id, payload)
 
         self._ios_mutation(conn, device, route, body, config, callback)
@@ -1588,7 +1756,7 @@ class Handler(BaseHTTPRequestHandler):
                 fields={"settings": "must be an object"},
             )
         unknown = sorted(
-            set(raw) - {"session_type", "minimum_session", "minimum_target_minutes"}
+            set(raw) - {"session_type", "minimum_session", "minimum_target_minutes", "top_set"}
         )
         if unknown:
             raise ios_workflow.IOSWorkflowError(
@@ -1623,12 +1791,110 @@ class Handler(BaseHTTPRequestHandler):
                     fields={"minimum_target_minutes": "must be an integer from 1 to 240"},
                 )
             settings["minimum_target_minutes"] = int(target)
+        top_set = raw.get("top_set")
+        if top_set not in (None, ""):
+            if not isinstance(top_set, bool):
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", "top_set must be true or false",
+                    fields={"top_set": "must be true or false"},
+                )
+            settings["top_set"] = top_set
         return settings
+
+    def _ios_mint_watch(self, conn, device: dict, config: ios_config.IOSConfig) -> None:
+        if device["kind"] != "phone":
+            raise ios_workflow.IOSWorkflowError(
+                403, "watch_mint_forbidden", "only a phone can mint a watch"
+            )
+        if not config.watch_enabled:
+            raise ios_workflow.IOSWorkflowError(
+                503, "watch_disabled", "watch device minting is disabled"
+            )
+        body = self._body()
+        self._ios_closed_fields(body, {"label"})
+        try:
+            result = ios_devices.mint_watch(
+                conn,
+                parent_device_id=device["device_id"],
+                label=body.get("label"),
+            )
+        except ValueError as exc:
+            raise ios_workflow.IOSWorkflowError(400, "validation_failed", str(exc)) from exc
+        self._json(201, result)
+
+    def _ios_delete(self) -> None:
+        path = unquote(urlparse(self.path).path)
+        parts = [part for part in path.split("/") if part]
+        if len(parts) != 5 or parts[:4] != ["api", "ios", "v1", "devices"]:
+            self._error(404, "not found")
+            return
+        target_id = parts[4]
+        try:
+            with db.Store(self.db_path) as store:
+                device = self._ios_authenticate(store.connection)
+                conn = store.connection
+                target = conn.execute(
+                    "SELECT device_id, kind, parent_device_id FROM ios_device "
+                    "WHERE device_id = ?",
+                    (target_id,),
+                ).fetchone()
+                if target is None:
+                    self._error(404, "device not found")
+                    return
+                if device["kind"] == "watch" and target_id != device["device_id"]:
+                    self._error(403, "forbidden")
+                    return
+                if device["kind"] == "phone":
+                    allowed = (
+                        target_id == device["device_id"]
+                        or target["parent_device_id"] == device["device_id"]
+                    )
+                    if not allowed:
+                        self._error(403, "forbidden")
+                        return
+                result = ios_devices.revoke_device(conn, target_id)
+                self._json(200, result)
+        except ios_devices.AuthError as exc:
+            self._error(exc.status, exc.message)
+        except Exception:
+            LOGGER.exception("unhandled iOS DELETE %s", path)
+            self._error(500, "internal server error")
 
     def _ios_prescription(self, conn, device: dict, body: dict) -> dict:
         config = self._ios_require_mutations()
-        self._ios_closed_fields(body, {"readiness_ack", "confirmations", "settings"})
+        self._ios_closed_fields(
+            body, {"readiness_ack", "confirmations", "settings", "execution_target"}
+        )
         settings = self._ios_request_settings(body)
+        execution_target = body.get("execution_target", "phone")
+        if execution_target not in {"phone", "watch"}:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed",
+                "execution_target must be phone or watch",
+                fields={"execution_target": "must be phone or watch"},
+            )
+        if execution_target == "phone":
+            if device["kind"] != "phone":
+                raise ios_workflow.IOSWorkflowError(
+                    403, "execution_target_forbidden",
+                    "a watch cannot request a phone plan",
+                )
+            target_device_id = device["device_id"]
+        else:
+            if device["kind"] == "watch":
+                target_device_id = device["device_id"]
+            else:
+                watch = conn.execute(
+                    "SELECT device_id FROM ios_device "
+                    "WHERE kind = 'watch' AND parent_device_id = ? AND revoked_at IS NULL",
+                    (device["device_id"],),
+                ).fetchone()
+                if watch is None:
+                    raise ios_workflow.IOSWorkflowError(
+                        409, "watch_not_paired",
+                        "no active watch is paired with this phone",
+                    )
+                target_device_id = watch["device_id"]
         acknowledge = body.get("readiness_ack", False)
         if not isinstance(acknowledge, bool):
             raise ios_workflow.IOSWorkflowError(
@@ -1726,6 +1992,8 @@ class Handler(BaseHTTPRequestHandler):
             conn,
             issued_plan_id=issued_plan_id,
             device_id=device["device_id"],
+            target_device_id=target_device_id,
+            execution_target=execution_target,
             for_date=today,
             requested_session_type=str(settings["session_type"]),
             settings=settings,
@@ -1746,6 +2014,7 @@ class Handler(BaseHTTPRequestHandler):
         return {
             "issued_plan_id": issued_plan_id,
             "status": "queued",
+            "execution_target": execution_target,
             "for_date": today,
             "request_expires_at": request_expires_at,
             "plan_expires_at": None,
@@ -1789,6 +2058,7 @@ class Handler(BaseHTTPRequestHandler):
             "elapsed_seconds": _elapsed_seconds(row["created_at"], now),
             "request_expires_at": row["request_expires_at"],
             "plan_expires_at": row["plan_expires_at"],
+            "execution_target": row["execution_target"],
             "retry_after_ms": self._ios_retry_after(status),
             "settings": ios_workflow.load_settings(row),
             "plan": None,
@@ -1830,6 +2100,13 @@ class Handler(BaseHTTPRequestHandler):
         if row is None:
             raise ios_workflow.IOSWorkflowError(
                 404, "plan_not_found", "issued plan not found"
+            )
+        if (row["execution_target"] != device["kind"]
+                or row["target_device_id"] != device["device_id"]):
+            raise ios_workflow.IOSWorkflowError(
+                409, "wrong_execution_target",
+                "this plan is for a different execution device",
+                details={"execution_target": row["execution_target"]},
             )
         plan_status = str(row["status"])
         if plan_status in {"queued", "building"}:
@@ -1883,6 +2160,7 @@ class Handler(BaseHTTPRequestHandler):
             raise ios_workflow.IOSWorkflowError(
                 410, "plan_expired", "issued plan has expired"
             )
+        self._ios_idle_sweep(conn)
         active = workout.active_workout(conn)
         if active is not None:
             raise ios_workflow.IOSWorkflowError(
@@ -1907,6 +2185,7 @@ class Handler(BaseHTTPRequestHandler):
                     readiness=readiness,
                     session_type=row["session_type"],
                     prescription_id=prescription_id,
+                    owner_device_id=device["device_id"],
                     # The issue step already applied the readiness gate: a ready score may have
                     # only the fields it needs, and a non-ready score required an explicit ack.
                     # Re-applying the five-field workout default here rejects a valid ready day.
@@ -1951,7 +2230,7 @@ class Handler(BaseHTTPRequestHandler):
             "exercise_id", "load_kg", "reps", "rir", "velocity_mps",
             "set_index", "plan_item_index", "rep_velocities", "performed_at",
         })
-        self._ios_workout(conn, workout_id)
+        data = self._ios_workout(conn, workout_id)
         exercise_id = body.get("exercise_id")
         if not isinstance(exercise_id, str) or not exercise_id.strip():
             raise ios_workflow.IOSWorkflowError(
@@ -2004,6 +2283,34 @@ class Handler(BaseHTTPRequestHandler):
                 400, "validation_failed", "plan_item_index must be non-negative",
                 fields={"plan_item_index": "must be non-negative"},
             )
+        if plan_item_index is not None:
+            items = (data.get("plan") or {}).get("items") or []
+            # Reuse the core resolver: plan_item_index is the stable order_index identity,
+            # not the current list position. The resolver also accepts legacy positional
+            # values only when they still name the same exercise.
+            try:
+                plan_item_index = workout._plan_item_index(
+                    data, exercise_id.strip(), plan_item_index,
+                )
+            except ValueError as exc:
+                current = next(
+                    (
+                        item for position, item in enumerate(items)
+                        if workout._item_identity(item, position) == plan_item_index
+                    ),
+                    None,
+                )
+                if current is None and 0 <= plan_item_index < len(items):
+                    current = items[plan_item_index]
+                raise ios_workflow.IOSWorkflowError(
+                    409, "plan_item_mismatch",
+                    "the plan item changed; the set is preserved as off-plan",
+                    details={
+                        "item_index": plan_item_index,
+                        "current_item": current,
+                        "plan_revision": data.get("plan_revision", 0),
+                    },
+                ) from exc
         performed_at = body.get("performed_at")
         if performed_at is not None and not isinstance(performed_at, str):
             raise ios_workflow.IOSWorkflowError(
@@ -2074,6 +2381,33 @@ class Handler(BaseHTTPRequestHandler):
             performed_at=performed_at,
         )
 
+    def _ios_workout_execution_events(
+        self, conn, workout_id: str, body: dict, device_id: str
+    ) -> dict:
+        self._ios_closed_fields(body, {"events"})
+        return workout_execution.record_events(
+            conn,
+            workout_id=workout_id,
+            device_id=device_id,
+            events=body.get("events"),
+        )
+
+    def _ios_workout_remove_set(self, conn, workout_id: str, body: dict) -> dict:
+        self._ios_closed_fields(body, {"set_id"})
+        self._ios_workout(conn, workout_id)
+        try:
+            set_id = _integer(body.get("set_id"))
+        except (TypeError, ValueError) as exc:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", str(exc)
+            ) from exc
+        if set_id is None or set_id < 1:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "set_id must be a positive integer",
+                fields={"set_id": "must be a positive integer"},
+            )
+        return workout.remove_set(conn, workout_id, set_id)
+
     def _ios_workout_form(self, conn, workout_id: str, body: dict) -> dict:
         self._ios_closed_fields(body, {"exercise_id", "rating", "note"})
         self._ios_workout(conn, workout_id)
@@ -2108,7 +2442,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def _ios_workout_complete(self, conn, workout_id: str, body: dict) -> dict:
         self._ios_closed_fields(
-            body, {"session_rpe", "not_recorded", "duration_min", "notes", "ended_at"}
+            body,
+            {"session_rpe", "not_recorded", "duration_min", "notes", "ended_at", "productivity"},
         )
         self._ios_workout(conn, workout_id)
         not_recorded = body.get("not_recorded", False)
@@ -2140,6 +2475,16 @@ class Handler(BaseHTTPRequestHandler):
                 400, "validation_failed", "duration_min must be positive",
                 fields={"duration_min": "must be positive"},
             )
+        productivity = body.get("productivity")
+        if productivity not in (None, "") and (
+            isinstance(productivity, bool)
+            or not isinstance(productivity, int)
+            or not 1 <= productivity <= 5
+        ):
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "productivity must be an integer from 1 to 5",
+                fields={"productivity": "must be an integer from 1 to 5"},
+            )
         notes = body.get("notes")
         if notes is not None and not isinstance(notes, str):
             raise ios_workflow.IOSWorkflowError(
@@ -2157,6 +2502,7 @@ class Handler(BaseHTTPRequestHandler):
             session_rpe=rpe,
             not_recorded=not_recorded,
             duration_min=duration,
+            productivity=productivity,
             notes=notes or None,
             ended_at=ended_at,
         )
@@ -2310,6 +2656,8 @@ class Handler(BaseHTTPRequestHandler):
                                  mimetypes.guess_type(path)[0] or "application/octet-stream")
             elif path == "/api/settings":
                 self._json(200, self._with_conn(lambda c: self._settings(c)))
+            elif path == "/api/settings/ios":
+                self._json(200, ios_config.describe_config())
             elif path == "/api/settings/monitoring":
                 self._json(200, config_inventory.build_inventory())
             elif path == "/api/settings/drop/window":
@@ -2378,6 +2726,27 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/performance/ratios":
                 query = parse_qs(urlparse(self.path).query)
                 self._json(200, self._performance_ratios_cached(query))
+            elif path == "/api/performance/vbt":
+                query = parse_qs(urlparse(self.path).query)
+                to_date = query.get("to", [datetime.date.today().isoformat()])[0]
+                try:
+                    end = datetime.date.fromisoformat(to_date)
+                except ValueError as exc:
+                    raise ValueError("from and to must be YYYY-MM-DD") from exc
+                from_date = query.get(
+                    "from", [(end - datetime.timedelta(days=83)).isoformat()]
+                )[0]
+                try:
+                    start = datetime.date.fromisoformat(from_date)
+                except ValueError as exc:
+                    raise ValueError("from and to must be YYYY-MM-DD") from exc
+                if start > end:
+                    raise ValueError("from must not be after to")
+                exercise_id = query.get("exercise_id", [None])[0] or None
+                self._json(200, self._with_conn(lambda c: vbt_performance_feature.analyse(
+                    c, start=start.isoformat(), end=end.isoformat(),
+                    exercise_id=exercise_id,
+                )))
             elif path == "/api/performance/relationship-options":
                 self._json(200, self._relationship_options())
             elif path == "/api/performance/relationships":
@@ -2409,6 +2778,29 @@ class Handler(BaseHTTPRequestHandler):
                     start=query.get("start", [None])[0],
                     end=query.get("end", [None])[0],
                 )))
+            elif path.startswith("/api/history/") and path.endswith("/execution"):
+                session_id = path[len("/api/history/"):-len("/execution")].strip("/")
+                if not session_id:
+                    self._error(404, "not found")
+                    return
+                workout_id = session_id
+                try:
+                    session_detail = self._with_conn(
+                        lambda c: history.detail(c, session_id)
+                    )
+                except ValueError:
+                    session_detail = None
+                if session_detail is not None and session_detail.get("workout_id"):
+                    workout_id = str(session_detail["workout_id"])
+                payload = self._with_conn(
+                    lambda c: workout_execution.analytics(
+                        c, workout_id, require_owner=False
+                    )
+                )
+                if payload is None:
+                    self._error(404, "execution not available")
+                else:
+                    self._json(200, payload)
             elif path.startswith("/api/history/"):
                 session_id = path.rsplit("/", 1)[-1]
                 self._json(200, self._with_conn(
@@ -2525,6 +2917,11 @@ class Handler(BaseHTTPRequestHandler):
                 day = query.get("date", [None])[0]
                 self._json(200, self._with_conn(
                     lambda c: rep_velocity.analysis_report(c, on_date=day, weeks=weeks)
+                ))
+            elif path == "/api/adherence/analytics":
+                query = parse_qs(urlparse(self.path).query)
+                self._json(200, self._with_conn(
+                    lambda c: adherence_analytics.analytics(c, query)
                 ))
             elif path == "/api/progress":
                 query = parse_qs(urlparse(self.path).query)
@@ -2769,6 +3166,13 @@ class Handler(BaseHTTPRequestHandler):
             LOGGER.exception("unhandled GET %s", self.path)
             self._error(500, "internal server error")
 
+    def do_DELETE(self) -> None:
+        path = unquote(urlparse(self.path).path)
+        if path == "/api/ios/v1" or path.startswith("/api/ios/v1/"):
+            self._ios_delete()
+            return
+        self._error(405, "method not allowed")
+
     def do_POST(self) -> None:
         path = unquote(urlparse(self.path).path)
         if path == "/api/ios/v1/pair":
@@ -2841,6 +3245,8 @@ class Handler(BaseHTTPRequestHandler):
                 ))
             elif path == "/api/exposures":
                 self._json(200, self._with_conn(lambda c: self._save_exposure(c, body)))
+            elif path == "/api/settings/ios":
+                self._json(200, self._save_ios_settings(body))
             elif path == "/api/settings/llm":
                 self._json(200, self._save_llm_settings(body))
             elif path == "/api/settings/drop":
@@ -3330,6 +3736,18 @@ class Handler(BaseHTTPRequestHandler):
             conn, set_values={"budget": budget}, effective_from=day,
         )
         return self._settings(conn)
+
+    def _save_ios_settings(self, body: dict) -> dict:
+        values = body.get("values") if isinstance(body.get("values"), dict) else body
+        try:
+            return ios_config.save_config(values)
+        except ios_config.IOSConfigError as exc:
+            message = str(exc)
+            field = next(
+                (key for key in ios_config.FIELDS if key in message),
+                "settings",
+            )
+            raise FieldError(message, {field: message}) from exc
 
     def _save_llm_settings(self, body: dict) -> dict:
         try:

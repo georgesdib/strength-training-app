@@ -119,6 +119,8 @@ def test_family_fallback_fills_a_sparse_lift():
     target = result.lookup("ssb_squat", 3)
     assert target is not None
     assert target.scope == "family"        # borrowed, and labelled as borrowed
+    assert target.vbt_family == "squat"
+    assert target.velocity_mad is not None
 
 
 def test_named_hinges_do_not_borrow_from_each_other():

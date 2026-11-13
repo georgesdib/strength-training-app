@@ -2,7 +2,84 @@
 
 ## [Unreleased]
 
+## [1.4.0] — 2026-11-13
+
 ### Added
+
+- **Longitudinal VBT performance dashboard**: new read-only `GET /api/performance/vbt` and
+  Performance panel report frozen-target cohorts split by exercise, scope/family, rep count
+  and target RIR band. It includes weekly mean/median residuals, residual spread/MAD,
+  within/above/below-band evidence, actual vs prescribed RIR, deterministic 95% bootstrap
+  intervals, the reused 5-observation and 20-observation/8-week gates, per-set drill-down and
+  separate within-set per-rep velocity drift with a 5-set/3-consecutive-week descriptive gate.
+  Lift and family cohorts are never pooled; there is no cross-exercise score, prediction
+  interval, load recommendation or autoregulation. No migration and no iOS change.
+
+- **Completed-workout and historical VBT target analysis**: completed workout, summary and
+  History payloads now expose a per-set target comparison built from corrected `clean_set`
+  leaf rows and the frozen plan. It reports signed/relative and absolute error, calibration-band
+  status, actual RIR vs the target band, target source (final or original plan), override source,
+  comparability and explicit exclusion reasons. Per-exercise aggregates report counts,
+  mean/median signed delta, mean/median absolute and relative error, within-band and
+  above/below-target fractions, actual/prescribed RIR and calibration provenance; no
+  cross-exercise composite is produced. Removed items fall back to the original issued target;
+  swapped items do not. End-of-workout and History detail sections render the comparison.
+  Within-set velocity loss stays separate. No prescription or autoregulation reads the result.
+
+- **VBT target visibility and active-set feedback**: Prescribe shows expandable target
+  provenance (band, rep count, RIR band, scope/family, sample size, method, calibration id) and
+  an honest reason when no target exists. Active workout cards show the same detail; the logger
+  checks the selected exercise, set group, rep count and RIR before treating a target as
+  applicable. Velocity-bearing sets receive compact descriptive feedback with target, actual,
+  signed/relative delta, calibration-band status and comparability reasons. No prescription,
+  load, set termination or autoregulation behavior changes. Additive `vbt` block on the active
+  workout API; `vbt.js` is a new client module.
+
+- **Complete VBT target metadata**: issued plan items now carry an optional structured `vbt`
+  object (target and band, rep count, RIR band, lift/family scope, sample size, method version,
+  calibration id and source) frozen into the workout plan JSON. Calibration rows now persist
+  family and MAD metadata, and calibration IDs include scope/RIR/parameter provenance. Exercise
+  swaps clear the old lift's target; added exercises have none; set-count changes preserve it.
+  Legacy plan snapshots remain visibly legacy and are never reconstructed from today's
+  calibration. The fields are additive, including to the iOS plan payload; no migration.
+
+- **Prescription adherence analytics (backend)**: completed workout summaries and history
+  detail now expose a versioned `adherence` object comparing actual working sets with the
+  original and final in-workout prescription. It reports set completion plus repetition, load
+  and RIR attainment, per-exercise/per-set detail, prescription changes and explicit
+  attribution/data-quality limitations. It is derived from immutable plan snapshots and the
+  current `clean_set` leaf rows; no table or derived metric is persisted, and imported or
+  voided sessions return an explicit unavailable result. Existing API fields are unchanged.
+
+- **Workout History adherence breakdown**: History → Session details now renders the adherence
+  payload as original and final prescription cards, set completion, rep/load/RIR target
+  attainment, expandable per-exercise and per-set target-versus-actual tables, prescription
+  changes, unmatched work and data-quality limitations. Unavailable comparisons and imported or
+  voided sessions are stated explicitly; status is always text, not colour alone.
+
+- **Longitudinal prescription-adherence analytics**: `GET /api/adherence/analytics` sums
+  original and final set completion plus repetition, load and RIR attainment by week or month,
+  exercise and session type, with exact numerators/denominators, coverage and per-workout
+  drill-down. Progress adds a **Prescription adherence over time** panel with original/final
+  trend charts, period and exercise tables, small-sample guards, and links into History session
+  details. Imported/voided workouts are excluded; no composite score is computed or stored.
+
+- **Watch device minting and phone-revocation cascade**: the tracked iOS facade config enables
+  `watch_enabled`, and a phone's minted watch is revoked in the same transaction when the phone is
+  revoked. `DELETE /api/ios/v1/devices/{device_id}` now returns `revoked_watch_ids`, and the CLI
+  prints the cascaded watch ids; a watch token can no longer outlive the phone that minted it.
+  Existing tokens are otherwise unchanged.
+
+- **Database transfer `--create`**: `tools/db_transfer.py import --create` now allows a missing
+  target database. The target is created atomically at the local schema after archive, schema
+  and `--force` checks pass; a dry run does not create it, and a newly created target needs no
+  backup. Use `--create --upgrade` when importing an older archive.
+
+- **iOS settings panel**: Settings → iOS settings now exposes `mutations_enabled`,
+  `issued_plan_ttl_seconds`, `plan_request_ttl_seconds` and `receipt_retention_days` with
+  integer/boolean controls, server ranges, descriptions, effective values and the config source.
+  Saving validates the complete object and atomically updates `config/ios.v1.yaml`; the server
+  re-reads it per request, so no restart is required. Defaults and behavior are unchanged.
 
 - **Database transfer utility**: `tools/db_transfer.py export|import` moves `data/coach.db`
   between machines. The archive carries a manifest with the complete applied migration set and a
@@ -14,6 +91,24 @@
   key, or foreign-key/unique/trigger problem. It requires `--force`, refuses a target with WAL
   side files, and writes an automatic `pre-transfer` backup before the atomic replace. No
   authoritative label.
+
+### Fixed
+
+- **iOS plan-item identity validation**: the workout-set endpoint now resolves
+  `plan_item_index` through the same stable `order_index` identity used by the workout core,
+  instead of indexing the current plan list position. A valid identity still resolves after an
+  earlier item is removed, while a removed or out-of-range identity returns the intended
+  `409 plan_item_mismatch` rather than being misinterpreted or surfacing as a generic 400.
+
+- **Adherence period aggregation**: the longitudinal analytics now keep separate week/month
+  accumulators for the original and final prescriptions. A workout whose set count or targets
+  were edited no longer double-counts an unmodified plan or blends the two views in period rows;
+  each period now reports its own numerators, denominators and target attainment. The overall
+  summary and workout drill-down were already separate and are unchanged.
+
+- **Prescription-change provenance**: an item edited in both set count and repetition, load or
+  RIR target now reports both `set_count_changed` and `targets_changed`. The set-count branch no
+  longer suppresses the target edit, so History and the API show every changed dimension.
 
 ### Changed
 
