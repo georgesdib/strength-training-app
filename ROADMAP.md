@@ -1932,6 +1932,28 @@ repository: [plan](https://github.com/georgesdib/strength-app/blob/main/docs/pla
 and [contract](https://github.com/georgesdib/strength-app/blob/main/docs/contracts/TRAINING-INTELLIGENCE-CONTRACT.md).
 Owner approval of the plan's section 13 decisions remains required before the transport phase.
 
+**Transport rollout follow-ups (agreed 2026-11-14; not started).** The extended HTTP benchmark on
+the ODROID measured p95 6,201 ms (session details), 4,058 ms (overview), 3,800 ms (programme) and
+1,663 ms (readiness), so the one-second gate is not met and no transport is enabled.
+
+- **T-1 - Restate the requirement.** Decide the acceptable LLM tool-call budget (one second, a few
+  seconds, or an async workflow), amend ADR-INT-010 with the rationale, and state which threshold
+  governs enablement. This is an owner decision, not an implementation detail.
+- **T-2 - Staged exposure.** Enable the transport on the trusted LAN with the already-fast tools
+  (get_exercise_progression, get_prescription, get_vbt_analysis, get_adherence_analysis,
+  compare_training_periods; 37-200 ms over HTTP) while keeping session details, overview,
+  programme summary and readiness hidden from tools/list until T-3. The web UI and CLI are
+  unaffected; the capability layer is unchanged. Rollback is removing the exposure.
+- **T-3 - Optimise the four slow capabilities.** Profile session details, overview, programme
+  summary and readiness against a copied production database, target p95 under the T-1 budget,
+  then re-run the extended HTTP benchmark before exposing them. Do not assume Derived Analytics
+  already covers them: session details and programme are not migrated, and overview still includes
+  volume/attendance.
+
+The three are compatible and can run in combination: T-1 first (it sets the target), T-2 in
+parallel once T-1 is decided, T-3 independently. The LLM objective remains open until T-3 is
+measured and the full or staged exposure is reviewed.
+
 **Scope.** A provider-neutral capability layer over the existing services, a separately deployable
 read-only MCP server (Streamable HTTP, authenticated, tools and resources only), an additive read-only
 iOS intelligence surface, Weekly Training Review, and optional on-device/server narration. Every
