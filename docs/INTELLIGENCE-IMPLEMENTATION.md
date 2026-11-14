@@ -416,6 +416,12 @@ moves these numbers roughly in proportion to single-core speed.
 
     python tools/intelligence_benchmark.py --sessions <stored sessions> --runs 20 --json
 
+The tool now also benchmarks every registered capability in direct mode and over the real MCP
+Streamable HTTP transport, with per-capability distributions, errors, envelope statuses, analytics
+readiness and a labelled MCP-overhead difference (see
+[`docs/INTELLIGENCE-DEPLOYMENT.md`](INTELLIGENCE-DEPLOYMENT.md) §13). The HTTP benchmark has not
+been run against the ODROID deployment yet, so the transport objective is not closed.
+
 Record the result beside the deployment unit. **Measured 2026-11-14: p95 3,169.4 ms at the real
 history size (377 sessions), all `status: ok`.** That is above the one-second threshold, so the
 transport must not be enabled on this host until the ADR-INT-010 addendum is decided.

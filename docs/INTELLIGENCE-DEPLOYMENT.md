@@ -157,7 +157,50 @@ The database is opened only for that call, so the leftover work is a read that e
 | @result_too_large` | raise `max_tool_result_bytes` or narrow the request |
 | service stops after start | read the journal; most failures are the disabled switch, a missing database or permissions |
 
-## 13. Remaining limitations
+## 13. Benchmarking all capabilities and the HTTP transport
+
+The original tool measured only `get_training_overview` through `IntelligenceService`. The
+extended `tools/intelligence_benchmark.py` discovers every registered capability, builds valid
+arguments from the benchmark database, and reports per-capability p50/p95/max/mean, success/error
+counts and envelope status distribution.
+
+**Direct mode** (default, synthetic data, read-only service path):
+
+    python tools/intelligence_benchmark.py --sessions 200 --runs 30
+
+Synthetic mode creates a disposable database and may build the derived core family before the
+read-only run; the source tables are never mutated. `--no-analytics-build` measures the on-demand
+path instead.
+
+**HTTP mode** (actual MCP Streamable HTTP, official SDK client, bearer token from the environment):
+
+    export STRENGTH_MCP_TOKEN=...
+    python tools/intelligence_benchmark.py --mode both --url http://127.0.0.1:8765/mcp         --sessions 200 --runs 30 --output report.json
+
+The script calls `tools/list`, then `tools/call` for each capability. Tokens are read only from
+the named environment variable (`--token-env`, default `STRENGTH_MCP_TOKEN`) and never printed.
+The report distinguishes direct execution, full client-observed HTTP execution, and
+`mcp_overhead_p50_ms = http p50 - direct p50`. That difference contains network, protocol,
+authentication and server middleware costs, not pure network latency; a non-positive value is
+reported as no measurable overhead, not as a meaningful negative result.
+
+**Existing database (read-only):**
+
+    python tools/intelligence_benchmark.py --db /path/to/copied/coach.db --runs 30
+
+The database is opened read-only; migrations, analytics builds and source mutations are not run.
+The report records whether the core derived family is verified current. If it is not, the consumer
+path is on-demand and the report says so; do not compare that run with a materialised one.
+
+The report contains capability names, timings, error classes and configuration only. Session,
+workout and prescription identifiers in arguments are redacted. Raw training values are never
+included.
+
+**Status.** The extended benchmark and its tests are implemented. The HTTP benchmark has not yet
+been run against the ODROID deployment, so the original MCP performance objective remains open
+until those results are collected and reviewed.
+
+## 14. Remaining limitations
 
 - Per-process rate and concurrency limits: run one worker. The SDK multiplexes requests, so this is
   sufficient for one athlete.

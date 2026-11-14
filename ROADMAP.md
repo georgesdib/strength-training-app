@@ -2053,6 +2053,15 @@ connection, resumes through the existing backfill cursor, never runs on read-onl
 and reports progress through `/api/analytics/status`. Until then, forgetting the command costs
 performance only; consumers fall back to on-demand.
 
+**Benchmark tooling extended (2026-11-14).** `tools/intelligence_benchmark.py` now discovers every
+registered capability, generates valid arguments from the benchmark database, and supports direct
+execution, real MCP Streamable HTTP (official SDK client, bearer token from an environment
+variable) and read-only existing-database modes. It reports per-capability distributions, errors,
+envelope statuses, analytics readiness and a clearly labelled MCP-overhead difference; identifiers
+are redacted. Tests are in `tests/test_intelligence_benchmark.py`. The HTTP benchmark has not yet
+been run against the ODROID deployment, so the original MCP performance objective is **not**
+closed; see `docs/INTELLIGENCE-DEPLOYMENT.md` §13.
+
 **Correctness contract (2026-11-14 refinement).** A source revision is a durable, monotonic
 `analytics_revision` row appended in the same transaction as each mutation (workout completion,
 import, correction/supersede/tombstone, void/unvoid, any future remap that changes rows, config or
