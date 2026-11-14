@@ -4714,11 +4714,26 @@ class Handler(BaseHTTPRequestHandler):
                     f"set {index + 1}: RIR must be 0-6",
                     {f"sets[{index}].rir": "must be 0-6"},
                 )
+        productivity = body.get("productivity")
+        if productivity in (None, ""):
+            productivity = None
+        else:
+            try:
+                productivity = int(productivity)
+            except (TypeError, ValueError) as exc:
+                raise FieldError(
+                    "productivity must be 1-5", {"productivity": "must be 1-5"}
+                ) from exc
+            if not 1 <= productivity <= 5:
+                raise FieldError(
+                    "productivity must be 1-5", {"productivity": "must be 1-5"}
+                )
         return history.edit_session(
             conn, session, sets=sets,
             forms=body.get("forms"),
             session_rpe=body.get("session_rpe"),
             duration_min=body.get("duration_min"),
+            productivity=productivity,
             notes=body.get("notes"),
             reason=body.get("reason"),
         )

@@ -40,7 +40,7 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/history/days?limit=&offset=&start=&end=` | paginated training days with their fragments |
 | `GET /api/exercise-history?exercise_id=&limit=&offset=&on_or_before=` | read-only completed-session history for one exercise, grouped by session; limit counts sessions and defaults to 5 |
 | `GET /api/history/<id>` | current session sets, feedback and completed-workout prescription adherence |
-| `POST /api/history/<id>/edit` | append-only correction of sets and session metadata |
+| `POST /api/history/<id>/edit` | append-only correction of sets and session metadata; accepts `session_rpe`, `duration_min`, `productivity` (1-5), `notes` and `reason`, and returns the corrected session with merged feedback |
 | `POST /api/history/<id>/vbt` | set/rep VBT overrides (also accepted inside `/edit`) |
 | `POST /api/history/<id>/void` | void or unvoid a whole session |
 | `GET /api/rep-velocity?session=<id>` | descriptive per-rep report after completion |

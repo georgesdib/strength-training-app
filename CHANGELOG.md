@@ -1,5 +1,24 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- **Productivity is editable from a History correction.** The correction form, the API body and
+  `history.edit_session` now accept `productivity` (1-5); it is validated, written append-only
+  to `session_feedback`, and the History detail reads the latest non-null value per field through
+  `session_feedback.merged`, so a later row that records only sRPE no longer hides an earlier
+  duration, note or productivity.
+- **Time-based exercises are labelled in seconds.** History detail and the correction form show
+  "Seconds" for sets whose `reps_unit` is `seconds` (plank, carry) instead of "Reps". The
+  stored value was already seconds (`rep_semantics: seconds`); only the label was wrong.
+- **The bench+hinge support lift may be the trap bar** (`DEC-SPINE-09`, superseding the
+  support-lift clause of `DEC-SPINE-05`). In resolver mode `bench_hinge.hinge_support` is now a
+  two-candidate pool, sumo first (default) and trap bar second; role, sets, reps, RIR, rest, the
+  e1rm load source and the flare scope are unchanged, and the fixed template still prescribes
+  sumo. The trap bar carries the lower spinal cost (2 against 2.5), so the substitution cannot
+  raise the weekly cap.
+
 ## [1.4.1] — 2026-11-14
 
 ### Fixed
