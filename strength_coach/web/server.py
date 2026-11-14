@@ -349,6 +349,7 @@ def _item_dict(item) -> dict:
         "sets": item.sets,
         "reps_low": item.reps_low,
         "reps_high": item.reps_high,
+        "reps_unit": item.reps_unit,
         "load_kg": item.load_kg,
         "load_basis": item.load_basis,
         "rir_target": item.rir_target,
@@ -3163,7 +3164,8 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/exercises":
                 self._json(200, [
                     {"id": key, "display": str(value.get("display") or key),
-                     "pattern": value.get("pattern")}
+                     "pattern": value.get("pattern"),
+                     "time_based": bool(value.get("time_based", False))}
                     for key, value in exercises.taxonomy().entities.items()
                 ])
             elif path == "/api/templates":
@@ -4722,11 +4724,26 @@ class Handler(BaseHTTPRequestHandler):
                     f"set {index + 1}: RIR must be 0-6",
                     {f"sets[{index}].rir": "must be 0-6"},
                 )
+        productivity = body.get("productivity")
+        if productivity in (None, ""):
+            productivity = None
+        else:
+            try:
+                productivity = int(productivity)
+            except (TypeError, ValueError) as exc:
+                raise FieldError(
+                    "productivity must be 1-5", {"productivity": "must be 1-5"}
+                ) from exc
+            if not 1 <= productivity <= 5:
+                raise FieldError(
+                    "productivity must be 1-5", {"productivity": "must be 1-5"}
+                )
         return history.edit_session(
             conn, session, sets=sets,
             forms=body.get("forms"),
             session_rpe=body.get("session_rpe"),
             duration_min=body.get("duration_min"),
+            productivity=productivity,
             notes=body.get("notes"),
             reason=body.get("reason"),
         )

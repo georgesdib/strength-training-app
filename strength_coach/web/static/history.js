@@ -171,7 +171,8 @@ function historySetRow(item, index) {
     '<div class="history-set-grid">' +
     '<label>Load kg <input type="number" step="0.5" data-h-load value="' +
     (item && item.load_kg != null ? item.load_kg : "") + '"></label>' +
-    '<label>Reps <input type="number" min="0" data-h-reps value="' +
+    '<label>' + (item && item.reps_unit === "seconds" ? "Seconds" : "Reps") +
+    ' <input type="number" min="0" data-h-reps value="' +
     (item && item.reps != null ? item.reps : "") + '"></label>' +
     '<label>RIR <input type="number" min="0" max="6" data-h-rir value="' +
     (item && item.rir != null ? item.rir : "") + '"></label>' +
@@ -288,6 +289,8 @@ async function openHistoryEdit(sessionId) {
     document.getElementById("history-edit-duration").value =
       data.duration_min != null ? data.duration_min
         : (feedback.duration_min == null ? "" : feedback.duration_min);
+    document.getElementById("history-edit-productivity").value =
+      feedback.productivity == null ? "" : feedback.productivity;
     renderHistoryVbt(data);
     document.getElementById("history-edit-notes").value =
       (data.feedback && data.feedback.note) || "";
@@ -329,6 +332,7 @@ async function saveHistoryEdit() {
         forms: collectHistoryForms(),
         session_rpe: document.getElementById("history-edit-srpe").value || null,
         duration_min: document.getElementById("history-edit-duration").value || null,
+        productivity: document.getElementById("history-edit-productivity").value || null,
         notes: document.getElementById("history-edit-notes").value || null,
         reason: document.getElementById("history-edit-reason").value || null
       })
@@ -449,9 +453,11 @@ function openHistoryDetails(sessionId) {
             return "<tr><td>" + rep.rep_index + "</td><td>" + rep.velocity_mps + "</td></tr>";
           }).join("") + "</tbody></table>";
       }).join("");
+      var unitLabel = group[0] && group[0].reps_unit === "seconds" ? "Seconds" : "Reps";
       return "<section class='history-exercise'><h3>" + esc(exerciseId) + "</h3>" +
         "<p class='muted'>" + group.length + " set(s)</p>" +
-        "<div class='table-scroll'><table><thead><tr><th>#</th><th>Load kg</th><th>Reps</th>" +
+        "<div class='table-scroll'><table><thead><tr><th>#</th><th>Load kg</th><th>" +
+        unitLabel + "</th>" +
         "<th>RIR</th><th>Flags</th><th>Device VBT</th><th>VBT override</th></tr></thead><tbody>" +
         setRows + "</tbody></table></div>" +
         (repTables ? "<details class='history-reps'><summary>Rep details (velocity)</summary>" +
@@ -474,6 +480,8 @@ function openHistoryDetails(sessionId) {
           ? feedback.duration_min + " min (backfilled)"
           : (data.duration_basis === "unavailable"
             ? "not recorded (imported session: no timestamps)" : "not recorded"))) +
+      fact("Productivity", feedback.productivity == null
+        ? null : feedback.productivity + " / 5") +
       fact("Sets (working / total)", (data.working_set_count == null ? "—" : data.working_set_count) +
         " / " + (data.set_count == null ? "—" : data.set_count)) +
       fact("Exercises", data.exercise_count) +

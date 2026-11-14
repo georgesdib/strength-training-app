@@ -180,6 +180,7 @@ class PrescriptionItem:
     rir_target: int | None
     rest_s: int | None
     essential: bool
+    reps_unit: str = "reps"
     rationale_refs: tuple[str, ...] = ()
     substitution_for: str | None = None
     time_cap_s: int | None = None

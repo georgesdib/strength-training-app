@@ -537,7 +537,11 @@ def test_state_can_be_edited(server):
 def test_exercise_catalogue_is_served(server):
     status, body = get(server, "/api/exercises")
     assert status == 200
-    assert any(row["id"] == "ssb_squat" for row in json.loads(body))
+    rows = {row["id"]: row for row in json.loads(body)}
+    assert "ssb_squat" in rows
+    # The client labels a time-based movement in seconds instead of reps.
+    assert rows["plank"]["time_based"] is True
+    assert rows["bench_press"]["time_based"] is False
 
 def test_rubric_calibration_endpoint_is_gone(server):
     with pytest.raises(urllib.error.HTTPError) as excinfo:
@@ -3815,3 +3819,25 @@ def test_observations_payload_carries_a_count(server):
     data = json.loads(body)
     assert data["count"] == len(data["observations"])
     assert isinstance(data["families"], list)
+
+
+def test_history_edit_accepts_productivity(server):
+    status, body = get(server, "/api/history?limit=10&offset=0")
+    assert status == 200
+    session_id = json.loads(body)["sessions"][0]["session_id"]
+    status, body = get(server, f"/api/history/{session_id}")
+    detail = json.loads(body)
+
+    result = post(server, f"/api/history/{session_id}/edit", {
+        "sets": detail["sets"],
+        "productivity": 4,
+        "reason": "productivity backfill",
+    })
+    assert result["session"]["feedback"]["productivity"] == 4
+
+    code, body = post_status(server, f"/api/history/{session_id}/edit", {
+        "sets": detail["sets"],
+        "productivity": 9,
+        "reason": "invalid productivity",
+    })
+    assert code == 400

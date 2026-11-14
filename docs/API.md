@@ -40,7 +40,7 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/history/days?limit=&offset=&start=&end=` | paginated training days with their fragments |
 | `GET /api/exercise-history?exercise_id=&limit=&offset=&on_or_before=` | read-only completed-session history for one exercise, grouped by session; limit counts sessions and defaults to 5 |
 | `GET /api/history/<id>` | current session sets, feedback and completed-workout prescription adherence |
-| `POST /api/history/<id>/edit` | append-only correction of sets and session metadata |
+| `POST /api/history/<id>/edit` | append-only correction of sets and session metadata; accepts `session_rpe`, `duration_min`, `productivity` (1-5), `notes` and `reason`, and returns the corrected session with merged feedback |
 | `POST /api/history/<id>/vbt` | set/rep VBT overrides (also accepted inside `/edit`) |
 | `POST /api/history/<id>/void` | void or unvoid a whole session |
 | `GET /api/rep-velocity?session=<id>` | descriptive per-rep report after completion |
@@ -55,7 +55,7 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/logs?limit=N` | recent in-memory application/HTTP log records (max 500; cleared on restart) |
 | `GET /api/state` | profile, constraints, suitability, e1RM, symptoms, attributed symptoms, injury signal |
 | `GET /api/symptoms/attribution-options?onset=&timing=` | completed sessions and performed lifts available for an attributed symptom |
-| `GET /api/exercises` | canonical exercise catalogue for the pickers |
+| `GET /api/exercises` | canonical exercise catalogue for the pickers: `id`, `display`, `pattern` and `time_based` (the client labels a time-based movement in seconds rather than reps) |
 | `POST /api/programme/key` | request body -> `{cache_key}` covering version, request, resolved profile, database revision and relevant config hashes |
 | `POST /api/programme/jobs` | starts a background build; returns `202` with `job_id` and status |
 | `GET /api/programme/jobs/<id>` | `running` / `done` with entries / `error`; has a one-hour in-memory TTL and is capped at 20 jobs |
@@ -235,6 +235,11 @@ A new evidence id produces a new nudge. Attendance, volume and other signals are
 nudge sources.
 
 ### VBT target metadata
+
+Plan items carry `reps_unit` (`reps` or `seconds`) so a time-based hold is displayed
+and logged in seconds. Swapping an exercise re-solves the replacement's load, warm-up ramps and
+VBT target from that exercise's own history/calibration; an unavailable load keeps an explicit
+`unknown_load_reason`.
 
 An issued VBT target now carries an optional `vbt` object on each plan item:
 
