@@ -15,7 +15,7 @@ from typing import Any, TypedDict
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 
-from strength_coach.intelligence import IntelligenceService, audit
+from strength_coach.intelligence import IntelligenceService, audit, latency
 from strength_coach.intelligence.auth import Principal
 from strength_coach.intelligence.config import IntelligenceConfig
 from strength_coach.intelligence.envelope import Envelope
@@ -140,6 +140,7 @@ def register_tools(
             "ratio, per-pattern volume, readiness observed-day coverage and deload state. It "
             "computes nothing itself and never returns symptom, injury or note data. Missing data "
             "is reported as no_data or explicit missing entries, never as zero."
+            + latency.description("get_training_overview")
         ),
         annotations=READ_ONLY,
     )
@@ -166,6 +167,7 @@ def register_tools(
             "with the evidence ids the owning services produced. Supply workout_id or session_id, "
             "not both. Free-text notes, symptoms and form ratings are excluded; imported sessions "
             "report adherence and VBT as unavailable rather than estimating them."
+            + latency.description("get_session_details")
         ),
         annotations=READ_ONLY,
     )
@@ -194,6 +196,7 @@ def register_tools(
             "training date: raw observations, a 3-point rolling median, series breaks and the "
             "owner's descriptive summary. Optionally returns the most recent sessions. A calculated "
             "e1RM is not a tested maximum, and breaks are reported rather than smoothed."
+            + latency.description("get_exercise_progression")
         ),
         annotations=READ_ONLY,
     )
@@ -225,6 +228,7 @@ def register_tools(
             "energy, mood, stress, soreness and the measured fields) are returned only when named. "
             "Missing days are reported, never filled. Score series are limited to the most recent "
             "120 observed days."
+            + latency.description("get_readiness_history")
         ),
         annotations=READ_ONLY,
     )
@@ -248,6 +252,7 @@ def register_tools(
             "either weeks (1-52, default 8) or start and end; group_by is week or month. Returns "
             "totals, periods, per-exercise comparison, coverage and at most 20 workout entries. "
             "Imported sessions and the block dimension are unavailable by design."
+            + latency.description("get_adherence_analysis")
         ),
         annotations=READ_ONLY,
     )
@@ -284,6 +289,7 @@ def register_tools(
             "Read-only persisted prescription: header, items, recorded modifiers and rule refs. "
             "Supply at most one of prescription_id or for_date; neither returns the newest. A "
             "persisted artifact is not a forecast, and an unstarted issued plan is only a preview."
+            + latency.description("get_prescription")
         ),
         annotations=READ_ONLY,
     )
@@ -309,6 +315,7 @@ def register_tools(
             "weekly residuals, within-set drift and every abstention reason. VBT is sparse, so an "
             "insufficient cohort is a normal answer; no estimate is invented and per-set rows are "
             "summarised rather than returned."
+            + latency.description("get_vbt_analysis")
         ),
         annotations=READ_ONLY,
     )
@@ -332,6 +339,7 @@ def register_tools(
             "date: settings and volume budget, deload state, regime findings, declared breaks and "
             "target-based attendance. No stored training block and no planned-session calendar "
             "exist, so this is a reporting window, not a block entity."
+            + latency.description("get_programme_block_summary")
         ),
         annotations=READ_ONLY,
     )
@@ -354,6 +362,7 @@ def register_tools(
             "volume, or an exercise's strength direction (exercise_id required only for the last). "
             "Each side comes from its owner; the delta is arithmetic between the two values. Two "
             "windows over one athlete are descriptive, not a treatment effect."
+            + latency.description("compare_training_periods")
         ),
         annotations=READ_ONLY,
     )

@@ -1932,27 +1932,36 @@ repository: [plan](https://github.com/georgesdib/strength-app/blob/main/docs/pla
 and [contract](https://github.com/georgesdib/strength-app/blob/main/docs/contracts/TRAINING-INTELLIGENCE-CONTRACT.md).
 Owner approval of the plan's section 13 decisions remains required before the transport phase.
 
-**Transport rollout follow-ups (agreed 2026-11-14; not started).** The extended HTTP benchmark on
-the ODROID measured p95 6,201 ms (session details), 4,058 ms (overview), 3,800 ms (programme) and
-1,663 ms (readiness), so the one-second gate is not met and no transport is enabled.
+**MCP rollout follow-ups (updated 2026-11-14).** The extended HTTP benchmark on the ODROID
+measured p95 6,201 ms (session details), 4,058 ms (overview), 3,800 ms (programme) and 1,663 ms
+(readiness), so the one-second gate is not met and no transport is enabled.
 
-- **T-1 - Restate the requirement.** Decide the acceptable LLM tool-call budget (one second, a few
-  seconds, or an async workflow), amend ADR-INT-010 with the rationale, and state which threshold
-  governs enablement. This is an owner decision, not an implementation detail.
-- **T-2 - Staged exposure.** Enable the transport on the trusted LAN with the already-fast tools
-  (get_exercise_progression, get_prescription, get_vbt_analysis, get_adherence_analysis,
-  compare_training_periods; 37-200 ms over HTTP) while keeping session details, overview,
-  programme summary and readiness hidden from tools/list until T-3. The web UI and CLI are
-  unaffected; the capability layer is unchanged. Rollback is removing the exposure.
-- **T-3 - Optimise the four slow capabilities.** Profile session details, overview, programme
-  summary and readiness against a copied production database, target p95 under the T-1 budget,
-  then re-run the extended HTTP benchmark before exposing them. Do not assume Derived Analytics
-  already covers them: session details and programme are not migrated, and overview still includes
-  volume/attendance.
+- **C-1 - Automatic maintenance worker.** Added deployment units
+  (`deploy/strength-analytics-maintenance.service` and `.timer`): a one-shot `analytics build`
+  on boot + every 15 minutes, plus a web-unit `ExecStartPost` run after a backend restart. Because
+  it invokes the same checkout and venv, a deployment is picked up automatically; there is no
+  separate long-running worker to upgrade. Failure is visible in the journal and status endpoint,
+  consumers fall back to on-demand, and rollback is disabling the timer. The units are tested but
+  **not deployed or validated on the target host**.
+- **T-1 - Owner latency decision.** Decide the acceptable LLM tool-call budget (one second, a few
+  seconds, or an async workflow) and amend ADR-INT-010. This is an owner decision, not an
+  implementation task.
+- **T-2 - Full catalogue with transparent latency metadata.** All nine capabilities remain
+  discoverable and callable through `tools/list`; slow capabilities are **not hidden**. Each tool
+  description carries its measured HTTP p95 and classification (fast / slow / very_slow), plus
+  guidance to prefer fast tools, avoid repeated expensive calls, and never trade correctness for
+  latency. The metadata is one module (`strength_coach/intelligence/latency.py`) and is explicitly
+  a historical measurement, not a runtime guarantee. T-2 no longer depends on hiding slow tools;
+  transport enablement still depends on T-1.
+- **T-3 - Optimise the slow capabilities.** Profile and optimise session details, overview,
+  programme summary and readiness, then re-run the HTTP benchmark and update the measured metadata.
+  T-3 improves performance; it is **not** a prerequisite for basic LLM functionality because the
+  full catalogue is already exposed.
 
-The three are compatible and can run in combination: T-1 first (it sets the target), T-2 in
-parallel once T-1 is decided, T-3 independently. The LLM objective remains open until T-3 is
-measured and the full or staged exposure is reviewed.
+The items are compatible: T-1 sets the operational budget, T-2 is a rollout/communication change,
+C-1 keeps materialisation current, and T-3 improves latency. The LLM objective remains open until
+T-3 is measured and the transport decision is reviewed; existing benchmark numbers stay valid
+until that remeasurement.
 
 **Scope.** A provider-neutral capability layer over the existing services, a separately deployable
 read-only MCP server (Streamable HTTP, authenticated, tools and resources only), an additive read-only
