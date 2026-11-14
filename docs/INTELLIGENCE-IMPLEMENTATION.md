@@ -510,8 +510,9 @@ Measured after the change (same host, dataset and 20-run methodology):
 | `evaluate` (spine only) | 381.0 ms | 373.8 ms | unchanged |
 
 Remaining cost is now the context build (1,343 ms, 49%) followed by the dashboard (998 ms, 37%,
-of which the ratio is 516 ms). **The request is still above the one-second transport gate, so the
-MCP transport stays disabled on this host.**
+of which the ratio is 516 ms). The request is still above the one-second threshold; ADR-INT-010
+accepted the latency-aware budget and enabled the catalogue, so this remains the optimisation
+target (T-3) rather than a deployment gate.
 
 **Context investigation (not implemented).** `PRG-SPINE-001` consumes the whole
 `context.sets`: its verdict details list the weighted cost of every ISO week with spinal work
@@ -635,8 +636,9 @@ of `strength-coach-web.service` and binds to loopback by default.
 
 Installation, service-user creation, token provisioning, start/stop, log inspection, revocation
 semantics, tailnet exposure and troubleshooting are in
-[INTELLIGENCE-DEPLOYMENT.md](INTELLIGENCE-DEPLOYMENT.md). The unit has **not** been deployed or
-validated on the target host.
+[INTELLIGENCE-DEPLOYMENT.md](INTELLIGENCE-DEPLOYMENT.md). The systemd unit has **not** been
+installed or validated on the target host; per ADR-INT-010 the transport runs there as a user-level
+process with the full catalogue until it is.
 
 ## 21. INT-2 catalogue (2026-11-14)
 

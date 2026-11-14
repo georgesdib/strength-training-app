@@ -214,9 +214,11 @@ warm-ups per capability. Every call succeeded; p95 values:
 | get_vbt_analysis | 18 ms | 62 ms | 63 ms |
 
 Direct and HTTP were separate runs on the same copied database, so the difference is indicative
-of transport overhead (roughly 35-800 ms, with run-to-run noise on the slow calls). The one-second
-transport gate is **not met**: overview, session details, programme summary and readiness exceed it
-in both modes. The transport stays disabled. The benchmark also exposed and fixed a tooling defect:
+of transport overhead (roughly 35-800 ms, with run-to-run noise on the slow calls). Four
+capabilities exceed the one-second threshold in both modes: overview, session details, programme
+summary and readiness. ADR-INT-010 accepted a latency-aware budget rather than keeping the transport
+disabled, so these figures are guidance and the 20 s tool timeout is the hard bound; T-3 remains the
+optimisation track. The benchmark also exposed and fixed a tooling defect:
 readiness and VBT HTTP calls must use the MCP tools' start/end inputs, not the capability payload's
 from/to fields; without translation they measured fast validation errors.
 
@@ -272,7 +274,7 @@ ODROID host**.
 - No metrics endpoint; use the journal audit lines.
 - No package for a distribution's package manager; install from the virtual environment.
 - A stored IANA profile timezone is still ROADMAP §4.19 work; set `TZ` on the host.
-- The service has not been deployed on the target host. Its synthetic baseline there measured
-  **p50 3,101.9 ms / p95 3,169.4 ms at 377 sessions** (2026-11-14), above the ADR-INT-010
-  one-second threshold, so **do not enable the transport on that host until the ADR addendum is
-  decided**. The web UI and CLI are unaffected.
+- The systemd unit has not been installed on the target host. The synthetic baseline there
+  measured **p50 3,101.9 ms / p95 3,169.4 ms at 377 sessions** (2026-11-14), above the one-second
+  threshold; ADR-INT-010 accepted the latency-aware budget and enabled the catalogue, so treat those
+  numbers as guidance and T-3 as the optimisation track. The web UI and CLI are unaffected.

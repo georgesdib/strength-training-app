@@ -2116,7 +2116,9 @@ envelope statuses, analytics readiness and a clearly labelled MCP-overhead diffe
 are redacted. Tests are in `tests/test_intelligence_benchmark.py`. The HTTP mode was run on the ODROID against
 a copied production database (377 sessions, 7,978 sets, core family verified ready): HTTP p95 was
 6,201 ms for session details, 4,058 ms for overview, 3,800 ms for the programme summary and 1,663 ms
-for readiness, so the one-second transport gate is **not met** and the transport stays disabled.
+for readiness, so the one-second transport gate is **not met** for four capabilities. ADR-INT-010
+then adopted the latency-aware budget (option B) and enabled the full catalogue; these p95 values
+are guidance, not a guarantee, and T-3 remains the optimisation track.
 The run also exposed a benchmark argument-schema bug (readiness/VBT use start/end), now fixed. See
 `docs/INTELLIGENCE-DEPLOYMENT.md` §13.
 
