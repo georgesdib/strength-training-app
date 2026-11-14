@@ -301,6 +301,7 @@ def _summary_load_bases(
     entities: Mapping[str, Any],
     *,
     for_date: str,
+    context: RuleContext,
 ) -> tuple[dict[str, float], dict[str, dict[str, Any]]]:
     """Plan provenance first; strict pre-session recomputation only when it is absent."""
     values: dict[str, float] = {}
@@ -330,7 +331,7 @@ def _summary_load_bases(
     if not missing:
         return values, info
 
-    context = RuleContext.from_store(conn, end=for_date).prior_to(for_date)
+    context = context.prior_to(for_date)
     thresholds = prescribe_config.Thresholds.load()
     factors = e1rm_calibration_feature.factors(
         conn, for_date, window_days=thresholds.e1rm_window_days
@@ -516,9 +517,10 @@ def _summary_special(
     entities: Mapping[str, Any],
     config,
     linked_exposures: list[dict[str, Any]],
+    *,
+    context: RuleContext,
 ) -> dict[str, Any]:
     for_date = str(workout["for_date"])
-    context = RuleContext.from_store(conn, end=for_date)
     rule = load_document().rule("PRG-SPINE-001")
     costs = registry.weekly_spinal_costs(rule, context)
     week = registry.iso_week(for_date)
@@ -874,8 +876,10 @@ def _summary_payload(
     ordinary = _summary_ordinary_sets(
         frame, excluded_set_kinds=excluded_set_kinds, entities=entities, config=config
     )
+    # One rule context serves both the load-base fallback and the spinal summary.
+    context = RuleContext.from_store(conn, end=for_date)
     load_values, load_info = _summary_load_bases(
-        conn, data, frame, entities, for_date=for_date
+        conn, data, frame, entities, for_date=for_date, context=context
     )
     relative = monitoring.relative_intensity_distribution(
         frame,
@@ -917,7 +921,8 @@ def _summary_payload(
         conn, session_id, for_date, frame, entities, excluded_set_kinds, config
     )
     special = _summary_special(
-        conn, data, session_id, frame, entities, config, linked_exposures
+        conn, data, session_id, frame, entities, config, linked_exposures,
+        context=context,
     )
     comparison = comparisons_feature.comparable_sessions(
         conn,

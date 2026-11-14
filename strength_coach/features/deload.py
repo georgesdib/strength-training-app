@@ -16,7 +16,6 @@ import yaml
 
 from strength_coach.domain.symptoms import flare_from
 from strength_coach.features import breaks as breaks_feature
-from strength_coach.features import training_day
 from strength_coach.rules import History, RuleContext, evaluate, load_document
 from strength_coach.store import queries
 from strength_coach.utils import paths
@@ -148,11 +147,23 @@ def reactive_reason(
         # A forecast must not fail because an optional safety input is unavailable.
         pass
 
-    days = training_day.group(conn, end=as_of, with_exercises=False)
-    if len(days) >= cfg.reactive_flares:
+    # Only the last N training days are read. Building every training-day record here dominated
+    # overview/programme latency; the distinct-date query preserves the same ordering and
+    # eligibility (non-voided sessions) without materialising the whole history.
+    recent_days = [
+        str(row["occurred_on"])
+        for row in conn.execute(
+            "SELECT DISTINCT occurred_on FROM session "
+            "WHERE occurred_on <= ? AND voided = 0 "
+            "ORDER BY occurred_on DESC LIMIT ?",
+            (as_of, int(cfg.reactive_flares)),
+        ).fetchall()
+    ]
+    recent_days.reverse()
+    if len(recent_days) >= cfg.reactive_flares:
         flares = []
-        for day in days[-cfg.reactive_flares:]:
-            entry = queries.latest_symptom(conn, str(day["occurred_on"]))
+        for occurred_on in recent_days:
+            entry = queries.latest_symptom(conn, occurred_on)
             flares.append(
                 entry is not None
                 and flare_from(int(entry["level"]), entry["settled_within_48h"]) is True

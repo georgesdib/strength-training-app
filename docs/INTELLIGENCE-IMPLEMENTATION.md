@@ -559,8 +559,35 @@ Ranked hypotheses (not implemented):
    reuse one context per summary or restrict to the session window.
 3. **Readiness settings YAML is parsed per computed score**; cache/load it once per request.
 
-These are hypotheses from profiling; no optimization or semantic change has been made. T-3 remains
-in progress and requires parity tests and a fresh HTTP benchmark after any change.
+These were hypotheses; the first remediation pass is now implemented.
+
+**T-3 first pass (2026-11-14).**
+
+1. The deload flare check reads only the last `reactive_flares` distinct training dates through a
+   bounded query instead of materialising every training day.
+2. `ReadinessConfig.load` is cached per path; the readiness score no longer re-parses YAML for every
+   observed day.
+3. `workout.summary` builds one `RuleContext` and reuses it for the load-base fallback and the
+   spinal summary instead of building two.
+
+Re-measured on a fresh copy of the production database (378 sessions, 8,003 sets), real MCP HTTP,
+30 requests and 5 warm-ups per capability, core family ready:
+
+| Capability | Before p95 | After p95 |
+|---|---:|---:|
+| get_training_overview | 4,058 ms | **672 ms** |
+| get_programme_block_summary | 3,800 ms | **278 ms** |
+| get_readiness_history | 1,663 ms | **377 ms** |
+| get_session_details | 6,201 ms | **5,684 ms** |
+| get_adherence_analysis | 130 ms | 145 ms |
+| compare_training_periods | 194 ms | 189 ms |
+| get_exercise_progression | 67 ms | 45 ms |
+| get_prescription | 40 ms | 46 ms |
+| get_vbt_analysis | 63 ms | 69 ms |
+
+The three main targets fell below 500 ms p95. `get_session_details` remains very_slow (5.7 s p95,
+within the accepted 7 s budget but not fast); its dominant remaining cost is `workout.summary`'s
+load-base/rule work. This is a documented follow-up, not a blocker for the full catalogue.
 
 ## 19. Structured audit record (remediation)
 

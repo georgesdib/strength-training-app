@@ -18,15 +18,15 @@ SOURCE = (
 
 #: capability name -> (HTTP p95 in milliseconds, classification)
 MEASURED: dict[str, tuple[int, str]] = {
-    "get_exercise_progression": (67, "fast"),
-    "get_prescription": (40, "fast"),
-    "get_vbt_analysis": (63, "fast"),
-    "get_adherence_analysis": (130, "fast"),
-    "compare_training_periods": (194, "fast"),
-    "get_readiness_history": (1663, "slow"),
-    "get_programme_block_summary": (3800, "slow"),
-    "get_training_overview": (4058, "slow"),
-    "get_session_details": (6201, "very_slow"),
+    "get_exercise_progression": (45, "fast"),
+    "get_prescription": (46, "fast"),
+    "get_vbt_analysis": (69, "fast"),
+    "get_adherence_analysis": (145, "fast"),
+    "compare_training_periods": (189, "fast"),
+    "get_readiness_history": (377, "fast"),
+    "get_programme_block_summary": (278, "fast"),
+    "get_training_overview": (672, "slow"),
+    "get_session_details": (5684, "very_slow"),
 }
 
 _GUIDANCE = {

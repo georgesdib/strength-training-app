@@ -1962,10 +1962,12 @@ superseded by T-1; existing benchmark numbers remain the reference until T-3 rem
   latency. The metadata is one module (`strength_coach/intelligence/latency.py`) and is explicitly
   a historical measurement, not a runtime guarantee. T-2 no longer depends on hiding slow tools;
   transport enablement still depends on T-1.
-- **T-3 - Optimise the slow capabilities (in progress, profiling started).** Profile and optimise
-  session details, overview, programme summary and readiness, then re-run the HTTP benchmark and
-  update the measured metadata. T-3 improves performance; it is **not** a prerequisite for basic
-  LLM functionality because the full catalogue is already exposed.
+- **T-3 - Optimise the slow capabilities (first pass implemented and remeasured).** Bounded the
+  deload flare lookup, cached readiness config loading and reused one summary rule context. HTTP
+  p95: overview 4,058 -> 672 ms, programme 3,800 -> 278 ms, readiness 1,663 -> 377 ms; session
+  details 6,201 -> 5,684 ms and remains very_slow within the accepted 7 s budget. Latency metadata
+  updated from the new run. Further session-details work is a documented follow-up, not a blocker
+  for the full catalogue.
 
 The items are compatible: T-1 sets the operational budget, T-2 is a rollout/communication change,
 C-1 keeps materialisation current, and T-3 improves latency. The LLM objective remains open until
@@ -1979,10 +1981,10 @@ read-only. **Migration collision resolved:** the production database's 0060 is d
 `0060_plank_variants.sql` (checksum 7ed6); the analytics migrations had reused 0060-0062. They are
 renumbered **0061-0063** on `llm-integration`, so the production schema applies cleanly without
 deleting the recorded row. A fresh copy was migrated and built successfully after the renumber.
-T-3 has started: profiling on a copied
-database points at the deload flare lookup through `training_day.group`, per-summary rule context
-builds, and repeated readiness YAML parsing; findings are recorded in the implementation page, no
-optimisation is implemented yet.
+T-3 first pass is implemented and remeasured: bounded deload flare lookup, cached readiness
+config loading and one summary rule context. Overview is down to 672 ms p95, programme 278 ms,
+readiness 377 ms; session details is 5,684 ms and remains very_slow within the accepted 7 s budget
+(a documented follow-up).
 
 **Scope.** A provider-neutral capability layer over the existing services, a separately deployable
 read-only MCP server (Streamable HTTP, authenticated, tools and resources only), an additive read-only
