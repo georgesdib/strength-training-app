@@ -1,14 +1,16 @@
 # Derived analytics layer — repository audit and architecture
 
-**Status:** design proposal, 2026-11-14. No runtime behaviour, schema, cache or analytical
-semantics were changed by this document. It records an audit of the current analytics and a
-proposed shared, persistent, rebuildable derived layer for the backend, web UI, iOS and the
-Training Intelligence capabilities.
+**Status:** Phase 0 architecture approved; **Milestone A implemented and audited 2026-11-14**.
+The document records the audit of the current analytics, the proposed shared derived layer, and
+the Milestone A outcome. Milestone A changed the schema and runtime only by adding the revision
+ledger and build-state tables and their coordinator; it did **not** materialise analytical data,
+change an analytical formula or migrate a consumer.
 
-Audited at: backend `llm-integration` `de686c7`, portfolio `llm-integration` `de7dd18`,
-iOS `llm-integration` `43292bb`. Measurements below are from the ODROID-class deployment host
-(Linux 6.18.44 aarch64, 4 cores, Python 3.13.5) on a synthetic 377-session / 6,786-set database,
-using the method in `tools/intelligence_benchmark.py` and the §18 profiling in
+Design audited at: backend `llm-integration` `de686c7`, portfolio `llm-integration` `de7dd18`,
+iOS `llm-integration` `43292bb`. Milestone A: backend `bf2775f`, audit remediation `2654ce2`.
+Measurements below are from the ODROID-class deployment host (Linux 6.18.44 aarch64, 4 cores,
+Python 3.13.5) on a synthetic 377-session / 6,786-set database, using the method in
+`tools/intelligence_benchmark.py` and the §18 profiling in
 `docs/INTELLIGENCE-IMPLEMENTATION.md`.
 
 ## 1. Executive summary
@@ -143,7 +145,7 @@ Proposed tables (names provisional; a migration would be a separate approved tas
 | `derived_set` | one leaf `clean_set` row | `set_id` (PK/FK), `method_version`, `e1rm_kg`, `e1rm_quality`, `e1rm_usable`, `velocity_mean`, `velocity_loss_pct`, `effort_class`, `intensity_pct`, `computed_at` | `features/derived` materialiser |
 | `derived_session_exercise` | session x exercise | `session_id`, `exercise_id`, `method_version`, `working_sets`, `hard_sets`, `best_e1rm_kg`, `tonnage_kg`, `total_reps`, `mean_load_kg`, `computed_at` | owner materialisers (progress/outcomes/strength_trend) |
 | `derived_week` | ISO week x session x exercise | `iso_week`, `session_id`, `exercise_id`, `method_version`, `weighted_cost`, `sets`, `mean_intensity_pct`, `pattern`, `computed_at` | `rules/registry.weekly_spinal_costs` materialiser |
-| `analytics_snapshot` — **optional, not in phase 1 or 2** | report kind + window | `kind`, `window_start`, `window_end`, `method_version`, `dependency_fingerprint`, `payload_json`, `created_at` | the owning report module, only after §4.7 says so |
+| `analytics_snapshot` — **optional, not in Milestones A or B** | report kind + window | `kind`, `window_start`, `window_end`, `method_version`, `dependency_fingerprint`, `payload_json`, `created_at` | the owning report module, only after §4.7 says so |
 | `analytics_revision` | one row per source mutation | `revision_id` (monotonic), `kind`, `session_id`, `source_row_ids`, `config_digest`, `created_at` | written in the **same transaction** as every source mutation |
 | `analytics_build` | family + version | `family`, `method_version`, `dependency_fingerprint`, `status` (pending/running/ready/failed), `processed_revision`, `source_revision`, `cursor`, `started_at`, `finished_at`, `error` | rebuild coordinator |
 
@@ -175,7 +177,7 @@ that the deload evidence text and the `exercises` counter expose, so it is not s
 are per set and corrections create new leaf rows. Session/exercise rows answer the dashboard and
 report loops. Weekly session/exercise rows answer spinal costs and volume, the two aggregations
 that must cover the whole history to preserve current details. Snapshots are **optional** and
-are explicitly excluded from phases 1 and 2; §4.7 decides whether monitoring or outcomes need
+are explicitly excluded from Milestones A and B; §4.7 decides whether monitoring or outcomes need
 one after aggregate materialisation has been measured.
 
 **What is deliberately not materialised:** attendance summaries, readiness coverage, evidence
@@ -224,7 +226,7 @@ mutation that can affect any derived family:
 | Configuration change | one row with the affected config family and its new digest (taxonomy, spinal rules, volume, readiness); the reader compares the stored digest |
 | Methodology bump | one row naming the family and the new `method_version`; it invalidates that family and every downstream family in §4.4.4 |
 
-**Phase 1 implementation note (2026-11-14).** Source mutations append global rows
+**Milestone A implementation note (2026-11-14; audited).** Source mutations append global rows
 (`family IS NULL`) and invalidate every published family. A dependency change appends **one row per
 affected family** (global only when `families=None`), so an unrelated family is not invalidated by
 another family's configuration bump. Batch selection and readiness compare a family against the
@@ -249,6 +251,15 @@ when, in one transaction that verifies each condition:
 4. a final read of the revision inside the publication transaction has not advanced; if it has,
    the family stays `running` and the worker continues;
 5. no session in the processed range is pending recomputation.
+
+**Diagnostics contract.** `analytics_build.status` is the **persisted lifecycle**
+(pending/running/ready/failed/stale). A status snapshot's `ready` is **validated readiness**: it
+is true only when a registered `FamilySpec` can confirm the current `method_version`, the
+dependency fingerprint and `processed_revision >= family_revision`. Without a spec the row is
+reported as `readiness: unverified` (or `not_ready` with a reason), never as verified. The
+top-level `revision` is global; each family row carries its own `family_revision`. In Milestone A
+no analytical rows exist, so a persisted `ready` or an `unverified` result never means that
+derived data was materialised.
 
 If a workout completes, an import arrives or a correction is written during a backfill, the
 mutation appends a revision and the worker keeps going until it reaches it; the family is never
@@ -278,7 +289,7 @@ aggregate is served as current merely because its direct rows were untouched.
 #### 4.4.5 Snapshots are optional
 
 `analytics_snapshot` exists only for the case where aggregate materialisation still leaves a
-report too slow. It is **not** part of phase 1 or phase 2. Whether monitoring or outcomes need
+report too slow. It is **not** part of Milestones A or B. Whether monitoring or outcomes need
 one is decided in §4.7 after the aggregates are implemented and profiled on the deployment host;
 until then, no snapshot table is written and the owners compute on demand.
 
@@ -333,7 +344,7 @@ need a snapshot rather than only aggregates.
 
 ### 4.7 Snapshot decision (deferred)
 
-No snapshot is written in phase 1 or phase 2. After phases 3-5 materialise the aggregates, the
+No snapshot is written in Milestones A or B. After Milestones B and C materialise the aggregates, the
 owners are profiled again on the deployment host. A snapshot is justified only if a report is
 still above its target and the remaining cost is dominated by assembly rather than by reading
 aggregates. If it is justified, it is a row of `analytics_snapshot` keyed by kind, window,
@@ -355,17 +366,27 @@ owner reads the stored result when it is valid. No second formula exists to drif
 
 ## 6. Implementation roadmap
 
-| Phase | Scope | Depends on | Acceptance |
-|---|---|---|---|
-| 0. Design approval | This document; owner decision on tables, versions and snapshot scope | none | Approved design and a decision record |
-| 1. Foundation | Migration for the derived tables, `analytics_revision`, `analytics_build` and the coordinator/status endpoint; **no snapshots**, no consumers migrated | 0 | Migration applies/reverts cleanly; empty tables; status visible; no behaviour change |
-| 2. Per-set + session/exercise materialisation and backfill | `derived_set` and `derived_session_exercise` written by the owning modules; background backfill; revision ledger; on-demand fallback | 1 | Payload and numeric equivalence, interruption/resume, concurrent-write and fallback tests below all pass |
-| 3. Migrate progress + strength_trend | `progress.performance_points`, `_sets`/volume and `strength_trend.observations` read derived rows when ready | 2 | Identical payloads; measured dashboard and trend latency; tests for fallback |
-| 4. Migrate rules context | `derived_week` feeding `RuleContext`/`weekly_spinal_costs`; deload and prescription policy read it | 2 | Verdict details identical (including weekly cost map); deload benchmark; policy tests unchanged |
-| 5. Migrate outcomes and monitoring | Aggregates only; snapshots remain a §4.7 decision | 2–4 | Payloads identical; no snapshot written unless §4.7 is decided |
-| 6. Verification and INT integration | ODROID benchmark of overview, deload, outcomes, monitoring; decide the transport gate | 3–5 | Measured results recorded in the ADR; transport enabled only if the gate is met |
+The former six implementation phases are consolidated into three milestones plus the
+completed design phase. Internal subtasks are retained as the units of work; the acceptance
+gate is what allows the next milestone to start. Analytical snapshots are a separate, optional
+decision (§4.7) and are not part of any milestone gate.
 
-**Acceptance tests required in every phase that touches a family**
+| Phase / milestone | Internal subtasks | Depends on | Status | Acceptance gate |
+|---|---|---|---|---|
+| **Phase 0 — Architecture and design approval** | Design, ownership boundaries, grain definitions, alternatives, invalidation/publication contract | none | **Completed 2026-11-14** (design refined; audit corrections recorded) | Approved architecture and decision record |
+| **Milestone A — Analytics Infrastructure** | A1 revision ledger; A2 mutation-path integration; A3 build-state storage; A4 coordinator, checkpoints and recovery; A5 dependency fingerprints; A6 safe publication; A7 status and diagnostics | Phase 0 | **Implemented 2026-11-14; final audit recorded** | Milestone A audit passes: complete mutation coverage, transactional revisions, no stale/incomplete family publishable, correct status semantics, tests cover the guarantees; infrastructure suitable for materialisation |
+| **Milestone B — Core Materialisation and Consumer Migration** | B1 `derived_set`; B2 `derived_session_exercise`; B3 analytical family registration; B4 versioned materialisation and rebuild; B5 migrate `progress`; B6 migrate `strength_trend`; B7 on-demand fallback | Milestone A gate | Not started | Numerical and payload parity with the current implementations; all four grains preserved; correct invalidation/rebuild; no partial or stale materialisation consumed; fallback works; ODROID measurements show a real benefit or explain why not |
+| **Milestone C — Rules, Outcomes, Monitoring and Production Validation** | C1 `derived_week` and required weekly representations; C2 rules/deload migration; C3 outcomes migration; C4 monitoring migration; C5 exact evidence parity; C6 production regression and rebuild/recovery; C7 ODROID profiling and verification; C8 Training Intelligence integration gate | Milestone B gate | Not started | Payload parity for migrated consumers; exact deload verdict, evidence, cost map and weekly spinal-cost semantics; correct version/dependency invalidation; no stale/incomplete data consumed; production rebuild/recovery validated; measured ODROID results against the actual baseline; explicit INT review |
+
+**Completed work.** Phase 0 and Milestone A only. Milestone A added the ledger and build
+tables, the coordinator and the status endpoint; it did **not** materialise `derived_set`,
+`derived_session_exercise` or `derived_week`, and did not migrate any consumer.
+
+**Snapshots.** Optional and deferred. They are not a milestone requirement and are considered
+only after Milestone C profiling shows that materialised families are still insufficient for an
+expensive report workload.
+
+**Acceptance tests required in every milestone that touches a family**
 
 - **Payload and numeric equivalence:** for the same fixtures and the synthetic dataset, the
   materialised path returns the same payload and every number as the on-demand path; the

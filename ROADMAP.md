@@ -58,7 +58,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | — | Training-day session fragments | **done 2026-11-01** | one local training day may contain multiple session fragments; attendance and budget use days, volume/spinal use combined sets, e1RM uses one day-level observation; no schema migration; see [`docs/TRAINING-DAY-MODEL.md`](docs/TRAINING-DAY-MODEL.md) |
 | — | Deterministic dynamic template resolver | **Steps 0–6 complete 2026-11-01/03; merged to `development` 2026-11-03; released in v1.2.0 as opt-in (`resolver.enabled` default false)** | plan and confirmed decisions at [`docs/archive/PROGRAMME-BUILDER-PLAN.md`](docs/archive/PROGRAMME-BUILDER-PLAN.md) and [`docs/DECISIONS.md`](docs/DECISIONS.md) (`DEC-RESOLVER-01`–`12`); Step 1 delivered policy/settings/provenance; Step 2 delivered and remediated the internal deterministic generator core (`generator.py`, `resolver_settings.py`, accepted pattern-flexibility mapping); remediation covers shared injury/constraint eligibility, power-slot safety, require_can_do/unrated/rotation-default semantics, fallback repair, structural availability, whole-session/duplicate-aggregated authoritative spinal scoring, completed-workout precedence, history merge, retired redundant rotation/preference weights and policy/catalogue digests; Step 3 adds the opt-in top-set/back-off structure, top-set persistence and role-aware workout logging, and the hinge maximal-week programme change; Step 4C wires the flag-on resolver path through candidate pools, bounded beam and read-only evaluator, adds pool-aware scheduler availability, rejects selection overrides, and records generated-session provenance; the 4C audit remediation enforces required patterns on final assignments, separates evaluator failure stages, fingerprints beam configuration and DataFrame schemas, and uses the same auto-candidate/slot matching in scheduling; Step 5 adds the dedicated Settings -> Resolver panel, append-only scalar settings, validated policy YAML with atomic writes and 20 timestamped backups, read-only preview with choices/alternatives/suggestions, inline suitability rating, top-set preview, regenerate/diff and a start handoff; the Step 5 remediation adds shared CLI/web readiness enforcement, atomic backup creation, shared resolver-enable confirmation, deterministic restore with a reported pre-restore snapshot, and a full-prescription preview diff; Step 6 adds generated-slot snapshot provenance for critique/exemption reads with a legacy-null fallback, top-set role-aware critique coverage, a real-database copy smoke test, flag/policy rollback verification and the rollout documentation; forecast remains fixed option (c); the flag remains off |
 | future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.5; Iteration 2 conditional** | phased workstream at §4.24; architecture, iteration gate and selector retirement in [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); no implementation in this pass |
-| future | Derived analytics layer | **Phase 1 infrastructure implemented 2026-11-14; no materialisation** | §4.35; shared versioned, rebuildable analytics (per-set, session/exercise, weekly; snapshots optional and deferred) owned by the existing analytical modules; motivated by the ODROID overview (2.7 s p50) and monitoring (49 s) measurements |
+| future | Derived analytics layer | **Milestone A infrastructure implemented and audited 2026-11-14; no materialisation** | §4.35; shared versioned, rebuildable analytics (per-set, session/exercise, weekly; snapshots optional and deferred) owned by the existing analytical modules; motivated by the ODROID overview (2.7 s p50) and monitoring (49 s) measurements |
 | future | Athlete Feedback & Coaching (AFC) | **AFC-2, AFC-2i, AFC-3 and AFC-4 implemented 2026-11-13; physical iPhone acceptance owner-confirmed 2026-11-14; AFC-5 scoped (docs only); backend, web and native iOS presentation** | §4.33; canonical plan [`AFC plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md); composes the existing adherence, VBT, readiness, feedback and volume services; AFC-1 dissolved and planned-session compliance excluded by `DEC-W7-01`; Phase 5A instruments frozen; AFC-2i renders the same report contract in the iPhone app (`DEC-AFC-03`) |
 | — | Symptom attribution and injury-signal verification | **done 2026-11-01** | Phases 1–2 closed: verification hygiene and optional session/lift attribution with required onset/confidence, migration `0047`, CLI/API/web and display-only views. Phase 3 was split into a separate roadmap phase (§4.28) |
 | future | Exercise-level symptom research (Phase 3) | **planned; unscheduled** | separate pre-registered descriptive research question; mechanical exposure and regional symptoms, not athlete attribution; no model, score, suitability rule or prescription change; Today follow-up `injury_attribution_phase3`; plan §10 and §4.28 |
@@ -1957,10 +1957,13 @@ constrained proposer is deferred/unscheduled. §4.33 (AFC) remains the determini
 evidence this layer serialises. This workstream adds no model capability to Iteration 1 and does not
 reopen any completed phase.
 
-### 4.35 Derived analytics layer  (design proposed 2026-11-14; Phase 1 infrastructure implemented 2026-11-14)
+### 4.35 Derived analytics layer  (Phase 0 complete; Milestone A implemented and audited 2026-11-14)
 
-**Status:** design proposed, with **Phase 1 infrastructure implemented 2026-11-14 (`bf2775f`)**.
-No analytical data is materialised and no consumer is migrated. The full proposal is
+**Status:** Phase 0 (architecture and design approval) is complete. **Milestone A (Analytics
+Infrastructure)** is implemented (`bf2775f`) and the final audit remediation is recorded
+(`2654ce2`). No analytical data is materialised and no consumer is migrated. **Milestone B**
+and **Milestone C** are not started; analytical snapshots remain optional and deferred. The full
+proposal is
 [`docs/design/DERIVED-ANALYTICS-ARCHITECTURE.md`](docs/design/DERIVED-ANALYTICS-ARCHITECTURE.md).
 
 The audit found no persistent analytical layer: dashboards and reports rescan and re-enrich the
@@ -1972,10 +1975,10 @@ The proposal is a selective, versioned, rebuildable materialisation owned by the
 analytical modules: per-set derived values, session/exercise aggregates and ISO-week spinal and
 volume aggregates. Owners keep their formulas and payloads; consumers keep calling the same
 functions; a background worker backfills and resumes after interruption; reads fall back to
-on-demand until the family is ready. Snapshots are optional, excluded from phases 1 and 2, and
-decided only after aggregate materialisation is measured.
+on-demand until the family is ready. Snapshots are optional, excluded from Milestones A and B,
+and decided only after aggregate materialisation is measured.
 
-**Phase 1 implemented (2026-11-14, `bf2775f`).** Migration
+**Milestone A delivered (`bf2775f`).** Migration
 [`0060_analytics_phase1.sql`](strength_coach/store/migrations/0060_analytics_phase1.sql) adds the
 append-only `analytics_revision` ledger and the `analytics_build` lifecycle table. The ledger is
 written inside the source transaction by workout completion, imports (only when clean sets were
@@ -1987,20 +1990,25 @@ publishing, and promotes a family to `ready` only inside a `BEGIN IMMEDIATE` tra
 re-reads the family revision and dependency fingerprint. `GET /api/analytics/status` reports the
 revision and family rows. Tests:
 [`tests/test_analytics_revision.py`](tests/test_analytics_revision.py) and
-[`tests/test_analytics_build.py`](tests/test_analytics_build.py) cover transactional rollback,
-each mutation path, bulk idempotence, partial batches, interruption, handler failure, concurrent
-connections, publication refusals and family-scoped invalidation.
+[`tests/test_analytics_build.py`](tests/test_analytics_build.py).
 
-**Known Phase 1 limitation:** the family registry is intentionally empty, so no production family
-is built yet; `analytics_build` rows appear only when a later phase registers one. No remap writer
-exists in the tree; any future writer must call `record_mutation` in its transaction.
+**Milestone A audit outcome (2026-11-14).** The independent audit traced every current
+`clean_set`/`session` writer to three call sites (`workout.end`, `importer.import_export`,
+`history.edit_session`/`void_session`) and confirmed transactional coupling, rollback, family-scoped
+batch selection, checkpoint/failure behaviour and the `BEGIN IMMEDIATE` publication check with a
+blocked concurrent writer. One diagnostic defect was fixed in `2654ce2`: `status_snapshot` now
+reports the persisted lifecycle separately from validated readiness (`verified`/`unverified`/
+`not_ready` plus a reason), so an unregistered family is never implied to be verified. Accepted
+limitations: the registry is empty; no runtime configuration-reload hook exists, so fingerprints
+protect readers and a caller must record a dependency revision to invalidate a published family
+immediately; imports append one batch revision; no exercise-remap writer exists in the tree.
 
 **Correctness contract (2026-11-14 refinement).** A source revision is a durable, monotonic
 `analytics_revision` row appended in the same transaction as each mutation (workout completion,
 import, correction/supersede/tombstone, void/unvoid, any future remap that changes rows, config or
 methodology change). `MAX(clean_set.set_id)` and `PRAGMA data_version` are only change probes:
 they miss supersessions, flags and version changes and are not durable across processes. A family
-may be published `ready` only when its rows are committed, `processed_revision` reaches the current
+may be published `ready` only when its rows are committed, `processed_revision` reaches the family
 revision, the dependency fingerprint matches, and a final publication transaction sees no newer
 revision. Committed batches are not a publishable family. During backfill the owner keeps the
 on-demand path; concurrent writes advance the revision and the worker catches up before publishing.
@@ -2015,7 +2023,7 @@ factors. A week-only grain would lose that count and change the deload details.
 **Dependencies.** e1RM, set classification, taxonomy, spinal and volume versions form a graph: an
 upstream version bump invalidates every downstream family, which is why publication is keyed on a
 fingerprint rather than a single version. `analytics_snapshot` remains optional and is excluded
-from phases 1 and 2; the monitoring/outcomes snapshot decision comes only after aggregate
+from Milestones A and B; the monitoring/outcomes snapshot decision comes only after aggregate
 materialisation is measured.
 
 **Acceptance tests** (detail in the design doc): payload and numeric equivalence, exact deload
@@ -2023,15 +2031,13 @@ verdict/evidence/weekly cost map, interruption and resume, concurrent source cha
 backfill, invalidation after correction/void/import, methodology and config bumps, no partial
 family reads, and fallback when a family is incomplete or failed.
 
-| Phase | Scope | Status |
+| Phase / milestone | Scope | Status |
 |---|---|---|
-| 0 | Design approval | proposed |
-| 1 | Tables, coordinator, build state, status endpoint | **implemented 2026-11-14 (`bf2775f`)** |
-| 2 | Per-set and session/exercise materialisation, backfill | not started |
-| 3 | Migrate progress and strength trend | not started |
-| 4 | Migrate rules context and deload | not started |
-| 5 | Migrate outcomes and monitoring | not started |
-| 6 | ODROID verification and INT transport gate | not started |
+| 0 | Architecture and design approval | **completed 2026-11-14** |
+| **A** | Analytics infrastructure: revision ledger, mutation coverage, build state, coordinator/recovery, fingerprints, safe publication, status | **implemented and audited 2026-11-14 (`bf2775f`, `2654ce2`)** |
+| **B** | Core materialisation and consumer migration (former phases 2–3): `derived_set`, `derived_session_exercise`, family registration, progress and strength-trend migration | not started |
+| **C** | Rules, outcomes, monitoring and production validation (former phases 4–6): `derived_week`, deload/rules, outcomes, monitoring, ODROID verification, INT gate | not started |
+| Snapshots | Optional, deferred, not a milestone requirement | not decided |
 
 **Non-goals:** metric changes, deload policy changes, lookback truncation, a generic cache, MCP
 transport changes or client changes.
