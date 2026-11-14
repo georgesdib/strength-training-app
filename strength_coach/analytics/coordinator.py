@@ -77,12 +77,16 @@ def _state(conn: sqlite3.Connection, row: sqlite3.Row, spec: FamilySpec | None) 
     reason: str | None = None
 
     if resolved is None:
-        readiness = (
-            "unverified"
-            if persisted == "ready" and processed >= current
-            else "not_ready"
-        )
-        reason = "no registered family specification"
+        if persisted == "ready" and processed >= current:
+            readiness = "unverified"
+            reason = "no registered family specification"
+        else:
+            readiness = "not_ready"
+            reason = (
+                f"build is {persisted}"
+                if persisted != "ready"
+                else "source revision is newer than the build"
+            )
     else:
         version_ok = row["method_version"] == resolved.method_version
         fingerprint_ok = row["dependency_fingerprint"] == resolved.fingerprint()

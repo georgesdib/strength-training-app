@@ -95,6 +95,8 @@ def test_failed_build_records_the_error_and_never_publishes(store):
         run_build(conn, SPEC, handler, batch_size=1)
     state = family_state(conn, SPEC)
     assert state["status"] == "failed"
+    assert state["readiness"] == "not_ready"
+    assert state["readiness_reason"] == "build is failed"
     assert "handler failed" in state["last_error"]
     assert state["processed_revision"] == 1
     assert not is_ready(conn, SPEC)
