@@ -54,6 +54,7 @@ from strength_coach.agents.config import (
     load_settings,
     update_llm_settings,
 )
+from strength_coach.analytics import status_snapshot as analytics_status_snapshot
 from strength_coach.critique import UnknownSessionError, build_facts
 from strength_coach.domain import athlete_state
 from strength_coach.domain import e1rm as e1rm_mod
@@ -3042,6 +3043,8 @@ class Handler(BaseHTTPRequestHandler):
                 day = query.get("date", [datetime.date.today().isoformat()])[0]
                 nudge = self._with_conn(lambda c: nudges_feature.current(c, on_date=day))
                 self._json(200, {"on_date": day, "nudge": nudge})
+            elif path == "/api/analytics/status":
+                self._json(200, self._with_conn(analytics_status_snapshot))
             elif path == "/api/observations":
                 query = parse_qs(urlparse(self.path).query)
                 weeks = int(query.get("weeks", ["8"])[0])

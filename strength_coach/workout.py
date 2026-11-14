@@ -19,6 +19,7 @@ from typing import Any
 import pandas as pd
 
 from strength_coach import adherence
+from strength_coach.analytics import revision as analytics_revision
 from strength_coach.domain import load as load_mod
 from strength_coach.domain.plan_identity import item_identity as _item_identity
 from strength_coach.domain.plan_identity import row_plan_identity
@@ -2285,6 +2286,10 @@ def end(
             """,
             (ended, measured_seconds, duration, source, rpe,
              0 if not_recorded else 1, notes, workout_id),
+        )
+        analytics_revision.record_mutation(
+            conn, "workout_end", session_id=workout_id,
+            detail={"workout_id": workout_id},
         )
         _event(conn, workout_id, "end", {"duration_min": duration,
                                           "session_rpe": rpe,

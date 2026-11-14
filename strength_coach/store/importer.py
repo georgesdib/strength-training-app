@@ -19,6 +19,7 @@ from pathlib import Path
 import pandas as pd
 
 from strength_coach import __version__
+from strength_coach.analytics import revision as analytics_revision
 from strength_coach.ingest import clean
 from strength_coach.ingest import readiness as readiness_mod
 from strength_coach.ingest import sessions as sessions_mod
@@ -132,6 +133,11 @@ def import_export(
             # Sessions first: clean_set.session_id is a foreign key into session.
             repo.upsert_sessions(conn, reconstructed)
             inserted, existing = repo.store_clean_sets(conn, result.sets, raw_ids=training_raw)
+            if inserted:
+                analytics_revision.record_mutation(
+                    conn, "import",
+                    detail={"sets": int(inserted), "sessions": int(len(reconstructed))},
+                )
             quarantined = repo.store_quarantine(conn, result.quarantine, raw_ids=training_raw)
 
             # Readiness is merged here because the prescription engine needs one row per date for

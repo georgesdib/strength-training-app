@@ -223,6 +223,14 @@ mutation that can affect any derived family:
 | Configuration change | one row with the affected config family and its new digest (taxonomy, spinal rules, volume, readiness); the reader compares the stored digest |
 | Methodology bump | one row naming the family and the new `method_version`; it invalidates that family and every downstream family in §4.4.4 |
 
+**Phase 1 implementation note (2026-11-14).** Source mutations append global rows
+(`family IS NULL`) and invalidate every published family. A dependency change appends **one row per
+affected family** (global only when `families=None`), so an unrelated family is not invalidated by
+another family's configuration bump. Batch selection and readiness compare a family against the
+highest revision that is global or belongs to it (`family_revision`); the build's
+`processed_revision` is therefore family-scoped. Rows are append-only at the schema level: triggers
+reject updates and deletes. The ledger and build tables exist; no analytical data is materialised.
+
 The build stores `processed_revision` (the highest revision it has fully applied) and the
 `dependency_fingerprint` it was built against. A build that starts while a mutation is in flight
 re-reads the current revision at each batch boundary; `PRAGMA data_version` remains useful only
