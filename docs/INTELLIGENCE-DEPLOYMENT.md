@@ -165,5 +165,7 @@ The database is opened only for that call, so the leftover work is a read that e
 - No metrics endpoint; use the journal audit lines.
 - No package for a distribution's package manager; install from the virtual environment.
 - A stored IANA profile timezone is still ROADMAP §4.19 work; set `TZ` on the host.
-- The service has not been deployed or benchmarked on the target host yet. Run
-  `tools/intelligence_benchmark.py` there before enabling it for daily use.
+- The service has not been deployed on the target host. Its synthetic baseline there measured
+  **p50 3,101.9 ms / p95 3,169.4 ms at 377 sessions** (2026-11-14), above the ADR-INT-010
+  one-second threshold, so **do not enable the transport on that host until the ADR addendum is
+  decided**. The web UI and CLI are unaffected.

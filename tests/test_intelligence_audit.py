@@ -134,7 +134,9 @@ def test_invalid_arguments_are_audited_without_the_message(db_path, caplog):
     assert result.is_error is True
     record = _records(caplog)[0]
     assert record["outcome"] == "invalid_argument"
-    assert "99" not in json.dumps(record)
+    assert "window_weeks" not in json.dumps(record)
+    # The rejected value must not appear as a value; random hex ids may contain digit pairs.
+    assert 99 not in [value for value in record.values() if isinstance(value, int)]
 
 
 def test_request_ids_are_unique(db_path, caplog):
