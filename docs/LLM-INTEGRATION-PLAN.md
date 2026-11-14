@@ -860,7 +860,9 @@ they do not authorise implementation now.
    message; no deterministic behaviour changes and no pseudo-report is produced.
 7. **MCP server via Tailscale:** the owner intends to set up an MCP server reachable over the
    private tailnet. App integration remains an Iteration 2 candidate, not an Iteration 1
-   prerequisite; no MCP tool, authorization model or integration exists yet.
+   prerequisite; no MCP tool, authorization model or integration exists yet. *(Superseded
+   2026-11-14: the MCP server is now INT-1/INT-2 in the portfolio Training Intelligence plan; this
+   item is kept as the 2026-10-29 record. Nothing is implemented either way.)*
 
 **Remaining Iteration 2 questions (Phase 6, not blockers for Iteration 1):** the trusted source
 corpus, retrieval requirements and benchmark, whether a vector store is justified, which
