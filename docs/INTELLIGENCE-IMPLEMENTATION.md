@@ -332,21 +332,24 @@ only counted, so a reader knows something exists without it being exposed.
 
 ## 18. Performance baseline (2026-11-14, development machine)
 
-**Deployment-target caveat.** These numbers were measured on the development Mac (Apple silicon).
-The MCP server is intended to run on a slower Linux host, so they are **not** a service level
-objective and not evidence that the endpoint is fast enough there. What they establish is the
-shape — cost grows with the length of training history, not with the requested window — and the
-command to repeat the measurement on the real host.
+**Deployment-target caveat.** The first two rows were measured on the development Mac (Apple
+silicon). The MCP server runs on a slower Linux host, and that host was measured separately on
+2026-11-14 (last row): it is **not** a service level objective, but it is the number that governs
+whether the transport may be enabled. The shape — cost grows with the length of training history,
+not with the requested window — holds on both.
 
 Command: `python tools/intelligence_benchmark.py --sessions N --runs R` (synthetic data only).
 
-Environment (measurement machine only): macOS 27.2.1 arm64, 8 cores, Python 3.15.2, SQLite
-read-only connection, single process, no concurrent load.
+Environment, development Mac (measurement machine only): macOS 27.2.1 arm64, 8 cores, Python
+3.15.2, SQLite read-only connection, single process, no concurrent load.
+Environment, deployment host (2026-11-14): Linux 6.18.44 aarch64, 4 cores, Python 3.13.5, same
+read-only single-process conditions.
 
 | Dataset | Sets | DB | Runs | p50 | p95 | max |
 |---|---|---|---|---|---|---|
-| 200 sessions / 100 readiness days | 3,600 | 3.87 MB | 40 | 220.5 ms | 299.4 ms | 382.9 ms |
-| 600 sessions / 300 readiness days | 10,800 | 10.22 MB | 20 | 573.1 ms | 596.3 ms | 620.0 ms |
+| 200 sessions / 100 readiness days (Mac) | 3,600 | 3.87 MB | 40 | 220.5 ms | 299.4 ms | 382.9 ms |
+| 600 sessions / 300 readiness days (Mac) | 10,800 | 10.22 MB | 20 | 573.1 ms | 596.3 ms | 620.0 ms |
+| 377 sessions / 189 readiness days (**deployment host**) | 6,786 | 6.5 MB | 20 | 3,101.9 ms | 3,169.4 ms | 3,284.2 ms |
 
 All executions returned `status: ok`. The cost grows roughly linearly with history because the
 dashboard's performance ratio rebuilds session e1RM across the whole history on every read; that
@@ -357,10 +360,11 @@ moves these numbers roughly in proportion to single-core speed.
 
     python tools/intelligence_benchmark.py --sessions <stored sessions> --runs 20 --json
 
-Record the result beside the deployment unit. If p95 is at or above one second, do not enable the
-transport silently: update ADR-INT-010 first and choose, in this order, a bounded lookback for the
-performance ratio (a metric decision, not a transport one) or an opt-in cache keyed on the database
-stamp. Caching stays deferred until that measurement exists.
+Record the result beside the deployment unit. **Measured 2026-11-14: p95 3,169.4 ms at the real
+history size (377 sessions), all `status: ok`.** That is above the one-second threshold, so the
+transport must not be enabled on this host until the ADR-INT-010 addendum is decided: a bounded
+lookback for the performance ratio (a metric decision, not a transport one) or an in-process cache
+keyed on the database stamp. Caching stays deferred until that decision.
 
 **Platform notes for the Linux host**
 
