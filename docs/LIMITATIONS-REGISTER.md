@@ -1,6 +1,6 @@
 # LIMITATIONS REGISTER
 
-**Status:** living register, updated 2026-11-07. It is the only public place accepted
+**Status:** living register, updated 2026-11-13. It is the only public place accepted
 limitations are listed; the roadmap keeps no second table. Private historical-data limitations
 are kept in the git-ignored private record only.
 **Purpose:** keep every known limitation from the audits in one place so later work can revisit
