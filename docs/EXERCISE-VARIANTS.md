@@ -96,6 +96,12 @@ variant with different leverage/load, so migration `0015` split it into
 `close_grip_pulldown` (**15** rows) and added it to the pull-slot candidates. The same principle
 applies to `Bench Press (medium grip)`, which remains its own entity.
 
+**Later split (2026-11-14):** `Side Plank` and `Chinese Plank` were pooled into `plank`. They
+are distinct holds with their own progression, so migration `0060` split them into
+`side_plank` (**99** rows) and `chinese_plank` (**61** rows), leaving **43** rows on `plank`
+(`DEC-VARIANT-04`). Seconds semantics are unchanged, and the split is recorded in
+`exercise_remap_log` like the earlier rewrites.
+
 **Exceptions preserved:**
 
 - `Competition Deadlift` keeps date-scoped sumo/trap-bar resolution; no blanket rewrite.
