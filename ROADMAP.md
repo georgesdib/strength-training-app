@@ -1225,7 +1225,8 @@ This is explicitly future work, not a v0.3 deliverable. The existing invariants 
 reviewed sessions to evaluate whether the suggestions are better than the fixed programme.
 **Status:** idea only; no implementation. It is now developed as the two-iteration workstream
 in §4.24 and [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); this subsection is
-kept as the original idea record.
+kept as the original idea record. Its forward planning is now §4.34 and the portfolio Training
+Intelligence plan; the proposer part is deferred/unscheduled.
 
 **Next-phase design:** the final lean non-cardio fatigue-management plan is **closed**
 ([`docs/archive/NEXT-PHASE-FATIGUE-PLAN.md`](docs/archive/NEXT-PHASE-FATIGUE-PLAN.md)). It used the existing
@@ -1375,19 +1376,19 @@ Its two halves did not belong together:
 Design reference retained for history: [`docs/archive/UI-IMPROVEMENT-PLAN.md`](docs/archive/UI-IMPROVEMENT-PLAN.md).
 Canonical AFC scope: §4.33 and [`AFC plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md).
 
-### 4.24 Future LLM integration workstream  (planned; dependency-ordered after v1.5)
+### 4.24 Future LLM integration workstream  (superseded in part 2026-11-14; see §4.34)
 
-**Status: planned, not implemented, not scheduled to a date.** No prompt, source, schema, API,
-UI or training-rule change is part of this workstream yet. The detailed architecture, contracts,
-privacy rules, evaluation gates and per-phase acceptance criteria live in
-[`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); this section is the roadmap
-summary and must stay consistent with it.
-
-**Cross-repository pointer (2026-11-14):** the read-only intelligence layer, the standalone MCP
-server and the iOS model adapters are specified in the portfolio
+**Status: superseded in part 2026-11-14; not implemented.** The read-only half of this workstream —
+architecture and contracts, the shared context/evidence builder, the athlete analyst, the programme
+explainer, the MCP server and the Apple-platform work — is specified in §4.34 and the portfolio
 [Training Intelligence plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md).
-That plan adds no model capability to Iteration 1, changes no phase boundary here, and is not
-implemented. It reuses this workstream's evidence contract and the AFC evidence ids.
+Rows 1–3 and the exit gate below are superseded; the MCP clause of Iteration 2 is superseded; the
+constrained proposer (rows 4–5) is **deferred/unscheduled** and needs a new decision. Phase 1b, the
+outbound-data inventory (plan §8.1) and the evaluation gates (plan §9) remain in force. No prompt,
+source, schema, API, UI or training-rule change is part of what remains; the detailed requirements,
+privacy rules and acceptance criteria live in
+[`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md), whose status banner records the same
+scope. The analysis below is kept as the historical record of the boundary.
 
 The future architecture separates three capabilities that share one deterministic evidence
 layer but have different permissions:
@@ -1422,16 +1423,18 @@ framework.
 
 | phase | scope | depends on | status |
 |---|---|---|---|
-| 1 | Architecture and contracts: capability boundaries, permissions, context/evidence schema, prompt/schema versions, privacy, iteration boundary | owner approval | **planned** |
-| 1b | **Retire the minimal LLM exercise selector** as a separate work item: remove only selector-specific chooser/CLI/API/UI/engine/tests/docs plumbing; preserve shared LLM client/config, narrative/proposal, deterministic selection, taxonomy, comparability, class-B confirmation and history; acceptance in plan §8.2 | phase 1; **independent of the proposer** | **planned** |
-| 2 | **New** shared context/evidence builder + athlete analyst: lift progression, programme status, strength/power/longevity review | phase 1; existing features/repositories/provenance; the AFC evidence contract (AFC-2/AFC-3) | **planned** |
-| 3 | Programme explainer: persisted prescription, modifiers, baseline/previous comparison, concise + detailed | phase 2; prescription provenance | **planned** |
-| 4 | Constrained proposer in shadow: structured schema, deterministic validation, Python load resolution, baseline comparison; no application | phases 1–3; existing proposal/validator path | **planned** |
-| 5 | Opt-in approval + evaluation: diff UI/CLI, explicit approval, provenance, shadow/opt-in gates; no selector work | phase 4; phase 1b; approved gates; privacy review | **planned** |
-| exit | Iteration 1 exit gate: selector retired; analyst/explainer accepted; proposer shadow/opt-in gates green; no-LLM path tested | phases 1, 1b and 2–5 | **gate** |
+| 1 | Architecture and contracts: capability boundaries, permissions, context/evidence schema, prompt/schema versions, privacy, iteration boundary | owner approval | **superseded by INT-1** (portfolio plan) |
+| 1b | **Retire the minimal LLM exercise selector** as a separate work item: remove only selector-specific chooser/CLI/API/UI/engine/tests/docs plumbing; preserve shared LLM client/config, narrative/proposal, deterministic selection, taxonomy, comparability, class-B confirmation and history; acceptance in plan §8.2 | the approved Training Intelligence contracts (INT-0/INT-1); **independent of the proposer** | **planned** |
+| 2 | **New** shared context/evidence builder + athlete analyst: lift progression, programme status, strength/power/longevity review | phase 1; existing features/repositories/provenance; the AFC evidence contract (AFC-2/AFC-3) | **superseded by INT-2/INT-3** |
+| 3 | Programme explainer: persisted prescription, modifiers, baseline/previous comparison, concise + detailed | phase 2; prescription provenance | **superseded by INT-2 (facts) + INT-5 (narration)** |
+| 4 | Constrained proposer in shadow: structured schema, deterministic validation, Python load resolution, baseline comparison; no application | phases 1–3; existing proposal/validator path | **deferred/unscheduled** (write capability; new decision required) |
+| 5 | Opt-in approval + evaluation: diff UI/CLI, explicit approval, provenance, shadow/opt-in gates; no selector work | phase 4; phase 1b; approved gates; privacy review | **deferred/unscheduled** with row 4 |
+| exit | Iteration 1 exit gate: selector retired; analyst/explainer accepted; proposer shadow/opt-in gates green; no-LLM path tested | phases 1, 1b and 2–5 | **superseded** (INT-1 to INT-8 carry their own gates) |
 
-**Dependency order:** v1.5 cardio/calibration work, then phase 1, then 2 → 3 → 4 → 5; phase 1b
-runs after phase 1, in parallel with 2/3 if useful, and must finish before the Iteration 1 exit.
+**Dependency order (superseded for the read-only work):** v1.5 cardio/calibration work, then phase 1,
+then 2 → 3 → 4 → 5; phase 1b runs after phase 1, in parallel with 2/3 if useful, and must finish
+before the Iteration 1 exit. The current read-only order is INT-1 → INT-2 → INT-3 (§4.34); phase 1b
+still precedes any server-side narration phase.
 No capability code starts before the owner approves its contracts. Phases 4–5 do not run on
 sessions already downgraded by a safety modifier (`DEC-LLM-04`); any relaxation is a new
 decision.
@@ -1453,14 +1456,15 @@ Iteration 2 begins only after the Iteration 1 exit gate. It starts with a needs 
 with technology adoption. RAG, semantic/hybrid retrieval, a vector database, advanced
 orchestration/tool use and an owner-operated MCP server over Tailscale are candidates, not
 requirements; any one may be rejected. A vector database is permitted only if the retrieval
-benchmark shows a simpler deterministic/keyword or hybrid approach is insufficient. The MCP
-server is owner intent only: Tailscale is network reachability, not application authentication,
-and no app integration is implemented or approved.
+benchmark shows a simpler deterministic/keyword or hybrid approach is insufficient. **Superseded
+in part (2026-11-14):** the MCP server is no longer an Iteration 2 candidate — it is planned as
+INT-1/INT-2 (§4.34) with application authentication, and Tailscale remains reachability only. The
+retrieval, vector-store and orchestration candidates are unchanged and remain conditional.
 
 | phase | scope | depends on | status |
 |---|---|---|---|
-| 6 | Needs assessment: recurring gaps, trusted corpus, retrieval requirements, simpler alternatives, MCP/Tailscale tool boundary and authorization, benchmark, cost/latency/privacy/maintenance case | Iteration 1 exit gate; owner authorisation | **conditional** |
-| 7 | Advanced component trial: one approved component at a time (RAG, hybrid retrieval, bounded orchestration or MCP transport), off by default, baseline comparison | phase 6 decision; privacy review | **conditional** |
+| 6 | Needs assessment: recurring gaps, trusted corpus, retrieval requirements, simpler alternatives, MCP/Tailscale tool boundary and authorization, benchmark, cost/latency/privacy/maintenance case | Iteration 1 exit gate; owner authorisation | **conditional** (MCP clause superseded by INT-1) |
+| 7 | Advanced component trial: one approved component at a time (RAG, hybrid retrieval, bounded orchestration or MCP transport), off by default, baseline comparison | phase 6 decision; privacy review | **conditional** (MCP transport clause superseded by INT-1) |
 
 **Proceed criteria for any Iteration 2 component:** documented recurring need; simpler
 alternative tested; measurable benefit on a pre-registered evaluation set; acceptable cost,
@@ -1919,10 +1923,12 @@ unnecessary health values by default. No MCP prompt, sampling, roots or subscrip
 API. No change to workout execution, prescription/readiness/fatigue algorithms, cardio, migrations or
 existing endpoint shapes.
 
-**Relationship to §4.24 and §4.33.** §4.24 remains the LLM-capability workstream and its Phase 1b
-selector retirement is still required before a server-side narration phase; §4.33 (AFC) remains the
-deterministic producer of the evidence this layer serialises. This workstream adds no model capability
-to Iteration 1 and does not reopen any completed phase.
+**Relationship to §4.24 and §4.33.** This workstream **supersedes the read-only part of §4.24** and
+the Apple Intelligence/PCC items in the iOS client plan; §4.24 keeps the historical record and its
+Phase 1b selector retirement, which is still required before a server-side narration phase. The
+constrained proposer is deferred/unscheduled. §4.33 (AFC) remains the deterministic producer of the
+evidence this layer serialises. This workstream adds no model capability to Iteration 1 and does not
+reopen any completed phase.
 
 ## 5. Known gaps and risks
 

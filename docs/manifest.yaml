@@ -597,9 +597,9 @@ documents:
 - id: llm-integration-plan
   path: docs/LLM-INTEGRATION-PLAN.md
   title: LLM INTEGRATION — FUTURE ARCHITECTURE AND PHASED PLAN
-  description: 'future LLM analyst/explainer/constrained-proposer architecture: Iteration 1 (practical capabilities, selector
-    retirement), conditional Iteration 2 (retrieval/RAG/advanced orchestration), shared context/evidence contracts, approval,
-    privacy and evaluation gates; plan only'
+  description: 'superseded as a forward plan 2026-11-14 by the portfolio Training Intelligence plan; retained for the
+    outbound-data inventory, evaluation gates, selector retirement and the deferred constrained proposer; historical
+    record of the Iteration 1/Iteration 2 boundary; plan only'
   category: plans
   status: plan
   audience: public

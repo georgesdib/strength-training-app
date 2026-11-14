@@ -11,6 +11,26 @@ their shared evidence/context layer, validation, approval, privacy and evaluatio
 This document is a plan, not a claim that any described interface or capability exists. The
 current implementation remains the source of truth until a phase is implemented and tested.
 
+> **Superseded as a forward plan — 2026-11-14.** The read-only half of this plan (capability
+> boundaries, context/evidence layer, athlete analyst, programme explainer, MCP server, Apple-platform
+> integration and phases 1–3) is now specified in the portfolio
+> [Training Intelligence plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md)
+> (§16 and `ADR-INT-013`). **Do not extend this document; amend that plan instead.**
+>
+> Three things here remain in force and are retained as its requirements record:
+>
+> 1. **§8.1 outbound-data inventory** and **§9 evaluation/rollout gates** — adopted by reference by the
+>    new plan; every model path still depends on them.
+> 2. **§8.2 / Phase 1b selector retirement** (`DEC-LLM-14`) — still required before a server-side
+>    narration phase, so that only one model surface exists.
+> 3. **§7 / phases 4–5 constrained proposer** (`DEC-LLM-09`) — a **write** capability outside the
+>    read-only workstream. It is **deferred/unscheduled** by this supersession: its decision,
+>    requirements and approval gates stay recorded, and any future work needs a new decision.
+>
+> The Iteration 1/Iteration 2 analysis below is kept as the historical record of why the boundary was
+> drawn. It no longer describes the planned sequence: MCP is now INT-1, and the read-only capabilities
+> are INT-2/INT-3.
+
 ## 1. Current implementation (verified)
 
 What exists today:
