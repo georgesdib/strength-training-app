@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 
 import pytest
 from conftest import make_readiness, make_training
@@ -123,6 +124,26 @@ def test_void_and_unvoid_append_revisions(conn):
     assert conn.execute(
         "SELECT voided FROM session WHERE session_id = ?", (session_id,)
     ).fetchone()[0] == 0
+
+
+def test_revision_rows_are_append_only(conn):
+    import_rows(conn)
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute("UPDATE analytics_revision SET kind = 'void'")
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute("DELETE FROM analytics_revision")
+    assert current_revision(conn) == 1
+
+
+def test_analytics_tables_exist_after_migration(conn):
+    names = {
+        row[0]
+        for row in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' "
+            "AND name IN ('analytics_revision', 'analytics_build')"
+        )
+    }
+    assert names == {"analytics_revision", "analytics_build"}
 
 
 def test_dependency_revision_records_digest(conn):

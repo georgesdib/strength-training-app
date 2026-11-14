@@ -60,34 +60,62 @@ def ensure_build(conn: sqlite3.Connection, spec: FamilySpec) -> sqlite3.Row:
 
 
 def _state(conn: sqlite3.Connection, row: sqlite3.Row, spec: FamilySpec | None) -> dict:
+    """Persisted lifecycle plus validated readiness.
+
+    `status` is what the build table says (pending/running/ready/failed/stale). `ready` is
+    **validated readiness** and is only true when a FamilySpec is available to check the current
+    method version and dependency fingerprint. In phase 1 the registry is empty, so a row may
+    legitimately show `status: ready` with `ready: false` and `readiness: unverified`; that
+    distinction keeps diagnostics from implying a verified family. Consumers never infer
+    readiness from `status`; they call `is_ready` with their spec.
+    """
     current = family_revision(conn, row["family"])
     resolved = spec or spec_for(row["family"])
-    # The diagnostics snapshot may not know every family (the phase-1 registry is empty);
-    # without a spec the stored version and fingerprint are authoritative. Consumers that
-    # decide whether to read a family always pass their spec to is_ready().
-    version_ok = resolved is None or row["method_version"] == resolved.method_version
-    fingerprint_ok = (
-        resolved is None
-        or row["dependency_fingerprint"] == resolved.fingerprint()
-    )
-    ready = (
-        row["status"] == "ready"
-        and row["processed_revision"] >= current
-        and version_ok
-        and fingerprint_ok
-    )
-    status = row["status"]
-    if status == "ready" and not ready:
-        status = "stale"
+    persisted = row["status"]
+    processed = int(row["processed_revision"])
+    ready = False
+    reason: str | None = None
+
+    if resolved is None:
+        readiness = (
+            "unverified"
+            if persisted == "ready" and processed >= current
+            else "not_ready"
+        )
+        reason = "no registered family specification"
+    else:
+        version_ok = row["method_version"] == resolved.method_version
+        fingerprint_ok = row["dependency_fingerprint"] == resolved.fingerprint()
+        ready = (
+            persisted == "ready"
+            and processed >= current
+            and version_ok
+            and fingerprint_ok
+        )
+        if ready:
+            readiness = "verified"
+        else:
+            readiness = "not_ready"
+            if persisted != "ready":
+                reason = f"build is {persisted}"
+            elif processed < current:
+                reason = "source revision is newer than the build"
+            elif not version_ok:
+                reason = "method version changed"
+            else:
+                reason = "dependency fingerprint changed"
+
     return {
         "family": row["family"],
-        "status": status,
+        "status": persisted,
+        "readiness": readiness,
+        "readiness_reason": reason,
         "ready": ready,
         "method_version": row["method_version"],
         "dependency_fingerprint": row["dependency_fingerprint"],
-        "processed_revision": int(row["processed_revision"]),
+        "processed_revision": processed,
         "source_revision": int(row["source_revision"]),
-        "current_revision": current,
+        "family_revision": current,
         "started_at": row["started_at"],
         "finished_at": row["finished_at"],
         "last_published_at": row["last_published_at"],

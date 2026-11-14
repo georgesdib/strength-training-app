@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 import threading
 import urllib.request
 
@@ -221,6 +222,58 @@ def test_concurrent_connection_mutation_during_build_is_seen(tmp_path):
     finally:
         first.close()
         second.close()
+
+
+def test_status_snapshot_does_not_imply_verified_readiness(store):
+    conn = store.connection
+    append_revision(conn)
+    run_build(conn, SPEC)
+    row = status_snapshot(conn)["families"][0]
+    # The persisted lifecycle is ready, but the registry is empty so readiness is unverified.
+    assert row["status"] == "ready"
+    assert row["ready"] is False
+    assert row["readiness"] == "unverified"
+    assert row["readiness_reason"] == "no registered family specification"
+
+
+def test_status_snapshot_verifies_a_registered_family(store):
+    from strength_coach.analytics import families
+
+    conn = store.connection
+    append_revision(conn)
+    run_build(conn, SPEC)
+    families.REGISTRY[SPEC.family] = SPEC
+    try:
+        row = status_snapshot(conn)["families"][0]
+    finally:
+        families.REGISTRY.pop(SPEC.family, None)
+    assert row["ready"] is True
+    assert row["readiness"] == "verified"
+    assert row["readiness_reason"] is None
+
+
+def test_publication_holds_an_immediate_transaction(tmp_path):
+    path = tmp_path / "lock.db"
+    handle = db.Store(path)
+    conn = handle.connection
+    try:
+        append_revision(conn)
+        locked: list[bool] = []
+
+        def before_publish(publishing_conn):
+            other = sqlite3.connect(path, timeout=0.05)
+            try:
+                with pytest.raises(sqlite3.OperationalError), db.transaction(other):
+                    record_mutation(other, "import")
+                locked.append(True)
+            finally:
+                other.close()
+
+        state = run_build(conn, SPEC, before_publish=before_publish)
+    finally:
+        handle.close()
+    assert locked == [True]
+    assert state["ready"] is True
 
 
 def test_status_endpoint_reports_the_revision(tmp_path):
