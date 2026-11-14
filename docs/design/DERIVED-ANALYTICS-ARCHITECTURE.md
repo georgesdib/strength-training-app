@@ -216,7 +216,8 @@ mutation that can affect any derived family:
 
 | Event | What is appended |
 |---|---|
-| New workout / import insert | one row per affected session, with the inserted leaf set ids; the importer appends one row per imported session |
+| New workout | one row with the session id and the inserted set count |
+| Import | one row for the whole import transaction, only when clean sets were inserted; an identical re-import appends none. The detail carries the inserted set and session counts |
 | Correction / supersede / tombstone removal | one row per session, with the new leaf set ids and the superseded ids; the tombstone itself is excluded by the existing leaf predicate |
 | Void / unvoid | one row per session, because it changes which sessions are eligible for every aggregation |
 | Exercise remap | one row per affected session **if and when** a remap mutates source rows. The current tree has only the `exercise_remap_log` table and no remap writer; the design requires any future writer to participate, and a remap that only records a decision changes nothing |
