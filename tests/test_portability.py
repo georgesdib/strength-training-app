@@ -1,7 +1,11 @@
 """Portability: a second athlete, a second database, the same code.
 
-The acceptance criterion is behavioural: import, run, review and calibrate work end to end on a
-database the first athlete's data never touches. Nothing personal may be tracked by git.
+The acceptance criterion is behavioural: import and run work end to end on a database the first
+athlete's data never touches, and the two databases stay independent. Nothing personal may be
+tracked by git.
+
+The rubric loop (review/calibrate) is not part of this test: it was retired under DEC-EVAL-09,
+and historical marks are read-only through GET /api/review/<session> (covered by test_reviews).
 """
 
 from __future__ import annotations
@@ -10,7 +14,6 @@ import subprocess
 from pathlib import Path
 
 import pytest
-import yaml
 from conftest import make_readiness, make_training
 
 from strength_coach import cli
@@ -54,18 +57,6 @@ def build_db(path: Path, rows) -> None:
         store.close()
 
 
-def write_labels(path: Path, session_id: str) -> None:
-    path.write_text(yaml.safe_dump({
-        "version": 1,
-        "sessions": {
-            session_id: {
-                "scores": {"RIR_ADHERENCE": 1.0, "ESSENTIAL_WORK": 1.0},
-                "confidence": "high",
-            },
-        },
-    }), encoding="utf-8")
-
-
 def test_two_athletes_run_the_whole_loop_independently(tmp_path, capsys):
     first = tmp_path / "first.db"
     second = tmp_path / "second.db"
@@ -76,17 +67,6 @@ def test_two_athletes_run_the_whole_loop_independently(tmp_path, capsys):
                      "--session-type", "squat"]) == 0
     assert cli.main(["--db", str(second), "run", "--date", "2024-04-01",
                      "--session-type", "hinge"]) == 0
-
-    labels_first = tmp_path / "labels-first.yaml"
-    labels_second = tmp_path / "labels-second.yaml"
-    write_labels(labels_first, "2024-01-01")
-    write_labels(labels_second, "2024-03-01")
-    assert cli.main(["--db", str(first), "review", "--session", "2024-01-01",
-                     "--scores", str(labels_first)]) == 0
-    assert cli.main(["--db", str(second), "review", "--session", "2024-03-01",
-                     "--scores", str(labels_second)]) == 0
-    assert cli.main(["--db", str(first), "calibrate"]) == 0
-    assert cli.main(["--db", str(second), "calibrate"]) == 0
 
     with db.Store(first) as store:
         first_items = [
