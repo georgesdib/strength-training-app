@@ -835,13 +835,27 @@ def _summary_observation(
     }
 
 
-def summary(conn, workout_id: str) -> dict[str, Any]:
+def summary(
+    conn, workout_id: str, *, include_ratios: bool = True
+) -> dict[str, Any]:
     """Read-only descriptive summary for a completed workout.
 
     Includes the Phase 3 target-versus-actual comparison alongside the existing descriptive
     sections. No historical comparability, ratios or longitudinal trend is computed here. Raw
     performance is formula-derived; load-base provenance is used only for relative intensity.
+
+    Relative-strength ratios are the expensive part: each one walks the whole lift history, and
+    the native report does not render them. `include_ratios=False` returns an empty list instead
+    of a slow request. The clean-set snapshot shares one read of the same window across the
+    sections that ask for it.
     """
+    with queries.clean_sets_snapshot(conn):
+        return _summary_payload(conn, workout_id, include_ratios=include_ratios)
+
+
+def _summary_payload(
+    conn, workout_id: str, *, include_ratios: bool
+) -> dict[str, Any]:
     data = get(conn, workout_id)
     if data is None:
         raise ValueError("workout not found")
@@ -910,16 +924,19 @@ def summary(conn, workout_id: str) -> dict[str, Any]:
         min_overlap=config.comparability_min_overlap,
         min_prior_sessions=config.comparability_min_prior_sessions,
     )
-    ratios = []
-    selected_ids = set(actual_ids)
-    for relationship in relative_strength_feature.load_relationships():
-        if (
-            relationship.numerator in selected_ids
-            or relationship.denominator in selected_ids
-        ):
-            ratios.append(relative_strength_feature.current_ratio(conn, relationship, for_date))
-        if len(ratios) >= 2:
-            break
+    ratios: list[Any] = []
+    if include_ratios:
+        selected_ids = set(actual_ids)
+        for relationship in relative_strength_feature.load_relationships():
+            if (
+                relationship.numerator in selected_ids
+                or relationship.denominator in selected_ids
+            ):
+                ratios.append(
+                    relative_strength_feature.current_ratio(conn, relationship, for_date)
+                )
+            if len(ratios) >= 2:
+                break
     working = frame[frame["is_working_set"].fillna(False).astype(bool)] if not frame.empty else frame
     rir_coverage = (
         float(working["rir"].notna().mean()) if not working.empty else None

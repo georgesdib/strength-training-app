@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **The completed-workout summary is fast enough for the native report.** The summary now runs
+  inside `queries.clean_sets_snapshot`, so its sections share one read of the same window
+  instead of querying the set table seven times, and relative-strength ratios are computed only
+  when the caller renders them. The iOS facade passes `include_ratios=False`, because each
+  ratio walks the whole lift history and the native report does not display them; `ratios`
+  stays present as an empty list so the payload shape is unchanged. On the current database this
+  takes the native report from ~13.3 s to ~7.0 s, which is what was exceeding the phone's
+  request timeout and surfacing as a client reset (the server logged the aborted writes as 500s).
+  No metric, schema or prescription change.
+
 ### Changed
 
 - **AFC follow-ups are tracked as review tasks.** `afc_device_acceptance` (physical iPhone

@@ -1102,7 +1102,11 @@ class Handler(BaseHTTPRequestHandler):
                         self._error(404, "not found")
                         return
                     try:
-                        payload = {"summary": workout.summary(conn, workout_id)}
+                        payload = {
+                            "summary": workout.summary(
+                                conn, workout_id, include_ratios=False
+                            )
+                        }
                     except workout.WorkoutNotCompleted as exc:
                         self._error(409, str(exc))
                         return
