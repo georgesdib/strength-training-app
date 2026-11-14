@@ -196,9 +196,29 @@ The report contains capability names, timings, error classes and configuration o
 workout and prescription identifiers in arguments are redacted. Raw training values are never
 included.
 
-**Status.** The extended benchmark and its tests are implemented. The HTTP benchmark has not yet
-been run against the ODROID deployment, so the original MCP performance objective remains open
-until those results are collected and reviewed.
+**Status (2026-11-14).** The extended benchmark and its tests are implemented. The HTTP mode was
+run on the ODROID against a copied production database (377 sessions, 7,978 clean sets, 1,018
+readiness days, 18.37 MB) with the core family verified ready, 30 measured iterations and 5
+warm-ups per capability. Every call succeeded; p95 values:
+
+| Capability | Direct p50 | HTTP p50 | HTTP p95 |
+|---|---:|---:|---:|
+| get_session_details | 5,083 ms | 5,916 ms | 6,201 ms |
+| get_training_overview | 3,725 ms | 3,698 ms | 4,058 ms |
+| get_programme_block_summary | 3,229 ms | 3,362 ms | 3,800 ms |
+| get_readiness_history | 1,519 ms | 1,560 ms | 1,663 ms |
+| compare_training_periods | 148 ms | 183 ms | 194 ms |
+| get_adherence_analysis | 38 ms | 106 ms | 130 ms |
+| get_exercise_progression | 23 ms | 66 ms | 67 ms |
+| get_prescription | 1.2 ms | 37 ms | 40 ms |
+| get_vbt_analysis | 18 ms | 62 ms | 63 ms |
+
+Direct and HTTP were separate runs on the same copied database, so the difference is indicative
+of transport overhead (roughly 35-800 ms, with run-to-run noise on the slow calls). The one-second
+transport gate is **not met**: overview, session details, programme summary and readiness exceed it
+in both modes. The transport stays disabled. The benchmark also exposed and fixed a tooling defect:
+readiness and VBT HTTP calls must use the MCP tools' start/end inputs, not the capability payload's
+from/to fields; without translation they measured fast validation errors.
 
 ## 14. Remaining limitations
 

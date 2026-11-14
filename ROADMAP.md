@@ -2058,9 +2058,12 @@ registered capability, generates valid arguments from the benchmark database, an
 execution, real MCP Streamable HTTP (official SDK client, bearer token from an environment
 variable) and read-only existing-database modes. It reports per-capability distributions, errors,
 envelope statuses, analytics readiness and a clearly labelled MCP-overhead difference; identifiers
-are redacted. Tests are in `tests/test_intelligence_benchmark.py`. The HTTP benchmark has not yet
-been run against the ODROID deployment, so the original MCP performance objective is **not**
-closed; see `docs/INTELLIGENCE-DEPLOYMENT.md` §13.
+are redacted. Tests are in `tests/test_intelligence_benchmark.py`. The HTTP mode was run on the ODROID against
+a copied production database (377 sessions, 7,978 sets, core family verified ready): HTTP p95 was
+6,201 ms for session details, 4,058 ms for overview, 3,800 ms for the programme summary and 1,663 ms
+for readiness, so the one-second transport gate is **not met** and the transport stays disabled.
+The run also exposed a benchmark argument-schema bug (readiness/VBT use start/end), now fixed. See
+`docs/INTELLIGENCE-DEPLOYMENT.md` §13.
 
 **Correctness contract (2026-11-14 refinement).** A source revision is a durable, monotonic
 `analytics_revision` row appended in the same transaction as each mutation (workout completion,

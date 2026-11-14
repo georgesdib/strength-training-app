@@ -210,7 +210,9 @@ def build_arguments(
             if not exercise_id:
                 unsupported[name] = "benchmark database has no clean sets"
             else:
-                arguments[name] = {"exercise_id": exercise_id, "as_of": as_of}
+                arguments[name] = {
+                    "exercise_id": exercise_id, "from": start_90, "to": as_of,
+                }
         elif name == "get_programme_block_summary":
             arguments[name] = {"as_of": as_of}
         elif name == "compare_training_periods":
@@ -222,6 +224,28 @@ def build_arguments(
         else:
             unsupported[name] = "no benchmark argument builder for this capability"
     return arguments, unsupported
+
+
+def http_arguments(arguments: dict[str, dict]) -> dict[str, dict]:
+    """Translate capability payloads to the MCP tool input schemas.
+
+    Most tools mirror the capability fields, but readiness and VBT expose start/end while their
+    capability payloads use from/to. Passing the wrong names is rejected by tool validation and
+    would measure a fast error, not the capability.
+    """
+    out: dict[str, dict] = {}
+    for name, payload in arguments.items():
+        if name == "get_readiness_history":
+            out[name] = {"start": payload["from"], "end": payload["to"]}
+        elif name == "get_vbt_analysis":
+            out[name] = {
+                "start": payload["from"],
+                "end": payload["to"],
+                "exercise_id": payload.get("exercise_id"),
+            }
+        else:
+            out[name] = payload
+    return out
 
 
 def _direct_call(service, name: str, arguments: dict) -> tuple[float, str | None, str | None]:
@@ -305,6 +329,7 @@ async def _run_http_async(
     warmup: int,
 ) -> dict:
     results: dict[str, dict] = {}
+    translated = http_arguments(arguments)
     try:
         async with _http_session(url, token, timeout) as client:
             tools = await client.list_tools()
@@ -323,11 +348,11 @@ async def _run_http_async(
                 errors: list[str] = []
                 for _ in range(max(0, warmup)):
                     with contextlib.suppress(Exception):
-                        await client.call_tool(name, arguments[name])
+                        await client.call_tool(name, translated[name])
                 for _ in range(iterations):
                     started = time.perf_counter()
                     try:
-                        result = await client.call_tool(name, arguments[name])
+                        result = await client.call_tool(name, translated[name])
                         elapsed = (time.perf_counter() - started) * 1000
                         if getattr(result, "isError", False):
                             errors.append("tool_error")

@@ -203,6 +203,23 @@ def test_http_authentication_failure_is_reported(path, monkeypatch):
     assert "PermissionError" in result["error"]
 
 
+def test_http_arguments_use_tool_input_schemas():
+    translated = bench.http_arguments({
+        "get_readiness_history": {"from": "2024-01-01", "to": "2024-02-01"},
+        "get_vbt_analysis": {
+            "from": "2024-01-01", "to": "2024-02-01", "exercise_id": "x",
+        },
+        "get_training_overview": {"as_of": "2024-02-01"},
+    })
+    assert translated["get_readiness_history"] == {
+        "start": "2024-01-01", "end": "2024-02-01",
+    }
+    assert translated["get_vbt_analysis"] == {
+        "start": "2024-01-01", "end": "2024-02-01", "exercise_id": "x",
+    }
+    assert translated["get_training_overview"] == {"as_of": "2024-02-01"}
+
+
 def test_unknown_capability_is_reported_not_skipped(tmp_path, path):
     report = bench.run_extended(
         sessions=3, iterations=1, warmup=0, db_path=str(path), mode="direct",
