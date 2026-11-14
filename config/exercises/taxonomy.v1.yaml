@@ -406,9 +406,11 @@ entities:
     rep_semantics: seconds        # <-- 80/90/110 in Reps_Done are SECONDS
     time_based: true
     loadable: true                # plate added on back is common
+    primary_muscles: [abs]
 
-  # DEC-VARIANT-04: split from the generic plank. Both are distinct holds with their own
-  # history; Reps_Done still carries seconds (DQ-REPS-01), never reps.
+  # DEC-VARIANT-04/DEC-VARIANT-05: split from the generic plank. Side Plank is a trunk hold;
+  # Chinese Plank is a hip-extension hold (glutes), not a trunk plank. Both keep seconds in
+  # Reps_Done (DQ-REPS-01), never reps.
   side_plank:
     display: "Side Plank"
     log_names: ["Side Plank"]
@@ -423,13 +425,14 @@ entities:
   chinese_plank:
     display: "Chinese Plank"
     log_names: ["Chinese Plank"]
-    pattern: core_isometric
+    # A hip-extension hold, not a trunk plank (DEC-VARIANT-05).
+    pattern: hip_extension
     bodyweight_type: true
     rep_semantics: seconds
     time_based: true
     loadable: true
     e1rm_applicable: false
-    primary_muscles: [abs]
+    primary_muscles: [glutes]
 
   carry:
     display: "Carry"

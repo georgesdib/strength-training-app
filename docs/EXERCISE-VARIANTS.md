@@ -97,10 +97,13 @@ variant with different leverage/load, so migration `0015` split it into
 applies to `Bench Press (medium grip)`, which remains its own entity.
 
 **Later split (2026-11-14):** `Side Plank` and `Chinese Plank` were pooled into `plank`. They
-are distinct holds with their own progression, so migration `0060` split them into
-`side_plank` (**99** rows) and `chinese_plank` (**61** rows), leaving **43** rows on `plank`
-(`DEC-VARIANT-04`). Seconds semantics are unchanged, and the split is recorded in
-`exercise_remap_log` like the earlier rewrites.
+are different movements — a trunk hold and a **hip-extension** hold — so migration `0060` split
+them into `side_plank` (**99** rows) and `chinese_plank` (**61** rows), leaving **43** rows on
+`plank` (`DEC-VARIANT-04`; its pattern/muscle clause corrected by `DEC-VARIANT-05`).
+`chinese_plank` keeps `pattern: hip_extension` with glute primary muscles; `plank` is
+`core_isometric` with `[abs]`; all three still record seconds in `Reps_Done`. The split is
+recorded in `exercise_remap_log` like the earlier rewrites, and pattern is read at run time, so
+no second migration is needed for the correction.
 
 **Exceptions preserved:**
 

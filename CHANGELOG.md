@@ -4,11 +4,12 @@
 
 ### Added
 
-- **Side Plank and Chinese Plank are separate exercises** (`DEC-VARIANT-04`). `plank` keeps
-  Regular and Front Plank; the two variants get their own ids, log names, history and
-  progression, still measured in seconds. Migration `0060` rewrites the identity of previously
-  imported rows by their raw logged name and records each change in `exercise_remap_log`; the
-  raw rows are untouched.
+- **Side Plank and Chinese Plank are separate exercises** (`DEC-VARIANT-04`, pattern clause
+  corrected by `DEC-VARIANT-05`). `plank` keeps Regular and Front Plank and gains
+  `primary_muscles: [abs]`; `side_plank` is a `core_isometric` trunk hold with
+  `[abs, erectors]`; `chinese_plank` is a `hip_extension` hold with `[glutes]`. All three still
+  record seconds. Migration `0060` rewrites the identity of previously imported rows by their
+  raw logged name and records each change in `exercise_remap_log`; the raw rows are untouched.
 
 ### Fixed
 

@@ -34,13 +34,28 @@ def test_plank_variants_resolve_to_their_own_ids():
         assert resolved.is_time_based is True
 
 
-def test_plank_variants_book_to_the_core_volume_key():
-    """A plank saved as another pattern would silently book against the wrong volume bucket."""
+def test_plank_variants_keep_their_declared_pattern():
+    """A mis-clicked pattern would silently book the hold against the wrong volume bucket."""
     taxonomy = exercises.taxonomy()
-    for name in ("Regular Plank", "Side Plank", "Chinese Plank"):
-        entity = taxonomy.entities[taxonomy.resolve(name).id]
-        assert entity.get("pattern") == "core_isometric", name
+    expected = {
+        "Regular Plank": ("plank", "core_isometric"),
+        "Front Plank": ("plank", "core_isometric"),
+        "Side Plank": ("side_plank", "core_isometric"),
+        # A hip-extension hold, not a trunk plank (DEC-VARIANT-05).
+        "Chinese Plank": ("chinese_plank", "hip_extension"),
+    }
+    for name, (entity_id, pattern) in expected.items():
+        assert taxonomy.resolve(name).id == entity_id, name
+        entity = taxonomy.entities[entity_id]
+        assert entity.get("pattern") == pattern, name
         assert entity.get("time_based") is True, name
+
+
+def test_plank_variants_keep_their_primary_muscles():
+    taxonomy = exercises.taxonomy()
+    assert taxonomy.entities["plank"]["primary_muscles"] == ["abs"]
+    assert taxonomy.entities["side_plank"]["primary_muscles"] == ["abs", "erectors"]
+    assert taxonomy.entities["chinese_plank"]["primary_muscles"] == ["glutes"]
 
 
 def test_migration_splits_rows_imported_before_the_split():
