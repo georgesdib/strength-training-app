@@ -1909,7 +1909,8 @@ clients), dedicated MCP client tokens with CLI provisioning, two tools (`get_tra
 `get_session_details`) and one resource (`strength://athlete/profile`). The MCP SDK is an optional
 extra and only the transport imports it. See
 [`docs/INTELLIGENCE-IMPLEMENTATION.md`](docs/INTELLIGENCE-IMPLEMENTATION.md), including the
-performance baseline. There is still **no REST route, no model provider, no migration and no change
+performance baseline — measured on the development Mac, so it must be repeated on the slower
+deployment host before the transport is enabled, per the section 18 caveat. There is still **no REST route, no model provider, no migration and no change
 to any existing endpoint.** The rest of the catalogue, the baseline context package and evidence
 producers are INT-2. The canonical cross-repository plan, audit, contract and decisions are in the portfolio
 repository: [plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md)

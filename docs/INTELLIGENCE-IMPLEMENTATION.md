@@ -330,12 +330,18 @@ Goal, goal-rank and focus-lift columns are retired (`DEC-STATE-02`) and are not 
 canonical contract has been corrected to match. Injury constraints are withheld by policy and
 only counted, so a reader knows something exists without it being exposed.
 
-## 18. Performance baseline (2026-11-14)
+## 18. Performance baseline (2026-11-14, development machine)
+
+**Deployment-target caveat.** These numbers were measured on the development Mac (Apple silicon).
+The MCP server is intended to run on a slower Linux host, so they are **not** a service level
+objective and not evidence that the endpoint is fast enough there. What they establish is the
+shape — cost grows with the length of training history, not with the requested window — and the
+command to repeat the measurement on the real host.
 
 Command: `python tools/intelligence_benchmark.py --sessions N --runs R` (synthetic data only).
 
-Environment: macOS 27.2.1 arm64, 8 cores, Python 3.15.2, SQLite read-only connection, single
-process, no concurrent load.
+Environment (measurement machine only): macOS 27.2.1 arm64, 8 cores, Python 3.15.2, SQLite
+read-only connection, single process, no concurrent load.
 
 | Dataset | Sets | DB | Runs | p50 | p95 | max |
 |---|---|---|---|---|---|---|
@@ -344,11 +350,31 @@ process, no concurrent load.
 
 All executions returned `status: ok`. The cost grows roughly linearly with history because the
 dashboard's performance ratio rebuilds session e1RM across the whole history on every read; that
-is the dominant term, not the window size.
+is the dominant term, not the window size. The work is single-threaded Python, so a slower core
+moves these numbers roughly in proportion to single-core speed.
 
-Interpretation: at the owner's expected history size the call is comfortably interactive, so
-**no cache is added** (ADR-INT-010). Revisit if the p95 approaches one second, the history grows
-well past ~1,000 sessions, or the MCP server is used with multiple concurrent clients. The first
-candidate would be a bounded lookback for the ratio, not a cache. Caveats: synthetic distribution,
-a warm OS page cache, one machine, and a single process; the numbers are a shape, not a service
-level objective.
+**Repeat before enabling on the deployment host:**
+
+    python tools/intelligence_benchmark.py --sessions <stored sessions> --runs 20 --json
+
+Record the result beside the deployment unit. If p95 is at or above one second, do not enable the
+transport silently: update ADR-INT-010 first and choose, in this order, a bounded lookback for the
+performance ratio (a metric decision, not a transport one) or an opt-in cache keyed on the database
+stamp. Caching stays deferred until that measurement exists.
+
+**Platform notes for the Linux host**
+
+- Set the host timezone. The authoritative training date is the server-local calendar date; an
+  unset TZ on a headless machine makes it UTC and can shift the window by a day. A stored IANA
+  profile timezone remains ROADMAP §4.19 work; the envelope reports the platform zone name.
+- The service user must be able to read the database. The transport opens it `mode=ro` and never
+  runs migrations; point `--db` at the existing database rather than copying it into a second
+  writable store.
+- If clients reach the server by hostname, add the exact `Host` values to `allowed_hosts`.
+- On a single-board host set `max_concurrent_calls` to 1 or 2 so a slow overview cannot occupy
+  every slot, and keep `include_ratios` false (the default).
+- The SDK and uvicorn are pure Python or shipped as aarch64 wheels; Python 3.11+ is required and
+  the optional extra installs without a compiler.
+
+Caveats: synthetic distribution, a warm OS page cache, one machine, one process; the numbers are a
+shape, not a service level objective.
