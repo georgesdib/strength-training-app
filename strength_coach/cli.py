@@ -32,6 +32,7 @@ from strength_coach.agents import (
 )
 from strength_coach.agents import proposal as proposal_mod
 from strength_coach.agents import selection as agent_selection
+from strength_coach.analytics import core as derived_core
 from strength_coach.critique import UnknownSessionError
 from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.features import breaks as breaks_feature
@@ -108,6 +109,13 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("import", help="load data/raw into the store")
+
+    analytics = sub.add_parser("analytics", help="derived analytics families")
+    analytics_sub = analytics.add_subparsers(dest="analytics_command", required=True)
+    analytics_build = analytics_sub.add_parser(
+        "build", help="backfill/refresh the core derived family"
+    )
+    analytics_build.add_argument("--batch-size", type=int, default=200)
 
     run = sub.add_parser("run", help="prescribe a date from the latest session")
     run.add_argument("--date", required=True, help="date to prescribe, YYYY-MM-DD")
@@ -627,6 +635,7 @@ def main(argv: list[str] | None = None) -> int:
         "ios": _cmd_ios,
         "web": _cmd_web,
         "intelligence": _cmd_intelligence,
+        "analytics": _cmd_analytics,
     }
     try:
         return handlers[args.command](args)
@@ -1393,6 +1402,16 @@ def _cmd_intelligence(args) -> int:
         return 2
     print("unknown intelligence token command")
     return 2
+
+
+def _cmd_analytics(args) -> int:
+    store = db.Store(args.db)
+    try:
+        state = derived_core.build(store.connection, batch_size=args.batch_size)
+    finally:
+        store.close()
+    print(json.dumps(state, indent=2, default=str))
+    return 0 if state.get("ready") else 1
 
 
 def _cmd_web(args) -> int:

@@ -17,6 +17,7 @@ from strength_coach.analytics.revision import current_revision, family_revision
 from strength_coach.store import db
 
 Handler = Callable[[sqlite3.Connection, sqlite3.Row], None]
+Backfill = Callable[[sqlite3.Connection, str | None, int], tuple[str | None, bool]]
 
 
 def _now() -> str:
@@ -157,8 +158,8 @@ def _process_batch(
             handler(conn, revision)
         if revisions:
             conn.execute(
-                "UPDATE analytics_build SET processed_revision = ?, cursor = ? WHERE family = ?",
-                (int(revisions[-1]["revision_id"]), str(revisions[-1]["revision_id"]), family),
+                "UPDATE analytics_build SET processed_revision = ? WHERE family = ?",
+                (int(revisions[-1]["revision_id"]), family),
             )
         return len(revisions)
 
@@ -168,6 +169,7 @@ def publish(
     spec: FamilySpec,
     *,
     before_publish: Callable[[sqlite3.Connection], None] | None = None,
+    require_cursor: str | None = None,
 ) -> bool:
     """Atomically promote a running, current, dependency-matching build to `ready`.
 
@@ -180,6 +182,8 @@ def publish(
             return False
         if before_publish is not None:
             before_publish(conn)
+        if require_cursor is not None and row["cursor"] != require_cursor:
+            return False
         if (
             row["method_version"] != spec.method_version
             or row["dependency_fingerprint"] != spec.fingerprint()
@@ -211,6 +215,7 @@ def run_build(
     spec: FamilySpec,
     handler: Handler | None = None,
     *,
+    backfill: Backfill | None = None,
     batch_size: int = 100,
     max_batches: int | None = None,
     before_publish: Callable[[sqlite3.Connection], None] | None = None,
@@ -242,6 +247,21 @@ def run_build(
                 (_now(), family_revision(conn, family), family),
             )
 
+        if backfill is not None:
+            while True:
+                with db.transaction(conn):
+                    row = _row(conn, family)
+                    assert row is not None
+                    if row["cursor"] == "backfill-done":
+                        break
+                    next_cursor, done = backfill(conn, row["cursor"], batch_size)
+                    conn.execute(
+                        "UPDATE analytics_build SET cursor = ? WHERE family = ?",
+                        ("backfill-done" if done else next_cursor, family),
+                    )
+                if done:
+                    break
+
         batches = 0
         while True:
             row = _row(conn, family)
@@ -254,7 +274,10 @@ def run_build(
                     return _state(conn, row, spec)
                 batches += 1
                 continue
-            if publish(conn, spec, before_publish=before_publish):
+            if publish(
+                conn, spec, before_publish=before_publish,
+                require_cursor="backfill-done" if backfill is not None else None,
+            ):
                 return _state(conn, _row(conn, family), spec)  # type: ignore[arg-type]
             row = _row(conn, family)
             assert row is not None

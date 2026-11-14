@@ -14,6 +14,7 @@ import uuid
 from typing import Any
 
 from strength_coach import adherence, workout
+from strength_coach.analytics import core as derived_core
 from strength_coach.analytics import revision as analytics_revision
 from strength_coach.domain import load as load_mod
 from strength_coach.features import training_day, vbt_analysis
@@ -484,9 +485,13 @@ def _edit_session_impl(conn, session_id: str, *, sets: list[dict],
         (edit_id, session_id, reason, json.dumps(before, separators=(",", ":")),
          json.dumps(after, separators=(",", ":"))),
     )
+    derived_was_ready = derived_core.is_ready(conn, derived_core.CORE_SPEC)
     analytics_revision.record_mutation(
         conn, "correction", session_id=str(session_id),
         detail={"sets": len(incoming)},
+    )
+    derived_core.refresh_sessions(
+        conn, [str(session_id)], was_ready=derived_was_ready
     )
     # The critique used to be rebuilt here. It is a retired diagnostic (DEC-EVAL-09), so an
     # audited correction no longer re-scores anything; the historical rows stay untouched.
@@ -522,8 +527,12 @@ def void_session(conn, session_id: str, *, reason: str | None = None,
             "updated_at = ? WHERE session_id = ?",
             (0 if unvoid else 1, _now(), None if unvoid else reason, _now(), session_id),
         )
+        derived_was_ready = derived_core.is_ready(conn, derived_core.CORE_SPEC)
         analytics_revision.record_mutation(
             conn, action, session_id=str(session_id), detail={"reason": reason},
+        )
+        derived_core.refresh_sessions(
+            conn, [str(session_id)], was_ready=derived_was_ready
         )
     return detail(conn, session_id)
 

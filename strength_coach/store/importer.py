@@ -118,6 +118,8 @@ def import_export(
         run_id=run_id,
     )
 
+    from strength_coach.analytics import core as derived_core
+
     try:
         with db.transaction(conn):
             training_raw, training_inserted = repo.store_raw_rows(
@@ -134,9 +136,20 @@ def import_export(
             repo.upsert_sessions(conn, reconstructed)
             inserted, existing = repo.store_clean_sets(conn, result.sets, raw_ids=training_raw)
             if inserted:
+                derived_was_ready = derived_core.is_ready(
+                    conn, derived_core.CORE_SPEC
+                )
                 analytics_revision.record_mutation(
                     conn, "import",
-                    detail={"sets": int(inserted), "sessions": int(len(reconstructed))},
+                    detail={
+                        "sets": int(inserted),
+                        "sessions": int(len(reconstructed)),
+                        "session_ids": [item.session_id for item in reconstructed],
+                    },
+                )
+                derived_core.refresh_sessions(
+                    conn, [item.session_id for item in reconstructed],
+                    was_ready=derived_was_ready,
                 )
             quarantined = repo.store_quarantine(conn, result.quarantine, raw_ids=training_raw)
 

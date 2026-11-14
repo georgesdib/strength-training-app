@@ -212,18 +212,34 @@ def log_manual(
     """Record an external exposure; a test must use the test path with its override id."""
     if kind == "test":
         raise ValueError("tests must be recorded through the test path")
-    return repositories.append_high_intensity_exposure(
-        conn,
-        performed_on=performed_on,
-        kind=kind,
-        exercise_id=exercise_id,
-        session_id=session_id,
-        set_id=set_id,
-        region_load=region_load,
-        intensity_class=intensity_class,
-        axial_cost=axial_cost,
-        test_type=test_type,
-        source="set_link" if set_id is not None else "manual",
-        source_id=f"set:{set_id}" if set_id is not None else None,
-        note=note,
-    )
+    from strength_coach.store import db
+
+    with db.transaction(conn):
+        exposure_id = repositories.append_high_intensity_exposure(
+            conn,
+            performed_on=performed_on,
+            kind=kind,
+            exercise_id=exercise_id,
+            session_id=session_id,
+            set_id=set_id,
+            region_load=region_load,
+            intensity_class=intensity_class,
+            axial_cost=axial_cost,
+            test_type=test_type,
+            source="set_link" if set_id is not None else "manual",
+            source_id=f"set:{set_id}" if set_id is not None else None,
+            note=note,
+        )
+        if session_id is not None and set_id is not None:
+            from strength_coach.analytics import core as derived_core
+            from strength_coach.analytics import revision as analytics_revision
+
+            was_ready = derived_core.is_ready(conn, derived_core.CORE_SPEC)
+            analytics_revision.record_mutation(
+                conn, "correction", session_id=str(session_id),
+                detail={"exposure": exposure_id},
+            )
+            derived_core.refresh_sessions(
+                conn, [str(session_id)], was_ready=was_ready
+            )
+    return exposure_id

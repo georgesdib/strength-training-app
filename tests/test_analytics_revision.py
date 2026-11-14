@@ -67,7 +67,8 @@ def test_import_commits_one_revision_for_the_batch(conn):
     assert kinds(conn) == ["import"]
     row = conn.execute("SELECT * FROM analytics_revision").fetchone()
     assert row["session_id"] is None
-    assert json.loads(row["detail_json"]) == {"sessions": 1, "sets": 1}
+    detail = json.loads(row["detail_json"])
+    assert detail == {"sessions": 1, "sets": 1, "session_ids": ["2024-01-01"]}
 
 
 def test_reimport_of_identical_content_does_not_append_a_revision(conn):
