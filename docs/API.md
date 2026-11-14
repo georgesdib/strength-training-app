@@ -236,6 +236,11 @@ nudge sources.
 
 ### VBT target metadata
 
+Plan items carry `reps_unit` (`reps` or `seconds`) so a time-based hold is displayed
+and logged in seconds. Swapping an exercise re-solves the replacement's load, warm-up ramps and
+VBT target from that exercise's own history/calibration; an unavailable load keeps an explicit
+`unknown_load_reason`.
+
 An issued VBT target now carries an optional `vbt` object on each plan item:
 
 ```json

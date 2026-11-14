@@ -2228,6 +2228,7 @@ def build_item(
         rir_target=effective_rir,
         rest_s=slot.rest_s,
         essential=slot.essential,
+        reps_unit="seconds" if context.entity(exercise_id).get("time_based") else "reps",
         flare=flare,
         effort_model=effort_model,
         quality_stop=quality_stop,
@@ -2247,6 +2248,61 @@ def build_item(
         load_factor=decay_factor if decayed else 1.0,
     )
     return item, tuple(warnings)
+
+
+def resolve_replacement(
+    conn,
+    *,
+    for_date: str,
+    session_type: str,
+    exercise_id: str,
+    sets: int,
+    reps_low: int,
+    reps_high: int,
+    rir_target: int | None,
+    rest_s: int | None,
+    essential: bool,
+    order_index: int,
+) -> tuple[PrescriptionItem, tuple[str, ...], dict[str, Any]]:
+    """Re-solve one swapped exercise through the normal prescription solver.
+
+    The replacement keeps the slot's sets/reps/RIR shape but gets its own load, warm-up ramps
+    and VBT target from its own history and calibration. It is deliberately not the old lift's
+    load: the only thing carried across is the plan identity and the substitution provenance.
+    """
+    resolved = settings_profile.feature_settings(conn, for_date)
+    template = templates.SessionTemplate.load(session_type)
+    context = RuleContext.from_store(
+        conn, end=for_date, rep_ranges=template.rep_ranges()
+    )
+    slot = templates.Slot(
+        id=f"swap-{order_index}",
+        sets=int(sets),
+        reps_low=int(reps_low),
+        reps_high=int(reps_high),
+        rir_low=rir_target,
+        rir_high=rir_target,
+        rest_s=rest_s,
+        essential=bool(essential),
+        load_source="e1rm" if essential else "double_progression",
+        exercise=exercise_id,
+    )
+    item, warnings = build_item(
+        conn,
+        context,
+        slot,
+        int(order_index),
+        resolved.thresholds,
+        for_date,
+        {},
+        template,
+        exercise_id=exercise_id,
+    )
+    item = warmup.attach((item,), config=resolved.warmup)[0]
+    items, _, vbt_note = _attach_vbt_targets(
+        conn, context, (item,), for_date, "full"
+    )
+    return items[0], warnings, vbt_note
 
 
 def _choose_exercise(slot: templates.Slot, context: RuleContext) -> tuple[str, bool]:

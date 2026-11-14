@@ -347,6 +347,7 @@ def _item_dict(item) -> dict:
         "sets": item.sets,
         "reps_low": item.reps_low,
         "reps_high": item.reps_high,
+        "reps_unit": item.reps_unit,
         "load_kg": item.load_kg,
         "load_basis": item.load_basis,
         "rir_target": item.rir_target,

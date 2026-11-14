@@ -1487,26 +1487,68 @@ def swap_exercise(conn, workout_id: str, item_index: int, exercise_id: str) -> d
                 "ambiguous_sets": ambiguous,
             },
         )
+    # Re-solve the replacement through the same engine as a normal prescription. The slot
+    # keeps the old sets/reps/RIR shape; load, warm-ups and VBT target come from the new
+    # exercise's own history and calibration. Never carry the old lift's load across.
+    from strength_coach.prescribe import engine as prescribe_engine
+
+    old_item = items[int(item_index)]
+    solved, warnings, _ = prescribe_engine.resolve_replacement(
+        conn,
+        for_date=str(workout["for_date"]),
+        session_type=str(workout["session_type"]),
+        exercise_id=new_id,
+        sets=int(old_item.get("sets") or 1),
+        reps_low=int(old_item.get("reps_low") or 1),
+        reps_high=int(old_item.get("reps_high") or old_item.get("reps_low") or 1),
+        rir_target=old_item.get("rir_target"),
+        rest_s=old_item.get("rest_s"),
+        essential=bool(old_item.get("essential")),
+        order_index=int(item_index),
+    )
+    solved_row = {
+        "order_index": solved.order_index,
+        "exercise_id": solved.exercise_id,
+        "sets": solved.sets,
+        "reps_low": solved.reps_low,
+        "reps_high": solved.reps_high,
+        "reps_unit": solved.reps_unit,
+        "load_kg": solved.load_kg,
+        "load_basis": solved.load_basis,
+        "rounding_increment_kg": solved.rounding_increment_kg,
+        "rir_target": solved.rir_target,
+        "effort_model": solved.effort_model,
+        "quality_stop": solved.quality_stop,
+        "rest_s": solved.rest_s,
+        "essential": solved.essential,
+        "refs": list(solved.rationale_refs),
+        "time_cap_s": solved.time_cap_s,
+        "velocity_target": solved.velocity_target,
+        "vbt_basis": solved.vbt_basis,
+        "vbt": solved.vbt.as_dict() if solved.vbt is not None else None,
+        "unknown_load_reason": solved.unknown_load_reason,
+        "e1rm_source_sets": solved.e1rm_source_sets,
+        "e1rm_kg": solved.e1rm_kg,
+        "e1rm_ref": solved.e1rm_ref,
+        "e1rm_quality": solved.e1rm_quality,
+        "e1rm_age_days": solved.e1rm_age_days,
+        "warmup": [
+            {"percent": w.percent, "reps": w.reps, "load_kg": w.load_kg}
+            for w in solved.warmup
+        ],
+    }
     items[int(item_index)] = {
-        **items[int(item_index)],
+        **old_item,
+        **solved_row,
         "exercise_id": new_id,
         "substitution_for": old,
-        # The old load belongs to the old lift; do not silently carry it across.
-        "load_kg": None,
-        "unknown_load_reason": "swapped during workout; load not re-solved",
-        # The old VBT target belongs to the old lift's velocity profile; carrying it across
-        # would be a fabricated target for the replacement exercise.
-        "velocity_target": None,
-        "vbt_basis": None,
-        "vbt": None,
-        # The old top-set/back-off structure and warm-up ramps belong to the old lift;
-        # discard them rather than carry stale loads onto the replacement.
+        # The old top-set/back-off structure belongs to the old lift.
         "set_groups": [],
-        "warmup": [],
     }
     plan = {**(workout.get("plan") or {}), "items": items}
     return _write_plan(conn, workout_id, plan, "swap_exercise",
-                       {"item_index": int(item_index), "from": old, "to": new_id})
+                       {"item_index": int(item_index), "from": old, "to": new_id,
+                        "warnings": list(warnings)})
 
 
 def add_exercise(

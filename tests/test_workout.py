@@ -337,6 +337,52 @@ def test_an_explicit_plan_item_index_must_match_the_exercise(conn):
         )
 
 
+def test_swap_resolves_the_replacement_load_and_warmups(conn):
+    prior = workout.start(
+        conn,
+        for_date="2023-12-30",
+        plan={
+            "for_date": "2023-12-30",
+            "session_type": "hinge",
+            "items": [{
+                "exercise_id": "trap_bar_deadlift",
+                "sets": 3, "reps_low": 5, "reps_high": 5,
+                "load_kg": 100, "rir_target": 2,
+            }],
+        },
+        readiness=READINESS,
+    )
+    for _ in range(3):
+        workout.add_set(
+            conn, prior["workout_id"], exercise_id="trap_bar_deadlift",
+            load_kg=100, reps=5, rir=2,
+        )
+    workout.end(conn, prior["workout_id"], session_rpe=7, duration_min=45)
+
+    started = workout.start(
+        conn,
+        for_date="2024-01-01",
+        plan={
+            "for_date": "2024-01-01",
+            "session_type": "hinge",
+            "items": [{
+                "exercise_id": "conventional_deadlift",
+                "sets": 3, "reps_low": 5, "reps_high": 5,
+                "load_kg": 120, "rir_target": 2, "essential": True,
+            }],
+        },
+        readiness=READINESS,
+    )
+    swapped = workout.swap_exercise(
+        conn, started["workout_id"], 0, "trap_bar_deadlift"
+    )
+    item = swapped["plan"]["items"][0]
+    assert item["exercise_id"] == "trap_bar_deadlift"
+    assert item["load_kg"] is not None
+    assert item["unknown_load_reason"] is None
+    assert item["warmup"]
+
+
 def test_original_comparison_is_unavailable_after_a_plan_swap(conn):
     started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
     changed = workout.swap_exercise(
