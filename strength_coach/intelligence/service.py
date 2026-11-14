@@ -265,7 +265,8 @@ class IntelligenceService:
     ) -> CapabilityResult:
         duration_ms = (time.perf_counter() - started) * 1000
         outcome = "ok" if result.ok else (result.error.code if result.error else "internal")
-        LOGGER.info(
+        # DEBUG keeps the transport's structured audit record the single INFO line per call.
+        LOGGER.debug(
             "intelligence capability=%s outcome=%s duration_ms=%.1f principal=%s args=%s",
             name,
             outcome,

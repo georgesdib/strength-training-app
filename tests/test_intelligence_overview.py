@@ -257,10 +257,10 @@ def test_describe_lists_read_only_capabilities():
         store.close()
 
 
-def test_logs_metadata_not_argument_values(caplog):
+def test_service_debug_line_has_metadata_not_argument_values(caplog):
     store = seed_store()
     try:
-        with caplog.at_level(logging.INFO):
+        with caplog.at_level(logging.DEBUG):
             _overview(store.connection)
         assert "capability=get_training_overview outcome=ok" in caplog.text
         assert "args=" in caplog.text

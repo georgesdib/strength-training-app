@@ -35,5 +35,13 @@ allowed_hosts:
 max_request_body_bytes: 262144
 
 # Per-client request budget and concurrent-call ceiling. 0 disables rate limiting.
+# Hard ceiling for one capability call. The worker thread is not cancellable; see the
+# implementation page for the actual guarantee.
+tool_timeout_seconds: 20
+
+# Largest serialized envelope a tool or resource may return. Over-limit calls fail with a
+# typed error instead of a truncated or malformed envelope.
+max_tool_result_bytes: 1048576
+
 rate_limit_per_minute: 60
 max_concurrent_calls: 4

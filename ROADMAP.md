@@ -1912,7 +1912,12 @@ extra and only the transport imports it. See
 performance baseline — measured on the development Mac, so it must be repeated on the slower
 deployment host before the transport is enabled, per the section 18 caveat. There is still **no REST route, no model provider, no migration and no change
 to any existing endpoint.** The rest of the catalogue, the baseline context package and evidence
-producers are INT-2. The canonical cross-repository plan, audit, contract and decisions are in the portfolio
+producers are INT-2.
+
+**Audit remediation 2026-11-14:** immediate token revocation/rotation without restart, a
+structured metadata-only audit record per invocation, a configurable tool timeout and result-size
+cap, a dedicated systemd unit with a deployment guide (not yet deployed), and a live HTTP
+integration test. The implementation page records the semantics and limitations. The canonical cross-repository plan, audit, contract and decisions are in the portfolio
 repository: [plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md)
 and [contract](https://github.com/georgesdib/strength-app/blob/main/docs/contracts/TRAINING-INTELLIGENCE-CONTRACT.md).
 Owner approval of the plan's section 13 decisions remains required before the transport phase.

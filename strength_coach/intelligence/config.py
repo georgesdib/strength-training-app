@@ -32,6 +32,8 @@ DEFAULT_ALLOWED_HOSTS = ("127.0.0.1:*", "localhost:*")
 DEFAULT_MAX_REQUEST_BODY_BYTES = 262_144
 DEFAULT_RATE_LIMIT_PER_MINUTE = 60
 DEFAULT_MAX_CONCURRENT_CALLS = 4
+DEFAULT_TOOL_TIMEOUT_SECONDS = 20
+DEFAULT_MAX_TOOL_RESULT_BYTES = 1_048_576
 
 MIN_WINDOW_DAYS = 28
 MAX_WINDOW_DAYS = 400
@@ -41,6 +43,10 @@ MIN_BODY_BYTES = 1_024
 MAX_BODY_BYTES = 1_048_576
 MAX_RATE_LIMIT = 6_000
 MAX_CONCURRENT = 64
+MIN_TOOL_TIMEOUT_SECONDS = 1
+MAX_TOOL_TIMEOUT_SECONDS = 300
+MIN_TOOL_RESULT_BYTES = 1_024
+MAX_TOOL_RESULT_BYTES = 10_485_760
 
 FIELDS = (
     "version",
@@ -54,6 +60,8 @@ FIELDS = (
     "max_request_body_bytes",
     "rate_limit_per_minute",
     "max_concurrent_calls",
+    "tool_timeout_seconds",
+    "max_tool_result_bytes",
 )
 
 
@@ -73,6 +81,8 @@ class IntelligenceConfig:
     max_request_body_bytes: int = DEFAULT_MAX_REQUEST_BODY_BYTES
     rate_limit_per_minute: int = DEFAULT_RATE_LIMIT_PER_MINUTE
     max_concurrent_calls: int = DEFAULT_MAX_CONCURRENT_CALLS
+    tool_timeout_seconds: int = DEFAULT_TOOL_TIMEOUT_SECONDS
+    max_tool_result_bytes: int = DEFAULT_MAX_TOOL_RESULT_BYTES
 
     def as_mapping(self) -> dict[str, object]:
         return {
@@ -87,6 +97,8 @@ class IntelligenceConfig:
             "max_request_body_bytes": self.max_request_body_bytes,
             "rate_limit_per_minute": self.rate_limit_per_minute,
             "max_concurrent_calls": self.max_concurrent_calls,
+            "tool_timeout_seconds": self.tool_timeout_seconds,
+            "max_tool_result_bytes": self.max_tool_result_bytes,
         }
 
 
@@ -178,6 +190,18 @@ def parse_config(data: object) -> IntelligenceConfig:
         1,
         MAX_CONCURRENT,
     )
+    timeout = _bounded_int(
+        data.get("tool_timeout_seconds", DEFAULT_TOOL_TIMEOUT_SECONDS),
+        "tool_timeout_seconds",
+        MIN_TOOL_TIMEOUT_SECONDS,
+        MAX_TOOL_TIMEOUT_SECONDS,
+    )
+    result_bytes = _bounded_int(
+        data.get("max_tool_result_bytes", DEFAULT_MAX_TOOL_RESULT_BYTES),
+        "max_tool_result_bytes",
+        MIN_TOOL_RESULT_BYTES,
+        MAX_TOOL_RESULT_BYTES,
+    )
     return IntelligenceConfig(
         enabled=enabled,
         max_window_days=window,
@@ -189,6 +213,8 @@ def parse_config(data: object) -> IntelligenceConfig:
         max_request_body_bytes=body,
         rate_limit_per_minute=rate,
         max_concurrent_calls=concurrent,
+        tool_timeout_seconds=timeout,
+        max_tool_result_bytes=result_bytes,
     )
 
 
