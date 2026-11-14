@@ -33,6 +33,9 @@ near the expected duration, then inspect once.
 - The web UI is home-network only and unauthenticated. Do not expose it publicly.
 - Use the local server log tail and targeted curl requests for diagnosis; redact tokens,
   pairing codes, real server addresses and personal data.
+- GET log lines include elapsed seconds, and an iOS workout-summary request logs a start line
+  before authentication/dispatch. A missing completion line with a start line means the handler
+  is still running or failed without a response; look for the traceback and the generic 500.
 - If a code change makes the running web process stale, restart it the same way it was
   started (same DB/bind/port, detached). Verify GET /, POST /api/programme and that removed
   pages are gone. Config-only edits do not need a restart.

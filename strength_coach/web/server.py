@@ -20,6 +20,8 @@ import mimetypes
 import os
 import sqlite3
 import threading
+import time
+import traceback
 import uuid
 import webbrowser
 from collections import deque
@@ -926,9 +928,12 @@ class Handler(BaseHTTPRequestHandler):
 
     # --- plumbing ---------------------------------------------------------
     def log_message(self, fmt: str, *args) -> None:
-        message = f"{self.address_string()} - {fmt % args}"
+        elapsed = time.monotonic() - getattr(
+            self, "_request_started_at", time.monotonic()
+        )
+        message = f"{self.address_string()} - {fmt % args} ({elapsed:.2f}s)"
         LOGGER.info(message)
-        print(message)
+        print(message, flush=True)
 
     def _send(self, status: int, body: bytes, content_type: str,
               headers: dict[str, str] | None = None) -> None:
@@ -1167,6 +1172,7 @@ class Handler(BaseHTTPRequestHandler):
             self._error(400, str(exc))
         except Exception:
             LOGGER.exception("unhandled iOS GET %s", path)
+            traceback.print_exc()
             self._error(500, "internal server error")
 
     def _ios_exercise_detail(self, conn, exercise_id: str) -> dict | None:
@@ -2662,6 +2668,11 @@ class Handler(BaseHTTPRequestHandler):
     # --- routes -----------------------------------------------------------
     def do_GET(self) -> None:
         path = unquote(urlparse(self.path).path)
+        self._request_started_at = time.monotonic()
+        if path.startswith("/api/ios/v1/workouts/") and path.endswith("/summary"):
+            message = f"iOS workout summary started: {path}"
+            LOGGER.info(message)
+            print(message, flush=True)
         if path == "/api/ios/v1" or path.startswith("/api/ios/v1/"):
             self._ios_get(path)
             return
