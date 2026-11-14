@@ -1383,6 +1383,12 @@ privacy rules, evaluation gates and per-phase acceptance criteria live in
 [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); this section is the roadmap
 summary and must stay consistent with it.
 
+**Cross-repository pointer (2026-11-14):** the read-only intelligence layer, the standalone MCP
+server and the iOS model adapters are specified in the portfolio
+[Training Intelligence plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md).
+That plan adds no model capability to Iteration 1, changes no phase boundary here, and is not
+implemented. It reuses this workstream's evidence contract and the AFC evidence ids.
+
 The future architecture separates three capabilities that share one deterministic evidence
 layer but have different permissions:
 
@@ -1888,6 +1894,35 @@ and touches no capture surface, so it stays outside the instrument.
 **Out of scope.** Native iOS or watchOS *calculation, capture and instrumentation* — AFC-2i renders
 the report only — a watchOS report, cardio models, VBT calibration, the training engine, automatic
 adaptation, and the LLM capabilities in §4.24.
+
+### 4.34 Training Intelligence — read-only capability layer and MCP server  (proposed 2026-11-14; not implemented)
+
+**Status:** planning only. No source, prompt, dependency, API, schema or training-rule change exists.
+The canonical cross-repository plan, audit, contract and decisions are in the portfolio repository:
+[plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md)
+and [contract](https://github.com/georgesdib/strength-app/blob/main/docs/contracts/TRAINING-INTELLIGENCE-CONTRACT.md).
+Owner approval of the plan's section 13 decisions is required before INT-1.
+
+**Scope.** A provider-neutral capability layer over the existing services, a separately deployable
+read-only MCP server (Streamable HTTP, authenticated, tools and resources only), an additive read-only
+iOS intelligence surface, Weekly Training Review, and optional on-device/server narration. Every
+metric is composed from its existing owner; there is no second calculation and no new evidence schema.
+
+**Backend areas (future, not created yet):** `strength_coach/intelligence/{envelope,errors,registry,context}.py`,
+`strength_coach/intelligence/capabilities/`, `strength_coach/intelligence/mcp/`,
+`strength_coach/intelligence/model/`, `config/intelligence.v1.yaml`, a deploy unit and
+`tests/intelligence/`. Planned optional dependency: `mcp>=2,<3` in a new `intelligence` extra.
+
+**Hard constraints.** Read-only: no tool, route or capability may create, edit, void, start, complete
+or prescribe. SQLite is opened read-only in that process. No free-text notes, symptom narratives or
+unnecessary health values by default. No MCP prompt, sampling, roots or subscriptions. No beta Apple
+API. No change to workout execution, prescription/readiness/fatigue algorithms, cardio, migrations or
+existing endpoint shapes.
+
+**Relationship to §4.24 and §4.33.** §4.24 remains the LLM-capability workstream and its Phase 1b
+selector retirement is still required before a server-side narration phase; §4.33 (AFC) remains the
+deterministic producer of the evidence this layer serialises. This workstream adds no model capability
+to Iteration 1 and does not reopen any completed phase.
 
 ## 5. Known gaps and risks
 

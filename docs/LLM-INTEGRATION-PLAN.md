@@ -135,9 +135,14 @@ The builder consumes AFC evidence and the existing
 feature payloads; it must not compute adherence, VBT, readiness or volume metrics, and there must
 not be a second evidence schema under `strength_coach/agents/`.
 
-Create one Python-owned AthleteContextBuilder (future path:
-strength_coach/agents/context.py) used by every capability. It must not call an LLM. It
-assembles facts from existing functions and stores a canonical JSON package plus a hash.
+Create one Python-owned AthleteContextBuilder used by every capability. It must not call an
+LLM. It assembles facts from existing functions and stores a canonical JSON package plus a hash.
+
+**Path superseded 2026-11-14 (`ADR-INT-002`):** the builder is now planned as a provider-neutral
+`strength_coach/intelligence/context.py` inside a capability layer, not `strength_coach/agents/context.py`,
+so that the MCP server, the REST adapter and every model path share it without importing the model
+layer. The requirements in this section are unchanged; see the
+[Training Intelligence plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md).
 
 Required top-level fields:
 
@@ -565,8 +570,16 @@ the choice. No dates are implied.
 ### 9.2 Owner-operated MCP server over Tailscale (Iteration 2 candidate)
 
 **Status:** owner intent only. The owner plans to set up a Model Context Protocol (MCP) server
-served over Tailscale; it is not implemented, is not a prerequisite for Iteration 1 and has no
-approved integration yet. Tailscale is network reachability, not application authentication.
+served over Tailscale; it is not implemented and has no approved integration yet. Tailscale is
+network reachability, not application authentication.
+
+**Update 2026-11-14:** the cross-repository
+[Training Intelligence plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md)
+now specifies a read-only MCP server as the primary AI-facing interface, with the conditions in this
+section retained as hard requirements (existing core only, read-only initially, tailnet **and**
+application authentication, audit and rate limits). It does not amend the Iteration 1/2 boundary in
+this document: no model-capability phase here depends on MCP, and MCP adoption still requires owner
+approval. Nothing is implemented.
 
 If the Iteration 1 exit gate and Phase 6 needs assessment support it, the MCP server may expose a
 small set of approved app tools to compatible MCP clients. It must not become a second
@@ -778,7 +791,7 @@ no-LLM path is tested; and the owner has not identified a blocking safety or pri
 | agents/explainer.py | prescription explanation prompt/call/validation |
 | agents/proposal.py | extend the existing structured proposal path; do not fork it |
 | agents/retrieval.py (Iteration 2 only) | curated-source retrieval, citation and evaluation; conditional on Phase 6 |
-| mcp/ (Iteration 2 only) | owner-operated MCP tools over Tailscale; read-only initially, existing core only; conditional and separately approved |
+| intelligence/ (planned, not implemented) | provider-neutral capability layer, context builder and MCP server; read-only, existing core only, separately deployable; specified in the portfolio Training Intelligence plan |
 | eval/retrieval (Iteration 2 only) | retrieval benchmark, unsupported-claim and source-freshness checks; conditional |
 | features/, prescribe/ | facts/validation reused; no agent imports; no new calculations in agents |
 | store/, trace/ | provenance and append-only records; schema changes only by separate decision |

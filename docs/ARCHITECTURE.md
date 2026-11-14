@@ -103,6 +103,11 @@ evidence produced by the Athlete Feedback & Coaching layer ([`AFC plan`](https:/
 rather than recomputing its metrics; retrieval/RAG and advanced orchestration are conditional
 Iteration 2 work. Nothing in this subsection is a current runtime capability.
 
+The read-only, provider-neutral capability layer and the separately deployable MCP server that serve
+those facts are specified in the portfolio
+[Training Intelligence plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md).
+It adds no model capability here, computes no metric of its own, and is not implemented.
+
 ## 4. Run lifecycle and trace
 
 A run is identified by `run_id` and records, in order: the input window, the hash of the
