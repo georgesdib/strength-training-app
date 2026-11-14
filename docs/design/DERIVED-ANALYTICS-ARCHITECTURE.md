@@ -196,6 +196,14 @@ on-demand path. Deload, volume, attendance, outcomes and monitoring remain on de
 strength-observation payload is stored as JSON because it is read by a single owner; it is not a
 second formula, only the value that owner already produced.
 
+**Milestone C implementation (2026-11-14).** `derived_week` stores the owner's spinal exposures at
+(ISO week, session, exercise) grain, produced by `rules.registry.spinal_exposures`; `derived_set`
+also carries the source set fields needed by the outcomes and monitoring owners. `deload` builds a
+minimal `RuleContext` from the materialised weekly costs (the rule still renders the verdict,
+evidence and cost map), `outcomes` and `monitoring` read `derived_set` through `core.set_frame`
+instead of rescanning `clean_set`, and `strength_trend` feeds their e1RM associations from the
+derived rows. The core fingerprint includes the effective taxonomy and spinal-rule files.
+
 ### 4.3 Ownership and interfaces
 
 | Responsibility | Owner |
@@ -295,9 +303,9 @@ Versions are not only per row: a change upstream invalidates every downstream fa
 | Any downstream report method (outcomes, monitoring) | that report snapshot or aggregate family only |
 
 For the `core` family the fingerprint includes a digest of both effective taxonomy files
-(`taxonomy.v1.yaml` and the UI-written `overrides.v1.yaml`); the owner computes the current spec
-on every readiness/build check, so a taxonomy edit makes existing strength payloads non-ready even
-without a source mutation. The fingerprint is a digest over the ordered dependency versions and
+(`taxonomy.v1.yaml` and the UI-written `overrides.v1.yaml`) and of the spinal-rule YAML files; the
+owner computes the current spec on every readiness/build check, so a taxonomy or spinal-rule edit
+makes existing derived rows non-ready even without a source mutation. The fingerprint is a digest over the ordered dependency versions and
 configuration digests for the family. A family whose fingerprint does not match is not `ready`; it is rebuilt, and no
 aggregate is served as current merely because its direct rows were untouched.
 
@@ -405,14 +413,13 @@ decision (§4.7) and are not part of any milestone gate.
 | **Phase 0 — Architecture and design approval** | Design, ownership boundaries, grain definitions, alternatives, invalidation/publication contract | none | **Completed 2026-11-14** (design refined; audit corrections recorded) | Approved architecture and decision record |
 | **Milestone A — Analytics Infrastructure** | A1 revision ledger; A2 mutation-path integration; A3 build-state storage; A4 coordinator, checkpoints and recovery; A5 dependency fingerprints; A6 safe publication; A7 status and diagnostics | Phase 0 | **Implemented 2026-11-14; final audit recorded** | Milestone A audit passes: complete mutation coverage, transactional revisions, no stale/incomplete family publishable, correct status semantics, tests cover the guarantees; infrastructure suitable for materialisation |
 | **Milestone B — Core Materialisation and Consumer Migration** | B1 `derived_set`; B2 `derived_session_exercise`; B3 analytical family registration; B4 versioned materialisation and rebuild; B5 migrate `progress`; B6 migrate `strength_trend`; B7 on-demand fallback | Milestone A gate | **Implemented 2026-11-14** | Numerical and payload parity (tested and checked on the 377-session benchmark); all four grains preserved; invalidation/rebuild and fallback tested; ODROID measurements: overview 2,746 → 2,474 ms, dashboard 991 → 744 ms, one-lift trend 6,825 → 258 ms; initial backfill about 8.2 s |
-| **Milestone C — Rules, Outcomes, Monitoring and Production Validation** | C1 `derived_week` and required weekly representations; C2 rules/deload migration; C3 outcomes migration; C4 monitoring migration; C5 exact evidence parity; C6 production regression and rebuild/recovery; C7 ODROID profiling and verification; C8 Training Intelligence integration gate | Milestone B gate | Not started | Payload parity for migrated consumers; exact deload verdict, evidence, cost map and weekly spinal-cost semantics; correct version/dependency invalidation; no stale/incomplete data consumed; production rebuild/recovery validated; measured ODROID results against the actual baseline; explicit INT review |
+| **Milestone C — Rules, Outcomes, Monitoring and Production Validation** | C1 `derived_week` and required weekly representations; C2 rules/deload migration; C3 outcomes migration; C4 monitoring migration; C5 exact evidence parity; C6 production regression and rebuild/recovery; C7 ODROID profiling and verification; C8 Training Intelligence integration gate | Milestone B gate | **Implemented 2026-11-14** | Full-dataset parity: deload verdict/evidence/cost map, outcomes and monitoring payloads equal; invalidation/fallback tests pass; measured ODROID: deload 1,682 → 40 ms, overview 2,744 → 799 ms, outcomes 4,884 → 3,585 ms, monitoring 48,728 → 18,357 ms; build ~63 s; INT review remains an explicit follow-up | Payload parity for migrated consumers; exact deload verdict, evidence, cost map and weekly spinal-cost semantics; correct version/dependency invalidation; no stale/incomplete data consumed; production rebuild/recovery validated; measured ODROID results against the actual baseline; explicit INT review |
 
-**Completed work.** Phase 0, Milestone A and Milestone B. Milestone A added the ledger and build
-tables, the coordinator and the status endpoint. Milestone B added `derived_set`,
+**Completed work.** Phase 0, Milestone A, Milestone B and Milestone C. Milestone A added the
+ledger and build tables, the coordinator and the status endpoint. Milestone B added `derived_set`,
 `derived_session_exercise`, the `core` family, explicit backfill and incremental maintenance, and
-migrated `progress` and `strength_trend` behind a readiness check with on-demand fallback. It did
-**not** materialise `derived_week` and left deload, volume, attendance, outcomes and monitoring on
-demand (Milestone C).
+migrated `progress` and `strength_trend` behind a readiness check with on-demand fallback.
+Milestone C added `derived_week` and the rules/deload, outcomes and monitoring read paths.
 
 **Snapshots.** Optional and deferred. They are not a milestone requirement and are considered
 only after Milestone C profiling shows that materialised families are still insufficient for an
