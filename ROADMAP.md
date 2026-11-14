@@ -1934,34 +1934,45 @@ Owner approval of the plan's section 13 decisions remains required before the tr
 
 **MCP rollout follow-ups (updated 2026-11-14).** The extended HTTP benchmark on the ODROID
 measured p95 6,201 ms (session details), 4,058 ms (overview), 3,800 ms (programme) and 1,663 ms
-(readiness), so the one-second gate is not met and no transport is enabled.
+(readiness). The owner accepted a latency-aware budget (T-1) and the **transport is enabled on
+the trusted LAN with the full nine-tool catalogue**. The original one-second blanket gate is
+superseded by T-1; existing benchmark numbers remain the reference until T-3 remeasurement.
 
-- **C-1 - Automatic maintenance worker.** Added deployment units
-  (`deploy/strength-analytics-maintenance.service` and `.timer`): a one-shot `analytics build`
-  on boot + every 15 minutes, plus a web-unit `ExecStartPost` run after a backend restart. Because
-  it invokes the same checkout and venv, a deployment is picked up automatically; there is no
-  separate long-running worker to upgrade. Failure is visible in the journal and status endpoint,
-  consumers fall back to on-demand, and rollback is disabling the timer. The units are tested but
-  **not deployed or validated on the target host**.
-- **T-1 - Owner latency decision.** Decide the acceptable LLM tool-call budget (one second, a few
-  seconds, or an async workflow) and amend ADR-INT-010. This is an owner decision, not an
-  implementation task.
-- **T-2 - Full catalogue with transparent latency metadata.** All nine capabilities remain
+- **C-1 - Automatic maintenance worker (parked until the next production release).** Deployment
+  units exist (`deploy/strength-analytics-maintenance.service` and `.timer`) and are tested, but
+  they are **not installed** and the production checkout is still on the older code; installing
+  them now would fail with an unknown `analytics` command. They go in with the release that
+  contains Milestones A-C.
+- **T-1 - Owner latency decision (accepted 2026-11-14).** Fast capabilities target p95 ≤ 500 ms;
+  slow and very_slow target p95 ≤ 7 s and remain callable without a hard latency rejection; the
+  server tool timeout is 20 s. ADR-INT-010 now records this budget and the transport is enabled.
+- **T-2 - Full catalogue with transparent latency metadata (implemented).** All nine capabilities remain
   discoverable and callable through `tools/list`; slow capabilities are **not hidden**. Each tool
   description carries its measured HTTP p95 and classification (fast / slow / very_slow), plus
   guidance to prefer fast tools, avoid repeated expensive calls, and never trade correctness for
   latency. The metadata is one module (`strength_coach/intelligence/latency.py`) and is explicitly
   a historical measurement, not a runtime guarantee. T-2 no longer depends on hiding slow tools;
   transport enablement still depends on T-1.
-- **T-3 - Optimise the slow capabilities.** Profile and optimise session details, overview,
-  programme summary and readiness, then re-run the HTTP benchmark and update the measured metadata.
-  T-3 improves performance; it is **not** a prerequisite for basic LLM functionality because the
-  full catalogue is already exposed.
+- **T-3 - Optimise the slow capabilities (in progress, profiling started).** Profile and optimise
+  session details, overview, programme summary and readiness, then re-run the HTTP benchmark and
+  update the measured metadata. T-3 improves performance; it is **not** a prerequisite for basic
+  LLM functionality because the full catalogue is already exposed.
 
 The items are compatible: T-1 sets the operational budget, T-2 is a rollout/communication change,
 C-1 keeps materialisation current, and T-3 improves latency. The LLM objective remains open until
 T-3 is measured and the transport decision is reviewed; existing benchmark numbers stay valid
 until that remeasurement.
+
+**Operational status (2026-11-14).** The MCP server is running as a user-level process (no sudo on
+the host, so the systemd unit is not installed) on `127.0.0.1:8765`, full nine-tool catalogue, token
+file under the production checkout's git-ignored config. It reads the production database
+read-only. **Deployment blocker:** the production database records migration 0060 with an older
+checksum and no analytics tables, so write-open/migration by the current code fails
+(`MigrationError`); C-1 and a durable service deploy need a backed-up reconciliation of that row
+with owner approval. The read-only MCP path is unaffected. T-3 has started: profiling on a copied
+database points at the deload flare lookup through `training_day.group`, per-summary rule context
+builds, and repeated readiness YAML parsing; findings are recorded in the implementation page, no
+optimisation is implemented yet.
 
 **Scope.** A provider-neutral capability layer over the existing services, a separately deployable
 read-only MCP server (Streamable HTTP, authenticated, tools and resources only), an additive read-only

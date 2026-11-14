@@ -536,6 +536,32 @@ context was therefore left unimplemented.
 
 Caveats: synthetic distribution, a warm OS page cache, one machine, one process; the numbers are a
 shape, not a service level objective.
+### T-3 profiling (2026-11-14, copied production database)
+
+First T-3 pass on a copied 377-session production database, core family ready, one profiled call per
+capability with `cProfile` (profiler overhead included; compare the HTTP benchmark p95 values, not
+these raw times):
+
+| Capability | Profiled | Dominant cost |
+|---|---:|---|
+| get_session_details | 9,018 ms | `workout.summary` → `_summary_load_bases` 3.1 s plus two `RuleContext.from_store` builds 3.3 s |
+| get_training_overview | 8,666 ms | `deload.decision` → `reactive_reason` → `training_day.group`; 383 `_records`/`DataFrame.to_dict` calls ~7.0 s |
+| get_programme_block_summary | 8,508 ms | same `training_day.group` path inside deload ~7.0 s |
+| get_readiness_history | 3,612 ms | `readiness_score.compute` 72×; each `readiness.load` re-parses YAML settings ~3.0 s |
+
+Ranked hypotheses (not implemented):
+
+1. **`training_day.group` in the deload flare check** materialises every session into Python dicts
+   even though only the last two training days are needed. Bounding/batching that lookup or
+   avoiding per-row `to_dict` should remove most of the overview/programme cost without changing
+   the flare rule (must preserve the "last two training days" semantics).
+2. **`workout.summary`** repeatedly builds a rule context and load-base map for a single session;
+   reuse one context per summary or restrict to the session window.
+3. **Readiness settings YAML is parsed per computed score**; cache/load it once per request.
+
+These are hypotheses from profiling; no optimization or semantic change has been made. T-3 remains
+in progress and requires parity tests and a fresh HTTP benchmark after any change.
+
 ## 19. Structured audit record (remediation)
 
 Every MCP tool call and resource read emits exactly one JSON line on the
