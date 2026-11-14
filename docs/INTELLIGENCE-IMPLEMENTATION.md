@@ -477,6 +477,43 @@ end-to-end numbers; component timings came from `time.perf_counter` around `prog
 `rule_ids=["PRG-SPINE-001"]`), `performance_points` and `_sets` on the same read-only connection,
 and `cProfile -s cumulative` over one call supplied the call-count ranking.
 
+### Implemented remediation — selective PRG-SPINE-001 evaluation (2026-11-14)
+
+`deload.reactive_reason` now calls
+`evaluate(document, context, rule_ids=("PRG-SPINE-001",))` instead of evaluating every rule to
+read one verdict. Nothing else changed: the context build, the rule implementation, the
+thresholds, the verdict details and the full-policy path for every other caller are untouched.
+
+Correctness evidence (`tests/test_deload_reactive.py`):
+
+- the reactive reason with the old full evaluation and with the selective path is identical on
+  the same two-over-cap-weeks fixture;
+- `reactive_reason` passes exactly `("PRG-SPINE-001",)` to `evaluate` (spy assertion);
+- full and selective evaluation return the same verdict, details and evidence for
+  `PRG-SPINE-001`, while the unfiltered path still returns a verdict for every rule.
+
+Measured after the change (same host, dataset and 20-run methodology):
+
+| Metric | Before | After | Change |
+|---|---:|---:|---:|
+| `get_training_overview` p50 | 3,101.9 ms | **2,729.7 ms** | −372.2 ms (−12.0%) |
+| p95 | 3,169.4 ms | **2,873.7 ms** | −295.7 ms |
+| max | 3,284.2 ms | 2,923.3 ms | −360.9 ms |
+| `deload.decision` | 2,021.1 ms | **1,695.8 ms** | −325.3 ms |
+| `RuleContext.from_store` | 1,348.6 ms | 1,342.9 ms | unchanged |
+| `evaluate` (spine only) | 381.0 ms | 373.8 ms | unchanged |
+
+Remaining cost is now the context build (1,343 ms, 49%) followed by the dashboard (998 ms, 37%,
+of which the ratio is 516 ms). **The request is still above the one-second transport gate, so the
+MCP transport stays disabled on this host.**
+
+**Context investigation (not implemented).** `PRG-SPINE-001` consumes the whole
+`context.sets`: its verdict details list the weighted cost of every ISO week with spinal work
+(e.g. 109 weeks on this fixture) and its intensity factors read the enriched `e1rm_kg` column.
+Truncating the window or skipping `derived.enrich` would change observable verdict details and
+could change the intensity factor, so neither is safe without an explicit decision. A minimal
+context was therefore left unimplemented.
+
 **Platform notes for the Linux host**
 
 - Set the host timezone. The authoritative training date is the server-local calendar date; an

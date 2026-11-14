@@ -115,7 +115,12 @@ def reactive_reason(
     try:
         document = load_document()
         context = RuleContext.from_store(conn, end=as_of, history=history)
-        verdict = evaluate(document, context).verdict("PRG-SPINE-001")
+        # Only PRG-SPINE-001 is read below. Selective evaluation returns the same verdict and
+        # details for that rule while skipping the other predicates; the full document is still
+        # evaluated everywhere else.
+        verdict = evaluate(
+            document, context, rule_ids=("PRG-SPINE-001",)
+        ).verdict("PRG-SPINE-001")
         costs = verdict.details.get("weighted_costs", {}) if verdict.details else {}
         cap = float(verdict.details.get("cap", 3)) if verdict.details else 3.0
         weeks = sorted(costs)
