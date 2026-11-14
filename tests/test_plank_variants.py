@@ -34,6 +34,15 @@ def test_plank_variants_resolve_to_their_own_ids():
         assert resolved.is_time_based is True
 
 
+def test_plank_variants_book_to_the_core_volume_key():
+    """A plank saved as another pattern would silently book against the wrong volume bucket."""
+    taxonomy = exercises.taxonomy()
+    for name in ("Regular Plank", "Side Plank", "Chinese Plank"):
+        entity = taxonomy.entities[taxonomy.resolve(name).id]
+        assert entity.get("pattern") == "core_isometric", name
+        assert entity.get("time_based") is True, name
+
+
 def test_migration_splits_rows_imported_before_the_split():
     store = db.Store(":memory:")
     try:

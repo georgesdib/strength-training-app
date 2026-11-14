@@ -418,7 +418,7 @@ entities:
     time_based: true
     loadable: true
     e1rm_applicable: false
-    primary_muscles: [abs]
+    primary_muscles: [abs, erectors]
 
   chinese_plank:
     display: "Chinese Plank"
