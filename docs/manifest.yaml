@@ -107,8 +107,8 @@ documents:
   nav: true
 - id: intelligence-implementation
   path: docs/INTELLIGENCE-IMPLEMENTATION.md
-  title: TRAINING INTELLIGENCE — IMPLEMENTATION (INT-1)
-  description: 'INT-1 foundation: provider-neutral capability layer, canonical envelope, typed validation, bearer authentication, configuration bounds, read-only execution and tests; no transport, no MCP, no model provider'
+  title: TRAINING INTELLIGENCE — BACKEND IMPLEMENTATION
+  description: 'INT-1 foundation, INT-1b MCP transport, audit remediation and the INT-2 read-only catalogue: envelopes, validation, authentication, read-only execution, nine tools, three resources, limits and tests; no model provider, no REST route'
   category: architecture
   status: development
   audience: public

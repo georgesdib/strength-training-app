@@ -1911,9 +1911,10 @@ extra and only the transport imports it. See
 [`docs/INTELLIGENCE-IMPLEMENTATION.md`](docs/INTELLIGENCE-IMPLEMENTATION.md), including the
 performance baseline — the development Mac and, separately, the deployment host (p50 3.10 s /
 p95 3.17 s at 377 sessions, 2026-11-14). That host measurement is above the ADR-INT-010
-one-second threshold, so the transport is **gated** there until the addendum is decided. There is still **no REST route, no model provider, no migration and no change
-to any existing endpoint.** The rest of the catalogue, the baseline context package and evidence
-producers are INT-2.
+one-second threshold, so the transport is **gated** there until the addendum is decided. There is
+still **no REST route, no model provider, no migration and no change to any existing endpoint.**
+INT-2 delivered the rest of the read-only catalogue on 2026-11-14; the baseline context package,
+evidence producers for the aggregate capabilities and the INT-3 weekly review remain open.
 
 **Audit remediation 2026-11-14:** immediate token revocation/rotation without restart, a
 structured metadata-only audit record per invocation, a configurable tool timeout and result-size

@@ -1,14 +1,18 @@
-# TRAINING INTELLIGENCE — IMPLEMENTATION (INT-1)
+# TRAINING INTELLIGENCE — BACKEND IMPLEMENTATION
 
-**Status:** INT-1 foundation implemented 2026-11-14; INT-1b MCP transport implemented 2026-11-14;
-audit remediation applied 2026-11-14. Read-only, provider-neutral, independently runnable.
+**Status:** INT-1 foundation, INT-1b MCP transport, the audit remediation and the INT-2 capability
+catalogue implemented 2026-11-14. Read-only, provider-neutral, independently runnable. The
+baseline context package, evidence producers for the new aggregates, the weekly review (INT-3) and
+the REST/iOS surface are not implemented.
 **Scope owner:** the canonical plan is the portfolio
 [Training Intelligence plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md);
 the payload contract is the
 [Training Intelligence contract](https://github.com/georgesdib/strength-app/blob/main/docs/contracts/TRAINING-INTELLIGENCE-CONTRACT.md).
-This page records how the backend implements the foundation and what is deliberately absent.
+This page records how the backend implements the delivered intelligence surface (INT-1, INT-1b,
+remediation and INT-2) and what is deliberately absent. Phase boundaries stay as the plan states
+them: delivered work is marked delivered, and later phases are not advanced by this page.
 
-## 1. What INT-1 delivered
+## 1. What is delivered
 
 | Element | State |
 |---|---|
@@ -33,14 +37,18 @@ This page records how the backend implements the foundation and what is delibera
 | Live HTTP integration test with the official client (remediation) | implemented |
 | INT-2 catalogue: seven further tools (INT-2) | implemented |
 | INT-2 resources: `strength://programme/current`, `strength://overview/current` (INT-2) | implemented |
-| Baseline context package, evidence producers, INT-2 catalogue | **not implemented — INT-2** |
+| Baseline context package (shared compact context) | **not implemented — INT-3** |
+| Evidence producers for the INT-2 aggregates | **deferred** — owners do not emit evidence items for these aggregates; `get_session_details` returns the real evidence |
+| Weekly review package (INT-3) | **not implemented — INT-3** |
 | REST route, iOS adapter, model providers | **not implemented — INT-3 onward** |
 
 The plan's INT-1 originally bundled the MCP skeleton and two tools. The approved implementation
 prompt narrowed INT-1 to the foundation and deferred the transport, so that scope moved to
-**INT-1b**, delivered 2026-11-14 and recorded in the plan and roadmap. Everything marked INT-1b
-below is implemented; model integration, the REST route, the iOS adapter and the rest of the
-catalogue remain absent.
+**INT-1b**, delivered 2026-11-14 and recorded in the plan and roadmap. **INT-2** then delivered the
+remaining read-only catalogue and its two resources on 2026-11-14. Everything marked INT-1b and
+INT-2 above is implemented. What remains is the baseline context package, evidence producers for
+the aggregate capabilities, the INT-3 weekly review and REST surface, and model integration; none
+of those is implied by INT-2 and none is claimed here.
 
 ## 2. Package layout
 
