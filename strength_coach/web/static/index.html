@@ -691,7 +691,7 @@
           <form id="workout-set-form" class="form-row workout-set-form">
             <label>Exercise <select id="workout-set-exercise" required aria-describedby="workout-set-msg"></select></label>
             <label>Load kg <input type="number" inputmode="decimal" step="0.5" id="workout-set-load" placeholder="added load"></label>
-            <label>Reps / sec <input type="number" inputmode="numeric" step="1" min="0" id="workout-set-reps" required aria-describedby="workout-set-msg"></label>
+            <label><span id="workout-set-reps-label">Reps / sec</span> <input type="number" inputmode="numeric" step="1" min="0" id="workout-set-reps" required aria-describedby="workout-set-msg"></label>
             <label>RIR <input type="number" inputmode="numeric" step="1" min="0" max="6" id="workout-set-rir"></label>
             <label>Set role
               <select id="workout-set-role">
@@ -717,7 +717,7 @@
         <p class="section-help"><span>Corrects an active-workout set by appending a replacement; the original stays auditable.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md&amp;anchor=16-workout-session-workout-set-workout-event-live-workout-mode">Live workout model</a></p>
           <div class="form-row">
             <label>Load kg <input id="workout-edit-load" type="number" step="0.5" inputmode="decimal"></label>
-            <label>Reps <input id="workout-edit-reps" type="number" step="1" min="0" inputmode="numeric"></label>
+            <label><span id="workout-edit-reps-label">Reps</span> <input id="workout-edit-reps" type="number" step="1" min="0" inputmode="numeric"></label>
             <label>RIR <input id="workout-edit-rir" type="number" step="1" min="0" max="6" inputmode="numeric"></label>
             <label>Set role
               <select id="workout-edit-role">

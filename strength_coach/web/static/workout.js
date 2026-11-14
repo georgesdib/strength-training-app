@@ -155,6 +155,25 @@ function stopWorkoutTimer() {
 }
 
 let workoutExerciseList = [];
+let workoutExerciseMeta = {};
+
+function indexWorkoutExercises(list) {
+  workoutExerciseMeta = {};
+  (list || []).forEach(function (item) {
+    if (item && item.id) workoutExerciseMeta[item.id] = item;
+  });
+}
+
+function workoutRepsLabel(exerciseId) {
+  var meta = workoutExerciseMeta[exerciseId];
+  return meta && meta.time_based ? "Seconds" : "Reps";
+}
+
+function applyWorkoutRepsLabel() {
+  var select = document.getElementById("workout-set-exercise");
+  var host = document.getElementById("workout-set-reps-label");
+  if (host) host.textContent = workoutRepsLabel(select ? select.value : "");
+}
 
 function workoutExerciseLabel(exerciseId) {
   var match = workoutExerciseList.find(function (item) {
@@ -334,9 +353,13 @@ function prefillWorkoutSetFields(force) {
 }
 
 function loadWorkoutExercises() {
-  if (workoutExerciseList.length) return Promise.resolve(workoutExerciseList);
+  if (workoutExerciseList.length) {
+    indexWorkoutExercises(workoutExerciseList);
+    return Promise.resolve(workoutExerciseList);
+  }
   return api("/api/exercises").then(function (list) {
     workoutExerciseList = list || [];
+    indexWorkoutExercises(workoutExerciseList);
     if (activeWorkoutId) loadActiveWorkout();
     return workoutExerciseList;
   }).catch(function () { return []; });
@@ -461,6 +484,8 @@ function editWorkoutSet(setId) {
   window.__editingSetId = setId;
   $("#workout-edit-load").value = set.load_kg == null ? "" : set.load_kg;
   $("#workout-edit-reps").value = set.reps == null ? "" : set.reps;
+  var editRepsLabel = $("#workout-edit-reps-label");
+  if (editRepsLabel) editRepsLabel.textContent = workoutRepsLabel(set.exercise_id);
   $("#workout-edit-rir").value = set.rir == null ? "" : set.rir;
   $("#workout-edit-role").value = set.set_role || "";
   $("#workout-edit-velocity").value = set.velocity == null ? "" : set.velocity;
@@ -665,9 +690,11 @@ function renderWorkout(w) {
   var keptSelection = Boolean(
     previousExercise && $("#workout-set-exercise").value === previousExercise
   );
+  applyWorkoutRepsLabel();
   $("#workout-set-exercise").addEventListener("change", function () {
     prefillWorkoutSetFields(true);
     updateWorkoutSetTarget();
+    applyWorkoutRepsLabel();
   });
 
   var setRows = (w.sets || []).map(function (set) {

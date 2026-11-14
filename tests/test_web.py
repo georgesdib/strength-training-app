@@ -537,7 +537,11 @@ def test_state_can_be_edited(server):
 def test_exercise_catalogue_is_served(server):
     status, body = get(server, "/api/exercises")
     assert status == 200
-    assert any(row["id"] == "ssb_squat" for row in json.loads(body))
+    rows = {row["id"]: row for row in json.loads(body)}
+    assert "ssb_squat" in rows
+    # The client labels a time-based movement in seconds instead of reps.
+    assert rows["plank"]["time_based"] is True
+    assert rows["bench_press"]["time_based"] is False
 
 def test_rubric_calibration_endpoint_is_gone(server):
     with pytest.raises(urllib.error.HTTPError) as excinfo:

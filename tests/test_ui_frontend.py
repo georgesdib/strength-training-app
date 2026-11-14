@@ -2138,3 +2138,15 @@ if (cohortHtml.indexOf("vbt-test") < 0 || cohortHtml.indexOf("Target 0.42") < 0)
     script = script.replace("SOURCE", json.dumps(source))
     result = _run_node(script)
     assert result.returncode == 0, result.stderr
+
+
+def test_workout_reps_input_switches_to_seconds_for_time_based_exercises() -> None:
+    page = (STATIC / "index.html").read_text(encoding="utf-8")
+    workout = (STATIC / "workout.js").read_text(encoding="utf-8")
+    # The label has its own node so the script can swap it without rebuilding the form.
+    assert "workout-set-reps-label" in page
+    assert "workout-edit-reps-label" in page
+    assert "function workoutRepsLabel" in workout
+    assert "function applyWorkoutRepsLabel" in workout
+    assert "meta.time_based" in workout
+    assert "applyWorkoutRepsLabel();" in workout

@@ -11,7 +11,10 @@
   duration, note or productivity.
 - **Time-based exercises are labelled in seconds.** History detail and the correction form show
   "Seconds" for sets whose `reps_unit` is `seconds` (plank, carry) instead of "Reps". The
-  stored value was already seconds (`rep_semantics: seconds`); only the label was wrong.
+  stored value was already seconds (`rep_semantics: seconds`); only the label was wrong. The
+  live-workout set form and the set-edit dialog follow the selected exercise: `GET /api/exercises`
+  now returns `time_based`, and the label switches to "Seconds" for a timed movement instead of
+  the generic "Reps / sec".
 - **The bench+hinge support lift may be the trap bar** (`DEC-SPINE-09`, superseding the
   support-lift clause of `DEC-SPINE-05`). In resolver mode `bench_hinge.hinge_support` is now a
   two-candidate pool, sumo first (default) and trap bar second; role, sets, reps, RIR, rest, the

@@ -3155,7 +3155,8 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/exercises":
                 self._json(200, [
                     {"id": key, "display": str(value.get("display") or key),
-                     "pattern": value.get("pattern")}
+                     "pattern": value.get("pattern"),
+                     "time_based": bool(value.get("time_based", False))}
                     for key, value in exercises.taxonomy().entities.items()
                 ])
             elif path == "/api/templates":
