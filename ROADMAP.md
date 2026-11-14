@@ -1962,12 +1962,12 @@ superseded by T-1; existing benchmark numbers remain the reference until T-3 rem
   latency. The metadata is one module (`strength_coach/intelligence/latency.py`) and is explicitly
   a historical measurement, not a runtime guarantee. T-2 no longer depends on hiding slow tools;
   transport enablement still depends on T-1.
-- **T-3 - Optimise the slow capabilities (first pass implemented and remeasured).** Bounded the
+- **T-3 - Optimise the slow capabilities (closed 2026-11-14, first pass).** Bounded the
   deload flare lookup, cached readiness config loading and reused one summary rule context. HTTP
   p95: overview 4,058 -> 672 ms, programme 3,800 -> 278 ms, readiness 1,663 -> 377 ms; session
   details 6,201 -> 5,684 ms and remains very_slow within the accepted 7 s budget. Latency metadata
-  updated from the new run. Further session-details work is a documented follow-up, not a blocker
-  for the full catalogue.
+  updated from the new run. T-3 is closed as a first pass; **T-3a** (optional, not started) covers
+  further session-details work. It is not a blocker for the full catalogue.
 
 The items are compatible: T-1 sets the operational budget, T-2 is a rollout/communication change,
 C-1 keeps materialisation current, and T-3 improves latency. The LLM objective remains open until
@@ -1983,8 +1983,9 @@ renumbered **0061-0063** on `llm-integration`, so the production schema applies 
 deleting the recorded row. A fresh copy was migrated and built successfully after the renumber.
 T-3 first pass is implemented and remeasured: bounded deload flare lookup, cached readiness
 config loading and one summary rule context. Overview is down to 672 ms p95, programme 278 ms,
-readiness 377 ms; session details is 5,684 ms and remains very_slow within the accepted 7 s budget
-(a documented follow-up).
+readiness 377 ms; session details is 5,684 ms and remains very_slow within the accepted 7 s budget.
+T-3 is closed as a first pass; T-3a is the optional session-details follow-up. The production
+cutover steps are in [`docs/PRODUCTION-DEPLOYMENT.md`](docs/PRODUCTION-DEPLOYMENT.md).
 
 **Scope.** A provider-neutral capability layer over the existing services, a separately deployable
 read-only MCP server (Streamable HTTP, authenticated, tools and resources only), an additive read-only

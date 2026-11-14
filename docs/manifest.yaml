@@ -97,6 +97,14 @@ documents:
   status: canonical
   audience: public
   nav: true
+- id: production-deployment
+  path: docs/PRODUCTION-DEPLOYMENT.md
+  title: PRODUCTION DEPLOYMENT — DERIVED ANALYTICS AND MCP CUTOVER
+  description: 'Step-by-step production cutover: backup, branch choice, migrations 0061-0063, first analytics build, C-1 timer, MCP service, verification and rollback; not yet executed on the host'
+  category: architecture
+  status: development
+  audience: public
+  nav: true
 - id: releasing
   path: docs/RELEASING.md
   title: RELEASING AND CI
