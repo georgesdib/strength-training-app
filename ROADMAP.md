@@ -1918,7 +1918,14 @@ producers are INT-2.
 **Audit remediation 2026-11-14:** immediate token revocation/rotation without restart, a
 structured metadata-only audit record per invocation, a configurable tool timeout and result-size
 cap, a dedicated systemd unit with a deployment guide (not yet deployed), and a live HTTP
-integration test. The implementation page records the semantics and limitations. The canonical cross-repository plan, audit, contract and decisions are in the portfolio
+integration test. The implementation page records the semantics and limitations.
+
+**INT-2 delivered 2026-11-14:** seven further read-only capabilities (exercise progression,
+readiness history, adherence analysis, persisted prescription, VBT analysis, programme block
+summary, period comparison) and two more resources (`strength://programme/current`,
+`strength://overview/current`), all composing existing owners. The transport remains gated on the
+deployment host by the ADR-INT-010 latency decision; INT-2 adds no caching, no new REST route and
+no model. The canonical cross-repository plan, audit, contract and decisions are in the portfolio
 repository: [plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md)
 and [contract](https://github.com/georgesdib/strength-app/blob/main/docs/contracts/TRAINING-INTELLIGENCE-CONTRACT.md).
 Owner approval of the plan's section 13 decisions remains required before the transport phase.

@@ -80,7 +80,13 @@ def test_tools_are_discoverable_with_input_schemas(db_path):
 
     listed = asyncio.run(run())
     names = [tool.name for tool in listed.tools]
-    assert names == ["get_training_overview", "get_session_details"]
+    assert len(names) == 9
+    assert len(set(names)) == 9
+    assert set(names) == {
+        "compare_training_periods", "get_adherence_analysis", "get_exercise_progression",
+        "get_prescription", "get_programme_block_summary", "get_readiness_history",
+        "get_session_details", "get_training_overview", "get_vbt_analysis",
+    }
     overview = next(tool for tool in listed.tools if tool.name == "get_training_overview")
     properties = (overview.input_schema or {})["properties"]
     assert set(properties) == {"as_of", "window_weeks"}
@@ -203,7 +209,11 @@ def test_resource_is_the_profile_envelope(db_path):
                 return listed, read
 
     listed, read = asyncio.run(run())
-    assert [str(item.uri) for item in listed.resources] == ["strength://athlete/profile"]
+    assert {str(item.uri) for item in listed.resources} == {
+        "strength://athlete/profile",
+        "strength://programme/current",
+        "strength://overview/current",
+    }
     assert read.contents[0].mime_type == "application/json"
     payload = json.loads(read.contents[0].text)
     assert payload["capability"] == "athlete_profile"

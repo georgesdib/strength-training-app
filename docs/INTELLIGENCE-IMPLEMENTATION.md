@@ -31,6 +31,8 @@ This page records how the backend implements the foundation and what is delibera
 | Tool timeout and serialized-result cap (remediation) | implemented |
 | Dedicated systemd unit and deployment guide (remediation) | implemented (not deployed) |
 | Live HTTP integration test with the official client (remediation) | implemented |
+| INT-2 catalogue: seven further tools (INT-2) | implemented |
+| INT-2 resources: `strength://programme/current`, `strength://overview/current` (INT-2) | implemented |
 | Baseline context package, evidence producers, INT-2 catalogue | **not implemented — INT-2** |
 | REST route, iOS adapter, model providers | **not implemented — INT-3 onward** |
 
@@ -55,6 +57,15 @@ catalogue remain absent.
 | `capabilities/overview.py` | the reference capability |
 | `capabilities/__init__.py` | import-time registration (no discovery) |
 | `capabilities/session.py` | `get_session_details` (INT-1b) |
+| `capabilities/_common.py` | INT-2 envelope/window helpers (no analytics) |
+| `capabilities/progression.py` | `get_exercise_progression` (INT-2) |
+| `capabilities/readiness.py` | `get_readiness_history` (INT-2) |
+| `capabilities/adherence.py` | `get_adherence_analysis` (INT-2) |
+| `capabilities/prescription.py` | `get_prescription` (INT-2) |
+| `capabilities/vbt.py` | `get_vbt_analysis` (INT-2) |
+| `capabilities/programme.py` | `get_programme_block_summary` (INT-2) |
+| `capabilities/compare.py` | `compare_training_periods` (INT-2) |
+| `store/queries.py` | `prescription_detail()` read helper (INT-2) |
 | `resources.py` | `strength://athlete/profile` envelope (INT-1b) |
 | `tokens.py` | dedicated MCP client tokens: create, list, rotate, revoke, authenticate; reloaded per request (INT-1b, remediation) |
 | `audit.py` | one structured metadata-only audit record per invocation (remediation) |
@@ -193,7 +204,9 @@ Row counts and `total_changes` are captured before and after execution in a test
 | `tests/test_intelligence_audit.py` | one complete audit record per tool/resource, no payload or token, logging failure tolerated |
 | `tests/test_intelligence_token_reload.py` | revocation/rotation without restart, fail-closed file, concurrent readers |
 | `tests/test_intelligence_runtime_limits.py` | response deadline, oversized result and resource, row-count extraction |
-| `tests/test_intelligence_mcp_live.py` | real HTTP server: auth, both tools, resource, no-data, errors, read-only database, clean shutdown |
+| `tests/test_intelligence_mcp_live.py` | real HTTP server: auth, tools, resources, no-data, errors, read-only database, clean shutdown |
+| `tests/test_intelligence_int2.py` | the seven INT-2 capabilities: owner composition, validation, privacy, determinism, read-only |
+| `tests/test_intelligence_mcp_int2.py` | INT-2 discovery, schemas, strict arguments, resource reads, MCP/service parity |
 | `tests/intelligence_support.py` | synthetic builders only |
 | `tools/intelligence_benchmark.py` | synthetic performance baseline (not a test) |
 
@@ -220,6 +233,12 @@ Commands:
   its worker thread and its result is discarded. Leftover work is a bounded read on a connection
   owned by that call.
 - **Rate and concurrency limits are per process.** Run one worker; the SDK multiplexes requests.
+- **The readiness score series is capped at the most recent 120 observed days.** Each day calls the
+owning scorer; the cap keeps one request bounded and is reported in coverage.
+- **Prescription and adherence payloads are capped** (40 items, 20 modifiers, 60 periods, 40
+exercises, 20 workouts) and report truncation; nothing is silently omitted.
+- **VBT per-set rows are summarised**, because the owner payload can be large; cohort and drift
+  detail is preserved.
 - **The systemd unit has not been deployed or validated on the target host.** The deployment guide
   is an installation plan until the acceptance steps are run there.
 
@@ -508,3 +527,46 @@ Installation, service-user creation, token provisioning, start/stop, log inspect
 semantics, tailnet exposure and troubleshooting are in
 [INTELLIGENCE-DEPLOYMENT.md](INTELLIGENCE-DEPLOYMENT.md). The unit has **not** been deployed or
 validated on the target host.
+
+## 21. INT-2 catalogue (2026-11-14)
+
+Nine read-only tools and three resources are registered. Every fact names its owning function in
+the method allow-list; the only arithmetic added is the delta between two owner outputs in
+`compare_training_periods`.
+
+| Tool | Arguments (MCP spelling) | Owner(s) | Notes |
+|---|---|---|---|
+| `get_exercise_progression` | `exercise_id`, `as_of?`, `window_days` 28-365, `include_sessions`, `limit_sessions` 1-20 | `strength_trend`, `exercise_history` | Rolling median and breaks are the owner's; a calculated e1RM is not a tested maximum. |
+| `get_readiness_history` | `start`, `end`, `fields?` | `queries.readiness_series`, `readiness_score.compute` | Default is the score only; raw health fields must be named. Score series capped at 120 observed days. |
+| `get_adherence_analysis` | `weeks?` or `start`/`end`, `as_of?`, `group_by`, `exercise_id?`, `session_type?` | `adherence_analytics.analytics` | Completed app workouts only; no block dimension. Lists capped and truncation reported. |
+| `get_prescription` | `prescription_id?`, `for_date?`, `include_provenance?` | `queries.prescription_detail` | Persisted artifact only; an unstarted issued plan is a preview. Items/modifiers capped. |
+| `get_vbt_analysis` | `start`/`end` or `window_days`, `exercise_id?` | `vbt_performance.analyse` | Per-set rows summarised; every abstention reason returned. Sparse by nature. |
+| `get_programme_block_summary` | `as_of?`, `block_weeks` 4/6/8 | `settings_profile`, `deload`, `regime_change`, `breaks`, `attendance` | Derived window; no stored block (DEC-PROGRAMME-01) or calendar (DEC-W7-01). |
+| `compare_training_periods` | `period_a`, `period_b`, `metric`, `exercise_id?` | attendance / adherence / volume / strength trend | Metric decides the owner; delta is arithmetic between the two outputs. |
+
+Resources: `strength://athlete/profile` (taken), `strength://programme/current` (settings,
+budget, deload, regime count, active breaks) and `strength://overview/current` (the four-week
+overview fact set projected as a resource envelope). All three validate against the same envelope
+and go through the same audit, timeout and size guards as a tool.
+
+**Argument spelling.** MCP schemas use `start`/`end` for date bounds because `from` is a
+Python keyword and the SDK cannot map an alias back to a parameter. The capability API keeps
+`from`/`to`. The strict argument middleware rejects the other spelling, so a caller is never
+silently ignored.
+
+**Privacy.** Readiness is an explicit `health` class and returns only the fields named by the
+caller. Session notes, symptoms, form ratings, injury constraints and body measurements are excluded
+from every capability; where a count of withheld items is reported (profile constraints), it is
+deliberate and visible.
+
+**Evidence.** No INT-2 owner emits evidence items for these aggregates, so `evidence` is empty and
+`coverage`, `n`, `gate` and `limitations` carry the caveats. `get_session_details` remains
+the path that returns real evidence, from the completed-workout report.
+
+**Development-machine timings** (synthetic 131 sessions / 781 sets / 260 readiness days, macOS
+arm64, read-only connection, median of 3): progression 120 ms, readiness score series over 108
+observed days 169 ms, programme block 91 ms, attendance comparison 36 ms. Adherence and VBT were
+`no_data` in that dataset and are not quoted. These are a shape, not an SLO: the deployment host
+measured roughly 14x the Mac on the overview benchmark, so the readiness score series is the
+capability to watch there. No cache was added (ADR-INT-010) and the transport remains gated on that
+host until the addendum is decided.

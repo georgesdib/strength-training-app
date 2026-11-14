@@ -27,6 +27,47 @@ ARGUMENTS: dict[str, dict[str, tuple[type, ...]]] = {
         "session_id": (str, type(None)),
         "include_ratios": (bool,),
     },
+    "get_exercise_progression": {
+        "exercise_id": (str,),
+        "as_of": (str, type(None)),
+        "window_days": (int,),
+        "include_sessions": (bool,),
+        "limit_sessions": (int,),
+    },
+    "get_readiness_history": {
+        "start": (str,),
+        "end": (str,),
+        "fields": (list, type(None)),
+    },
+    "get_adherence_analysis": {
+        "weeks": (int, type(None)),
+        "as_of": (str, type(None)),
+        "start": (str, type(None)),
+        "end": (str, type(None)),
+        "group_by": (str,),
+        "exercise_id": (str, type(None)),
+        "session_type": (str, type(None)),
+    },
+    "get_prescription": {
+        "prescription_id": (str, type(None)),
+        "for_date": (str, type(None)),
+        "include_provenance": (bool,),
+    },
+    "get_vbt_analysis": {
+        "start": (str,),
+        "end": (str,),
+        "exercise_id": (str, type(None)),
+    },
+    "get_programme_block_summary": {
+        "as_of": (str, type(None)),
+        "block_weeks": (int,),
+    },
+    "compare_training_periods": {
+        "period_a": (dict,),
+        "period_b": (dict,),
+        "metric": (str,),
+        "exercise_id": (str, type(None)),
+    },
 }
 
 

@@ -131,6 +131,13 @@ def _scenario(port: int, token: str, workout_id: str) -> dict:
                 resource = await client.read_resource("strength://athlete/profile")
                 results["resource"] = json.loads(resource.contents[0].text)
                 results["resource_mime"] = resource.contents[0].mime_type
+                programme = await client.read_resource("strength://programme/current")
+                results["programme_resource"] = json.loads(programme.contents[0].text)
+                progression = await client.call_tool(
+                    "get_exercise_progression",
+                    {"exercise_id": "trap_bar_deadlift", "as_of": "2026-11-14"},
+                )
+                results["progression"] = progression
                 no_data = await client.call_tool(
                     "get_training_overview", {"as_of": "2025-01-01"}
                 )
@@ -166,7 +173,17 @@ def test_live_http_tools_and_resource(live):
     results = _scenario(live["port"], live["token"], live["workout_id"])
 
     assert results["protocol"] == "2026-07-28"
-    assert results["tools"] == ["get_training_overview", "get_session_details"]
+    assert results["tools"] == [
+        "get_training_overview",
+        "get_session_details",
+        "get_exercise_progression",
+        "get_readiness_history",
+        "get_adherence_analysis",
+        "get_prescription",
+        "get_vbt_analysis",
+        "get_programme_block_summary",
+        "compare_training_periods",
+    ]
 
     overview = results["overview"]
     assert overview.is_error is False
@@ -185,6 +202,14 @@ def test_live_http_tools_and_resource(live):
     assert results["resource_mime"] == "application/json"
     assert results["resource"]["capability"] == "athlete_profile"
     assert "profile" in results["resource"]["facts"]
+
+    assert results["programme_resource"]["capability"] == "programme_current"
+    assert "profile" in results["programme_resource"]["facts"]
+
+    progression = results["progression"]
+    assert progression.is_error is False
+    assert progression.structured_content["capability"] == "get_exercise_progression"
+    assert "summary" in progression.structured_content["facts"]
 
     assert results["no_data"].structured_content["status"] == "no_data"
     assert results["invalid"].is_error is True

@@ -13,9 +13,22 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from strength_coach import history, workout
-from strength_coach.features import attendance, deload, progress, volume
+from strength_coach import history, settings_profile, workout
+from strength_coach.features import (
+    adherence_analytics,
+    attendance,
+    breaks,
+    deload,
+    exercise_history,
+    progress,
+    readiness_score,
+    regime_change,
+    strength_trend,
+    vbt_performance,
+    volume,
+)
 from strength_coach.store import queries
+from strength_coach.utils import exercises
 
 #: Fully qualified owning functions. The key is what a FactBlock's `method` must contain.
 METHODS: dict[str, Callable[..., object]] = {
@@ -29,6 +42,21 @@ METHODS: dict[str, Callable[..., object]] = {
     "strength_coach.store.queries.readiness_series": queries.readiness_series,
     "strength_coach.store.queries.session_feedback": queries.session_feedback,
     "strength_coach.workout.summary": workout.summary,
+    "strength_coach.features.adherence_analytics.analytics": adherence_analytics.analytics,
+    "strength_coach.features.exercise_history.history": exercise_history.history,
+    "strength_coach.features.readiness_score.compute": readiness_score.compute,
+    "strength_coach.features.regime_change.detect": regime_change.detect,
+    "strength_coach.features.strength_trend.observations": strength_trend.observations,
+    "strength_coach.features.strength_trend.rolling_median": strength_trend.rolling_median,
+    "strength_coach.features.strength_trend.series_breaks": strength_trend.series_breaks,
+    "strength_coach.features.strength_trend.summarize": strength_trend.summarize,
+    "strength_coach.features.vbt_performance.analyse": vbt_performance.analyse,
+    "strength_coach.features.breaks.all_breaks": breaks.all_breaks,
+    "strength_coach.features.breaks.active_on": breaks.active_on,
+    "strength_coach.settings_profile.state": settings_profile.state,
+    "strength_coach.store.queries.prescription_detail": queries.prescription_detail,
+    "strength_coach.utils.exercises.taxonomy": exercises.taxonomy,
+    "strength_coach.utils.exercises.canonical_id": exercises.canonical_id,
 }
 
 
