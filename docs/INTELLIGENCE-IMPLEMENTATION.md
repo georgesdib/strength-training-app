@@ -1,6 +1,7 @@
 # TRAINING INTELLIGENCE — IMPLEMENTATION (INT-1)
 
-**Status:** INT-1 foundation implemented 2026-11-14. Read-only, provider-neutral, no transport.
+**Status:** INT-1 foundation implemented 2026-11-14; INT-1b MCP transport implemented 2026-11-14.
+Read-only, provider-neutral, independently runnable.
 **Scope owner:** the canonical plan is the portfolio
 [Training Intelligence plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md);
 the payload contract is the
@@ -20,15 +21,19 @@ This page records how the backend implements the foundation and what is delibera
 | Configuration switch and bounds (`config/intelligence.v1.yaml`) | implemented |
 | One reference capability, `get_training_overview` | implemented |
 | Automated tests (envelope, registry, config, auth, execution, boundaries) | implemented |
-| MCP server, tools, resources | **not implemented — INT-1b** |
-| `get_session_details` | **not implemented — INT-1b** |
+| MCP server, tools, resources (INT-1b) | implemented |
+| `get_session_details` (INT-1b) | implemented |
+| Dedicated MCP client tokens and CLI (INT-1b) | implemented |
+| Strict tool-argument checking at the MCP boundary (INT-1b) | implemented |
+| Synthetic performance baseline for `get_training_overview` (INT-1b) | recorded |
 | Baseline context package, evidence producers, INT-2 catalogue | **not implemented — INT-2** |
 | REST route, iOS adapter, model providers | **not implemented — INT-3 onward** |
 
 The plan's INT-1 originally bundled the MCP skeleton and two tools. The approved implementation
 prompt narrowed INT-1 to the foundation and deferred the transport, so that scope moved to
-**INT-1b** and is recorded as such in the plan and roadmap. Nothing in the deferred scope exists in
-code.
+**INT-1b**, delivered 2026-11-14 and recorded in the plan and roadmap. Everything marked INT-1b
+below is implemented; model integration, the REST route, the iOS adapter and the rest of the
+catalogue remain absent.
 
 ## 2. Package layout
 
@@ -44,6 +49,14 @@ code.
 | `service.py` | execution, read snapshot, failure mapping, structured logging |
 | `capabilities/overview.py` | the reference capability |
 | `capabilities/__init__.py` | import-time registration (no discovery) |
+| `capabilities/session.py` | `get_session_details` (INT-1b) |
+| `resources.py` | `strength://athlete/profile` envelope (INT-1b) |
+| `tokens.py` | dedicated MCP client tokens: create, list, rotate, revoke, authenticate (INT-1b) |
+| `mcp/db.py` | SQLite `mode=ro` connection for the transport (INT-1b) |
+| `mcp/security.py` | principal context, bearer middleware, rate/concurrency limits (INT-1b) |
+| `mcp/validation.py` | strict tool-argument middleware: unknown keys and type coercion rejected (INT-1b) |
+| `mcp/tools.py`, `mcp/resources.py` | thin adapters over the capability service (INT-1b) |
+| `mcp/app.py`, `mcp/run.py` | server/app factory and standalone runner (INT-1b) |
 
 Layering: this package may import `features`, `store`, `utils` and `domain`; it must not
 import `strength_coach.web`, `strength_coach.agents` or `mcp`. A test asserts that with an AST
@@ -159,8 +172,14 @@ Row counts and `total_changes` are captured before and after execution in a test
 | `tests/test_intelligence_config.py` | defaults, bounds, unknown keys, missing file |
 | `tests/test_intelligence_auth.py` | success, 401 variants, revocation, no writes, no token in logs |
 | `tests/test_intelligence_overview.py` | composition vs owning services, projections, no-data, validation, determinism, read-only, failure mapping |
-| `tests/test_intelligence_boundaries.py` | no `web`/`agents`/`mcp` imports, read-only connection, no mutation-shaped names |
+| `tests/test_intelligence_boundaries.py` | no `web`/`agents`/`mcp` imports in the capability package, only `mcp/` imports the SDK, read-only connection, no mutation-shaped names |
+| `tests/test_intelligence_session.py` | session composition, imported/voided routing, projections, validation, read-only |
+| `tests/test_intelligence_tokens.py` | token lifecycle, revocation, rotation, CLI, server refusals |
+| `tests/test_intelligence_mcp_protocol.py` | tool discovery, schemas, annotations, invocation, parity, errors, resource, modern and legacy eras |
+| `tests/test_intelligence_mcp_http.py` | 401/403, Host protection, body cap, rate limit, successful discover |
+| `tests/test_intelligence_mcp_limits.py` | rate and concurrency middleware |
 | `tests/intelligence_support.py` | synthetic builders only |
+| `tools/intelligence_benchmark.py` | synthetic performance baseline (not a test) |
 
 Commands:
 
@@ -169,8 +188,10 @@ Commands:
 
 ## 11. Known limitations
 
-- **No transport.** Nothing is exposed over HTTP or MCP; the switch is off and no route exists.
-- **No second capability.** Imported-session detail and the rest of the catalogue are INT-1b/INT-2.
+- **The switch is off by default.** The server refuses to start until `enabled: true` is set and at
+  least one active client token exists.
+- **The catalogue is two tools and one resource.** Progression, adherence, VBT, prescription,
+  comparison, programme block and weekly review are INT-2/INT-3.
 - **No evidence items are emitted** by `get_training_overview`: the owning services do not produce
   them for these aggregates. The envelope supports and validates them; INT-2 adds the producers.
 - **No baseline context package.** `provenance.context_hash` covers the request context (capability,
@@ -190,3 +211,144 @@ Commands:
    envelope.
 5. Add tests: composition vs the owner, invalid input, missing data, read-only, determinism.
 6. Update this page's capability table and the plan's phase status; never mark INT-2 complete here.
+## 13. MCP server architecture (INT-1b)
+
+    MCP client (Claude, another host, the Python client)
+        |
+        |  POST /mcp   Authorization: Bearer <client token>
+        v
+    BearerAuthMiddleware      -> 401 / 403, sets the request Principal
+        v
+    LimitMiddleware           -> 429 on the per-client rate or concurrency bound
+        v
+    MCP SDK (Streamable HTTP, revision 2026-07-28, legacy clients included)
+        v
+    StrictToolArgumentsMiddleware -> rejects unknown keys and coerced types
+        v
+    tool handler -> IntelligenceService -> read-only SQLite -> envelope
+        v
+    structuredContent (the same envelope INT-1 defines)
+
+- The transport is a separate package: `strength_coach/intelligence/mcp/`. The capability package
+  imports neither the SDK nor HTTP, and a test asserts that only `mcp/` imports `mcp`.
+- The MCP dependency is an optional extra (`strength-coach[intelligence]`). The coaching runtime,
+  the web UI, the CLI and every existing test work without it; only the transport imports it.
+- Tools call `IntelligenceService.execute` against a fresh `mode=ro` connection per call. No
+  analytics are duplicated in a handler, and no handler reads a table directly.
+- Modern requests are stateless (no protocol session, no sticky routing). A legacy client on
+  2025-11-25 is served by the same app; a test exercises both eras.
+- Tools and resources only. No prompts, sampling, roots, subscriptions, logging or tasks.
+
+## 14. Install, run and operate
+
+    pip install "strength-coach[intelligence]"
+
+    # provision one token per client; the plaintext is printed once and never stored
+    strength-coach intelligence token create --label "Claude Desktop"
+    strength-coach intelligence token list
+
+    # enable the feature, then run the server as its own process
+    #   config/intelligence.v1.yaml: enabled: true
+    strength-coach intelligence serve --db data/coach.db
+    # equivalent: strength-intelligence-mcp --db data/coach.db
+
+The endpoint is `http://127.0.0.1:8765/mcp` by default. The server refuses to start (exit 2) when
+the switch is off, the database is missing, or no active client token exists. Every run prints the
+endpoint and a reminder that a bearer token is required; it never prints a token.
+
+Transport keys in `config/intelligence.v1.yaml`:
+
+| Key | Default | Meaning |
+|---|---|---|
+| `bind_host` | `127.0.0.1` | loopback by default; set explicitly for a private network |
+| `bind_port` | `8765` | |
+| `endpoint_path` | `/mcp` | must start with `/` |
+| `allowed_hosts` | `127.0.0.1:*`, `localhost:*` | Host allowlist; `:*` accepts any port |
+| `max_request_body_bytes` | 262144 | 1 KiB-1 MiB |
+| `rate_limit_per_minute` | 60 | per client; 0 disables |
+| `max_concurrent_calls` | 4 | in-flight calls per process |
+
+Private-network deployment: set `bind_host` to the tailnet address **and** add the exact Host
+header clients will use to `allowed_hosts`. Tailscale is reachability, not authentication; the
+bearer token remains mandatory. Never set `bind_host: 0.0.0.0` on an untrusted network.
+
+## 15. Authentication and token lifecycle
+
+- MCP clients have their own tokens; they are never iOS device credentials. `Principal.kind` is
+  `mcp`, and no tool accepts a principal, user or database argument.
+- Only the SHA-256 digest is stored, in the git-ignored `config/intelligence.local.yaml`, mode 0600.
+  The plaintext token is returned once by `create` or `rotate` and is never written or logged.
+- `revoke` sets `revoked_at`; the token immediately returns 403. `rotate` replaces the digest
+  and the previous token returns 401. A revoked client cannot be rotated.
+- Verification reuses `utils.ios_credentials.verify_secret` (constant-time digest comparison).
+- Authentication runs before the MCP layer parses anything: a missing, malformed, over-long or
+  unknown token is 401 with `WWW-Authenticate: Bearer realm="strength-intelligence"`; a revoked
+  client is 403. No OAuth discovery document is published (ADR-INT-004).
+- Tokens, Authorization headers and payloads are never logged. Tests assert tokens are absent from
+  logs and that authentication performs no database write.
+- The CLI is the provisioning boundary: local shell access is the admin boundary. Tokens are not
+  mintable over HTTP.
+
+## 16. Network exposure and security controls
+
+| Control | Implementation |
+|---|---|
+| Loopback default | `bind_host: 127.0.0.1` |
+| DNS rebinding | SDK `TransportSecuritySettings` with an explicit Host allowlist; a foreign Host is 421 |
+| Cross-origin | `allowed_origins: []`; browsers are not a supported client |
+| Request size | SDK body cap from `max_request_body_bytes`; 413 before parsing |
+| Authentication order | bearer middleware outermost: an unauthenticated oversized request is 401, not 413 |
+| Rate and concurrency | per-client sliding window and a semaphore; 429 with `Retry-After` |
+| Database | SQLite `mode=ro` plus `PRAGMA query_only`; the service also rolls back its read snapshot |
+| Errors | tool errors carry `code: message` only; unexpected failures return a fixed message and log the traceback |
+| Tool surface | explicit argument allowlist, strict types, read-only annotations, no SQL/table tools |
+| Data minimisation | the profile resource excludes injuries, symptoms, measurements and notes; session detail excludes notes, symptoms and form ratings |
+
+Limits are per process. Run one worker; the SDK multiplexes concurrent requests. If more workers
+are ever needed, the per-client limits become approximate and would need a shared counter.
+
+## 17. Tool and resource schemas
+
+| Tool | Arguments | Output |
+|---|---|---|
+| `get_training_overview` | `as_of` (date, optional), `window_weeks` (1-52, default 4) | envelope with `attendance`, `feedback_coverage`, `strength_trend`, `volume`, `readiness_coverage`, `deload` |
+| `get_session_details` | exactly one of `workout_id` / `session_id`, `include_ratios` (bool, default false) | envelope with `session`, `strength`, `dose`, `adherence`, `vbt`, `feedback`, `quality`; imported sessions use `sets` and report analysis as unavailable |
+
+Both declare `read_only_hint`, `destructive_hint: false`, `idempotent_hint` and
+`open_world_hint: false`, and advertise the envelope as their `outputSchema`.
+
+Resource `strength://athlete/profile` (`application/json`) returns an envelope with:
+
+- `profile`: `effective_from`, `sessions_per_week_target`, `max_session_minutes`,
+  `block_start_date`, `volume_budget_enabled`, `main_lift_policy`;
+- `constraints`: non-injury structured constraints (`kind`, `region`, `severity`, forbidden
+  patterns/exercises);
+- `coverage`: included constraints and the number of injury constraints withheld;
+- `privacy`: what was excluded and why.
+
+Goal, goal-rank and focus-lift columns are retired (`DEC-STATE-02`) and are not returned; the
+canonical contract has been corrected to match. Injury constraints are withheld by policy and
+only counted, so a reader knows something exists without it being exposed.
+
+## 18. Performance baseline (2026-11-14)
+
+Command: `python tools/intelligence_benchmark.py --sessions N --runs R` (synthetic data only).
+
+Environment: macOS 27.2.1 arm64, 8 cores, Python 3.15.2, SQLite read-only connection, single
+process, no concurrent load.
+
+| Dataset | Sets | DB | Runs | p50 | p95 | max |
+|---|---|---|---|---|---|---|
+| 200 sessions / 100 readiness days | 3,600 | 3.87 MB | 40 | 220.5 ms | 299.4 ms | 382.9 ms |
+| 600 sessions / 300 readiness days | 10,800 | 10.22 MB | 20 | 573.1 ms | 596.3 ms | 620.0 ms |
+
+All executions returned `status: ok`. The cost grows roughly linearly with history because the
+dashboard's performance ratio rebuilds session e1RM across the whole history on every read; that
+is the dominant term, not the window size.
+
+Interpretation: at the owner's expected history size the call is comfortably interactive, so
+**no cache is added** (ADR-INT-010). Revisit if the p95 approaches one second, the history grows
+well past ~1,000 sessions, or the MCP server is used with multiple concurrent clients. The first
+candidate would be a bounded lookback for the ratio, not a cache. Caveats: synthetic distribution,
+a warm OS page cache, one machine, and a single process; the numbers are a shape, not a service
+level objective.

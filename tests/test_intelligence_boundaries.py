@@ -14,7 +14,8 @@ import strength_coach.intelligence as intelligence
 from strength_coach.intelligence import INTERNAL_PRINCIPAL
 from strength_coach.store import db, importer
 
-FORBIDDEN_IMPORTS = ("strength_coach.web", "strength_coach.agents", "mcp")
+FORBIDDEN_IMPORTS = ("strength_coach.web", "strength_coach.agents")
+TRANSPORT_FORBIDDEN = ("mcp",)
 
 
 def _imports(path: pathlib.Path) -> set[str]:
@@ -28,19 +29,32 @@ def _imports(path: pathlib.Path) -> set[str]:
     return modules
 
 
-def test_intelligence_package_imports_no_transport_or_model_layer():
+def test_capability_package_imports_no_web_model_or_transport_layer():
     package = pathlib.Path(intelligence.__file__).parent
     files = sorted(package.rglob("*.py"))
     assert files, "the package should contain modules"
     for path in files:
+        if "mcp" in path.relative_to(package).parts:
+            continue
         imported = _imports(path)
-        for forbidden in FORBIDDEN_IMPORTS:
+        for forbidden in (*FORBIDDEN_IMPORTS, *TRANSPORT_FORBIDDEN):
             offenders = [
                 name
                 for name in imported
                 if name == forbidden or name.startswith(forbidden + ".")
             ]
             assert not offenders, f"{path.name} imports {offenders}"
+
+
+def test_only_the_transport_package_imports_the_mcp_sdk():
+    package = pathlib.Path(intelligence.__file__).parent
+    users = [
+        path.relative_to(package).as_posix()
+        for path in sorted(package.rglob("*.py"))
+        if any(name == "mcp" or name.startswith("mcp.") for name in _imports(path))
+    ]
+    assert users, "the transport package should import the SDK"
+    assert all(name.startswith("mcp/") for name in users), users
 
 
 def test_overview_runs_on_a_read_only_connection(tmp_path):

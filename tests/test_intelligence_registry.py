@@ -40,14 +40,14 @@ def _spec(**overrides):
     return CapabilitySpec(**values)
 
 
-def test_shipped_registry_lists_the_overview_capability():
-    assert CAPABILITIES.names() == ("get_training_overview",)
+def test_shipped_registry_lists_the_read_only_capabilities():
+    assert CAPABILITIES.names() == ("get_session_details", "get_training_overview")
 
 
 def test_describe_reports_version_summary_and_read_only():
     described = CAPABILITIES.describe()
-    assert len(described) == 1
-    entry = described[0]
+    assert len(described) == 2
+    entry = next(item for item in described if item["name"] == "get_training_overview")
     assert entry["name"] == "get_training_overview"
     assert entry["version"] == "1.0.0"
     assert entry["read_only"] is True

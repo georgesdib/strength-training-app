@@ -20,6 +20,11 @@ docs = [
     "Markdown>=3.5",
     "WeasyPrint>=62",
 ]
+# Optional MCP transport for the read-only intelligence layer. The coaching runtime, the web UI
+# and every existing test work without it; only strength_coach.intelligence.mcp imports it.
+intelligence = [
+    "mcp>=2,<3",
+]
 dev = [
     "pytest>=8.0",
     # Parallel test runs: the suite is fixture-heavy, and 4 workers cut a full run from
@@ -30,6 +35,7 @@ dev = [
 
 [project.scripts]
 strength-coach = "strength_coach.cli:main"
+strength-intelligence-mcp = "strength_coach.intelligence.mcp.run:main"
 
 [tool.setuptools.packages.find]
 include = ["strength_coach*"]

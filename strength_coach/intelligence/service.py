@@ -112,6 +112,22 @@ class ExecutionContext:
         )
 
 
+def execution_context(
+    conn: sqlite3.Connection,
+    config: IntelligenceConfig,
+    *,
+    clock: Clock | None = None,
+) -> ExecutionContext:
+    """Build the context identity for one read, inside the caller's snapshot."""
+    source = clock if clock is not None else SYSTEM_CLOCK
+    return ExecutionContext(
+        config=config,
+        stamp=context_mod.stamp(conn, config.as_mapping()),
+        generated_at=format_utc(source.now_utc()),
+        timezone=local_timezone_name(),
+    )
+
+
 @dataclass(frozen=True)
 class CapabilityResult:
     envelope: Envelope | None = None
@@ -207,12 +223,8 @@ class IntelligenceService:
 
         try:
             with read_snapshot(self._conn):
-                stamp = context_mod.stamp(self._conn, self._config.as_mapping())
-                execution = ExecutionContext(
-                    config=self._config,
-                    stamp=stamp,
-                    generated_at=format_utc(self._clock.now_utc()),
-                    timezone=local_timezone_name(),
+                execution = execution_context(
+                    self._conn, self._config, clock=self._clock
                 )
                 envelope = spec.handler(self._conn, request, execution)
                 envelope.validate()

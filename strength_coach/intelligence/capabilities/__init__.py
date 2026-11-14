@@ -6,6 +6,6 @@ import is deliberate and tiny: no discovery, no filesystem scanning, no entry po
 
 from __future__ import annotations
 
-from strength_coach.intelligence.capabilities import overview
+from strength_coach.intelligence.capabilities import overview, session
 
-__all__ = ["overview"]
+__all__ = ["overview", "session"]

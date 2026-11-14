@@ -42,6 +42,19 @@ def test_parse_accepts_a_minimal_mapping():
         {"version": 1, "max_sessions_per_page": 0},
         {"version": 1, "max_sessions_per_page": 101},
         {"version": 1, "unknown": 1},
+        {"version": 1, "bind_host": ""},
+        {"version": 1, "bind_host": "two words"},
+        {"version": 1, "bind_port": 0},
+        {"version": 1, "bind_port": 70000},
+        {"version": 1, "endpoint_path": "mcp"},
+        {"version": 1, "allowed_hosts": []},
+        {"version": 1, "allowed_hosts": "127.0.0.1"},
+        {"version": 1, "max_request_body_bytes": 512},
+        {"version": 1, "max_request_body_bytes": 2_000_000},
+        {"version": 1, "rate_limit_per_minute": -1},
+        {"version": 1, "rate_limit_per_minute": 7000},
+        {"version": 1, "max_concurrent_calls": 0},
+        {"version": 1, "max_concurrent_calls": 65},
         [],
         "text",
     ],
@@ -49,6 +62,31 @@ def test_parse_accepts_a_minimal_mapping():
 def test_parse_rejects_invalid_configuration(data):
     with pytest.raises(ValueError):
         parse_config(data)
+
+
+def test_transport_defaults_are_safe():
+    config = IntelligenceConfig()
+    assert config.bind_host == "127.0.0.1"
+    assert config.bind_port == 8765
+    assert config.endpoint_path == "/mcp"
+    assert config.allowed_hosts == ("127.0.0.1:*", "localhost:*")
+    assert config.max_request_body_bytes == 262_144
+    assert config.rate_limit_per_minute == 60
+    assert config.max_concurrent_calls == 4
+
+
+def test_transport_settings_are_configurable(tmp_path: Path):
+    target = tmp_path / "intelligence.v1.yaml"
+    target.write_text(
+        "version: 1\nenabled: true\nbind_host: 0.0.0.0\nbind_port: 9000\n"
+        "endpoint_path: /intel\nallowed_hosts: ['mcp.example.com:*']\n",
+        encoding="utf-8",
+    )
+    config = load_config(target)
+    assert (config.bind_host, config.bind_port, config.endpoint_path) == (
+        "0.0.0.0", 9000, "/intel"
+    )
+    assert config.allowed_hosts == ("mcp.example.com:*",)
 
 
 def test_load_config_reads_an_explicit_file(tmp_path: Path):
@@ -77,9 +115,17 @@ def test_missing_file_is_reported(tmp_path: Path):
 
 def test_config_mapping_is_revision_ready():
     mapping = IntelligenceConfig(enabled=True).as_mapping()
-    assert mapping == {
-        "version": 1,
-        "enabled": True,
-        "max_window_days": DEFAULT_MAX_WINDOW_DAYS,
-        "max_sessions_per_page": DEFAULT_MAX_SESSIONS_PER_PAGE,
-    }
+    assert mapping["version"] == 1
+    assert mapping["enabled"] is True
+    assert mapping["max_window_days"] == DEFAULT_MAX_WINDOW_DAYS
+    assert mapping["max_sessions_per_page"] == DEFAULT_MAX_SESSIONS_PER_PAGE
+    for key in (
+        "bind_host",
+        "bind_port",
+        "endpoint_path",
+        "allowed_hosts",
+        "max_request_body_bytes",
+        "rate_limit_per_minute",
+        "max_concurrent_calls",
+    ):
+        assert key in mapping

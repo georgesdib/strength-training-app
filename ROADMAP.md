@@ -1899,16 +1899,19 @@ and touches no capture surface, so it stays outside the instrument.
 the report only — a watchOS report, cardio models, VBT calibration, the training engine, automatic
 adaptation, and the LLM capabilities in §4.24.
 
-### 4.34 Training Intelligence — read-only capability layer and MCP server  (INT-1 foundation implemented 2026-11-14; transport not implemented)
+### 4.34 Training Intelligence — read-only capability layer and MCP server  (INT-1 and INT-1b implemented 2026-11-14)
 
-**Status: INT-1 foundation implemented 2026-11-14.** The read-only capability layer, the canonical
-envelope, typed requests, the execution service, bearer authentication, configuration bounds and
-their tests exist in `strength_coach/intelligence/` with one reference capability
-(`get_training_overview`); see [`docs/INTELLIGENCE-IMPLEMENTATION.md`](docs/INTELLIGENCE-IMPLEMENTATION.md).
-There is **no MCP server, no REST route, no model provider, no new dependency, no migration and no
-change to any existing endpoint.** The MCP transport, the second tool and the resource set are
-**INT-1b**; the rest of the catalogue, the baseline context package and evidence producers are
-INT-2. The canonical cross-repository plan, audit, contract and decisions are in the portfolio
+**Status: INT-1 foundation and INT-1b MCP transport implemented 2026-11-14.** The read-only
+capability layer, the canonical envelope, typed requests, the execution service, configuration
+bounds and their tests exist in `strength_coach/intelligence/`; INT-1b adds the separately runnable
+MCP server (`strength_coach/intelligence/mcp/`, Streamable HTTP, revision 2026-07-28 with legacy
+clients), dedicated MCP client tokens with CLI provisioning, two tools (`get_training_overview`,
+`get_session_details`) and one resource (`strength://athlete/profile`). The MCP SDK is an optional
+extra and only the transport imports it. See
+[`docs/INTELLIGENCE-IMPLEMENTATION.md`](docs/INTELLIGENCE-IMPLEMENTATION.md), including the
+performance baseline. There is still **no REST route, no model provider, no migration and no change
+to any existing endpoint.** The rest of the catalogue, the baseline context package and evidence
+producers are INT-2. The canonical cross-repository plan, audit, contract and decisions are in the portfolio
 repository: [plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md)
 and [contract](https://github.com/georgesdib/strength-app/blob/main/docs/contracts/TRAINING-INTELLIGENCE-CONTRACT.md).
 Owner approval of the plan's section 13 decisions remains required before the transport phase.
@@ -1920,8 +1923,10 @@ metric is composed from its existing owner; there is no second calculation and n
 
 **Backend areas.** Created in INT-1: `strength_coach/intelligence/{envelope,errors,methods,context,config,auth,registry,service}.py`,
 `strength_coach/intelligence/capabilities/`, `config/intelligence.v1.yaml` and `tests/test_intelligence_*.py`.
-Not created: `strength_coach/intelligence/mcp/` (INT-1b), `strength_coach/intelligence/model/`
-(INT-5), a deploy unit (INT-1b) and the `mcp>=2,<3` optional extra (INT-1b).
+Created in INT-1b: `strength_coach/intelligence/mcp/`, `intelligence/{tokens,resources}.py`, the
+`intelligence` optional extra, the `strength-intelligence-mcp` console script, `tools/intelligence_benchmark.py`
+and the MCP tests. Not created: `strength_coach/intelligence/model/` (INT-5) and a packaged deploy
+unit (systemd example); deployment is documented in the implementation page instead.
 
 **Hard constraints.** Read-only: no tool, route or capability may create, edit, void, start, complete
 or prescribe. SQLite is opened read-only in that process. No free-text notes, symptom narratives or

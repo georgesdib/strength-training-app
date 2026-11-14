@@ -13,16 +13,22 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from strength_coach import history, workout
 from strength_coach.features import attendance, deload, progress, volume
 from strength_coach.store import queries
 
 #: Fully qualified owning functions. The key is what a FactBlock's `method` must contain.
 METHODS: dict[str, Callable[..., object]] = {
     "strength_coach.features.attendance.summary": attendance.summary,
+    "strength_coach.store.queries.athlete_constraints": queries.athlete_constraints,
+    "strength_coach.store.queries.athlete_profile": queries.athlete_profile,
     "strength_coach.features.deload.decision": deload.decision,
     "strength_coach.features.progress.dashboard": progress.dashboard,
     "strength_coach.features.volume.compute": volume.compute,
+    "strength_coach.history.detail": history.detail,
     "strength_coach.store.queries.readiness_series": queries.readiness_series,
+    "strength_coach.store.queries.session_feedback": queries.session_feedback,
+    "strength_coach.workout.summary": workout.summary,
 }
 
 

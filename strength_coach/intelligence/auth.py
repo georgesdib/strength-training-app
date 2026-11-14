@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from strength_coach.utils import ios_credentials as credentials
 
 DEVICE_KINDS = ("phone", "watch")
+MCP_KIND = "mcp"
 INTERNAL_KIND = "internal"
 
 
@@ -51,7 +52,7 @@ class Principal:
     kind: str
 
     def __post_init__(self) -> None:
-        if self.kind not in (*DEVICE_KINDS, INTERNAL_KIND):
+        if self.kind not in (*DEVICE_KINDS, MCP_KIND, INTERNAL_KIND):
             raise ValueError(f"unknown principal kind {self.kind!r}")
         if not isinstance(self.identity, str) or not self.identity:
             raise ValueError("a principal needs an identity")

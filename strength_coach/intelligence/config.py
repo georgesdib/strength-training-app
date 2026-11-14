@@ -1,13 +1,13 @@
-"""The intelligence configuration switch and bounds.
+"""The intelligence switch, bounds and transport settings.
 
 Follows the existing backend convention: one versioned YAML file under config/, a frozen
 dataclass, explicit ranges and an exception that names the file. It deliberately contains no
-secrets and no model settings: intelligence authentication reuses the per-device bearer tokens
-already in the database, and INT-1 has no provider.
+secrets: MCP client tokens are hashed in the git-ignored config/intelligence.local.yaml, and
+INT-1 has no provider credentials.
 
-The switch gates *execution*, not import. Tests and in-process callers can build a service with
-an explicit enabled configuration; a deployment that exposes a transport checks this switch
-before it serves anything.
+The switch gates *execution and the server*, not import. Tests and in-process callers can build
+a service with an explicit enabled configuration; the MCP process refuses to start until the
+operator enables it.
 """
 
 from __future__ import annotations
@@ -25,13 +25,36 @@ FILENAME = "intelligence.v1.yaml"
 DEFAULT_ENABLED = False
 DEFAULT_MAX_WINDOW_DAYS = 400
 DEFAULT_MAX_SESSIONS_PER_PAGE = 20
+DEFAULT_BIND_HOST = "127.0.0.1"
+DEFAULT_BIND_PORT = 8765
+DEFAULT_ENDPOINT_PATH = "/mcp"
+DEFAULT_ALLOWED_HOSTS = ("127.0.0.1:*", "localhost:*")
+DEFAULT_MAX_REQUEST_BODY_BYTES = 262_144
+DEFAULT_RATE_LIMIT_PER_MINUTE = 60
+DEFAULT_MAX_CONCURRENT_CALLS = 4
 
 MIN_WINDOW_DAYS = 28
 MAX_WINDOW_DAYS = 400
 MIN_SESSIONS_PER_PAGE = 1
 MAX_SESSIONS_PER_PAGE = 100
+MIN_BODY_BYTES = 1_024
+MAX_BODY_BYTES = 1_048_576
+MAX_RATE_LIMIT = 6_000
+MAX_CONCURRENT = 64
 
-FIELDS = ("version", "enabled", "max_window_days", "max_sessions_per_page")
+FIELDS = (
+    "version",
+    "enabled",
+    "max_window_days",
+    "max_sessions_per_page",
+    "bind_host",
+    "bind_port",
+    "endpoint_path",
+    "allowed_hosts",
+    "max_request_body_bytes",
+    "rate_limit_per_minute",
+    "max_concurrent_calls",
+)
 
 
 class IntelligenceConfigError(ValueError):
@@ -43,6 +66,13 @@ class IntelligenceConfig:
     enabled: bool = DEFAULT_ENABLED
     max_window_days: int = DEFAULT_MAX_WINDOW_DAYS
     max_sessions_per_page: int = DEFAULT_MAX_SESSIONS_PER_PAGE
+    bind_host: str = DEFAULT_BIND_HOST
+    bind_port: int = DEFAULT_BIND_PORT
+    endpoint_path: str = DEFAULT_ENDPOINT_PATH
+    allowed_hosts: tuple[str, ...] = DEFAULT_ALLOWED_HOSTS
+    max_request_body_bytes: int = DEFAULT_MAX_REQUEST_BODY_BYTES
+    rate_limit_per_minute: int = DEFAULT_RATE_LIMIT_PER_MINUTE
+    max_concurrent_calls: int = DEFAULT_MAX_CONCURRENT_CALLS
 
     def as_mapping(self) -> dict[str, object]:
         return {
@@ -50,11 +80,23 @@ class IntelligenceConfig:
             "enabled": self.enabled,
             "max_window_days": self.max_window_days,
             "max_sessions_per_page": self.max_sessions_per_page,
+            "bind_host": self.bind_host,
+            "bind_port": self.bind_port,
+            "endpoint_path": self.endpoint_path,
+            "allowed_hosts": list(self.allowed_hosts),
+            "max_request_body_bytes": self.max_request_body_bytes,
+            "rate_limit_per_minute": self.rate_limit_per_minute,
+            "max_concurrent_calls": self.max_concurrent_calls,
         }
 
 
 def config_path(path: str | Path | None = None) -> Path:
     return Path(path) if path is not None else paths.config_dir(FILENAME)
+
+
+def local_config_path(path: str | Path | None = None) -> Path:
+    """The git-ignored token file; never committed and never printed."""
+    return Path(path) if path is not None else paths.config_dir("intelligence.local.yaml")
 
 
 def _boolean(value: object, name: str) -> bool:
@@ -69,6 +111,23 @@ def _bounded_int(value: object, name: str, low: int, high: int) -> int:
     if not low <= value <= high:
         raise ValueError(f"{name} must be an integer from {low} to {high}")
     return value
+
+
+def _text(value: object, name: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{name} must be a non-empty string")
+    if any(character.isspace() for character in value):
+        raise ValueError(f"{name} must not contain whitespace")
+    return value
+
+
+def _hosts(value: object) -> tuple[str, ...]:
+    if not isinstance(value, list) or not value:
+        raise ValueError("allowed_hosts must be a non-empty list")
+    hosts: list[str] = []
+    for entry in value:
+        hosts.append(_text(entry, "allowed_hosts"))
+    return tuple(hosts)
 
 
 def parse_config(data: object) -> IntelligenceConfig:
@@ -93,8 +152,43 @@ def parse_config(data: object) -> IntelligenceConfig:
         MIN_SESSIONS_PER_PAGE,
         MAX_SESSIONS_PER_PAGE,
     )
+    bind_host = _text(data.get("bind_host", DEFAULT_BIND_HOST), "bind_host")
+    bind_port = _bounded_int(data.get("bind_port", DEFAULT_BIND_PORT), "bind_port", 1, 65_535)
+    endpoint_path = _text(
+        data.get("endpoint_path", DEFAULT_ENDPOINT_PATH), "endpoint_path"
+    )
+    if not endpoint_path.startswith("/"):
+        raise ValueError("endpoint_path must start with /")
+    hosts = _hosts(data.get("allowed_hosts", list(DEFAULT_ALLOWED_HOSTS)))
+    body = _bounded_int(
+        data.get("max_request_body_bytes", DEFAULT_MAX_REQUEST_BODY_BYTES),
+        "max_request_body_bytes",
+        MIN_BODY_BYTES,
+        MAX_BODY_BYTES,
+    )
+    rate = _bounded_int(
+        data.get("rate_limit_per_minute", DEFAULT_RATE_LIMIT_PER_MINUTE),
+        "rate_limit_per_minute",
+        0,
+        MAX_RATE_LIMIT,
+    )
+    concurrent = _bounded_int(
+        data.get("max_concurrent_calls", DEFAULT_MAX_CONCURRENT_CALLS),
+        "max_concurrent_calls",
+        1,
+        MAX_CONCURRENT,
+    )
     return IntelligenceConfig(
-        enabled=enabled, max_window_days=window, max_sessions_per_page=page
+        enabled=enabled,
+        max_window_days=window,
+        max_sessions_per_page=page,
+        bind_host=bind_host,
+        bind_port=bind_port,
+        endpoint_path=endpoint_path,
+        allowed_hosts=hosts,
+        max_request_body_bytes=body,
+        rate_limit_per_minute=rate,
+        max_concurrent_calls=concurrent,
     )
 
 
