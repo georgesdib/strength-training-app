@@ -13,6 +13,13 @@
 
 ### Fixed
 
+- **Exercise overrides ported into the canonical taxonomy.** `config/exercises/overrides.v1.yaml`
+  is now empty: the rack-pull `e1rm_applicable`/`primary_compound`/muscle entries and the
+  competition-squat and conventional-deadlift muscle lists live in `taxonomy.v1.yaml`. The
+  effective catalogue is unchanged (a field-by-field comparison before and after matches, with
+  `spinal_cost` now written as an integer), and the generated programme and workout blocks were
+  regenerated.
+
 - **Adding an exercise in the web UI no longer fails silently.** A blank ID returned without
   sending a request or showing a message; the dialog now states the required format, native
   validation messages appear inside the dialog, and the pattern select is rebuilt from the

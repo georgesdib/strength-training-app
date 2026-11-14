@@ -85,6 +85,10 @@ entities:
     # A rule scoped to main_lift alone would ignore whichever squat is actually
     # performed most, which is often not one of the constitution's named lifts.
     primary_compound: true
+    primary_muscles: [erectors, quadriceps]
+    e1rm_applicable: true
+    bodyweight_type: false
+    direct_erector: false
     programme_slot_of: ssb_squat   # substitute for SSB elsewhere; bench_squat programs it directly (DEC-PROGRAMME-08)
     # DEC-SPINE-05 (2026-10-25): the low-bar competition squat now counts as one high-fatigue
     # spinal exposure. It has the greatest forward lean and erector activity of the squat
@@ -272,7 +276,13 @@ entities:
     display: "Rack Pull"
     log_names: ["Rack Pull"]
     pattern: hinge
-    e1rm_applicable: false         # pulled from pins: short ROM inflates any extrapolation
+    main_lift: false
+    primary_compound: true         # a heavy hinge, so the RIR effort window applies to it
+    primary_muscles: [erectors, glutes]
+    bodyweight_type: false
+    # Enabled from the local override on 2026-11-14. The caveat still stands: pulled from pins,
+    # the short ROM inflates any extrapolation, so treat a rack-pull estimate as partial-ROM.
+    e1rm_applicable: true
     # Own VBT family: partial ROM changes the load-velocity curve; never pool with a full pull.
     vbt_family: rack_pull
     high_fatigue_spinal: true
@@ -302,7 +312,7 @@ entities:
     # DEC-RESOLVER-13: classified as a heavy compound so the RIR effort window applies to it.
     # The marker also makes it a valid top-set lift if the explicit policy list opts in.
     primary_compound: true
-    primary_muscles: [glutes, hamstrings]
+    primary_muscles: [erectors, glutes, hamstrings]
     e1rm_applicable: true          # full-range barbell pull: a 1RM is meaningful
     bodyweight_type: false
     high_fatigue_spinal: true

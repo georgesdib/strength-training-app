@@ -9,6 +9,11 @@ The web UI's **Exercises** tab shows every entity and writes edits/additions to
 [`config/exercises/overrides.v1.yaml`](../config/exercises/overrides.v1.yaml). The checked-in
 taxonomy stays intact, so comments and the base audit trail survive. IDs are immutable.
 
+The override file is **empty** as of 2026-11-14: its remaining entries (the rack-pull e1RM flag and
+muscle lists, and the competition-squat and conventional-deadlift muscle lists) were ported into
+the taxonomy, so the taxonomy is the single canonical source again. An edit made in the tab still
+lands in the override file and should be ported the same way once it is settled.
+
 ## 1. Add the canonical exercise
 
 [`config/exercises/taxonomy.v1.yaml`](../config/exercises/taxonomy.v1.yaml):
