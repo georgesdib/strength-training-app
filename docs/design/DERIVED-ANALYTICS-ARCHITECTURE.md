@@ -356,6 +356,16 @@ first build, workout completion, corrections, void/unvoid and small imports refr
 imports above 50 sessions mark the family stale until the next explicit build. `GET
 /api/analytics/status` reports the family state, revision and readiness.
 
+**Follow-up — automatic maintenance worker (not implemented).** The explicit CLI command is the
+current operational trigger. A small background worker in the web process should remove that
+manual step: on startup and periodically it compares the current dependency fingerprint with the
+persisted build row, and rebuilds when the taxonomy/rule files changed, the family is stale or
+incomplete, an import exceeded the synchronous limit, or a previous build failed. The exercise
+writer that changes `overrides.v1.yaml` should also enqueue the same reconciliation. The worker
+must use a writable maintenance connection, resume through the existing backfill cursor, never run
+on read-only request paths, and expose progress through `/api/analytics/status`. Until it exists,
+forgetting the command costs performance only; consumers fall back to on-demand.
+
 Why asynchronous: a first backfill over years of history is minutes, not milliseconds, and must
 not block startup or the request that triggers it. Why not a separate service: the deployment is
 a single SQLite file on one host, and a second writer would add coordination without benefit.

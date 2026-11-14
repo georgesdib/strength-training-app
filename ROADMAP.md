@@ -2044,6 +2044,15 @@ monitoring 48,728 → 18,357 ms; build ~63 s. Remaining limitations: build is an
 command; a large import marks the family stale; snapshots are not used; the INT integration review
 is still a follow-up.
 
+**Follow-up C-1 — automatic maintenance worker (not started).** Replace the manual build trigger
+with a background worker in the web process: on startup and periodically it compares the current
+dependency fingerprint with the persisted build row and rebuilds when taxonomy/spinal-rule files
+changed, the family is stale or incomplete, a large import arrived, or a build failed; the exercise
+writer that edits `overrides.v1.yaml` also enqueues reconciliation. It uses a writable maintenance
+connection, resumes through the existing backfill cursor, never runs on read-only request paths,
+and reports progress through `/api/analytics/status`. Until then, forgetting the command costs
+performance only; consumers fall back to on-demand.
+
 **Correctness contract (2026-11-14 refinement).** A source revision is a durable, monotonic
 `analytics_revision` row appended in the same transaction as each mutation (workout completion,
 import, correction/supersede/tombstone, void/unvoid, any future remap that changes rows, config or
@@ -2078,6 +2087,7 @@ family reads, and fallback when a family is incomplete or failed.
 | **A** | Analytics infrastructure: revision ledger, mutation coverage, build state, coordinator/recovery, fingerprints, safe publication, status | **implemented and audited 2026-11-14 (`bf2775f`, `2654ce2`)** |
 | **B** | Core materialisation and consumer migration (former phases 2–3): `derived_set`, `derived_session_exercise`, family registration, progress and strength-trend migration | **implemented 2026-11-14; parity and ODROID measurements recorded** |
 | **C** | Rules, outcomes, monitoring and production validation (former phases 4–6): `derived_week`, deload/rules, outcomes, monitoring, ODROID verification, INT gate | **implemented 2026-11-14; parity and ODROID measurements recorded** |
+| **C-1** | Automatic maintenance worker (startup/periodic reconciliation, exercise-writer hook) | not started |
 | Snapshots | Optional, deferred, not a milestone requirement | not decided |
 
 **Non-goals:** metric changes, deload policy changes, lookback truncation, a generic cache, MCP
