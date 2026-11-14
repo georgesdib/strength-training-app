@@ -1,8 +1,13 @@
 # Changelog
 
-## [Unreleased]
+## [1.4.1] — 2026-11-14
 
 ### Fixed
+
+- **The portability acceptance test no longer invokes the retired rubric loop.** It called the
+  removed `review` and `calibrate` CLI commands and failed the optional release suite with
+  `SystemExit 2`; import/run independence is still asserted, and historical marks stay read-only
+  through `GET /api/review/<session>` (`DEC-EVAL-09`).
 
 - **The completed-workout summary is fast enough for the native report.** The summary now runs
   inside `queries.clean_sets_snapshot`, so its sections share one read of the same window
