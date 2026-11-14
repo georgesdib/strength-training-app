@@ -184,7 +184,14 @@ def progression(
         missing.append("no eligible e1RM observations in the window")
     if request.include_sessions:
         history = exercise_history.history(
-            conn, canonical, limit=request.limit_sessions, offset=0
+            conn,
+            canonical,
+            limit=request.limit_sessions,
+            offset=0,
+            # The optional session list is part of the same request as the observations: it
+            # must use the identical window, or a historical as_of would leak later sessions.
+            start=start,
+            end=end,
         )
         facts["sessions"] = FactBlock(
             value=history["sessions"],

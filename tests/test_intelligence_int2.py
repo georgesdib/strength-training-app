@@ -284,3 +284,46 @@ def test_catalogue_is_read_only(conn):
         assert _run(conn, name, **arguments).ok, name
     assert conn.total_changes == changes
     assert {t: conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in tables} == before
+
+
+def test_progression_sessions_respect_the_window(conn):
+    extra = make_training([
+        {"Date": "2026-07-01", "Exercise": "Trap Bar Deadlift", "Weight_Used": "135",
+         "RIR": "2", "Reps_Done": "5"},
+        {"Date": "2026-11-10", "Exercise": "Trap Bar Deadlift", "Weight_Used": "170",
+         "RIR": "2", "Reps_Done": "5"},
+    ])
+    readiness = make_readiness([{}])
+    importer.import_export(
+        conn, extra, readiness,
+        training_sha256=importer.sha256_frame(extra),
+        readiness_sha256=importer.sha256_frame(readiness),
+    )
+
+    as_of = "2026-10-20"
+    window_days = 60
+    window_start = (dt.date(2026, 10, 20) - dt.timedelta(days=window_days - 1)).isoformat()
+    result = _run(conn, "get_exercise_progression", exercise_id="trap_bar_deadlift",
+                  as_of=as_of, window_days=window_days, include_sessions=True,
+                  limit_sessions=20)
+    assert result.ok, result.error
+    env = result.envelope
+    sessions = env.facts["sessions"].value
+    dates = [session["occurred_on"] for session in sessions]
+
+    assert dates, "the seeded window contains sessions"
+    assert all(window_start <= day <= as_of for day in dates), dates
+    assert "2026-07-01" not in dates, "a session before the window must be excluded"
+    assert "2026-10-26" not in dates, "a session after as_of must be excluded"
+    assert "2026-11-10" not in dates, "a session after as_of must be excluded"
+    assert "2026-09-07" in dates and "2026-10-19" in dates
+
+    observation_dates = [
+        point["date"] for point in env.facts["series"].value["observations"]
+    ]
+    assert all(window_start <= day <= as_of for day in observation_dates)
+    assert dates == sorted(dates, reverse=True), "sessions stay newest-first"
+
+    without = _run(conn, "get_exercise_progression", exercise_id="trap_bar_deadlift",
+                   as_of=as_of, window_days=window_days, include_sessions=False)
+    assert "sessions" not in without.envelope.facts
