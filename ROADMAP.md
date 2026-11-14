@@ -1923,8 +1923,9 @@ performance baseline — the development Mac and, separately, the deployment hos
 p95 3.17 s at 377 sessions, 2026-11-14). That host measurement is above the ADR-INT-010
 one-second threshold, so the transport is **gated** there until the addendum is decided. There is
 still **no REST route, no model provider, no migration and no change to any existing endpoint.**
-INT-2 delivered the rest of the read-only catalogue on 2026-11-14; the baseline context package,
-evidence producers for the aggregate capabilities and the INT-3 weekly review remain open.
+INT-2 delivered the rest of the read-only catalogue on 2026-11-14; INT-3a then delivered the
+weekly review and the additive iOS read route. The baseline context package, evidence producers for
+the aggregate capabilities and the INT-3b iOS adapter remain open.
 
 **Audit remediation 2026-11-14:** immediate token revocation/rotation without restart, a
 structured metadata-only audit record per invocation, a configurable tool timeout and result-size
@@ -1934,9 +1935,17 @@ integration test. The implementation page records the semantics and limitations.
 **INT-2 delivered 2026-11-14:** seven further read-only capabilities (exercise progression,
 readiness history, adherence analysis, persisted prescription, VBT analysis, programme block
 summary, period comparison) and two more resources (`strength://programme/current`,
-`strength://overview/current`), all composing existing owners. The transport remains gated on the
-deployment host by the ADR-INT-010 latency decision; INT-2 adds no caching, no new REST route and
-no model. The canonical cross-repository plan, audit, contract and decisions are in the portfolio
+`strength://overview/current`), all composing existing owners. ADR-INT-010 later accepted the
+latency-aware budget and enabled the transport; INT-2 adds no caching, no new REST route and no
+model.
+
+**INT-3a delivered 2026-11-14:** `get_weekly_review` composes the deterministic Monday-Sunday
+sections (activity, adherence, sessions, progression, volume, readiness coverage/direction,
+programme, gated observations) from their owners, and the additive iOS read route
+`GET /api/ios/v1/intelligence/weekly-review` returns the envelope unchanged under the existing
+device bearer auth. The iOS review screen and adapter are INT-3b.
+
+The canonical cross-repository plan, audit, contract and decisions are in the portfolio
 repository: [plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md)
 and [contract](https://github.com/georgesdib/strength-app/blob/main/docs/contracts/TRAINING-INTELLIGENCE-CONTRACT.md).
 Owner approval of the plan's section 13 decisions remains required before the transport phase.

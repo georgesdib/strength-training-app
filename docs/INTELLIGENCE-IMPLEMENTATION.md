@@ -37,6 +37,9 @@ them: delivered work is marked delivered, and later phases are not advanced by t
 | Live HTTP integration test with the official client (remediation) | implemented |
 | INT-2 catalogue: seven further tools (INT-2) | implemented |
 | INT-2 resources: `strength://programme/current`, `strength://overview/current` (INT-2) | implemented |
+| `get_weekly_review` capability (INT-3a) | implemented |
+| `GET /api/ios/v1/intelligence/weekly-review` (INT-3a) | implemented |
+| iOS weekly-review screen and adapter (INT-3b) | **not implemented — INT-3b** |
 | Baseline context package (shared compact context) | **not implemented — INT-3** |
 | Evidence producers for the INT-2 aggregates | **deferred** — owners do not emit evidence items for these aggregates; `get_session_details` returns the real evidence |
 | Weekly review package (INT-3) | **not implemented — INT-3** |
@@ -215,6 +218,7 @@ Row counts and `total_changes` are captured before and after execution in a test
 | `tests/test_intelligence_mcp_live.py` | real HTTP server: auth, tools, resources, no-data, errors, read-only database, clean shutdown |
 | `tests/test_intelligence_int2.py` | the seven INT-2 capabilities: owner composition, validation, privacy, determinism, read-only |
 | `tests/test_intelligence_mcp_int2.py` | INT-2 discovery, schemas, strict arguments, resource reads, MCP/service parity |
+| `tests/test_intelligence_weekly.py` | weekly review golden fixture, week boundary, empty/imported weeks, read-only, REST route, MCP parity |
 | `tests/intelligence_support.py` | synthetic builders only |
 | `tools/intelligence_benchmark.py` | synthetic performance baseline (not a test) |
 
@@ -682,3 +686,35 @@ observed days 169 ms, programme block 91 ms, attendance comparison 36 ms. Adhere
 measured roughly 14x the Mac on the overview benchmark, so the readiness score series is the
 capability to watch there. No cache was added (ADR-INT-010) and the transport remains gated on that
 host until the addendum is decided.
+
+## 22. INT-3a — weekly review and the iOS REST route (2026-11-14)
+
+`get_weekly_review` is the tenth read-only capability. It composes the Monday-Sunday sections in
+the plan §8.2 from their owners and adds no calculation beyond presentation labels:
+
+| Section | Owner |
+|---|---|
+| activity | `attendance.summary` |
+| adherence | `adherence_analytics.analytics` |
+| sessions | `history.list_sessions` |
+| progression | `strength_trend.observations` + `summarize` over 84 days for main lifts |
+| volume | `volume.compute` (per-pattern target and status) |
+| readiness | `queries.readiness_series` + `readiness_score.compute` (coverage and direction only) |
+| programme | `deload.decision`, `regime_change.detect`, `breaks.active_on` |
+| observations | `observations.analyse(..., persist=False)`, at most two |
+
+An empty week is `no_data` with the expected inputs listed, never zeros. An imported-only week keeps
+`status: ok` and reports `imported_sessions_only` and `adherence_unavailable` in `quality_flags`.
+
+**REST.** `GET /api/ios/v1/intelligence/weekly-review?week_end=YYYY-MM-DD` returns the envelope
+unchanged, under the existing device bearer auth. Validation failures are 400, an unknown resource
+404, a disabled capability 503; the route never returns a partial or re-shaped payload.
+`bootstrap.capabilities` gains `intelligence_read`.
+
+**Tests.** `tests/test_intelligence_weekly.py`: golden fixture
+(`tests/fixtures/intelligence/weekly_review.ok.json`), Monday/Sunday boundary, default week, empty
+week, imported-only quality flags, observation opt-out, read-only counts, MCP/service parity, and the
+live route (200, 401, 400, capability advertisement).
+
+**Not in this phase:** the iOS screen, any narrative, and any model call. The narrative path remains
+INT-4/INT-5 and the iOS adapter is INT-3b.
