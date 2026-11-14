@@ -220,7 +220,51 @@ in both modes. The transport stays disabled. The benchmark also exposed and fixe
 readiness and VBT HTTP calls must use the MCP tools' start/end inputs, not the capability payload's
 from/to fields; without translation they measured fast validation errors.
 
-## 14. Remaining limitations
+## 14. Maintenance worker (C-1)
+
+Derived analytics maintenance is a **one-shot systemd service plus a timer**, not a long-running
+daemon:
+
+- `deploy/strength-analytics-maintenance.service` runs
+  `python -m strength_coach.cli --db data/coach.db analytics build` from the same checkout and
+  virtual environment as the web service.
+- `deploy/strength-analytics-maintenance.timer` runs it on boot + 5 minutes and every 15 minutes
+  afterwards.
+- The web unit has `ExecStartPost=-/bin/systemctl --no-block start
+  strength-analytics-maintenance.service`, so a backend deployment that restarts the web service
+  also triggers one reconciliation with the new code (the leading `-` means a missing maintenance
+  unit cannot break the web service). If the service account is not permitted to start system
+  units, that call is a no-op; the 15-minute timer performs the same reconciliation and is the
+  authoritative mechanism.
+
+**Why this updates automatically.** There is no separate long-lived worker process to upgrade. The
+timer invokes the checkout's current code and venv, so a `git pull` plus web restart is sufficient;
+the next timer tick or the `ExecStartPost` run uses the new code and dependencies. The worker and
+web service share the deployment root and user, so a dependency update applies to both.
+
+**Install / verify:**
+
+    sudo install -m 0644 deploy/strength-analytics-maintenance.service /etc/systemd/system/
+    sudo install -m 0644 deploy/strength-analytics-maintenance.timer /etc/systemd/system/
+    sudo systemctl daemon-reload
+    sudo systemctl enable --now strength-analytics-maintenance.timer
+    systemctl list-timers strength-analytics-maintenance.timer
+    sudo systemctl start strength-analytics-maintenance.service
+    journalctl -u strength-analytics-maintenance.service -n 50
+
+The run prints the family state as JSON and exits non-zero unless the family is ready; a failure is
+visible in the journal and in `GET /api/analytics/status`. Consumers continue on the on-demand
+path while the family is not ready, so a failed run degrades latency, not correctness.
+
+**Failure, rollback and recovery.** A failed run leaves the previous published family intact; it
+never serves a partial build. Retry with `systemctl start strength-analytics-maintenance.service`.
+To roll back, `systemctl disable --now strength-analytics-maintenance.timer` and remove the web
+unit's `ExecStartPost` line; no data migration is required. The worker needs write access to the
+database and must run as the same user as the web service, not as the read-only MCP service user.
+The units are documented and tested here but have **not been deployed or validated on the target
+ODROID host**.
+
+## 15. Remaining limitations
 
 - Per-process rate and concurrency limits: run one worker. The SDK multiplexes requests, so this is
   sufficient for one athlete.
