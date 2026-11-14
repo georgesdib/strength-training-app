@@ -80,6 +80,8 @@ class RuleContext:
     spinal_costs: Mapping[str, float] | None = None
     # Supplied by the prescription engine in phase 5; empty here rather than guessed.
     rep_ranges: Mapping[str, tuple[int, int]] = field(default_factory=dict)
+    # Precomputed `weekly_spinal_costs` shape from the derived layer; None uses `sets`.
+    derived_weekly: Mapping[str, Mapping[str, Any]] | None = None
     # Evidence indices, built once from `sets`. Resolving a `set:`/`session:`/`week:`
     # citation by scanning the frame each time made a 12-session forecast take minutes.
     set_keys: frozenset[tuple[str, int]] = frozenset()

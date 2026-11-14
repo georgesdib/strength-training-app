@@ -9,7 +9,8 @@ from conftest import make_readiness, make_training
 
 from strength_coach import history
 from strength_coach.analytics import core
-from strength_coach.features import progress, strength_trend
+from strength_coach.features import monitoring_analysis, outcomes, progress, strength_trend
+from strength_coach.rules import RuleContext, evaluate, load_document
 from strength_coach.store import db, importer
 
 ROWS = [
@@ -170,6 +171,77 @@ def test_import_refreshes_an_already_ready_family(store, monkeypatch):
     monkeypatch.undo()
     assert progress.performance_points(conn, "2024-01-20") == expected
     assert any(row["date"] == "2024-01-15" for row in expected)
+
+
+def test_deload_verdict_and_evidence_parity(store, monkeypatch):
+    conn = store.connection
+    core.build(conn)
+    document = load_document()
+    on_demand_context = RuleContext.from_store(conn, end="2024-01-12")
+    on_demand = evaluate(
+        document, on_demand_context, rule_ids=["PRG-SPINE-001"]
+    ).verdict("PRG-SPINE-001")
+    derived_context = core.weekly_context(conn, end="2024-01-12")
+    derived = evaluate(
+        document, derived_context, rule_ids=["PRG-SPINE-001"]
+    ).verdict("PRG-SPINE-001")
+    assert derived.verdict == on_demand.verdict
+    assert derived.details == on_demand.details
+    assert derived.evidence == on_demand.evidence
+
+    # The reactive reason takes the derived path only when the family is current.
+    derived_reason = __import__(
+        "strength_coach.features.deload", fromlist=["reactive_reason"]
+    ).reactive_reason(conn, "2024-01-12")
+    monkeypatch.setattr(core, "weekly_context", lambda *a, **k: None)
+    on_demand_reason = __import__(
+        "strength_coach.features.deload", fromlist=["reactive_reason"]
+    ).reactive_reason(conn, "2024-01-12")
+    assert derived_reason == on_demand_reason
+
+
+def test_outcomes_parity(store, monkeypatch):
+    conn = store.connection
+    core.build(conn)
+    on_demand(monkeypatch)
+    expected = outcomes.report(conn, weeks=2, on_date="2024-01-12")
+    monkeypatch.undo()
+    assert outcomes.report(conn, weeks=2, on_date="2024-01-12") == expected
+
+
+def test_monitoring_parity(store, monkeypatch):
+    conn = store.connection
+    core.build(conn)
+    on_demand(monkeypatch)
+    expected = monitoring_analysis.build_analysis(conn, as_of="2024-01-12")
+    monkeypatch.undo()
+    assert monitoring_analysis.build_analysis(conn, as_of="2024-01-12") == expected
+
+
+def test_outcomes_and_monitoring_after_a_correction(store, monkeypatch):
+    conn = store.connection
+    core.build(conn)
+    session_id = conn.execute(
+        "SELECT session_id FROM session WHERE occurred_on = '2024-01-11'"
+    ).fetchone()[0]
+    detail = history.detail(conn, session_id)
+    sets = [
+        {"exercise_id": item["exercise_id"], "load_kg": "165",
+         "reps": item["reps"], "rir": item["rir"]}
+        for item in detail["sets"]
+    ]
+    history.edit_session(conn, session_id, sets=sets)
+    assert core.ensure(conn) is True
+
+    on_demand(monkeypatch)
+    expected_outcomes = outcomes.report(conn, weeks=2, on_date="2024-01-12")
+    expected_monitoring = monitoring_analysis.build_analysis(conn, as_of="2024-01-12")
+    monkeypatch.undo()
+    assert outcomes.report(conn, weeks=2, on_date="2024-01-12") == expected_outcomes
+    assert (
+        monitoring_analysis.build_analysis(conn, as_of="2024-01-12")
+        == expected_monitoring
+    )
 
 
 def test_taxonomy_change_invalidates_the_family(store, monkeypatch):

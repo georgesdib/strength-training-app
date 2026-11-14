@@ -16,10 +16,15 @@ from collections import defaultdict
 from dataclasses import asdict
 from pathlib import Path
 
+import pandas as pd
+
 from strength_coach.analytics.coordinator import is_ready, run_build
 from strength_coach.analytics.families import REGISTRY, FamilySpec
 from strength_coach.domain import e1rm as e1rm_mod
+from strength_coach.features import derived as derived_feature
 from strength_coach.features import strength_observations
+from strength_coach.rules import RuleContext, load_document
+from strength_coach.rules import registry as rule_registry
 from strength_coach.store import db, queries
 from strength_coach.utils import exercises, paths
 
@@ -46,10 +51,23 @@ def _taxonomy_digest() -> str:
     return "files:" + digest.hexdigest()
 
 
+def _rules_digest() -> str:
+    digest = hashlib.sha256()
+    for path in sorted(paths.config_dir("rules").glob("*.yaml")):
+        digest.update(path.read_bytes())
+    return "files:" + digest.hexdigest()
+
+
 def spec() -> FamilySpec:
-    """Current family identity, including the effective taxonomy dependency."""
+    """Current family identity, including taxonomy and spinal-rule dependencies."""
     return FamilySpec(
-        "core", METHOD_VERSION, {**DEPENDENCIES, "taxonomy": _taxonomy_digest()}
+        "core",
+        METHOD_VERSION,
+        {
+            **DEPENDENCIES,
+            "taxonomy": _taxonomy_digest(),
+            "spinal_rules": _rules_digest(),
+        },
     )
 
 
@@ -77,7 +95,8 @@ def _insert_set(
     conn.execute(
         "INSERT INTO derived_set "
         "(set_id, method_version, session_id, exercise_id, occurred_on, e1rm_kg, "
-        " e1rm_usable, strength_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        " e1rm_usable, strength_json, load_kg, reps, rir, is_working_set, tonnage_kg) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             int(row["set_id"]),
             METHOD_VERSION,
@@ -87,14 +106,45 @@ def _insert_set(
             estimate,
             1 if usable else 0,
             strength_json,
+            row.get("load_kg"),
+            row.get("reps"),
+            row.get("rir"),
+            1 if int(row.get("is_working_set") or 0) else 0,
+            row.get("tonnage_kg"),
         ),
     )
+
+
+def _materialise_weeks(conn: sqlite3.Connection, session_id: str, day: str) -> None:
+    """Store the owner's spinal exposures for one session, week by week."""
+    frame = queries.clean_sets(conn, start=day, end=day)
+    if frame.empty:
+        return
+    frame = frame[frame["session_id"].astype(str) == str(session_id)]
+    if frame.empty:
+        return
+    enriched = derived_feature.enrich(frame)
+    context = RuleContext(
+        sets=enriched,
+        sessions=pd.DataFrame(),
+        entities=exercises.taxonomy().entities,
+    )
+    rule = load_document().rule("PRG-SPINE-001")
+    for week, items in rule_registry.spinal_exposures(rule, context).items():
+        for (item_session, exercise_id), cost in items.items():
+            conn.execute(
+                "INSERT OR REPLACE INTO derived_week "
+                "(iso_week, session_id, exercise_id, method_version, weighted_cost) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (str(week), str(item_session), str(exercise_id), METHOD_VERSION, float(cost)),
+            )
 
 
 def materialise_session(conn: sqlite3.Connection, session_id: str) -> None:
     """Replace the derived rows for one session fragment from the authoritative clean sets."""
     sid = str(session_id)
     conn.execute("DELETE FROM derived_set WHERE session_id = ?", (sid,))
+    conn.execute("DELETE FROM derived_week WHERE session_id = ?", (sid,))
     conn.execute(
         "DELETE FROM derived_session_exercise WHERE session_id = ? AND method_version = ?",
         (sid, METHOD_VERSION),
@@ -176,6 +226,8 @@ def materialise_session(conn: sqlite3.Connection, session_id: str) -> None:
         if estimate is not None:
             aggregate["best"] = max(aggregate["best"] or 0.0, estimate)
 
+    _materialise_weeks(conn, sid, str(session["occurred_on"]))
+
     for exercise_id, aggregate in aggregates.items():
         loads = aggregate["loads"]
         conn.execute(
@@ -195,6 +247,76 @@ def materialise_session(conn: sqlite3.Connection, session_id: str) -> None:
                 sum(loads) / len(loads) if loads else None,
             ),
         )
+
+
+def weekly_costs(
+    conn: sqlite3.Connection, *, end_week: str | None = None
+) -> dict[str, dict]:
+    """Same shape as `weekly_spinal_costs`: week -> cost + exercise Counter."""
+    from collections import Counter
+
+    out: dict[str, dict] = {}
+    clauses = ["method_version = ?"]
+    params: list[object] = [METHOD_VERSION]
+    if end_week is not None:
+        clauses.append("iso_week <= ?")
+        params.append(str(end_week))
+    rows = conn.execute(
+        "SELECT iso_week, exercise_id, weighted_cost FROM derived_week WHERE "
+        + " AND ".join(clauses),
+        params,
+    ).fetchall()
+    from math import fsum
+
+    costs: dict[str, list[float]] = {}
+    for row in rows:
+        week = str(row["iso_week"])
+        item = out.setdefault(week, {"exercises": Counter()})
+        costs.setdefault(week, []).append(float(row["weighted_cost"]))
+        item["exercises"][str(row["exercise_id"])] += 1
+    for week, values in costs.items():
+        out[week]["cost"] = fsum(values)
+    return out
+
+
+def weekly_context(conn: sqlite3.Connection, *, end: str | None = None):
+    """Minimal rules context carrying the materialised weekly costs, or None when not ready."""
+    import datetime as dt
+
+    if not ensure(conn):
+        return None
+    end_week = (
+        dt.date.fromisoformat(str(end)[:10]).strftime("%G-W%V") if end else None
+    )
+    costs = weekly_costs(conn, end_week=end_week)
+    return RuleContext(
+        sets=pd.DataFrame(),
+        sessions=pd.DataFrame(),
+        entities=exercises.taxonomy().entities,
+        derived_weekly=costs,
+        iso_weeks=frozenset(costs),
+    )
+
+
+def set_frame(
+    conn: sqlite3.Connection, *, start: str | None = None, end: str | None = None
+) -> pd.DataFrame:
+    """Leaf set rows in the shape the outcomes/monitoring owners read."""
+    clauses = ["d.method_version = ?", "s.voided = 0"]
+    params: list[object] = [METHOD_VERSION]
+    if start is not None:
+        clauses.append("d.occurred_on >= ?")
+        params.append(str(start))
+    if end is not None:
+        clauses.append("d.occurred_on <= ?")
+        params.append(str(end))
+    rows = conn.execute(
+        "SELECT d.occurred_on AS date, d.session_id, d.exercise_id, d.load_kg, "
+        " d.reps, d.rir, d.is_working_set, d.tonnage_kg FROM derived_set d "
+        "JOIN session s ON s.session_id = d.session_id WHERE " + " AND ".join(clauses),
+        params,
+    ).fetchall()
+    return pd.DataFrame([dict(row) for row in rows])
 
 
 def backfill_batch(

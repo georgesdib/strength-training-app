@@ -202,10 +202,10 @@ def resolve_reference(context: RuleContext, ref: str) -> bool:
     if kind == "symptom":
         return context.symptom_on is not None and context.symptom_on == value
     if kind == "week":
-        if context.sets.empty:
-            return False
         if context.iso_weeks:
             return value in context.iso_weeks
+        if context.sets.empty:
+            return False
         weeks = {
             registry.iso_week(value) for value in context.sets["date"].dropna()
         }

@@ -114,7 +114,15 @@ def reactive_reason(
         return None
     try:
         document = load_document()
-        context = RuleContext.from_store(conn, end=as_of, history=history)
+        from strength_coach.analytics import core as derived_core
+
+        context = (
+            derived_core.weekly_context(conn, end=as_of)
+            if history is None
+            else None
+        )
+        if context is None:
+            context = RuleContext.from_store(conn, end=as_of, history=history)
         # Only PRG-SPINE-001 is read below. Selective evaluation returns the same verdict and
         # details for that rule while skipping the other predicates; the full document is still
         # evaluated everywhere else.
