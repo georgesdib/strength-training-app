@@ -391,9 +391,64 @@ moves these numbers roughly in proportion to single-core speed.
 
 Record the result beside the deployment unit. **Measured 2026-11-14: p95 3,169.4 ms at the real
 history size (377 sessions), all `status: ok`.** That is above the one-second threshold, so the
-transport must not be enabled on this host until the ADR-INT-010 addendum is decided: a bounded
-lookback for the performance ratio (a metric decision, not a transport one) or an in-process cache
-keyed on the database stamp. Caching stays deferred until that decision.
+transport must not be enabled on this host until the ADR-INT-010 addendum is decided.
+
+### Profiling investigation — 2026-11-14
+
+Method: the synthetic 377-session database from `tools/intelligence_benchmark.py`, one warm-up
+call, then `IntelligenceService.execute` timed with `perf_counter`; components timed directly on
+the same read-only connection (median of 3–5); one `cProfile` call for call counts; scaling on
+100/200/377/600 sessions. No real training data. Environment: Linux 6.18.44 aarch64, 4 cores,
+Python 3.13.5, local SQLite, no concurrent load.
+
+Full request: cold 3,243 ms, warm median 3,110 ms (benchmark p50 3,101.9). The envelope and
+provenance hash cost about 40 ms; JSON serialisation is outside the timed path.
+
+| Component | ms | Share |
+|---|---:|---:|
+| `deload.decision` | 2,021 | 65% |
+| — `RuleContext.from_store` (whole-history build) | 1,349 | 43% |
+| — `policy.evaluate` (all five rules) | 689 | 22% |
+| `progress.dashboard` | 1,050 | 34% |
+| — `performance_points` (ratio, all-history e1RM) | 507 | 16% |
+| — `_sets` (all clean sets into pandas) | 221 | 7% |
+| — `volume.compute` | ~150 | 5% |
+| — `attendance.summary` | 111 | 4% |
+| `queries.readiness_series` | 1 | <1% |
+
+All-rule evaluation takes 714 ms; `rule_ids=["PRG-SPINE-001"]` takes 381 ms and returns
+**identical verdict details** on this dataset (verified). `deload.reactive_reason` evaluates the
+whole document to read one verdict.
+
+**Root cause.** The dominant cost is `deload.decision`: `reactive_reason` builds a
+`RuleContext` with no `start`, so `History.load` reads every `clean_set` row, runs
+`derived.enrich` over the full frame and re-derives ISO weeks, then the policy evaluates all
+rules. The suspected ratio rebuild is real but secondary: `_session_lift_e1rms` rescans all sets
+and re-estimates e1RM (281 ms scan, 507 ms including point history).
+
+**Scaling (full call, p50).** 100 sessions 1,079 ms · 200 1,810 ms · 377 3,110 ms · 600
+4,578 ms — approximately linear at ~8 ms/session over this range.
+
+**Verified options (not implemented — profiling only).**
+
+1. Evaluate only `PRG-SPINE-001` in `reactive_reason`: 714 → 381 ms, same verdict, no
+   semantic change.
+2. Bound the deload context (e.g. `start` = 12 weeks): context 1,349 → 209 ms on an 84-day
+   bound, and the last-two-week costs and cap are unchanged. The verdict's full weekly-cost map
+   shrinks (109 → 13 weeks), so the bound is a behaviour/documentation decision, not a free
+   change.
+3. Together, the deload path falls 1,976 → 258 ms, projecting the full request to about 1.4 s.
+4. A ratio lookback remains a separate metric decision worth ~0.5 s; a cache is not justified
+   until 1 and 2 are measured in place.
+
+**Decision gates.** Option 1 is semantics-preserving; option 2 needs an explicit decision because
+it changes the details payload and the history horizon; option 4 changes a metric definition.
+
+Reproduce: `python tools/intelligence_benchmark.py --sessions 377 --runs 20 --json` gives the
+end-to-end numbers; component timings came from `time.perf_counter` around `progress.dashboard`,
+`deload.decision`, `RuleContext.from_store`, `policy.evaluate` (all rules and
+`rule_ids=["PRG-SPINE-001"]`), `performance_points` and `_sets` on the same read-only connection,
+and `cProfile -s cumulative` over one call supplied the call-count ranking.
 
 **Platform notes for the Linux host**
 
