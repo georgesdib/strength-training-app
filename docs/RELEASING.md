@@ -1,7 +1,7 @@
 # RELEASING AND CI
 
 **Status:** CI and release gates are implemented in the repository. **v1.3.0** was published
-as a stable GitHub Release on 2026-11-06; **v1.4.0** is the current stable release (2026-11-13).
+as a stable GitHub Release on 2026-11-06; **v1.4.1** is the current stable release (2026-11-14).
 The process below remains the release contract.
 
 The app is a local-first Python 3.11+ web application. There is no PWA, service worker, Node
