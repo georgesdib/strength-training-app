@@ -184,6 +184,18 @@ one after aggregate materialisation has been measured.
 envelopes, provenance hashes and anything whose computation is already a small query. Storing
 them would add invalidation surface without addressing a measured bottleneck.
 
+**Milestone B implementation (2026-11-14).** The `core` family writes one `derived_set` row per
+leaf set (the progress e1RM and usability, plus the strength-observation payload with its quality
+and provenance) and one `derived_session_exercise` row per session/exercise (best progress e1RM,
+working sets, tonnage, reps, mean load). Rows are tagged with `core_v1` and the family fingerprint
+covers the e1RM and strength-observation versions. Initial backfill is the explicit
+`strength-coach analytics build` command; small source mutations refresh their session inside the
+source transaction, while imports above 50 sessions mark the family stale for an explicit build.
+The owners read only when `core.ensure` (a read-only readiness check) is true and otherwise use the
+on-demand path. Deload, volume, attendance, outcomes and monitoring remain on demand. The
+strength-observation payload is stored as JSON because it is read by a single owner; it is not a
+second formula, only the value that owner already produced.
+
 ### 4.3 Ownership and interfaces
 
 | Responsibility | Owner |
@@ -375,12 +387,15 @@ decision (§4.7) and are not part of any milestone gate.
 |---|---|---|---|---|
 | **Phase 0 — Architecture and design approval** | Design, ownership boundaries, grain definitions, alternatives, invalidation/publication contract | none | **Completed 2026-11-14** (design refined; audit corrections recorded) | Approved architecture and decision record |
 | **Milestone A — Analytics Infrastructure** | A1 revision ledger; A2 mutation-path integration; A3 build-state storage; A4 coordinator, checkpoints and recovery; A5 dependency fingerprints; A6 safe publication; A7 status and diagnostics | Phase 0 | **Implemented 2026-11-14; final audit recorded** | Milestone A audit passes: complete mutation coverage, transactional revisions, no stale/incomplete family publishable, correct status semantics, tests cover the guarantees; infrastructure suitable for materialisation |
-| **Milestone B — Core Materialisation and Consumer Migration** | B1 `derived_set`; B2 `derived_session_exercise`; B3 analytical family registration; B4 versioned materialisation and rebuild; B5 migrate `progress`; B6 migrate `strength_trend`; B7 on-demand fallback | Milestone A gate | Not started | Numerical and payload parity with the current implementations; all four grains preserved; correct invalidation/rebuild; no partial or stale materialisation consumed; fallback works; ODROID measurements show a real benefit or explain why not |
+| **Milestone B — Core Materialisation and Consumer Migration** | B1 `derived_set`; B2 `derived_session_exercise`; B3 analytical family registration; B4 versioned materialisation and rebuild; B5 migrate `progress`; B6 migrate `strength_trend`; B7 on-demand fallback | Milestone A gate | **Implemented 2026-11-14** | Numerical and payload parity (tested and checked on the 377-session benchmark); all four grains preserved; invalidation/rebuild and fallback tested; ODROID measurements: overview 2,746 → 2,474 ms, dashboard 991 → 744 ms, one-lift trend 6,825 → 258 ms; initial backfill about 8.2 s |
 | **Milestone C — Rules, Outcomes, Monitoring and Production Validation** | C1 `derived_week` and required weekly representations; C2 rules/deload migration; C3 outcomes migration; C4 monitoring migration; C5 exact evidence parity; C6 production regression and rebuild/recovery; C7 ODROID profiling and verification; C8 Training Intelligence integration gate | Milestone B gate | Not started | Payload parity for migrated consumers; exact deload verdict, evidence, cost map and weekly spinal-cost semantics; correct version/dependency invalidation; no stale/incomplete data consumed; production rebuild/recovery validated; measured ODROID results against the actual baseline; explicit INT review |
 
-**Completed work.** Phase 0 and Milestone A only. Milestone A added the ledger and build
-tables, the coordinator and the status endpoint; it did **not** materialise `derived_set`,
-`derived_session_exercise` or `derived_week`, and did not migrate any consumer.
+**Completed work.** Phase 0, Milestone A and Milestone B. Milestone A added the ledger and build
+tables, the coordinator and the status endpoint. Milestone B added `derived_set`,
+`derived_session_exercise`, the `core` family, explicit backfill and incremental maintenance, and
+migrated `progress` and `strength_trend` behind a readiness check with on-demand fallback. It did
+**not** materialise `derived_week` and left deload, volume, attendance, outcomes and monitoring on
+demand (Milestone C).
 
 **Snapshots.** Optional and deferred. They are not a milestone requirement and are considered
 only after Milestone C profiling shows that materialised families are still insufficient for an
