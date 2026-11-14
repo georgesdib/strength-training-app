@@ -827,8 +827,8 @@
 
     <section id="view-review" class="view">
       <div class="panel">
-        <div class="panel-head"><h2>Session record</h2><span class="muted">historical rubric · read only</span></div>
-        <p class="section-help"><span>Stored engine scores and human marks for a completed session. Nothing is recorded here; post-workout evaluation lives in the workout report.</span> <a class="doc-link" href="#docs?doc=docs/RUBRIC-CALIBRATION.md">Calibration history</a></p>
+        <div class="panel-head"><h2>Review a session</h2><span class="muted">stored engine scores · read only</span></div>
+        <p class="section-help"><span>Stored engine scores for a completed session. Nothing is recorded or scored here; post-workout evaluation lives in the workout report.</span> <a class="doc-link" href="#docs?doc=docs/RUBRIC-CALIBRATION.md">Calibration history</a></p>
         <form id="review-form" class="form-row">
           <label>Session <select id="review-session"></select></label>
           <button type="submit">Load sheet</button>
@@ -975,24 +975,16 @@
         <div class="panel-head"><h2>After the import</h2>
           <span class="muted">calibration is not an import step</span></div>
         <p class="section-help"><span>Reports counts, warnings and the next step; calibration is not an import step.</span> <a class="doc-link" href="#docs?doc=docs/DATA-QUALITY.md">Import behaviour</a></p>
-        <p class="muted">The short answer: <strong>do not run a calibration because you imported.</strong>
-          Import adds sessions; calibration compares the engine's rubric with <em>your marks</em>.
-          With no marks, <code>calibrate</code> says <code>no marks yet</code>.</p>
+        <p class="muted">The short answer: <strong>importing does not need a review or a calibration.</strong>
+          Import adds sessions; the descriptive report is generated when a workout ends.</p>
         <ol class="muted">
           <li><strong>Check the report above.</strong> New raw rows/sessions are the history that
             was added; <em>overlapping</em> means it was already loaded. A high
             <em>quarantined</em> count means dates or exercise names need attention.</li>
-          <li><strong>Marking is dormant.</strong> The rubric calibration loop was retired on
-            2026-11-13 (<code>DEC-EVAL-08</code>): no new marks are requested and the review prompt
-            is gone. <strong>Review</strong> keeps the historical marks readable; do not backfill old
-            imports.</li>
-          <li><strong>Calibration is historical.</strong> <strong>Run rubric calibration</strong> on
-            the Review page (or <code>strength-coach calibrate</code>) still re-reads the existing
-            marks. It is not a routine task, and re-importing does not require a re-run.</li>
+          <li><strong>No review step.</strong> The rubric calibration loop is retired
+            (<code>DEC-EVAL-09</code>): no marks are requested and the Review page shows stored
+            engine scores read-only.</li>
         </ol>
-        <p class="muted">Review the recent sessions, not the distant past: the pending review stops
-          at your last reviewed session. Rubric calibration and readiness calibration are
-          different reports; neither changes weights automatically.</p>
         <button class="ghost" data-view-link="review">Go to Review</button>
       </div>
     </section>

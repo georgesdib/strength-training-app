@@ -75,7 +75,7 @@ current destinations; they do not duplicate their forms or imply new data contra
 |---|---|---|
 | Recent sessions | Shows the newest stored sessions; **Details** opens a read-only view, **Edit** opens append-only correction | [WEB-UI.md](WEB-UI.md) |
 | Progress snapshot | Recent observed ratio points, aggregate attendance and current average volume. The session ratio (best e1RM vs prior 84-day best, median across lifts, last 56 days) is defined in [WEB-UI.md](WEB-UI.md#progress-snapshot-ratio-today). Full Progress additionally charts recorded dates, working-set history and bounded completed-workout comparisons; no planned-date calendar is inferred | [WEB-UI.md](WEB-UI.md) |
-| Session record (Review) | Read-only historical sheet: stored engine scores and human marks. The rubric is retired (`DEC-EVAL-09`); no marks are recorded and no report runs | [RUBRIC-CALIBRATION.md](RUBRIC-CALIBRATION.md) |
+| Session record (Review) | Read-only historical sheet: stored engine scores only. The rubric is retired (`DEC-EVAL-09`); no marks are shown or recorded and no report runs | [RUBRIC-CALIBRATION.md](RUBRIC-CALIBRATION.md) |
 | Per-rep velocity | Optional device data and descriptive associations, now in Performance rather than Today | [REP-VELOCITY.md](REP-VELOCITY.md) |
 | Periodic reviews | Prompt list from `config/reviews.v1.yaml`; no automatic change. Includes the 8-week **Fatigue-signal review** (rate unrated exercises, read the exposure ratio, open the shadow review, record a decision) | [FATIGUE-SIGNALS.md](FATIGUE-SIGNALS.md), [ROADMAP.md](../ROADMAP.md) |
 | Session details | Read-only stored sets, RIR, VBT, reps, notes | [DATA-MODEL.md](DATA-MODEL.md) |
@@ -98,8 +98,7 @@ current destinations; they do not duplicate their forms or imply new data contra
 | Per-exercise history | Read-only last five completed sessions with Show more; working sets, declared equivalents, no current-workout sets | [WEB-UI.md](WEB-UI.md) |
 | Device data / per-rep velocity | Optional VBT import and descriptive analysis | [REP-VELOCITY.md](REP-VELOCITY.md) |
 | Programme forecast | Read-only projected sessions; rebuilt on the day | [TRAINING-DYNAMICS.md](TRAINING-DYNAMICS.md) |
-| Review a session | Human rubric marks; engine values shown, not copied | [RUBRIC-CALIBRATION.md](RUBRIC-CALIBRATION.md) |
-| Rubric agreement | `calibrate` report; only high-confidence marks count | [RUBRIC-CALIBRATION.md](RUBRIC-CALIBRATION.md) |
+| Review a session | Read-only stored engine scores; no marks column, no calibration report | [RUBRIC-CALIBRATION.md](RUBRIC-CALIBRATION.md) |
 | Log readiness | Per-date readiness; any subset valid; manual wins per field | [READINESS.md](READINESS.md) |
 | Readiness score override | Beside the daily score; global or per pattern; applies to that date only | [READINESS-SCORE.md](READINESS-SCORE.md) |
 | Quick readiness | Presets fill ordinary fields; no shortcut around the gate | [READINESS.md](READINESS.md) |

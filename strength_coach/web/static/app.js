@@ -1374,7 +1374,7 @@ async function fillSessionSelect() {
   if (!sessions.length) { select.innerHTML = "<option value=''>no sessions</option>"; return; }
   const current = select.value;
   select.innerHTML = sessions.map((s) => `<option value="${esc(s.session_id)}">
-    ${esc(s.occurred_on)} · ${esc(sessionLabel(s.session_type))} · ${s.marks ? s.marks + " marks" : "unreviewed"}</option>`).join("");
+    ${esc(s.occurred_on)} · ${esc(sessionLabel(s.session_type))}</option>`).join("");
   if (current) select.value = current;
 }
 
@@ -1394,8 +1394,7 @@ async function loadReview(session) {
     const rows = (data.items || []).map((item) => `<tr>
       <td data-label="Item"><strong>${esc(item.key)}</strong>
         <div class="muted">${esc((item.rules || []).join(", "))}${item.evidence_count ? " · " + item.evidence_count + " evidence ref(s)" : ""}</div></td>
-      <td data-label="Engine" class="muted">${item.measurable ? fmt(item.score, 2) : "n/a"}</td>
-      <td data-label="Your mark" class="muted">${item.existing == null ? "—" : fmt(item.existing, 2)}</td></tr>`).join("");
+      <td data-label="Engine" class="muted">${item.measurable ? fmt(item.score, 2) : "n/a"}</td></tr>`).join("");
     const formRows = (data.form_context?.forms || []).map((form) => `
       <tr><td><code>${esc(form.exercise_id)}</code></td><td>${form.rating}/5</td>
       <td>${form.prior_avg ?? "—"} <span class="muted">(n=${form.prior_n})</span></td>
@@ -1406,7 +1405,7 @@ async function loadReview(session) {
       : "";
     const table = rows
       ? `<div class="table-scroll review-table-wrap"><table class="review-table">
-         <thead><tr><th>Item</th><th>engine</th><th>your mark</th></tr></thead>
+         <thead><tr><th>Item</th><th>engine</th></tr></thead>
          <tbody>${rows}</tbody></table></div>`
       : "<p class='muted'>No stored critique for this session: it was completed after the rubric was retired.</p>";
     $("#review-result").innerHTML = `<div class="panel">
@@ -1416,9 +1415,9 @@ async function loadReview(session) {
       ${reviewWorkoutSummary(data.workout)}
       ${formContext}
       ${table}
-      <p class="muted">The rubric calibration loop is dormant (DEC-EVAL-09). Engine scores and
-        human marks are shown as stored; nothing is re-scored or recorded here, and post-workout
-        evaluation lives in the workout report.</p>
+      <p class="muted">The rubric calibration loop is dormant (DEC-EVAL-09). Stored engine scores
+        are shown; nothing is re-scored or recorded here, and post-workout evaluation lives in the
+        workout report.</p>
     </div>`;
   } catch (error) {
     $("#review-result").innerHTML = `<div class="panel warnbox">${esc(error.message)}</div>`;

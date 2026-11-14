@@ -36,7 +36,7 @@ This is deliberate: the UI is a planning surface until the athlete starts the wo
 | Readiness calibration/shadow/feedback | `readiness ...` | Readiness/Outcomes | same reports |
 | Workout start/perform | CLI subset | Workout page | UI-first start; both write the same workout |
 | Workout sets/update/remove/end/abandon/import | `workout ...` | Workout page | same workout functions |
-| Review one session | `review` | Review page | same marks/rubric |
+| Review one session | retired with the rubric (`DEC-EVAL-09`) | Review page shows stored scores read-only | n/a |
 | Post-lift form rating | no CLI command | Workout + History edit | UI-only capture; same rubric item from stored ratings |
 | Minimum effective session | `run --minimum-session` | Prescribe controls | same volume-only core; `MOD-MIN-001` |
 | Technique throttle | `run --technique-throttle [--throttle-pattern ...]` | Prescribe controls | same load/RIR core; repeatable pattern scope; `MOD-TECH-001` |

@@ -65,12 +65,10 @@ The page uses a **collapsible left menu**: the ☰ button opens it, and ×, the 
 - **Import** — upload the training and readiness CSVs; parsed in memory, hashed and stored in
   SQLite, never written to the repository. New cumulative exports are overlap-matched against
   stored rows, so old history is not duplicated. An **After the import** panel states the
-  procedure: check the report, mark fresh live-workout sessions to create marks, then calibrate
-  later — importing alone does not require a calibration, and old imports are not backfilled for
-  labels.
-- **Review** — read-only historical session sheet: the stored critique scores and the human marks
-  recorded against them. The rubric is retired (`DEC-EVAL-09`): there is no mark form, no
-  calibration button and no report. Sessions completed after the retirement show no items.
+  procedure: check the report; importing alone does not require a review or a calibration.
+- **Review** — read-only historical session sheet: the stored engine scores only. The rubric is
+  retired (`DEC-EVAL-09`): there is no marks column, no mark form, no calibration button and no
+  report. Sessions completed after the retirement show no items.
 - **Workflow** — guided readiness → preview → start → active workout → post-workout comparison; owns the daily readiness form, the computed global/category score and the **Override the score** panel beside it. The panel names the date it writes (the readiness date above it), offers global or per-pattern scopes, and states that a category override wins over global and that both expire with the date. The prescription preview is also here.
 - **Readiness** — baseline and policy settings; the daily log and score overrides live in Workflow;
   per-athlete baseline settings and the shadow baseline report are available; quick presets show
@@ -207,8 +205,8 @@ The in-browser **Terminal** was removed on 2026-10-28 (`DEC-WEB-02`): it was a s
 
 ## Feedback
 
-Mutating actions show a short non-blocking toast on success or failure. **End review**
-also disables while saving and reports the number of marks written.
+Mutating actions show a short non-blocking toast on success or failure. The review sheet is
+read-only; it saves nothing.
 
 ## API
 
@@ -218,8 +216,9 @@ dates, error responses and client modules. The UI sections here call the same co
 ## Design
 
 The web layer is serialisation and routing only. It calls the same functions as the CLI:
-`build_prescription`, `build_facts`/`score_session`, `record_marks`, `record_manual`, and
-`backtest`. A missing value is still `unknown`; the UI does not fill it in.
+`build_prescription`, `workout.summary`, `adherence.analyse`, `observations.analyse`,
+`record_manual` and the reporting services. A missing value is still `unknown`; the UI does not
+fill it in.
 
 ## Manual browser smoke checklist
 
