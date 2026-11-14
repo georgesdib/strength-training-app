@@ -36,7 +36,7 @@ from strength_coach.features import (
 )
 from strength_coach.features import relative_strength as relative_strength_feature
 from strength_coach.features import session_feedback as session_feedback_feature
-from strength_coach.features.evidence import EvidenceItem
+from strength_coach.features.evidence import EvidenceItem, make_source_fingerprint
 from strength_coach.prescribe import config as prescribe_config
 from strength_coach.prescribe import minimum_session as minimum_session_mod
 from strength_coach.prescribe import session_identity
@@ -566,12 +566,13 @@ def _summary_evidence(
     items: list[dict[str, Any]] = []
     if adherence_payload.get("status") == "available":
         view = adherence_payload.get("final_plan") or {}
-        set_ids = [
-            row.get("set_id")
+        matched_rows = [
+            row
             for exercise in view.get("exercises") or []
             for row in exercise.get("sets") or []
-            if row.get("set_id") is not None
+            if row.get("matched") is True and row.get("set_id") is not None
         ]
+        set_ids = [row.get("set_id") for row in matched_rows]
         slots = view.get("set_completion") or {}
         denominator = int(slots.get("denominator") or 0)
         items.append(
@@ -585,6 +586,7 @@ def _summary_evidence(
                     "denominator": slots.get("denominator"),
                     "ratio": slots.get("ratio"),
                 },
+                source_fingerprint=make_source_fingerprint(matched_rows),
                 n=denominator,
                 gate="signal" if denominator else "insufficient",
                 comparability="comparable" if denominator else "not_comparable",
@@ -603,11 +605,12 @@ def _summary_evidence(
         )
     if vbt_payload.get("status") == "available":
         quality = vbt_payload.get("quality") or {}
-        comparable_ids = [
-            row.get("set_id")
+        comparable_rows = [
+            row
             for row in vbt_payload.get("sets") or []
             if row.get("comparable") is True and row.get("set_id") is not None
         ]
+        comparable_ids = [row.get("set_id") for row in comparable_rows]
         comparable_sets = int(quality.get("comparable_sets") or 0)
         gate = (
             "signal"
@@ -625,6 +628,7 @@ def _summary_evidence(
                     "comparable_sets": quality.get("comparable_sets"),
                     "excluded_sets": quality.get("excluded_sets"),
                 },
+                source_fingerprint=make_source_fingerprint(comparable_rows),
                 n=comparable_sets,
                 gate=gate,
                 comparability="comparable" if comparable_sets else "not_comparable",
@@ -705,13 +709,18 @@ def _summary_observation(
     candidates: list[tuple[float, int, str, str, EvidenceItem]] = []
     if adherence_payload.get("status") == "available":
         final = adherence_payload.get("final_plan") or {}
-        set_ids = tuple(
-            detail.get("set_id")
+        details = [
+            detail
             for exercise in final.get("exercises") or []
             for detail in exercise.get("sets") or []
             if detail.get("set_id") is not None
-        )
+        ]
+        matched_rows = [detail for detail in details if detail.get("matched") is True]
+        set_ids = tuple(detail["set_id"] for detail in matched_rows)
         rir = final.get("rir") or {}
+        rir_ids = tuple(rir.get("evaluated_set_ids") or ())
+        rir_id_set = set(rir_ids)
+        rir_rows = [detail for detail in details if detail.get("set_id") in rir_id_set]
         evaluated = int(rir.get("evaluated_sets") or 0)
         deviation = rir.get("mean_deviation")
         tolerance = float(rir.get("tolerance") or 1)
@@ -723,7 +732,7 @@ def _summary_observation(
                 f"{evaluated} rated working set(s).",
                 EvidenceItem(
                     source="adherence.rir",
-                    source_ids=set_ids,
+                    source_ids=rir_ids,
                     window_start=for_date,
                     window_end=for_date,
                     value={
@@ -732,6 +741,7 @@ def _summary_observation(
                         "direction": direction,
                         "evaluated_sets": evaluated,
                     },
+                    source_fingerprint=make_source_fingerprint(rir_rows),
                     unit="rir",
                     n=evaluated,
                     gate="signal",
@@ -762,6 +772,7 @@ def _summary_observation(
                         "denominator": denominator,
                         "set_completion": slots.get("ratio"),
                     },
+                    source_fingerprint=make_source_fingerprint(matched_rows),
                     unit="sets",
                     n=denominator,
                     gate="signal",
@@ -779,11 +790,12 @@ def _summary_observation(
             outside += int(ratio.get("denominator") or 0) - int(ratio.get("numerator") or 0)
         comparable = within + outside
         if comparable and outside / comparable >= 0.5:
-            set_ids = tuple(
-                set_id
-                for exercise in vbt_payload.get("exercises") or []
-                for set_id in exercise.get("comparable_set_ids") or ()
-            )
+            comparable_rows = [
+                row
+                for row in vbt_payload.get("sets") or []
+                if row.get("comparable") is True and row.get("set_id") is not None
+            ]
+            set_ids = tuple(row.get("set_id") for row in comparable_rows)
             candidates.append((
                 outside / comparable, 2, "vbt",
                 f"{outside} of {comparable} comparable velocity set(s) fell outside the "
@@ -797,6 +809,7 @@ def _summary_observation(
                         "sets_outside_band": outside,
                         "comparable_sets": comparable,
                     },
+                    source_fingerprint=make_source_fingerprint(comparable_rows),
                     unit="sets",
                     n=comparable,
                     gate="signal",

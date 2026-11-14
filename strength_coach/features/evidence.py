@@ -30,6 +30,24 @@ def canonical_json(payload: Mapping[str, Any]) -> str:
     )
 
 
+EVIDENCE_VERSION = "2.0.0"
+
+
+def make_source_fingerprint(rows: Sequence[Mapping[str, Any]]) -> str:
+    """Fingerprint the exact contributing source rows.
+
+    This is deliberately separate from evidence_id: the id stays the stable identity of the
+    claim (source ids, window and value), while the fingerprint detects a changed source revision
+    even when the aggregate value is unchanged. Row order is a query artefact.
+    """
+    digests = sorted(
+        hashlib.sha256(canonical_json(dict(row)).encode("utf-8")).hexdigest()
+        for row in rows
+    )
+    digest = hashlib.sha256("\n".join(digests).encode("utf-8")).hexdigest()
+    return "sf:" + digest[:24]
+
+
 def make_evidence_id(
     *,
     source: str,
@@ -37,10 +55,10 @@ def make_evidence_id(
     window: Mapping[str, Any],
     value: Any,
 ) -> str:
-    """Stable id for the same source rows, window and value.
+    """Stable identity of a claim: source ids, window and derived value.
 
-    A changed window or a changed input row changes the id, so a stored observation cannot
-    silently point at different evidence later.
+    A changed window, source identity or value changes the id. A correction that leaves those
+    unchanged keeps the id; source_fingerprint on the envelope records the source revision.
     """
     digest = hashlib.sha256(
         canonical_json(
@@ -68,6 +86,7 @@ class EvidenceItem:
     window_start: str
     window_end: str
     value: Any
+    source_fingerprint: str
     unit: str | None = None
     n: int | None = None
     comparability: str = "comparable"
@@ -86,6 +105,8 @@ class EvidenceItem:
             raise ValueError(f"unknown gate {self.gate!r}")
         if self.n is not None and self.n < 0:
             raise ValueError("n cannot be negative")
+        if not self.source_fingerprint.startswith("sf:"):
+            raise ValueError("source_fingerprint must be a sf: fingerprint")
 
     @property
     def evidence_id(self) -> str:
@@ -99,6 +120,8 @@ class EvidenceItem:
     def as_dict(self) -> dict[str, Any]:
         return {
             "evidence_id": self.evidence_id,
+            "evidence_version": EVIDENCE_VERSION,
+            "source_fingerprint": self.source_fingerprint,
             "source": self.source,
             "source_ids": [str(identifier) for identifier in self.source_ids],
             "window": {"start": self.window_start, "end": self.window_end},

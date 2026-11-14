@@ -24,7 +24,7 @@ import yaml
 
 from strength_coach import adherence, workout
 from strength_coach.features import vbt_performance
-from strength_coach.features.evidence import EvidenceItem
+from strength_coach.features.evidence import EvidenceItem, make_source_fingerprint
 from strength_coach.prescribe import session_identity
 from strength_coach.store import queries
 from strength_coach.utils import paths
@@ -256,7 +256,7 @@ def _rir_observation(sessions, config, window):
     mean_deviation = round(
         sum(row["deviation"] for row in matching) / len(matching), 2
     )
-    set_ids = _rir_set_ids(matching)
+    set_ids, source_rows = _rir_source(matching)
     statement = (
         f"RIR sat {direction} target in {repeated} of the last {len(considered)} comparable "
         f"sessions (mean {mean_deviation:+.2f} RIR, tolerance {tolerance:g})."
@@ -273,6 +273,7 @@ def _rir_observation(sessions, config, window):
             "mean_deviation": mean_deviation,
             "tolerance": tolerance,
         },
+        source_fingerprint=make_source_fingerprint(source_rows),
         unit="rir",
         n=len(considered),
         comparability="comparable",
@@ -291,14 +292,20 @@ def _rir_observation(sessions, config, window):
     return _observation("rir", statement, item, window), None
 
 
-def _rir_set_ids(rows) -> list[Any]:
+def _rir_source(rows) -> tuple[list[Any], list[dict[str, Any]]]:
+    """The exact evaluated RIR sets, not the containing session inventory."""
     ids: list[Any] = []
+    details: list[dict[str, Any]] = []
     for row in rows:
-        for exercise in (row["session"]["adherence"].get("final_plan") or {}).get("exercises") or []:
+        final = (row["session"]["adherence"].get("final_plan") or {})
+        evaluated = set((final.get("rir") or {}).get("evaluated_set_ids") or ())
+        for exercise in final.get("exercises") or []:
             for detail in exercise.get("sets") or []:
-                if detail.get("set_id") is not None:
-                    ids.append(detail["set_id"])
-    return ids
+                set_id = detail.get("set_id")
+                if set_id is not None and set_id in evaluated:
+                    ids.append(set_id)
+                    details.append(detail)
+    return ids, details
 
 
 def _incomplete_observation(sessions, config, window):
@@ -333,6 +340,17 @@ def _incomplete_observation(sessions, config, window):
         }
 
     total_missing = sum(row["missing"] for row in incomplete)
+    source_rows = [
+        {
+            "workout_id": row["session"]["workout_id"],
+            "set_completion": (
+                (row["session"]["adherence"].get("final_plan") or {}).get("set_completion")
+                or {}
+            ),
+            "missing_sets": row["missing"],
+        }
+        for row in incomplete
+    ]
     item = EvidenceItem(
         source="adherence.set_completion",
         source_ids=tuple(row["session"]["workout_id"] for row in incomplete),
@@ -343,6 +361,7 @@ def _incomplete_observation(sessions, config, window):
             "sessions_considered": len(considered),
             "missing_sets": total_missing,
         },
+        source_fingerprint=make_source_fingerprint(source_rows),
         unit="sets",
         n=len(considered),
         comparability="comparable",
@@ -409,6 +428,7 @@ def _vbt_observations(conn, config, window):
                 "above_target": cohort.get("above_target"),
                 "below_target": cohort.get("below_target"),
             },
+            source_fingerprint=make_source_fingerprint([cohort]),
             unit="m/s",
             n=int(cohort.get("n") or 0),
             comparability="comparable",

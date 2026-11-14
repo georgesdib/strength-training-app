@@ -74,7 +74,7 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/prospective?weeks=N&date=N` | W5 read-only prospective summary: statuses, attendance, work, RIR, duration, flags |
 | `GET /api/observations?date=N&weeks=N` | AFC-3 longitudinal observations over the AFC-2 evidence contract: repeated RIR deviation, repeated incomplete work, VBT residual deviation; abstentions carry their reason. Persists new observations append-only (idempotent on the evidence id) |
 | `GET /api/nudge?date=N` | at most one AFC-4 review-category nudge from the current AFC-3 observation, or `null` when suppressed or unsupported |
-| `POST /api/nudge` | `{action: dismiss\|snooze, key, evidence_id?, date?}` -> append-only suppression and the next nudge; dismiss is permanent for that evidence window, snooze hides the key for 14 days |
+| `POST /api/nudge` | `{action: dismiss\|snooze, key, evidence_id?, date?}` -> append-only suppression and the next nudge; dismiss is permanent for that evidence window, snooze hides the key through `date + 14 days` inclusive and returns the following day |
 | `GET /api/regime?weeks=N&date=N` | read-only main-lift/substitute regime check |
 | `GET /api/settings` | masked LLM settings, drop settings, config/database paths and app version |
 | `GET /api/settings/ios` | effective `ios.v1.yaml` values, defaults, ranges, labels, descriptions, path/source and per-request reload semantics |
@@ -151,9 +151,13 @@ reason instead of a fabricated percentage.
 The completed-workout summary also returns `quality.flags` and `evidence`. A flag is
 `{"code", "detail"}` and means a number on the page is qualified — never that the session
 failed; codes are the ones the owning service already emits. `evidence` is a list of
-`{evidence_id, source, source_ids, window, value, unit, n, comparability, gate, quality_flags,
-method_versions, calibration_ids, limitations, rule_ids, assumption_ids}`. The id is
-deterministic for the same source rows, window and value, and `gate` uses the existing
+`{evidence_id, evidence_version, source_fingerprint, source, source_ids, window, value, unit, n,
+comparability, gate, quality_flags, method_versions, calibration_ids, limitations, rule_ids,
+assumption_ids}`. `evidence_id` is the stable identity of the claim (source identities, window
+and value); a correction that leaves those unchanged keeps the id. `source_fingerprint` hashes
+the exact contributing source rows, so a changed revision changes the fingerprint even when the
+aggregate value does not. `source_ids` name the exact contributing rows (for RIR, only the
+evaluated RIR sets; never the containing session inventory). `gate` uses the existing
 `insufficient`/`signal`/`evaluation` vocabulary. The same envelope is what the future LLM
 context builder serialises, so there is one schema.
 
@@ -225,6 +229,8 @@ no notification channel and never changes a prescription.
 Suppression is append-only (`maintenance_review`): `POST /api/nudge` with `action: dismiss`
 records a completed review (`not_applicable`) whose note is the observation/evidence identity, so
 only that evidence window is silenced; `action: snooze` records a 14-day snooze for the nudge key.
+The expiry date is inclusive: a snooze issued on 1 March stays hidden through 15 March and returns
+on 16 March.
 A new evidence id produces a new nudge. Attendance, volume and other signals are deliberately not
 nudge sources.
 

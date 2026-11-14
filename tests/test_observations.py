@@ -73,6 +73,23 @@ def test_rir_observation_needs_three_of_five_above_target(conn):
     assert rir[0]["value"]["direction"] == "above"
 
 
+def test_rir_evidence_uses_only_the_evaluated_set_ids():
+    rows = [{
+        "session": {
+            "workout_id": "w1",
+            "adherence": {
+                "final_plan": {
+                    "rir": {"evaluated_set_ids": [11]},
+                    "exercises": [{"sets": [{"set_id": 11}, {"set_id": 12}]}],
+                }
+            },
+        }
+    }]
+    ids, details = observations._rir_source(rows)
+    assert ids == [11]
+    assert [detail["set_id"] for detail in details] == [11]
+
+
 def test_two_of_five_does_not_produce_an_observation(conn):
     _five(conn, rir=4, rir_days={"2024-02-01", "2024-02-02"})
     payload = _analyse(conn)
