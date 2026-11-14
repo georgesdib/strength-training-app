@@ -2150,3 +2150,14 @@ def test_workout_reps_input_switches_to_seconds_for_time_based_exercises() -> No
     assert "function applyWorkoutRepsLabel" in workout
     assert "meta.time_based" in workout
     assert "applyWorkoutRepsLabel();" in workout
+
+
+def test_exercise_save_reports_why_it_did_not_send() -> None:
+    exercises = (STATIC / "exercises.js").read_text(encoding="utf-8")
+    # A blank id used to return silently: no request, no message, nothing saved.
+    assert "An exercise id is required" in exercises
+    # Native validation blocks the submit before the handler, so it must be surfaced too.
+    assert 'addEventListener("invalid"' in exercises
+    assert "is required or invalid" in exercises
+    # A catalogue that has not loaded leaves the required pattern select empty.
+    assert "loadExerciseCatalog().then" in exercises

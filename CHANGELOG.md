@@ -2,7 +2,21 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Side Plank and Chinese Plank are separate exercises** (`DEC-VARIANT-04`). `plank` keeps
+  Regular and Front Plank; the two variants get their own ids, log names, history and
+  progression, still measured in seconds. Migration `0060` rewrites the identity of previously
+  imported rows by their raw logged name and records each change in `exercise_remap_log`; the
+  raw rows are untouched.
+
 ### Fixed
+
+- **Adding an exercise in the web UI no longer fails silently.** A blank ID returned without
+  sending a request or showing a message; the dialog now states the required format, native
+  validation messages appear inside the dialog, and the pattern select is rebuilt from the
+  catalogue when it has not loaded yet, so a required field can no longer block a save with no
+  explanation.
 
 - **Productivity is editable from a History correction.** The correction form, the API body and
   `history.edit_session` now accept `productivity` (1-5); it is validated, written append-only

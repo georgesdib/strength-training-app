@@ -398,12 +398,38 @@ entities:
 
   plank:
     display: "Plank"
-    log_names: ["Regular Plank", "Chinese Plank", "Side Plank", "Front Plank"]
+    # DEC-VARIANT-04: Side Plank and Chinese Plank are separate entities now; an exact log name
+    # is matched before the '(?i)plank' fallback, so this list must not claim them.
+    log_names: ["Regular Plank", "Front Plank"]
     pattern: core_isometric
     bodyweight_type: true
     rep_semantics: seconds        # <-- 80/90/110 in Reps_Done are SECONDS
     time_based: true
     loadable: true                # plate added on back is common
+
+  # DEC-VARIANT-04: split from the generic plank. Both are distinct holds with their own
+  # history; Reps_Done still carries seconds (DQ-REPS-01), never reps.
+  side_plank:
+    display: "Side Plank"
+    log_names: ["Side Plank"]
+    pattern: core_isometric
+    bodyweight_type: true
+    rep_semantics: seconds
+    time_based: true
+    loadable: true
+    e1rm_applicable: false
+    primary_muscles: [abs]
+
+  chinese_plank:
+    display: "Chinese Plank"
+    log_names: ["Chinese Plank"]
+    pattern: core_isometric
+    bodyweight_type: true
+    rep_semantics: seconds
+    time_based: true
+    loadable: true
+    e1rm_applicable: false
+    primary_muscles: [abs]
 
   carry:
     display: "Carry"

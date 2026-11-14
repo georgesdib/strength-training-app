@@ -189,6 +189,7 @@ def test_conventional_deadlift_is_a_primary_compound_but_not_a_main_lift(taxonom
 def test_planks_log_seconds_not_reps(taxonomy):
     """Chinese Plank values of 80-110 in Reps_Done are seconds (DQ-REPS-01)."""
     resolved = taxonomy.resolve("Chinese Plank")
+    assert resolved.id == "chinese_plank"
     assert resolved.rep_semantics == "seconds"
     assert resolved.is_time_based is True
 
