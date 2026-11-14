@@ -2275,6 +2275,7 @@ def resolve_replacement(
     context = RuleContext.from_store(
         conn, end=for_date, rep_ranges=template.rep_ranges()
     )
+    props = context.entity(exercise_id)
     slot = templates.Slot(
         id=f"swap-{order_index}",
         sets=int(sets),
@@ -2284,7 +2285,11 @@ def resolve_replacement(
         rir_high=rir_target,
         rest_s=rest_s,
         essential=bool(essential),
-        load_source="e1rm" if essential else "double_progression",
+        load_source=(
+            "bodyweight" if props.get("bodyweight_type")
+            else "e1rm" if essential
+            else "double_progression"
+        ),
         exercise=exercise_id,
     )
     item, warnings = build_item(
