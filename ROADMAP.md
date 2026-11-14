@@ -1256,7 +1256,7 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | future | LLM integration: analyst, explainer, constrained proposer | Iteration 1 planned; Iteration 2 conditional (§4.24; selector retirement is Phase 1b) |
 | future | Personalised volume-response model | idea only; shadow/gated (§13, Q28) |
 | future | Athlete Feedback & Coaching (AFC) — deferred AFC-3 second cut | AFC-2, AFC-2i, AFC-3 and AFC-4 implemented 2026-11-13; physical iPhone report acceptance owner-confirmed 2026-11-14 (§4.33) |
-| done (Phases 0–3A) | Native iPhone online-first client | Phase 0 complete 2026-11-07; **Phase 1 complete 2026-11-07** (server facade + Swift client, simulator-verified and owner-confirmed on the physical iPhone); **Phase 2 complete 2026-11-07** (online readiness/prescription/workout/completion + Progress, simulator-verified and owner-confirmed on the physical iPhone); **Phase 3A closed 2026-11-08** (opt-in read-only HealthKit HRV/RHR/bodyweight readiness; physical HealthKit acceptance owner-confirmed); Apple PCC is an optional AI-only network exception (§4.29; [`iOS client plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/IOS-CLIENT-PLAN.md)) |
+| done (Phases 0–4, R1–R10, 6.0–6.7) | Native iPhone and watchOS client | Phase 0 complete 2026-11-07; Phases 1–2 complete and owner-confirmed on the physical iPhone (2026-11-07); Phase 3A closed 2026-11-08 (HealthKit readiness, physical acceptance owner-confirmed); Phase 4 closed 2026-11-08 (offline capture and replay, physical acceptance owner-confirmed); R1–R5 and R7–R10 closed (R11 dropped); Phase 6.0–6.7 complete with physical Apple Watch acceptance owner-confirmed 2026-11-14 (§4.32); the AFC-2i session report is implemented. Apple PCC remains an optional AI-only network exception (§4.29; [`iOS client plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/IOS-CLIENT-PLAN.md)) |
 
 ### 4.19.1 Deferred: web authentication and per-user data
 
@@ -1599,7 +1599,7 @@ later use needs a separate decision and validation.
 and a separate owner decision to start. Phase 3 is independent of the closed Phase 1–2 plan
 and is not a reason to reopen it.
 
-### 4.29 Native iPhone client — online-first (Phases 0–3A closed)
+### 4.29 Native iPhone client — online-first (Phases 0–4 and the R-series closed)
 
 **Status:** Phase 0 complete (2026-11-07): an empty SwiftUI app is signed and launches on the
 owner's iPhone under a personal team, the HealthKit capability is verified, the phone reaches the
@@ -1626,8 +1626,8 @@ owner's local Python server. Durable offline capture (Phase 4) is closed; review
 imports (Phase 3B) and Apple Intelligence are later phases, not first-release dependencies. Phase 3A
 HealthKit readiness is closed. PCC may be a separately enabled Apple AI option;
 it is disabled by default, user-invoked, never an automatic fallback, and never used for HealthKit
-sync. No public cloud service is required for core use. Do not begin a later phase until it is
-approved.
+sync. No public cloud service is required for core use. Phase 3B needs a separate approval; no
+later phase starts by implication.
 
 The detailed, repository-grounded client plan is in the
 [iOS client repository](https://github.com/georgesdib/strength-app/blob/main/docs/plans/IOS-CLIENT-PLAN.md).
@@ -1636,8 +1636,9 @@ readiness scores and prescriptions. Phases 0–2, 3A and 4 are complete; Phase 3
 an `ios/` subdirectory here. The first release covers pairing, readiness entry, a server prescription,
 online workout capture/completion with session RPE, optional inline form ratings and basic
 history/progress. Opt-in read-only HRV/RHR/bodyweight readiness (Phase 3A) and durable offline capture
-(Phase 4) are complete; reviewed Apple Workout imports follow, with manual values taking precedence. Rubric review stays optional and may arrive after the first
-release. Apple Foundation Models/PCC are optional later tools, never training authorities.
+(Phase 4) are complete; reviewed Apple Workout imports follow, with manual values taking precedence.
+The rubric review was retired (`DEC-EVAL-09`); the session report is the post-workout surface.
+Apple Foundation Models/PCC are optional later tools, never training authorities.
 Third-party Health exporters are not a core dependency; XML is, at most, a later manual history
 backfill.
 
@@ -1782,7 +1783,7 @@ prescription/start, plan editing and HealthKit remain online-only. No server que
 Contract: [`https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-PHASE-4-CONTRACT.md`](https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-PHASE-4-CONTRACT.md).
 Physical offline acceptance was owner-confirmed at closure on 2026-11-08.
 
-### 4.32 Phase 6 — watchOS companion (Phase 6.2 closed 2026-11-10; 6.3+ pending)
+### 4.32 Phase 6 — watchOS companion (6.0–6.7 complete; 6.7 acceptance 2026-11-14)
 
 The phone remains the planner; the watch becomes the execution client for a plan requested with an
 explicit `execution_target` (`phone` or `watch`): fetch, start, log sets/rest/forms, finish with
@@ -1797,10 +1798,18 @@ replayed set whose plan item changed is preserved as off-plan rather than droppe
 propagate by revision, and forgotten sessions are idle-abandoned. Shared code has been extracted into
 `StrengthCore` in four staged, behaviour-preserving moves (S1–S4 complete 2026-11-10; 184 iOS tests);
 the watch target is 6.2a. Contract:
-[`IOS-WATCH-CONTRACT.md`](https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-WATCH-CONTRACT.md). Offline start (the
-pending-session shell) and the “Send to iPhone” relay are deferred. 6.0, 6.1, 6.2a, 6.2b and 6.2c
-are implemented (watch target, credential handoff, mint/list/revoke, the phone-revocation watch
-cascade, and the read-only watch Today); 6.3 and later need a separate go-ahead.
+[`IOS-WATCH-CONTRACT.md`](https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-WATCH-CONTRACT.md).
+
+**Completion record.** 6.0 (shared watch core), 6.1 (server watch contract), 6.2a–6.2c (watch
+target, credential/config handoff, mint/list/revoke and the read-only watch Today), 6.3 (watch
+execution lifecycle), 6.4 (offline conflicts), 6.5 (heart rate and one HealthKit workout), 6.6
+(phone mirror, plan-revision pushes and take-over) and 6.7 are complete. Physical Apple Watch
+acceptance was owner-confirmed **2026-11-14**, and the canonical status lives in the
+[iOS client plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/IOS-CLIENT-PLAN.md)
+and the watch contract, not here.
+
+**Still deferred:** offline start (the pending-session shell) and the “Send to iPhone” relay.
+Any further watch work needs a separate go-ahead.
 
 ### 4.33 Athlete Feedback & Coaching (AFC)  (AFC-2, AFC-2i, AFC-3 and AFC-4 implemented 2026-11-13)
 
