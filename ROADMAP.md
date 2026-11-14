@@ -1899,23 +1899,29 @@ and touches no capture surface, so it stays outside the instrument.
 the report only — a watchOS report, cardio models, VBT calibration, the training engine, automatic
 adaptation, and the LLM capabilities in §4.24.
 
-### 4.34 Training Intelligence — read-only capability layer and MCP server  (proposed 2026-11-14; not implemented)
+### 4.34 Training Intelligence — read-only capability layer and MCP server  (INT-1 foundation implemented 2026-11-14; transport not implemented)
 
-**Status:** planning only. No source, prompt, dependency, API, schema or training-rule change exists.
-The canonical cross-repository plan, audit, contract and decisions are in the portfolio repository:
-[plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md)
+**Status: INT-1 foundation implemented 2026-11-14.** The read-only capability layer, the canonical
+envelope, typed requests, the execution service, bearer authentication, configuration bounds and
+their tests exist in `strength_coach/intelligence/` with one reference capability
+(`get_training_overview`); see [`docs/INTELLIGENCE-IMPLEMENTATION.md`](docs/INTELLIGENCE-IMPLEMENTATION.md).
+There is **no MCP server, no REST route, no model provider, no new dependency, no migration and no
+change to any existing endpoint.** The MCP transport, the second tool and the resource set are
+**INT-1b**; the rest of the catalogue, the baseline context package and evidence producers are
+INT-2. The canonical cross-repository plan, audit, contract and decisions are in the portfolio
+repository: [plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md)
 and [contract](https://github.com/georgesdib/strength-app/blob/main/docs/contracts/TRAINING-INTELLIGENCE-CONTRACT.md).
-Owner approval of the plan's section 13 decisions is required before INT-1.
+Owner approval of the plan's section 13 decisions remains required before the transport phase.
 
 **Scope.** A provider-neutral capability layer over the existing services, a separately deployable
 read-only MCP server (Streamable HTTP, authenticated, tools and resources only), an additive read-only
 iOS intelligence surface, Weekly Training Review, and optional on-device/server narration. Every
 metric is composed from its existing owner; there is no second calculation and no new evidence schema.
 
-**Backend areas (future, not created yet):** `strength_coach/intelligence/{envelope,errors,registry,context}.py`,
-`strength_coach/intelligence/capabilities/`, `strength_coach/intelligence/mcp/`,
-`strength_coach/intelligence/model/`, `config/intelligence.v1.yaml`, a deploy unit and
-`tests/intelligence/`. Planned optional dependency: `mcp>=2,<3` in a new `intelligence` extra.
+**Backend areas.** Created in INT-1: `strength_coach/intelligence/{envelope,errors,methods,context,config,auth,registry,service}.py`,
+`strength_coach/intelligence/capabilities/`, `config/intelligence.v1.yaml` and `tests/test_intelligence_*.py`.
+Not created: `strength_coach/intelligence/mcp/` (INT-1b), `strength_coach/intelligence/model/`
+(INT-5), a deploy unit (INT-1b) and the `mcp>=2,<3` optional extra (INT-1b).
 
 **Hard constraints.** Read-only: no tool, route or capability may create, edit, void, start, complete
 or prescribe. SQLite is opened read-only in that process. No free-text notes, symptom narratives or

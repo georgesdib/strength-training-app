@@ -22,6 +22,7 @@ for current status and next actions. [`AGENTS.md`](../AGENTS.md) holds the engin
 ## Architecture and data
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — layers, data flow, where the LLM sits
+- [INTELLIGENCE-IMPLEMENTATION.md](INTELLIGENCE-IMPLEMENTATION.md) — INT-1 Training Intelligence foundation: capability layer, envelope, authentication, configuration, read-only execution and limits (no transport yet)
 - [DATA-MODEL.md](DATA-MODEL.md) — canonical tables, append-only records
 - [DATA-QUALITY.md](DATA-QUALITY.md) — DQ decision ledger and sentinel questions
 - [PRIVACY.md](PRIVACY.md) — public/private boundary and external-LLM payload rules

@@ -1,0 +1,20 @@
+# Training Intelligence configuration.
+#
+# Domain reason: the intelligence capability layer is a read-only consumer of the same
+# database. Its switch, bounds and revision identity are stored here so a deployment can
+# disable it and cap expensive windows without touching code. This file contains no secrets:
+# intelligence authentication reuses the existing per-device bearer tokens in `ios_device`,
+# so there is no second credential store.
+
+version: 1
+
+# Off until INT-1 acceptance and a transport decide to expose it. The library itself stays
+# importable and testable; only the execution service honours this switch.
+enabled: false
+
+# Hard upper bound for any window a capability may request, in days. Prevents an unbounded
+# scan of the append-only history. 400 days is the ceiling the contract fixes.
+max_window_days: 400
+
+# Maximum rows a paginated capability may return per call.
+max_sessions_per_page: 20
