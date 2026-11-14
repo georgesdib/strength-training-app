@@ -551,6 +551,7 @@ def test_plan_overrides_keep_the_original_prescription(conn):
     assert swapped["plan"]["items"][0]["exercise_id"] == "conventional_deadlift"
     assert swapped["plan"]["items"][0]["substitution_for"] == "trap_bar_deadlift"
     assert swapped["plan"]["items"][0]["load_kg"] is None
+    assert swapped["plan"]["items"][0]["warmup"] == []
     assert swapped["plan_modified"] is True
 
     added = workout.add_exercise(

@@ -1499,9 +1499,10 @@ def swap_exercise(conn, workout_id: str, item_index: int, exercise_id: str) -> d
         "velocity_target": None,
         "vbt_basis": None,
         "vbt": None,
-        # The old top-set/back-off structure belongs to the old lift; discard it rather
-        # than carry a stale load or role onto the replacement.
+        # The old top-set/back-off structure and warm-up ramps belong to the old lift;
+        # discard them rather than carry stale loads onto the replacement.
         "set_groups": [],
+        "warmup": [],
     }
     plan = {**(workout.get("plan") or {}), "items": items}
     return _write_plan(conn, workout_id, plan, "swap_exercise",
