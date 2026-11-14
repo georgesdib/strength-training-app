@@ -57,7 +57,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | — | Training-day session fragments | **done 2026-11-01** | one local training day may contain multiple session fragments; attendance and budget use days, volume/spinal use combined sets, e1RM uses one day-level observation; no schema migration; see [`docs/TRAINING-DAY-MODEL.md`](docs/TRAINING-DAY-MODEL.md) |
 | — | Deterministic dynamic template resolver | **Steps 0–6 complete 2026-11-01/03; merged to `development` 2026-11-03; released in v1.2.0 as opt-in (`resolver.enabled` default false)** | plan and confirmed decisions at [`docs/archive/PROGRAMME-BUILDER-PLAN.md`](docs/archive/PROGRAMME-BUILDER-PLAN.md) and [`docs/DECISIONS.md`](docs/DECISIONS.md) (`DEC-RESOLVER-01`–`12`); Step 1 delivered policy/settings/provenance; Step 2 delivered and remediated the internal deterministic generator core (`generator.py`, `resolver_settings.py`, accepted pattern-flexibility mapping); remediation covers shared injury/constraint eligibility, power-slot safety, require_can_do/unrated/rotation-default semantics, fallback repair, structural availability, whole-session/duplicate-aggregated authoritative spinal scoring, completed-workout precedence, history merge, retired redundant rotation/preference weights and policy/catalogue digests; Step 3 adds the opt-in top-set/back-off structure, top-set persistence and role-aware workout logging, and the hinge maximal-week programme change; Step 4C wires the flag-on resolver path through candidate pools, bounded beam and read-only evaluator, adds pool-aware scheduler availability, rejects selection overrides, and records generated-session provenance; the 4C audit remediation enforces required patterns on final assignments, separates evaluator failure stages, fingerprints beam configuration and DataFrame schemas, and uses the same auto-candidate/slot matching in scheduling; Step 5 adds the dedicated Settings -> Resolver panel, append-only scalar settings, validated policy YAML with atomic writes and 20 timestamped backups, read-only preview with choices/alternatives/suggestions, inline suitability rating, top-set preview, regenerate/diff and a start handoff; the Step 5 remediation adds shared CLI/web readiness enforcement, atomic backup creation, shared resolver-enable confirmation, deterministic restore with a reported pre-restore snapshot, and a full-prescription preview diff; Step 6 adds generated-slot snapshot provenance for critique/exemption reads with a legacy-null fallback, top-set role-aware critique coverage, a real-database copy smoke test, flag/policy rollback verification and the rollout documentation; forecast remains fixed option (c); the flag remains off |
 | future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.5; Iteration 2 conditional** | phased workstream at §4.24; architecture, iteration gate and selector retirement in [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); no implementation in this pass |
-| future | Athlete Feedback & Coaching (AFC) | **AFC-2, AFC-2i, AFC-3 and AFC-4 implemented 2026-11-13; AFC-5 scoped (docs only); backend, web and native iOS presentation** | §4.33; canonical plan [`AFC plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md); composes the existing adherence, VBT, readiness, feedback and volume services; AFC-1 dissolved and planned-session compliance excluded by `DEC-W7-01`; Phase 5A instruments frozen; AFC-2i renders the same report contract in the iPhone app (`DEC-AFC-03`) |
+| future | Athlete Feedback & Coaching (AFC) | **AFC-2, AFC-2i, AFC-3 and AFC-4 implemented 2026-11-13; physical iPhone acceptance owner-confirmed 2026-11-14; AFC-5 scoped (docs only); backend, web and native iOS presentation** | §4.33; canonical plan [`AFC plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md); composes the existing adherence, VBT, readiness, feedback and volume services; AFC-1 dissolved and planned-session compliance excluded by `DEC-W7-01`; Phase 5A instruments frozen; AFC-2i renders the same report contract in the iPhone app (`DEC-AFC-03`) |
 | — | Symptom attribution and injury-signal verification | **done 2026-11-01** | Phases 1–2 closed: verification hygiene and optional session/lift attribution with required onset/confidence, migration `0047`, CLI/API/web and display-only views. Phase 3 was split into a separate roadmap phase (§4.28) |
 | future | Exercise-level symptom research (Phase 3) | **planned; unscheduled** | separate pre-registered descriptive research question; mechanical exposure and regional symptoms, not athlete attribution; no model, score, suitability rule or prescription change; Today follow-up `injury_attribution_phase3`; plan §10 and §4.28 |
 | — | 2026-10-26 pass | **done 2026-10-26** | declared breaks — append-only range, `break` CLI, Athlete panel, freeze in the trained-week cycle (`DEC-CONTINUITY-04`, `LIM-50`); P1 measured-test coverage view (`e1rm tests-needed` + Athlete table); symptom settling made fail-safe — a level-1 reading without a recorded 48 h settlement is a flare (`DEC-SYMPTOM-04`, Q25 closed) and `docs/SYMPTOM-LOGGING.md` documents the episode workflow; minimum-session target shown against the measured clock (`DEC-MIN-02`, `LIM-47` mitigated); gaps table folded into `docs/LIMITATIONS-REGISTER.md` |
@@ -1253,7 +1253,7 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | v1.5 | Deeper labelled calibration set | retired 2026-11-13 (§4.14, `DEC-EVAL-09`) |
 | future | LLM integration: analyst, explainer, constrained proposer | Iteration 1 planned; Iteration 2 conditional (§4.24; selector retirement is Phase 1b) |
 | future | Personalised volume-response model | idea only; shadow/gated (§13, Q28) |
-| future | Athlete Feedback & Coaching (AFC) — deferred AFC-3 second cut | AFC-2, AFC-2i, AFC-3 and AFC-4 implemented 2026-11-13; physical iPhone report acceptance remains owner-run (§4.33) |
+| future | Athlete Feedback & Coaching (AFC) — deferred AFC-3 second cut | AFC-2, AFC-2i, AFC-3 and AFC-4 implemented 2026-11-13; physical iPhone report acceptance owner-confirmed 2026-11-14 (§4.33) |
 | done (Phases 0–3A) | Native iPhone online-first client | Phase 0 complete 2026-11-07; **Phase 1 complete 2026-11-07** (server facade + Swift client, simulator-verified and owner-confirmed on the physical iPhone); **Phase 2 complete 2026-11-07** (online readiness/prescription/workout/completion + Progress, simulator-verified and owner-confirmed on the physical iPhone); **Phase 3A closed 2026-11-08** (opt-in read-only HealthKit HRV/RHR/bodyweight readiness; physical HealthKit acceptance owner-confirmed); Apple PCC is an optional AI-only network exception (§4.29; [`iOS client plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/IOS-CLIENT-PLAN.md)) |
 
 ### 4.19.1 Deferred: web authentication and per-user data
@@ -1802,8 +1802,8 @@ cascade, and the read-only watch Today); 6.3 and later need a separate go-ahead.
 
 ### 4.33 Athlete Feedback & Coaching (AFC)  (AFC-2, AFC-2i, AFC-3 and AFC-4 implemented 2026-11-13)
 
-**Status:** AFC-2, AFC-2i, AFC-3 and AFC-4 are implemented 2026-11-13; physical iPhone
-report acceptance remains owner-run.
+**Status:** AFC-2, AFC-2i, AFC-3 and AFC-4 are implemented 2026-11-13; physical iPhone report
+acceptance was owner-confirmed 2026-11-14.
 Beyond AFC-2 this section is documentation only: no schema, API, rule or threshold change is part
 of it. The full plan is [`AFC plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md).
 
@@ -1837,7 +1837,7 @@ source, `quality.flags` is populated, the end screen renders adherence and data 
 readiness follow-up reads `adherence.analyse`, and the three Phase 5A guards from
 `DEC-AFC-02` are in place. AFC-3 and AFC-4 are implemented below.
 
-**AFC-2i is implemented** (2026-11-13; physical iPhone acceptance pending). It consumes the
+**AFC-2i is implemented** (2026-11-13; physical iPhone acceptance owner-confirmed 2026-11-14). It consumes the
 delivered `GET /api/workout/<id>/summary` payload through the transport-only iOS facade —
 `adherence`, `vbt`, `feedback`, `quality.flags` and `evidence` — in the existing workout
 completion flow, and adds no calculation, capture, endpoint contract, schema or prescription change
@@ -1862,7 +1862,7 @@ adherence and the observation count. No notification channel and no new metric
 (`DEC-AFC-05`).
 
 **Tracked follow-ups.** The remaining AFC work is recorded as periodic review tasks rather than
-prose: `afc_device_acceptance` (physical iPhone report acceptance) and `afc_5a_historical`
+prose: `afc_device_acceptance` (closed 2026-11-14, owner-confirmed) and `afc_5a_historical`
 (AFC-5a, waiting until 2027-01-23). They appear in the review panel and change nothing by
 themselves.
 
