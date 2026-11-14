@@ -589,6 +589,12 @@ The three main targets fell below 500 ms p95. `get_session_details` remains very
 within the accepted 7 s budget but not fast); its dominant remaining cost is `workout.summary`'s
 load-base/rule work. This is a documented follow-up, not a blocker for the full catalogue.
 
+**Status (2026-11-14): T-3 first pass closed.** The three targeted optimisations are implemented,
+remeasured over real MCP HTTP and reflected in the latency metadata. Follow-up **T-3a** (optional,
+not started): reduce session details below the slow band by profiling the remaining
+`workout.summary` load-base path; it is not required for the accepted full-catalogue rollout and
+must not be described as complete until remeasured.
+
 ## 19. Structured audit record (remediation)
 
 Every MCP tool call and resource read emits exactly one JSON line on the
