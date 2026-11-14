@@ -117,6 +117,11 @@ the existing system without changing monitoring parameters, calibration, metric 
 prescription behaviour. The Today-page follow-up is phase5a_review; completing it requires an
 explicit decision.
 
+AFC ([the AFC plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md) §5) is read-only composition and changes no Phase 5A instrument:
+attendance `target`/`pct`, the flags in `features/prospective.py`, monitoring, exposure and
+calibration configuration, and the end-screen capture controls stay frozen until the review gate
+(`DEC-AFC-02`).
+
 Phase 5B is gated and not approved or underway. It may begin only after the Phase 5A review and
 explicit user approval, and every change must trace to a documented Phase 5A finding.
 

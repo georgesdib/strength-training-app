@@ -18,7 +18,7 @@ import urllib.request
 import pytest
 from conftest import make_readiness, make_training
 
-from strength_coach import cli, history
+from strength_coach import cli, history, workout
 from strength_coach.features import progress as progress_feature
 from strength_coach.store import db, importer, ios_devices
 from strength_coach.utils import ios_credentials
@@ -411,6 +411,51 @@ def test_history_matches_the_existing_service(ios):
     )
     assert status == 200
     assert body == expected_window
+
+
+def test_workout_summary_matches_the_existing_service(ios):
+    token, _ = _paired(ios)
+    plan = {
+        "for_date": ios["today"],
+        "session_type": "hinge",
+        "items": [{
+            "exercise_id": "trap_bar_deadlift", "sets": 2,
+            "reps_low": 3, "reps_high": 5, "load_kg": 100,
+            "rir_target": 2,
+        }],
+    }
+    readiness = {
+        "sleep": 4, "energy": 4, "mood": 4, "soreness": 2, "stress": 3,
+        "nutrition": 4, "hydration": 4,
+    }
+    store = db.Store(ios["path"])
+    try:
+        started = workout.start(
+            store.connection, for_date=ios["today"], plan=plan, readiness=readiness
+        )
+        workout.add_set(
+            store.connection, started["workout_id"],
+            exercise_id="trap_bar_deadlift", load_kg=100, reps=5, rir=2,
+        )
+        ended = workout.end(store.connection, started["workout_id"], session_rpe=7)
+        expected = workout.summary(store.connection, ended["workout_id"])
+    finally:
+        store.close()
+
+    status, body = _request(
+        ios["base"],
+        f"/api/ios/v1/workouts/{ended['workout_id']}/summary",
+        token=token,
+    )
+    assert status == 200, body
+    assert body == {"summary": expected}
+    assert body["summary"]["adherence"]["status"] == "available"
+    assert body["summary"]["quality"]["flags"]
+
+    status, body = _request(
+        ios["base"], "/api/ios/v1/workouts/does-not-exist/summary", token=token
+    )
+    assert status == 404
 
 
 def test_history_detail_matches_the_existing_service(ios):

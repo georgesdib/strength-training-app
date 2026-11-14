@@ -30,9 +30,10 @@ so a single "sets per week" target cannot serve both goals.
 
 **Implication for a 3x/week full-body programme:** it is fully compatible with this, *because*
 every session touches every muscle group. The meaningful audit is therefore not sessions per
-week but **sets per muscle group per week**, which most logging apps never compute.
-Recommendation: add `sets_per_muscle_group_per_week` to the feature store, keyed off the
-exercise taxonomy rather than the raw muscle label.
+week but **sets per muscle group per week**, which most logging apps never compute. The
+programme currently audits weekly working sets by movement pattern instead
+(`features/volume.py`); per-muscle accounting would need an exercise-to-muscle mapping and is
+not planned.
 
 ## 2. Frequency
 

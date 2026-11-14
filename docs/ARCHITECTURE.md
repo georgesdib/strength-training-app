@@ -28,8 +28,8 @@ structural edits*. Policy validates every edit.
         └───────┬──────────────────────────────────┬───────────────┘
                 ▼                                  ▼
    ┌────────────────────────┐        ┌────────────────────────────────┐
-   │ prescribe (deterministic)│      │ critique (deterministic rubric)│
-   │ → full prescription      │      │ → facts + rubric scores        │
+   │ prescribe (deterministic)│      │ critique (retired; facts only) │
+   │ → full prescription      │      │ → historical rows, read-only   │
    └────────┬───────────────┘        └──────────────┬─────────────────┘
             ▼                                       ▼
    ┌──────────────────────────────────────────────────────────────┐
@@ -58,10 +58,10 @@ structural edits*. Policy validates every edit.
 | `features` | feature store, VBT calibration | contain rule thresholds (those are config) |
 | `rules` | load/hash/version rule docs; evaluate predicates | be edited at runtime |
 | `prescribe` | deterministic prescription from template + state + rules | call an LLM |
-| `critique` | deterministic rubric scores from rules + facts | call an LLM |
+| `critique` | historical facts + stored rubric rows (scoring is retired, `DEC-EVAL-09`) | score or persist a session |
 | `policy` | veto/downgrade checks | let the LLM override a veto |
 | `agents` | prompt assembly, tool calls, prose | compute a load, invent a rule, cite an uncited source |
-| `eval` | backtest harness, labelled rubric set | write to production tables |
+| `eval` | read-only diagnostics (fatigue diagnostics; the rubric backtest was removed) | write to production tables |
 
 ## 3. Where the LLM sits (and where it must not)
 
@@ -98,9 +98,10 @@ the LLM never becomes the source of a load, e1RM, volume or safety verdict. The 
 contracts and evaluation gates are in
 [`LLM-INTEGRATION-PLAN.md`](LLM-INTEGRATION-PLAN.md); ROADMAP §4.24 tracks status. Iteration 1
 reuses the existing client, proposal, feature, repository, provenance and trace infrastructure
-and adds the new shared deterministic context/evidence builder in Phase 2; retrieval/RAG and
-advanced orchestration are conditional Iteration 2 work. Nothing in this subsection is a
-current runtime capability.
+and adds the new shared deterministic context/evidence builder in Phase 2, which serialises the
+evidence produced by the Athlete Feedback & Coaching layer ([`AFC plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md), ROADMAP §4.33)
+rather than recomputing its metrics; retrieval/RAG and advanced orchestration are conditional
+Iteration 2 work. Nothing in this subsection is a current runtime capability.
 
 ## 4. Run lifecycle and trace
 

@@ -2,6 +2,71 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **AFC follow-ups are tracked as review tasks.** `afc_device_acceptance` (physical iPhone
+  acceptance of the session report and its observation) and `afc_5a_historical` (AFC-5a
+  historical analysis, waiting until 2027-01-23) now appear in the periodic-review panel like the
+  Phase 5A gate. Neither starts work by itself.
+
+- **One deterministic observation on the completed-workout summary.** `workout.summary()` now
+  carries an optional `observation` — the strongest qualifying claim among RIR deviation,
+  unperformed prescribed slots and velocity sets outside the calibration band — with the usual
+  evidence envelope, or `null` when nothing qualifies. The web end screen renders it; it is the
+  first-class input the future LLM context builder serialises (`DEC-AFC-08`).
+
+- **AFC-3 closed at its first cut; excluded sessions are now reported.** `GET /api/observations`
+  counts imported, abandoned, technique, voided and adherence-unavailable sessions per category
+  and lists each in `abstain` with a reason, so a thin comparable sample is explained rather than
+  silent. The deferred second cut (stagnation, stable-effort improvement) moves to AFC-5 scoping
+  (`DEC-AFC-07`).
+
+- **AFC-4: one coaching nudge and a programme-KPI panel.** Today promotes at most one AFC-3
+  observation as a review category, with dismiss (per evidence window) and a 14-day snooze
+  stored append-only in `maintenance_review`; Progress gains a programme-KPI panel composed
+  from target-based attendance, volume patterns, summed adherence and the observation count.
+  No notification channel, no composite score and no new metric (`DEC-AFC-05`).
+
+- **AFC-3 first cut: longitudinal observations.** `features/observations.py` reads the existing
+  `adherence` and `vbt_performance` payloads and reports at most one repeated pattern per family
+  — RIR above/below target, sessions ending with unperformed prescribed slots, VBT cohorts
+  outside their calibration band — over the last five comparable sessions in an eight-week
+  window (`config/observations.v1.yaml`). Every claim carries the evidence envelope; a family
+  that cannot support one abstains with a reason. Produced observations are appended to the new
+  append-only `observation` table, idempotent on the evidence id. Exposed at
+  `GET /api/observations`, `strength-coach observations` and a Progress panel. No metric is
+  recomputed and `workout.summary()` is unchanged.
+
+- **The critique rubric is retired.** Ending a workout no longer scores or persists a critique,
+  a history correction no longer rebuilds one, and the rubric engine, eval harness, mark
+  ingestion, `critique`/`review`/`calibrate` CLI commands, `/api/calibrate` and
+  `POST /api/review/<session>` are removed (`DEC-EVAL-09`). `critique`, `rubric_score` and
+  `rubric_mark` rows stay as historical data, readable through the now read-only
+  `GET /api/review/<session>`; AFC is the canonical post-workout adherence evaluation. The web
+  Review page loses its mark form, calibration button and end-screen "Review workout" entry
+  point.
+
+- **AFC-2: one adherence source and a real data-quality block on the completed-workout
+  summary.** The summary no longer returns the duplicate `completion` count block; `adherence`
+  is the single metric source (`DEC-AFC-01`), and the raw `comparison` on
+  `GET /api/workout/<id>` is documented as the display contract for a workout that has not been
+  materialised. `quality.flags` is now populated from the adherence and VBT quality payloads
+  instead of being a hardcoded empty list, and the payload carries `evidence`: deterministic
+  evidence ids (`features/evidence.py`) over the rows each number came from, using the existing
+  `insufficient`/`signal`/`evaluation` gate vocabulary. The end screen renders adherence and
+  data quality, and readiness-follow-up now reads `adherence.analyse` instead of the coarser
+  comparison engine. No schema change.
+
+- **Roadmap consolidation for Athlete Feedback & Coaching (AFC)**: ROADMAP §4.23 is retired and
+  its remaining scope moved to the new §4.33. The section never had an approved design, and its
+  UI-polish half was already delivered by the P0–P3 UI redesign. AFC-2 is backend and web UI work;
+  neither it nor the AFC initiative is Phase 7, which remains the LLM narrative layer. A later
+  phase, AFC-2i, renders the same report in the native iOS completion flow. The new canonical plan `docs/AFC.md` records the composition rules, the single evidence
+  contract shared with the LLM context builder, the Phase 5A instrument freeze and the separately
+  gated AFC-5 adaptation work. `DEC-AFC-01` and `DEC-AFC-02` are added; `DEC-W7-01` stands, so
+  planned-session compliance stays out of scope and `LIM-05` is reaffirmed rather than reopened.
+  Documentation only: no code, API, schema, threshold or prescription change.
+
 ## [1.4.0] — 2026-11-13
 
 ### Added
@@ -91,6 +156,14 @@
   key, or foreign-key/unique/trigger problem. It requires `--force`, refuses a target with WAL
   side files, and writes an automatic `pre-transfer` backup before the atomic replace. No
   authoritative label.
+
+- **Local config in transfers and backups**: `tools/db_transfer.py export --include-local-config`
+  now adds the git-ignored local overlays and `config/llm.local.toml` to the archive, with a
+  per-file size and SHA-256 in the manifest. Import requires the same flag, verifies every
+  file, backs up existing local config, and rolls the database back if the config restore
+  fails. `tools/backup_app.py` now includes non-secret local overlays in the full backup while
+  always excluding `config/llm.local.toml` and `.env`; `--source-only` omits all local
+  overlays. The transfer archive therefore contains the LLM key; handle it as a secret.
 
 ### Fixed
 

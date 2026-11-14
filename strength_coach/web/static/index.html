@@ -208,6 +208,16 @@
           </form>
           <div id="progress-adherence"><p class="empty">Loading prescription adherence…</p></div>
         </section>
+        <section class="panel progress-dashboard-panel state-wide" id="progress-observations-panel">
+          <div class="panel-head"><h2>Longitudinal observations</h2><span class="muted">repeated patterns; never a prescription</span></div>
+          <p class="section-help"><span>Repeated patterns over the latest comparable sessions. Each claim carries the gate, sample size and evidence id of the service that owns it; nothing here changes a load or a plan.</span> <a class="doc-link" href="#docs?doc=docs/AFC.md">AFC plan</a></p>
+          <div id="progress-observations"><p class="empty">Loading observations…</p></div>
+        </section>
+        <section class="panel progress-dashboard-panel state-wide" id="progress-kpis-panel">
+          <div class="panel-head"><h2>Programme KPIs</h2><span class="muted">composed, not recalculated</span></div>
+          <p class="section-help"><span>Target-based training frequency, weekly volume attainment, summed prescription adherence and the current observation count. No composite score and no planned-session compliance.</span> <a class="doc-link" href="#docs?doc=docs/AFC.md">AFC plan</a></p>
+          <div id="progress-kpis"><p class="empty">Loading programme KPIs…</p></div>
+        </section>
         <div class="progress-dashboard-grid">
           <section class="panel progress-dashboard-panel"><div class="panel-head"><h2>Strength trend</h2><span class="muted">eligible raw e1RM observations</span></div>
             <p class="section-help"><span>Raw eligible daily estimates only; gaps and equipment changes are not imputed.</span> <a class="doc-link" href="#docs?doc=docs/OUTCOMES.md">Strength and outcome definitions</a></p>
@@ -817,32 +827,16 @@
 
     <section id="view-review" class="view">
       <div class="panel">
-        <div class="panel-head"><h2>Review a session</h2><span class="muted">human marks, engine scores shown</span></div>
-        <p class="section-help"><span>Human rubric marks; engine values are shown for context and never copied.</span> <a class="doc-link" href="#docs?doc=docs/RUBRIC-CALIBRATION.md">Rubric calibration</a></p>
+        <div class="panel-head"><h2>Review a session</h2><span class="muted">stored engine scores · read only</span></div>
+        <p class="section-help"><span>Stored engine scores for a completed session. Nothing is recorded or scored here; post-workout evaluation lives in the workout report.</span> <a class="doc-link" href="#docs?doc=docs/RUBRIC-CALIBRATION.md">Calibration history</a></p>
         <form id="review-form" class="form-row">
           <label>Session <select id="review-session"></select></label>
           <button type="submit">Load sheet</button>
         </form>
-        <p class="muted">Only high-confidence marks count toward agreement. Leave an item blank to skip;
-          the engine value is shown for context, not copied.</p>
+        <p class="muted">The rubric calibration loop is dormant (DEC-EVAL-09). Sessions completed after
+          the retirement have no critique and show no items.</p>
       </div>
       <div id="review-result"></div>
-      <div class="panel">
-        <div class="panel-head"><h2>Rubric agreement</h2><span class="muted">the <code>calibrate</code> report</span></div>
-        <p class="section-help"><span>Runs the calibration report; only high-confidence marks count.</span> <a class="doc-link" href="#docs?doc=docs/RUBRIC-CALIBRATION.md">Calibration loop</a></p>
-        <button class="ghost" id="rubric-calibration-run">Run rubric calibration</button>
-        <div id="rubric-calibration"></div>
-      </div>
-      <div class="panel">
-        <div class="panel-head"><h2>Calibration review (B1)</h2><span class="muted">closed 2026-11-07 · rubric 1.2.0 unchanged</span></div>
-        <p class="section-help"><span>No weight or definition changed. Keep a thin stream of fresh marks and run the report later.</span> <a class="doc-link" href="#docs?doc=docs/RUBRIC-CALIBRATION.md">Calibration review</a></p>
-        <ul class="muted">
-          <li>Mark a session on the day, from memory, with <strong>high</strong> confidence.</li>
-          <li>Prefer a live workout with a prescription snapshot; skip an item you cannot judge.</li>
-          <li>Do not backfill old imports just to create calibration labels.</li>
-          <li>Run the report monthly or at the Phase 5A gate (2027-01-22); retuning is deferred.</li>
-        </ul>
-      </div>
     </section>
 
     <section id="view-readiness" class="view">
@@ -981,26 +975,16 @@
         <div class="panel-head"><h2>After the import</h2>
           <span class="muted">calibration is not an import step</span></div>
         <p class="section-help"><span>Reports counts, warnings and the next step; calibration is not an import step.</span> <a class="doc-link" href="#docs?doc=docs/DATA-QUALITY.md">Import behaviour</a></p>
-        <p class="muted">The short answer: <strong>do not run a calibration because you imported.</strong>
-          Import adds sessions; calibration compares the engine's rubric with <em>your marks</em>.
-          With no marks, <code>calibrate</code> says <code>no marks yet</code>.</p>
+        <p class="muted">The short answer: <strong>importing does not need a review or a calibration.</strong>
+          Import adds sessions; the descriptive report is generated when a workout ends.</p>
         <ol class="muted">
           <li><strong>Check the report above.</strong> New raw rows/sessions are the history that
             was added; <em>overlapping</em> means it was already loaded. A high
             <em>quarantined</em> count means dates or exercise names need attention.</li>
-          <li><strong>Mark a fresh session.</strong> Open <strong>Review</strong> and mark a
-            session you remember, ideally one just completed in Workout mode so a prescription
-            snapshot exists (or run <code>strength-coach review --pending</code>). Those marks are
-            the calibration labels; only <code>high</code>-confidence marks count. Do not backfill
-            old imports just to create labels.</li>
-          <li><strong>Calibrate later.</strong> Monthly, or at the Phase 5A gate, run
-            <strong>Run rubric calibration</strong> on the Review page
-            (or <code>strength-coach calibrate</code>). Re-importing does not invalidate marks,
-            and importing does not require a re-run on its own.</li>
+          <li><strong>No review step.</strong> The rubric calibration loop is retired
+            (<code>DEC-EVAL-09</code>): no marks are requested and the Review page shows stored
+            engine scores read-only.</li>
         </ol>
-        <p class="muted">Review the recent sessions, not the distant past: the pending review stops
-          at your last reviewed session. Rubric calibration and readiness calibration are
-          different reports; neither changes weights automatically.</p>
         <button class="ghost" data-view-link="review">Go to Review</button>
       </div>
     </section>

@@ -59,8 +59,7 @@ async function loadHistory() {
         ? '<span class="badge warn">date already recorded</span>' : "";
       var attributed = day.attributed_symptom_count
         ? '<span class="badge warn">attributed symptoms</span>' : "";
-      var state = (day.marks ? '<span class="badge">' + day.marks + "</span>" : '<span class="badge warn">none</span>') +
-        " " + edited + " " + review + " " + dateWarning + " " + attributed;
+      var state = [edited, review, dateWarning, attributed].filter(Boolean).join(" ");
       var fragmentList = (day.fragments || []).map(historyFragmentLine).join("");
       rows.push("<tr><td>" + esc(day.occurred_on) + "</td><td>" + esc(day.session_type) +
         "</td><td>" + day.fragment_count + "</td><td>" + day.working_set_count + "/" + day.set_count +
@@ -82,7 +81,7 @@ async function loadHistory() {
     });
     target.innerHTML = rows.length
       ? '<div class="desktop-table"><table><thead><tr><th>Date</th><th>Type</th><th>Fragments</th><th>Sets</th>' +
-        "<th>Main lifts</th><th>Marks</th><th></th></tr></thead><tbody>" + rows.join("") + "</tbody></table></div>" +
+        "<th>Main lifts</th><th>Flags</th><th></th></tr></thead><tbody>" + rows.join("") + "</tbody></table></div>" +
         '<div class="mobile-cards">' + cards.join("") + "</div>"
       : "<p class='empty'>No training days in this range.</p>";
     document.getElementById("history-total").textContent =

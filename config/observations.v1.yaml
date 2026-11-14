@@ -1,0 +1,18 @@
+# AFC-3 longitudinal observations — first-cut display thresholds (DEC-AFC-04).
+#
+# These are AFC reporting thresholds, not Phase 5A instruments: they decide when a repeated
+# pattern is worth showing, never a load, set, RIR, readiness value or gate. Changing them is
+# a decision, not a tuning knob.
+schema_version: 1
+
+# Window ending on the requested date.
+window_weeks: 8
+
+# "Repeated" means repeated_required of the last comparison_sessions comparable sessions.
+comparison_sessions: 5
+repeated_required: 3
+
+# A VBT cohort is reported when its gate is already signal/evaluation (the cohort gate is the
+# repetition evidence) and at most this share of comparable sets fell inside the calibration
+# band. Assumption: a majority-outside-band cohort is the readable "deviation" case.
+vbt_max_within_band_ratio: 0.5

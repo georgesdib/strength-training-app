@@ -3,9 +3,11 @@
 **Date:** 2026-10-24  
 **Question:** Is a top set followed by back-off sets more effective than the current programme
 for strength, hypertrophy and longevity?  
-**Decision:** No programme change. Keep the current straight-set prescription. The evidence is
-more supportive than an earlier version of this note implied, but it is still indirect and does
-not establish superiority over the current prescription. Documented review only; no implementation.
+**Decision:** No default programme change. Keep the current straight-set prescription. The
+evidence is more supportive than an earlier version of this note implied, but it is still
+indirect and does not establish superiority over the current prescription. The structure exists
+only as an opt-in resolver feature (`resolver.top_set.mode`, default "ask"); this review does
+not recommend promoting it to the default.
 
 ---
 
@@ -198,7 +200,8 @@ Reasonable uses that do **not** require a programme change:
 3. If the athlete specifically wants a top-set experiment, run it as a single-lift N-of-1,
    with the current safety rules intact.
 
-No code, config or prescription change is proposed.
+No default prescription change is proposed. The opt-in resolver structure already exists; this
+review does not recommend promoting it or replacing the straight-set default.
 
 ---
 

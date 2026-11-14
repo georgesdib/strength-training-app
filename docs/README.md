@@ -64,11 +64,12 @@ for current status and next actions. [`AGENTS.md`](../AGENTS.md) holds the engin
 - [REFERENCES.md](REFERENCES.md) — bibliography with DOIs and usage
 - [LIMITATIONS-REGISTER.md](LIMITATIONS-REGISTER.md) — living limitation index
 - [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) — live ambiguities and defaults
-- [RUBRIC-CALIBRATION.md](RUBRIC-CALIBRATION.md) — calibration loop, B1 outcome and what to do next
+- [RUBRIC-CALIBRATION.md](RUBRIC-CALIBRATION.md) — dormant calibration loop, B1 outcome and historical-data policy
 - [SANITY-CHECKS.md](SANITY-CHECKS.md), [V0-SCOPE.md](V0-SCOPE.md)
 
 ## Active and gated plans
 
+- [AFC.md](AFC.md) — compatibility pointer; canonical plan in the [portfolio docs/plans](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md) (AFC-2, AFC-2i, AFC-3 first cut and AFC-4 implemented 2026-11-13)
 - [HIGH-INTENSITY-EXPOSURE-PLAN.md](HIGH-INTENSITY-EXPOSURE-PLAN.md) (Phase 3 pending)
 - [INJURY-ATTRIBUTION-PLAN.md](INJURY-ATTRIBUTION-PLAN.md) (Phase 3 open)
 - [LLM-INTEGRATION-PLAN.md](LLM-INTEGRATION-PLAN.md)

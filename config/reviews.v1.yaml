@@ -20,23 +20,6 @@ readiness_thresholds:
   dont:
   - Do not change thresholds automatically.
   - Do not choose and validate a cutoff on the same data.
-rubric_labels:
-  label: Deepen rubric calibration labels
-  target_per_item: 10
-  measurable_items:
-  - RIR_ADHERENCE
-  - PROGRESSION_ADHERENCE
-  - WEEKLY_SPINAL_COST
-  - ESSENTIAL_WORK
-  - REDUNDANCY
-  - ROTATION
-  doc: docs/STRENGTH-PROGRAM-REVIEW.md
-  why: Only high-confidence human marks count; the rubric is not retuned on a thin
-    sample.
-  steps:
-  - Open Review and mark recent sessions.
-  - Use high confidence only when the session is genuinely remembered.
-  - Aim for 10 high-confidence marks per measurable item.
 strength_test:
   label: 3RM/5RM strength test
   every_weeks: 10
@@ -156,3 +139,41 @@ phase5a_review:
   - Do not change monitoring parameters, calibration, thresholds or prescriptions during Phase 5A.
   - Do not treat an observed correlation as causal or as a validated predictor.
   - Do not begin Phase 5B before an explicit review decision.
+
+# AFC follow-ups. These are visible reminders, not programme changes; the phase-5A gate does
+# not start any of them. DEC-AFC-09.
+afc_device_acceptance:
+  label: AFC-2i report — physical iPhone acceptance
+  status: attention
+  doc: docs/AFC.md
+  why: >
+    The session report and its per-workout observation are implemented but have not been
+    exercised on the physical iPhone. Unit tests are not device proof, and the offline/retry
+    path especially is only proven on hardware.
+  steps:
+  - Open a completed workout on the iPhone and confirm the report appears after an acknowledged
+    completion.
+  - Confirm the report shows adherence, VBT, feedback, quality flags and evidence, and the
+    "What stood out" section only when the server sends one.
+  - Stop the server or corrupt the read and confirm "Report unavailable" retries the read only.
+  - Reopen the same report from History; confirm an imported session explains why none exists.
+  dont:
+  - Do not treat a simulator run as physical-device acceptance.
+  - Do not change the report or the server contract while recording acceptance.
+afc_5a_historical:
+  label: AFC-5a — historical adaptation analysis
+  not_before: "2027-01-23"
+  doc: docs/AFC.md
+  why: >
+    AFC-5a is a pre-registered historical counterfactual. It may start only after the Phase 5A
+    gate closes on 2027-01-22, and its criteria are written before any number is inspected.
+  steps:
+  - Confirm the Phase 5A review decision is recorded.
+  - Write the 12-week window, the 20-session minimum and the success/failure criteria before
+    looking at any result.
+  - Evaluate only load and set count, against the e1RM trend at stable effort.
+  - Record the outcome as a report; generate no proposal.
+  dont:
+  - Do not start before the Phase 5A review.
+  - Do not inspect outcomes before the criteria are written.
+  - Do not propose or apply a prescription change from this analysis.

@@ -105,16 +105,23 @@ the case where one machine is authoritative and another is used for development;
 
 ```bash
 # authoritative machine
-python tools/db_transfer.py export --db data/coach.db
+python tools/db_transfer.py export --db data/coach.db --include-local-config
 scp data/exports/coach-db-*.tar.gz dev-host:
 
 # development machine: stop the app first
-python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --dry-run
-python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --force
+python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --dry-run --include-local-config
+python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --force --include-local-config
 
 # new machine with no target database yet
-python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --create --force
+python tools/db_transfer.py import --archive coach-db-*.tar.gz --db data/coach.db --create --force --include-local-config
 ```
+
+The database-only archive is the default. Add `--include-local-config` on export to carry the
+git-ignored local overlays (`config/*.local.yaml`, `config/exercises/*.local.yaml` and
+`config/llm.local.toml`) and to record their hashes in the manifest. Import requires the same
+flag when the archive contains them, backs up any existing local config files, and rolls the
+database back if the config restore fails. When `config/llm.local.toml` is present, the archive
+includes the LLM key, so handle it as a secret.
 
 The archive contains the SQLite snapshot, a manifest with the full applied migration set
 (version and checksum), the app version and the database SHA-256. Import verifies the
@@ -147,6 +154,10 @@ and it is deliberately conservative. Anything the fill cannot prove safe aborts 
 target is touched. The archive contains personal health data and is not encrypted, so
 transfer it over SSH or an encrypted disk.
 
+`tools/backup_app.py` is the full-app backup. Its default archive includes non-secret local
+config overlays but always excludes local secrets such as `config/llm.local.toml` and `.env`;
+`--source-only` excludes the database, raw exports, private data and all local overlays.
+
 ## CI and releases
 
 CI installs the pinned [`requirements.lock`](requirements.lock), runs Ruff, the public
@@ -160,20 +171,17 @@ protection and recovery from a failed release.
 
 ```bash
 python -m strength_coach.cli import                    # data/raw -> data/coach.db
-python -m strength_coach.cli run --date 2026-10-20     # critique the last session, prescribe
-python -m strength_coach.cli review --session 2026-10-15  # mark it; calibration updates
-python -m strength_coach.cli calibrate                 # agreement report so far
+python -m strength_coach.cli run --date 2026-10-20     # prescribe from the latest session
+python -m strength_coach.cli state                     # goals, limits, suitability
 ```
 
-`run` is the v0 slice: it critiques the most recent stored session and prescribes the
-requested date, then prints every item with the rule id or stored set that justifies its
-load. Re-running the same date writes nothing unless you pass `--force`.
+`run` is the v0 slice: it prescribes the requested date from the most recent stored session and
+prints every item with the rule id or stored set that justifies its load. Re-running the same
+date writes nothing unless you pass `--force`.
 
-`review` is the calibration loop. It shows the session beside the rubric's scores, asks for
-your mark on each item, stores them append-only, and immediately prints running agreement.
-Do it after any session you want to judge: the report gets sharper with every review, and an
-item is flagged for revisiting only once it has five marks and still disagrees by more than
-0.25. Nothing is retuned automatically — a rubric change is a decision, not a side effect.
+The deterministic critique rubric is retired (`DEC-EVAL-09`): `run` no longer scores a session,
+and the `review` and `calibrate` commands are gone. Historical `critique`, `rubric_score` and
+`rubric_mark` rows stay readable through `GET /api/review/<session>`.
 
 ## Privacy
 
@@ -242,10 +250,10 @@ strength_coach/
   features/                    derived features, baselines, VBT calibration
   rules/                       constitution loader, predicates, policy verdicts
   prescribe/                   deterministic session-type engine and load solver
-  critique/                    rubric over a stored session
+  critique/                    historical rubric facts (scoring retired)
   agents/                      LLM interface, config, narrative (NullLLM by default)
   trace/                       run lifecycle
-  eval/                        backtest harness and labelled-set comparison
+  eval/                        read-only diagnostics (fatigue diagnostics)
 tools/profile_data.py          reproducible data profile
 tools/baseline.py              reproducible strength baseline
 tools/llm_check.py             shows the effective LLM settings; --call tests them

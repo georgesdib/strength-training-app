@@ -24,32 +24,6 @@ SYSTEM_PROMPT = (
 )
 
 
-def critique_prompt(critique, facts) -> str:
-    payload = {
-        "session": facts.session_id,
-        "date": facts.occurred_on,
-        "session_type": facts.session_type,
-        "composite": critique.composite,
-        "items": [
-            {
-                "item": item.key,
-                "score": item.score,
-                "measurable": item.measurable,
-                "detail": item.detail,
-                "rules": list(item.rule_ids),
-                "evidence": list(item.evidence_refs),
-            }
-            for item in critique.items
-        ],
-    }
-    return (
-        "Explain this training-session critique to the athlete: what went well, what to "
-        "change next session, and which rule ids justify it. Unmeasurable items must be "
-        "described as not measurable, never as a zero score.\n\nFACTS:\n"
-        + json.dumps(payload, indent=2, ensure_ascii=False)
-    )
-
-
 def prescription_prompt(prescription) -> str:
     payload = {
         "for_date": prescription.for_date,
@@ -113,10 +87,6 @@ def narrate(
     if response.tokens:
         trace.add_tokens(response.tokens)
     return response.text
-
-
-def explain_critique(client: LLMClient, critique, facts, trace) -> str | None:
-    return narrate(client, critique_prompt(critique, facts), trace)
 
 
 def explain_prescription(client: LLMClient, prescription, trace) -> str | None:

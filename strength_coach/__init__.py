@@ -9,7 +9,7 @@ Layering, enforced by import direction (nothing lower imports anything higher):
     features   feature store + VBT calibration
     rules      versioned rule documents + policy evaluation
     prescribe  deterministic prescription engine
-    critique   deterministic rubric scoring
+    critique   historical rubric facts (scoring retired, DEC-EVAL-09)
     agents     LLM layer; may only call deterministic functions through tools
     eval       backtest harness
 """

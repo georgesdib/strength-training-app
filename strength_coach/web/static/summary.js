@@ -1,5 +1,6 @@
 /* Descriptive completed-workout summary. Phase 2: sections 1-5 only.
- * It reads the same API as the CLI and never computes a metric of its own. */
+ * It reads the same API as the CLI and never computes a metric of its own.
+ * Adherence reuses the renderers in adherence.js, which loads before this file. */
 function summaryValue(value, suffix) {
   if (value === null || value === undefined || value === "") return "Unavailable";
   return fmt(value) + (suffix || "");
@@ -76,14 +77,59 @@ function summaryRatiosHtml(ratios) {
     "<th>Gap days</th><th>Status</th></tr></thead><tbody>" + rows + "</tbody></table></div>";
 }
 
+function summaryAdherenceHtml(adherence) {
+  var head = "<h3>Prescription adherence</h3>";
+  if (!adherence) {
+    return head + "<p class='muted'>Not available for this session.</p>";
+  }
+  if (adherence.status !== "available") {
+    return head + "<p class='muted'>Not available: " +
+      esc(adherenceReason(adherence.reason)) + "</p>";
+  }
+  var modified = Boolean(adherence.quality && adherence.quality.plan_modified);
+  var primary = adherence.final_plan || {};
+  var intro = "<p class='muted'>Set completion counts filled prescribed slots; target " +
+    "attainment counts matching reps, load and RIR. A filled set can still miss its target.</p>";
+  return head + intro +
+    (modified ? adherenceChanges(adherence) : "") +
+    adherenceViewCard(primary,
+      modified ? "Final prescription" : "Prescription issued",
+      modified ? "<span class='badge warn'>modified during workout</span>"
+               : "<span class='badge'>unmodified</span>") +
+    (modified
+      ? adherenceViewCard(adherence.original || {}, "Original prescription",
+          "<span class='badge'>issued at start</span>")
+      : "") +
+    adherenceGlobalQuality(adherence.quality) +
+    "<p class='muted'>RIR deviation is actual minus target: positive means further from " +
+    "failure than prescribed.</p>";
+}
+
+function summaryQualityHtml(quality) {
+  quality = quality || {};
+  var flags = quality.flags || [];
+  var coverage = quality.coverage || {};
+  var parts = [];
+  if (coverage.rir != null) {
+    parts.push("RIR recorded on " + Math.round(coverage.rir * 100) + "% of working sets");
+  }
+  if (coverage.e1rm != null) {
+    parts.push("raw e1RM available for " + Math.round(coverage.e1rm * 100) + "% of lifts");
+  }
+  var rows = flags.map(function (flag) {
+    return "<li>" + esc(flag.code) + (flag.detail ? ": " + esc(flag.detail) : "") + "</li>";
+  }).join("");
+  return "<h3>Data quality</h3>" +
+    (parts.length ? "<p class='muted'>" + esc(parts.join(" · ")) + "</p>" : "") +
+    (rows
+      ? "<details class='adherence-quality'><summary>Limitations (" + flags.length +
+        ")</summary><ul class='list'>" + rows + "</ul></details>"
+      : "<p class='muted'>No known data-quality limitations.</p>");
+}
+
 function renderWorkoutSummary(summary) {
   var target = document.getElementById("workout-ended-summary");
   if (!target) return;
-  var completion = summary.completion || {};
-  var completionRows = (completion.items || []).map(function (row) {
-    return "<tr><td>" + esc(row.exercise_id) + "</td><td>" + esc(row.status) + "</td><td>" +
-      row.actual_sets + " / " + row.planned_sets + "</td></tr>";
-  }).join("");
   var strengthRows = (summary.strength || []).map(function (row) {
     var post = row.post || {};
     var recent = row.recent_reference || {};
@@ -102,12 +148,24 @@ function renderWorkoutSummary(summary) {
   var feedback = summary.feedback || {};
   var special = summary.special || {};
   var spinal = special.spinal || {};
+  var observation = summary.observation;
+  var observationHtml = observation
+    ? "<div class='panel' style='margin:.75rem 0'><p><strong>What stood out</strong> · " +
+      esc(String(observation.family).replace("_", " ")) + "</p>" +
+      "<p>" + esc(observation.text) + "</p>" +
+      "<p class='muted'>" + esc(observation.gate) + " · n=" + observation.n +
+      " · <code>" + esc(observation.evidence_id) + "</code></p>" +
+      "<details class='muted'><summary>Evidence and limitations</summary><ul>" +
+      (observation.limitations || []).map(function (item) {
+        return "<li>" + esc(item) + "</li>";
+      }).join("") + "</ul></details></div>"
+    : "";
   target.innerHTML =
     "<details class='panel' style='margin-top:1rem'><summary><strong>Descriptive session summary</strong></summary>" +
     "<p class='muted'>Raw formula performance; no decay or calibration. No composite score.</p>" +
-    "<h3>Completion</h3><p>" + (completion.completed_sets || 0) + " / " +
-    (completion.planned_sets || 0) + " planned sets</p>" +
-    (completionRows ? "<div class='table-scroll'><table><thead><tr><th>Exercise</th><th>Status</th><th>Actual / planned</th></tr></thead><tbody>" + completionRows + "</tbody></table></div>" : "") +
+    observationHtml +
+    summaryAdherenceHtml(summary.adherence) +
+    summaryQualityHtml(summary.quality) +
     "<h3>Strength performance</h3>" +
     (strengthRows ? "<div class='table-scroll'><table><thead><tr><th>Exercise</th><th>Post</th><th>Recent median</th><th>Difference</th><th>Status</th><th>Quality</th></tr></thead><tbody>" + strengthRows + "</tbody></table></div>" : "<p class='muted'>No raw strength observations.</p>") +
     "<p class='muted'>Difference is descriptive; no significance or meaningful-change claim.</p>" +

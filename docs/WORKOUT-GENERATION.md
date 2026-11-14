@@ -110,7 +110,7 @@ The time estimate depends on template time budgets, work slots and configured as
 
 The app has distinct reports that should not be conflated:
 
-- **Rubric calibration** compares the engine's session-critique scores with human marks.
+- **Rubric calibration** compared engine scores with human marks; it is retired (`DEC-EVAL-09`) and the historical rows stay read-only.
 - **Readiness calibration** compares the readiness score with historical readiness labels.
 - **Baseline shadow** compares the current HRV/RHR baseline approach with an alternative trend projection.
 

@@ -239,7 +239,6 @@ def test_documented_cli_commands_and_options_still_exist() -> None:
 
     for command, options in {
         "run": ("--date", "--session-type", "--llm", "--propose"),
-        "review": ("--session", "--pending"),
         "programme": ("--weeks", "--remaining"),
         "readiness": ("set", "calibrate", "shadow"),
         "block": ("--date",),

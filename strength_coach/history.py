@@ -13,9 +13,7 @@ import logging
 import uuid
 from typing import Any
 
-from strength_coach import __version__, adherence, workout
-from strength_coach.critique import score_session
-from strength_coach.critique.rubric import persist as persist_critique
+from strength_coach import adherence, workout
 from strength_coach.domain import load as load_mod
 from strength_coach.features import training_day, vbt_analysis
 from strength_coach.store import db, queries, repositories, symptom_attribution
@@ -247,7 +245,7 @@ def _refresh_session(conn, session_id: str) -> None:
             tonnage_present = True
     conn.execute(
         "UPDATE session SET set_count = ?, working_set_count = ?, exercise_count = ?, "
-        "main_lifts = ?, tonnage_kg = ?, needs_review = 1, edited_at = ?, updated_at = ? "
+        "main_lifts = ?, tonnage_kg = ?, edited_at = ?, updated_at = ? "
         "WHERE session_id = ?",
         (
             len(rows), len(working), len({row["exercise_id"] for row in rows}),
@@ -485,34 +483,9 @@ def _edit_session_impl(conn, session_id: str, *, sets: list[dict],
         (edit_id, session_id, reason, json.dumps(before, separators=(",", ":")),
          json.dumps(after, separators=(",", ":"))),
     )
-    warnings = []
-    try:
-        # The rebuilt critique is derived data: keep it atomic too, but do not roll back the
-        # user's corrected sets if only the rebuild fails.
-        with db.transaction(conn):
-            old_critique = conn.execute(
-                "SELECT critique_id FROM critique WHERE session_id = ? "
-                "ORDER BY created_at DESC LIMIT 1", (session_id,)
-            ).fetchone()
-            run = repositories.start_run(
-                conn, input_hash="session-edit:" + edit_id, code_version=__version__,
-                window_start=session["occurred_on"], window_end=session["occurred_on"],
-            )
-            critique = score_session(conn, session_id)
-            new_id = persist_critique(
-                conn, critique, run_id=run.run_id,
-                supersedes_id=old_critique["critique_id"] if old_critique else None,
-            )
-            repositories.finish_run(conn, run.run_id)
-            conn.execute(
-                "UPDATE workout_session SET critique_id = ?, reviewed_at = NULL "
-                "WHERE workout_id = ?", (new_id, session_id)
-            )
-    except Exception:
-        LOGGER.exception("critique rebuild failed for session %s", session_id)
-        warnings.append("critique not rebuilt; see server log")
-    return {"session": detail(conn, session_id), "edit_id": edit_id,
-            "warnings": warnings}
+    # The critique used to be rebuilt here. It is a retired diagnostic (DEC-EVAL-09), so an
+    # audited correction no longer re-scores anything; the historical rows stay untouched.
+    return {"session": detail(conn, session_id), "edit_id": edit_id, "warnings": []}
 
 
 def edit_session(conn, session_id: str, *, sets: list[dict],
@@ -540,7 +513,7 @@ def void_session(conn, session_id: str, *, reason: str | None = None,
     )
     conn.execute(
         "UPDATE session SET voided = ?, voided_at = ?, void_reason = ?, "
-        "needs_review = 1, updated_at = ? WHERE session_id = ?",
+        "updated_at = ? WHERE session_id = ?",
         (0 if unvoid else 1, _now(), None if unvoid else reason, _now(), session_id),
     )
     return detail(conn, session_id)
@@ -608,7 +581,6 @@ def apply_vbt(conn, session_id: str, entries: list[dict], *, reason: str | None 
                 (session_id, set_id, rep_index, velocity,
                  previous["override_id"] if previous else None),
             )
-    conn.execute("UPDATE session SET needs_review = 1 WHERE session_id = ?", (session_id,))
     after = current_vbt(conn, session_id)
     conn.execute(
         "INSERT INTO session_edit (edit_id, session_id, reason, before_json, after_json) "

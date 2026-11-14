@@ -27,7 +27,7 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `POST /api/workout/start` | `{date, plan, readiness, readiness_ack?, note?}` -> live workout; a score-ready assessment or explicit acknowledgement is required; partial readiness stays partial |
 | `GET /api/workout/active` | active workout, or `{workout: null}` |
 | `GET /api/workout/<id>` | workout detail |
-| `GET /api/workout/<id>/summary` | completed-workout descriptive summary including prescription adherence; 404 unknown, 409 in progress |
+| `GET /api/workout/<id>/summary` | completed-workout descriptive summary: adherence, VBT, dose, strength, feedback, data-quality flags, reproducible evidence ids and at most one deterministic observation; 404 unknown, 409 in progress |
 | `GET /api/form-trend?weeks=N&date=N` | descriptive current/baseline form trend |
 | `POST /api/workout/<id>/form` | `{exercise_id, rating 1-5}` -> optional post-lift form rating |
 | `POST /api/workout/<id>/sets` | `{exercise_id, load_kg, reps, rir, velocity?, plan_item_index?}` -> add manual set; explicit plan-item identity is validated against the frozen exercise; omitted identity resolves only a unique item |
@@ -46,8 +46,7 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/rep-velocity?session=<id>` | descriptive per-rep report after completion |
 | `GET /api/rep-velocity/analysis?weeks=&date=` | stratified cross-session descriptive report |
 | `POST /api/workout/<id>/abandon` | abandon the active workout |
-| `GET /api/review/<session>` | session sheet |
-| `POST /api/review/<session>` | `{scores, confidence, note, session_rpe, session_minutes, productivity}` -> marks + optional session detail |
+| `GET /api/review/<session>` | read-only historical rubric sheet: stored `rubric_score` rows and `rubric_mark` marks; nothing is re-scored | session detail |
 | `GET /api/readiness/<date>` | merged readiness |
 | `GET /api/readiness/history?from=&to=&fields=` | inclusive observed readiness/bodyweight series with per-field sources; requires date bounds, merges manual-over-import per field, no fill |
 | `POST /api/readiness` | `{date, values, note}` -> merged readiness + score |
@@ -73,6 +72,9 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/volume/budget?date=N` | read-only weekly volume budget: target, exemptions, completed, projection, session cap, feasibility and per-group status/persistent/top-up capacity |
 | `GET /api/outcomes?weeks=N&date=N` | read-only 4/8/12-week strength, longevity and coverage review |
 | `GET /api/prospective?weeks=N&date=N` | W5 read-only prospective summary: statuses, attendance, work, RIR, duration, flags |
+| `GET /api/observations?date=N&weeks=N` | AFC-3 longitudinal observations over the AFC-2 evidence contract: repeated RIR deviation, repeated incomplete work, VBT residual deviation; abstentions carry their reason. Persists new observations append-only (idempotent on the evidence id) |
+| `GET /api/nudge?date=N` | at most one AFC-4 review-category nudge from the current AFC-3 observation, or `null` when suppressed or unsupported |
+| `POST /api/nudge` | `{action: dismiss\|snooze, key, evidence_id?, date?}` -> append-only suppression and the next nudge; dismiss is permanent for that evidence window, snooze hides the key through `date + 14 days` inclusive and returns the following day |
 | `GET /api/regime?weeks=N&date=N` | read-only main-lift/substitute regime check |
 | `GET /api/settings` | masked LLM settings, drop settings, config/database paths and app version |
 | `GET /api/settings/ios` | effective `ios.v1.yaml` values, defaults, ranges, labels, descriptions, path/source and per-request reload semantics |
@@ -108,7 +110,6 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/measurements?metric_key=&from=&to=&limit=&offset=` | metric catalogue, summary and newest-first exact-record pages; offset walks older, entries stay date-ascending, date bounds are inclusive |
 | `POST /api/measurements` | `{metric, value, date, method, note}` -> summary |
 | `POST /api/state/profile` / `constraint` / `suitability` / `e1rm` / `test` / `symptom` / `block` | append-only state writes; profile includes `volume_budget_enabled` and `main_lift_policy`; goals, constraint kinds/regions, forbidden patterns/exercises and exercise ids are validated against the canonical vocabulary; `symptom` accepts optional `timing`, `attributed_session_id`, `attributed_exercise_id`, `onset_on` and `attribution_confidence`, plus the short aliases the UI uses |
-| `GET /api/calibrate` | calibration report |
 | `GET /api/docs` / `GET /api/docs/<name>` | doc list and rendered doc from `docs/manifest.yaml`; public entries only, grouped by category; `private/` and maintainer-only design docs are never served |
 
 ### Prescription adherence
@@ -130,9 +131,11 @@ per-exercise/per-set detail. Ratios always carry numerator and denominator and r
 a prescribed slot and still miss its rep, load or RIR target. There is no composite score.
 
 Adherence for a completed workout reads the current `clean_set` leaf rows, so an audited
-history correction is reflected rather than the original live `workout_set` draft. The
-existing summary `completion` block remains the frozen workout-view comparison; use
-`adherence` for adherence questions after a correction. The
+history correction is reflected rather than the original live `workout_set` draft.
+`adherence` is the single metric source for a completed workout: the old summary `completion`
+block was removed in AFC-2 (`DEC-AFC-01`). The raw `comparison`/`original_comparison` on
+`GET /api/workout/<id>` remains the display contract for a workout that has not been
+materialised (in progress or abandoned); it is not a metric source. The
 existing `is_working_set` classification is authoritative and RIR 6 remains the logged
 warm-up sentinel; contradictory rows are reported as ambiguous. Load is compared as external
 load, using the stored `load_basis`/`external_load_kg`; a captured bodyweight total is not
@@ -145,9 +148,29 @@ original prescription cannot be attributed reliably (a swap removes that item fr
 original denominator), the planned sets appear under `unattributable_planned_sets` with a
 reason instead of a fabricated percentage.
 
+The completed-workout summary also returns `quality.flags` and `evidence`. A flag is
+`{"code", "detail"}` and means a number on the page is qualified — never that the session
+failed; codes are the ones the owning service already emits. `evidence` is a list of
+`{evidence_id, evidence_version, source_fingerprint, source, source_ids, window, value, unit, n,
+comparability, gate, quality_flags, method_versions, calibration_ids, limitations, rule_ids,
+assumption_ids}`. `evidence_id` is the stable identity of the claim (source identities, window
+and value); a correction that leaves those unchanged keeps the id. `source_fingerprint` hashes
+the exact contributing source rows, so a changed revision changes the fingerprint even when the
+aggregate value does not. `source_ids` name the exact contributing rows (for RIR, only the
+evaluated RIR sets; never the containing session inventory). `gate` uses the existing
+`insufficient`/`signal`/`evaluation` vocabulary. The same envelope is what the future LLM
+context builder serialises, so there is one schema.
+
 Imported sessions have no frozen workout prescription and return
 `{"status": "unavailable", "reason": "no_prescription_snapshot"}`; a voided session returns
 `session_voided`; a workout with no plan items returns `no_prescription_items`.
+
+The summary also carries an optional `observation`: one deterministic sentence about the
+session, selected from the strongest qualifying family (RIR deviation beyond the engine's
+tolerance, unperformed prescribed slots, or comparable velocity sets outside the calibration
+band). It is `null` when nothing qualifies, carries `family`, `text`, `gate`, `n`,
+`evidence_id`, `limitations` and the same evidence envelope, and never changes a prescription.
+Selection is descriptive; nothing is recalculated (`DEC-AFC-08`).
 
 History set rows also expose `prescription_item_index` and `set_role`; an audited correction
 preserves both, so later comparison and adherence still resolve the same plan item and set
@@ -175,6 +198,41 @@ A documented display guard marks a period or exercise `small_sample` when it has
 three workouts or fewer than five prescribed sets. The Progress UI omits those points from the
 trend charts and keeps them in the tables with the exact counts. The guard is not a statistical
 confidence claim and never changes a numerator or denominator.
+
+### Longitudinal observations (AFC-3)
+
+`GET /api/observations` reads completed app-tracked workouts and reports at most one repeated
+pattern per family: RIR sitting above or below target, sessions ending with unperformed
+prescribed slots, and VBT cohorts whose residuals fall outside their calibration band.
+
+- A family only speaks when its own evidence gate allows it: RIR and incomplete work need three
+  of the last five comparable sessions (`config/observations.v1.yaml`); VBT inherits the cohort
+  gate and additionally requires at most half of comparable sets inside the band.
+- A family that cannot support a claim returns an entry in `abstain` with a reason — never a
+  zero, never a pass/fail. Excluded sessions (imported, abandoned, technique, voided and
+  adherence-unavailable) are counted in `excluded` and listed in `abstain`, so a thin sample is
+  explained rather than silent.
+- Every observation carries `gate`, `n`, `evidence_id`, `value` and the full `evidence`
+  envelope (`source`, `source_ids`, `window`, `comparability`, `limitations`, `rule_ids`).
+- The endpoint appends each produced observation to the append-only `observation` table,
+  idempotent on its deterministic id; re-requesting the same evidence writes nothing and changed
+  evidence appends a new row. Abstentions are never stored.
+- It computes no metric: values come from `adherence` and `vbt_performance` and are rendered,
+  not recalculated.
+
+### Coaching nudges (AFC-4)
+
+`GET /api/nudge` promotes at most one AFC-3 observation to a Today review category. A nudge
+carries its family, statement, gate, `n`, `evidence_id` and the full evidence envelope; it has
+no notification channel and never changes a prescription.
+
+Suppression is append-only (`maintenance_review`): `POST /api/nudge` with `action: dismiss`
+records a completed review (`not_applicable`) whose note is the observation/evidence identity, so
+only that evidence window is silenced; `action: snooze` records a 14-day snooze for the nudge key.
+The expiry date is inclusive: a snooze issued on 1 March stays hidden through 15 March and returns
+on 16 March.
+A new evidence id produces a new nudge. Attendance, volume and other signals are deliberately not
+nudge sources.
 
 ### VBT target metadata
 
@@ -306,6 +364,7 @@ in the StrengthApp repository.
 | `GET /api/ios/v1/today` | bearer | `{date, readiness, readiness_score, active_workout}`; `readiness` is the existing `/api/readiness/<date>` payload and `active_workout` is null or the live workout detail |
 | `GET /api/ios/v1/history?limit=&offset=&start=&end=` | bearer | exactly `history.list_sessions`; limit 1-100, default 50; offset >= 0, default 0 |
 | `GET /api/ios/v1/history/<id>` | bearer | exactly `history.detail`; session outline, measured/manual duration, sets and feedback; unknown id 404 |
+| `GET /api/ios/v1/workouts/<id>/summary` | bearer | `{"summary": ...}` — the same completed-workout summary payload as the web route (adherence, VBT, feedback, quality flags and evidence); unknown id 404, in-progress 409 |
 | `GET /api/ios/v1/progress?weeks=&date=` | bearer | exactly `progress_feature.dashboard`; weeks 1-52, default 8 |
 | `POST /api/ios/v1/readiness` | bearer + Idempotency-Key | `{values, note?}` -> the existing readiness payload; values use the accepted manual field set; unknown/empty/zero-placeholder fields are rejected |
 | `POST /api/ios/v1/healthkit/readiness` | bearer + Idempotency-Key | `{date, samples:[{field, value, sample_id, sample_at, source_name, source_bundle_id?, source_class, source_model?, source_manufacturer?}]}` -> the canonical readiness payload plus `healthkit` provenance; one to three samples (HRV, RHR, bodyweight), server-local today for the import, sample identity deduplicated; see Phase 3A contract |

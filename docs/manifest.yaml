@@ -157,7 +157,7 @@ documents:
 - id: rubric-calibration
   path: docs/RUBRIC-CALIBRATION.md
   title: Rubric calibration — B1 review
-  description: calibration loop, B1 review outcome and what to do next
+  description: dormant calibration loop (retired review prompt), B1 review outcome and historical-data policy
   category: methodology
   status: canonical
   audience: public
@@ -498,7 +498,7 @@ documents:
 - id: top-set-backoff-evidence
   path: docs/TOP-SET-BACKOFF-EVIDENCE.md
   title: Top set + back-off sets — evidence review
-  description: top set/back-off review; no direct trial, no programme change
+  description: top set/back-off evidence review; no direct trial, no default programme change; opt-in resolver structure exists
   category: features
   status: evidence
   audience: public
@@ -567,6 +567,14 @@ documents:
   description: local web UI surface and its limitations
   category: features
   status: canonical
+  audience: public
+  nav: true
+- id: afc-plan
+  path: docs/AFC.md
+  title: ATHLETE FEEDBACK AND COACHING (AFC) — PLAN
+  description: 'compatibility pointer to the portfolio canonical AFC plan: evidence-linked coaching feedback over adherence, VBT and feedback services, AFC-2i native report, longitudinal observations and Phase 5A protection'
+  category: plans
+  status: plan
   audience: public
   nav: true
 - id: high-intensity-exposure-plan

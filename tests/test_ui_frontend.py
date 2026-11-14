@@ -461,7 +461,7 @@ def test_remaining_ui_controls_are_present() -> None:
     assert 'id="exercise-detail-extra"' in page and '<details class="advanced">' in page
     assert 'id="settings-volume-form"' in page
     assert 'id="settings-volume-fields"' in page
-    assert "review-table" in app and "review-why" in app
+    assert "review-table" in app and "historical · read only" in app
     assert "search-select" in core and "filterNativeSelect" in core
     assert "exercisePickerHtml" in app
     assert 'id="workout-swap-dialog"' in page
@@ -564,7 +564,11 @@ def test_summary_rendering_contracts() -> None:
     if node is None:
         import pytest
         pytest.skip("node is not installed")
-    source = (STATIC / "summary.js").read_text(encoding="utf-8")
+    source = (
+        (STATIC / "adherence.js").read_text(encoding="utf-8")
+        + "\n"
+        + (STATIC / "summary.js").read_text(encoding="utf-8")
+    )
     script = r"""
 global.__summaryTarget = {innerHTML: ""};
 global.document = {getElementById: function () { return global.__summaryTarget; }};
@@ -577,7 +581,17 @@ function render(payload) {
   return global.__summaryTarget.innerHTML;
 }
 var base = {
-  completion: {items: [], planned_sets: 0, completed_sets: 0},
+  adherence: {status: "available", quality: {plan_modified: false},
+    original: {status: "available", prescribed_sets: 4, performed_sets: 3,
+               matched_sets: 3, missing_sets: 1, extra_sets: 0,
+               set_completion: {numerator: 3, denominator: 4, ratio: 0.75},
+               exercises: [], quality: {}},
+    final_plan: {status: "available", prescribed_sets: 4, performed_sets: 3,
+                 matched_sets: 3, missing_sets: 1, extra_sets: 0,
+                 set_completion: {numerator: 3, denominator: 4, ratio: 0.75},
+                 exercises: [], quality: {}}},
+  quality: {flags: [{code: "sets_without_rir", detail: "2"}],
+            coverage: {rir: 0.5, e1rm: 1.0}},
   strength: [{exercise_id: "squat", post: {status: "estimated", kg: 100},
               recent_reference: {}, difference: {status: "unavailable"}}],
   dose: {per_exercise: [], relative_intensity: {}, rir: {},
@@ -593,6 +607,22 @@ var base = {
   feedback: {}, basis: {}
 };
 var html = render(base);
+if (html.indexOf("Prescription adherence") < 0) throw new Error("adherence heading");
+if (html.indexOf("3 / 4 (75%)") < 0) throw new Error("set completion");
+if (html.indexOf("sets_without_rir") < 0) throw new Error("quality flag");
+if (html.indexOf("RIR recorded on 50%") < 0) throw new Error("rir coverage");
+base.adherence = {status: "unavailable", reason: "session_voided"};
+html = render(base);
+if (html.indexOf("Not available") < 0) throw new Error("adherence unavailable");
+base.adherence = {status: "available", quality: {plan_modified: false},
+  original: {status: "available", prescribed_sets: 4, performed_sets: 3,
+             matched_sets: 3, missing_sets: 1, extra_sets: 0,
+             set_completion: {numerator: 3, denominator: 4, ratio: 0.75},
+             exercises: [], quality: {}},
+  final_plan: {status: "available", prescribed_sets: 4, performed_sets: 3,
+               matched_sets: 3, missing_sets: 1, extra_sets: 0,
+               set_completion: {numerator: 3, denominator: 4, ratio: 0.75},
+               exercises: [], quality: {}}};
 if (html.indexOf("estimated") < 0 || html.indexOf("observed") >= 0) throw new Error("status");
 if (html.indexOf("squat: 2") < 0 || html.indexOf("hinge: 1") < 0) throw new Error("patterns");
 if (html.indexOf("high: 1") < 0 || html.indexOf("moderate: 2") < 0 ||

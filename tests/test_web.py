@@ -263,17 +263,20 @@ def test_readiness_round_trip_uses_manual_source(server):
     assert data["volume_valve"]["sets"] == 1
 
 
-def test_review_sheet_and_marks(server):
-    data = get(server, "/api/review/2024-01-01")
-    assert data[0] == 200
-    sheet = json.loads(data[1])
-    assert {item["key"] for item in sheet["items"]} >= {"RIR_ADHERENCE", "ROTATION"}
+def test_review_sheet_is_read_only_history(server):
+    status, body = get(server, "/api/review/2024-01-01")
+    assert status == 200
+    sheet = json.loads(body)
+    # The rubric is retired (DEC-EVAL-09): stored rows only, never a fresh score.
+    assert sheet["read_only"] is True
+    assert isinstance(sheet["items"], list)
 
-    saved = post(server, "/api/review/2024-01-01", {
-        "scores": {"RIR_ADHERENCE": 1.0}, "confidence": "high",
-    })
-    assert saved["written"] == 1
-    assert "session" in saved["calibration"]["text"]
+    # The write path is gone; recording marks is refused.
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        post(server, "/api/review/2024-01-01", {
+            "scores": {"RIR_ADHERENCE": 1.0}, "confidence": "high",
+        })
+    assert excinfo.value.code == 404
 
 
 def test_docs_are_rendered_local(server):
@@ -536,10 +539,10 @@ def test_exercise_catalogue_is_served(server):
     assert status == 200
     assert any(row["id"] == "ssb_squat" for row in json.loads(body))
 
-def test_rubric_calibration_endpoint(server):
-    status, body = get(server, "/api/calibrate")
-    assert status == 200
-    assert "no marks yet" in json.loads(body)["text"]
+def test_rubric_calibration_endpoint_is_gone(server):
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        get(server, "/api/calibrate")
+    assert excinfo.value.code == 404
 
 def post_status(base: str, path: str, payload: dict) -> tuple[int, str]:
     request = urllib.request.Request(
@@ -873,26 +876,6 @@ def test_readiness_history_returns_observed_bodyweight_only(server):
     with pytest.raises(urllib.error.HTTPError) as excinfo:
         get(server, "/api/readiness/history?from=2024-01-01&to=2024-01-05&fields=unknown")
     assert excinfo.value.code == 400
-
-
-def test_review_accepts_optional_session_detail(server):
-    data = post(server, "/api/review/2024-01-01", {
-        "scores": {"RIR_ADHERENCE": 0.9},
-        "confidence": "high",
-        "session_rpe": 7,
-        "session_minutes": 75,
-    })
-    assert data["feedback"]["srpe"] == 7
-    assert data["feedback"]["duration_min"] == 75
-
-    status, body = get(server, "/api/review/2024-01-01")
-    assert status == 200
-    assert json.loads(body)["feedback"]["srpe"] == 7
-
-    # Session detail can be saved without adding marks (the review stays optional).
-    data = post(server, "/api/review/2024-01-01", {"scores": {}, "session_rpe": 8})
-    assert data["written"] == 0
-    assert data["feedback"]["srpe"] == 8
 
 
 def test_fatigue_model_endpoint_is_shadow_only(server):
@@ -1658,13 +1641,16 @@ def test_review_marks_close_the_workout(server):
     post(server, f"/api/workout/{workout_id}/end", {
         "session_rpe": 7, "duration_min": 50,
     })
-    saved = post(server, f"/api/review/{workout_id}", {
-        "scores": {"RIR_ADHERENCE": 0.5}, "confidence": "high",
-    })
-    assert saved["written"] == 1
-    assert saved["reviewed_workout"] is True
-    assert saved["postprocess"]["workout_closed"] is True
-    sheet = json.loads(get(server, f"/api/review/{workout_id}")[1])
+    status, body = get(server, f"/api/review/{workout_id}")
+    assert status == 200
+    sheet = json.loads(body)
+    assert sheet["read_only"] is True
+    assert sheet["items"] == []
+
+    # No review step closes the workout any more; the write route is gone.
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        post(server, f"/api/review/{workout_id}", {"scores": {}})
+    assert excinfo.value.code == 404
     comparison = {
         item["exercise_id"]: item for item in sheet["workout"]["comparison"]["items"]
     }
@@ -1912,7 +1898,8 @@ def test_history_endpoint_lists_and_edits_a_session(server):
         "reason": "typo",
     })
     assert result["edit_id"]
-    assert result["session"]["needs_review"] == 1
+    # The review flag is historical: a correction no longer requests a rubric review.
+    assert result["session"]["needs_review"] == 0
     assert result["session"]["edited_at"]
     assert result["session"]["forms"][0]["rating"] == 4
 
@@ -2983,7 +2970,7 @@ def test_completed_summary_and_history_expose_adherence(server):
         assert "load_deviation_kg" in view["exercises"][0]["sets"][0]
         assert "rir_deviation" in view["exercises"][0]["sets"][0]
     assert original["exercises"][0]["extra_sets"] == 1
-    assert summary["completion"]["planned_sets"] == 5
+    assert "completion" not in summary
     assert summary["feedback"]["duration_min"] == 45.0
     assert summary["comparison"]["status"] == "unavailable"
     assert summary["dose"]["per_exercise"]
@@ -3795,3 +3782,36 @@ def test_performance_vbt_panel_is_wired_to_the_read_only_endpoint(server):
     _, css = get(server, "/static/style.css")
     assert ".vbt-performance-table" in css
     assert ".vbt-performance-summary" in css
+
+
+def test_observations_endpoint_is_read_only_and_validates_weeks(server):
+    status, body = get(server, "/api/observations?date=2024-03-01")
+    assert status == 200
+    data = json.loads(body)
+    assert {"from", "to", "window_weeks", "observations", "abstain"} <= set(data)
+
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        get(server, "/api/observations?weeks=0")
+    assert excinfo.value.code == 400
+
+
+def test_nudge_endpoint_returns_one_review_category(server):
+    status, body = get(server, "/api/nudge?date=2024-03-01")
+    assert status == 200
+    data = json.loads(body)
+    assert data["on_date"] == "2024-03-01"
+    assert "nudge" in data
+
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        post(server, "/api/nudge", {
+            "action": "hide", "key": "nudge:rir:session", "date": "2024-03-01",
+        })
+    assert excinfo.value.code == 400
+
+
+def test_observations_payload_carries_a_count(server):
+    status, body = get(server, "/api/observations?date=2024-03-01")
+    assert status == 200
+    data = json.loads(body)
+    assert data["count"] == len(data["observations"])
+    assert isinstance(data["families"], list)

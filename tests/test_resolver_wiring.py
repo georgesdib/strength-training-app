@@ -269,8 +269,6 @@ def test_preview_payload_freezes_into_workout_start(monkeypatch) -> None:
 
 
 def test_resolver_top_set_executes_and_materialises_roles(monkeypatch) -> None:
-    from strength_coach.critique import build_facts, score_session
-
     _without_required_patterns(monkeypatch)
     with store() as instance:
         settings_profile.save(
@@ -333,7 +331,7 @@ def test_resolver_top_set_executes_and_materialises_roles(monkeypatch) -> None:
                 load_kg=back["load_kg"], reps=back["reps_low"],
                 rir=back["rir_target"], set_role="back_off",
             )
-        ended = workout.end(
+        workout.end(
             instance.connection, started["workout_id"], session_rpe=7, duration_min=30
         )
         roles = [
@@ -346,8 +344,6 @@ def test_resolver_top_set_executes_and_materialises_roles(monkeypatch) -> None:
         observations = strength_trend.observations(
             instance.connection, "ssb_squat", "2024-01-15", "2024-01-15"
         )
-        facts = build_facts(instance.connection, ended["workout_id"])
-        critique = score_session(instance.connection, ended["workout_id"], facts=facts)
         second = workout.start(
             instance.connection,
             for_date="2024-01-15",
@@ -371,7 +367,6 @@ def test_resolver_top_set_executes_and_materialises_roles(monkeypatch) -> None:
     assert observations
     assert day["fragment_count"] == 2
     assert day["active_fragment_count"] == 2
-    assert critique.item("RIR_ADHERENCE").measurable
 
 
 def test_resolver_top_set_composes_with_budget_and_minimum_session(monkeypatch) -> None:

@@ -41,10 +41,10 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | 4 | Rules loader + policy engine | **done** | `rules/loader.py`, `registry.py`, `context.py`, `policy.py`; predicates for all five rules |
 | 5 | Prescription engine (four session types) + deterministic fallback | **done** | `prescribe/templates.py`, `config.py`, `loads.py`, `engine.py`, `fallback.py`; `config/thresholds.v1.yaml` |
 | 5.5 | Athlete state — DATA-MODEL §11 tables | **done** | `store/migrations/0003_athlete_state.sql`, `prescribe/constraints.py`, `cli state` / `cli block`; hard constraints veto |
-| 6 | Critique rubric + trace | **done** | `critique/facts.py`, `critique/rubric.py`, `trace/run.py`; 7 measurable items; velocity loss remains unmeasured, imported duration unavailable |
+| 6 | Critique rubric + trace | **done, since retired** | `critique/facts.py` (facts only) and `trace/run.py` remain; the scoring rubric was removed 2026-11-13 (`DEC-EVAL-09`), and historical `critique`/`rubric_score` rows stay readable |
 | 7 | LLM layer (narrative only) | **done** | `agents/client.py`, `config.py`, `narrative.py`; `config/llm.example.toml`, `tools/llm_check.py` |
-| 8 | Backtest harness + labelled eval set | **done** | `eval/harness.py`, `eval/labels.py`, `tools/eval_prepare.py`, `tools/backtest.py`; small high-confidence labelled set; exact counts private |
-| 9 | CLI (`run` / `review` / `calibrate` / `import`) | **done** | `cli.py`; prescriptions persisted; `review --pending` catches up; calibration loop closed |
+| 8 | Backtest harness + labelled eval set | **done, since retired** | the harness, labelled-set format and mark loader were removed 2026-11-13 (`DEC-EVAL-09`); `eval/fatigue_diagnostics.py` remains |
+| 9 | CLI (`run` / `import` / reports) | **done** | `cli.py`; prescriptions persisted; `review` and `calibrate` were retired 2026-11-13 (`DEC-EVAL-09`), and marks stay readable through the read-only review sheet |
 | v0.2 | Input flexibility + programme view | **done** | readiness entry/score/devices/settings + gate (§4.1/4.9), continuity (§4.6), injury signal (§4.7), local web UI with import/state editing/Programme/Cardio/Terminal/calibration (§4.10/4.11), cardio capture + weekly summary (§4.13), labelled set (§4.14), session RPE/length, recent stress, per-lift readiness, e1RM calibration + bounded correction + age decay |
 | v0.3 | Strength/data depth | **done** | manual logging via live workout mode (§4.2/§4.21, closed), import adapters closed (§4.3), learned readiness weights evaluated and closed (§4.9), LLM proposal view closed as CLI-only (§4.11), continuity calibration (§4.12; calibrated factor rejected, fixed fallback), exercise selection apply + comparability + display-only history (§4.15; weakness/ratios in §4.20), strength fitness-fatigue shadow model (§4.16; retrospective rejected), rolling session types / upper-body balance / set reduction / volume management v1 / under-MEV accessory progression / warm-up ramp / 3RM cadence / descriptive progress dashboard (§4.17), live workout mode (§4.21, closed), read-only 4/8/12-week outcomes review, longevity context, prescription-modifier provenance and quick readiness presets/context and readiness feedback, UI prescription persistence (A0/A/B/C/E), minimum effective sessions (D) the methodology/privacy docs (F), W1/W7 attendance metrics and the session-time cap |
 | v0.4 | Audit, documentation and form closeout | **done 2026-10-25** | form assessment/prospective follow-up, fatigue diagnostic closure, UI documentation P0–P4, parent-ratio evidence review, weakness test plan, calibration milestone (§4.22) |
@@ -53,10 +53,11 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v1.2 | Stable release + opt-in resolver | **released 2026-11-03** | beta label removed; deterministic template resolver shipped as opt-in (`resolver.enabled` default false) with acceptance audit closed; cardio depth, reproducible impulse/shadow load and comparable calibration depth deferred to v1.5 (§4.13a/§4.14) |
 | v1.3 | UI closure, measurement/readiness cleanup and documentation infrastructure | **released 2026-11-06** | UI redesign P0–P3 closed; body fat moved to measurements with historical migration, readiness inputs cleaned up, measurement chart windows, readiness override beside the score, and the manifest-backed documentation archive; no prescription change |
 | v1.4 | VBT target analytics | **released 2026-11-13** | structured/frozen target metadata; Prescribe and Active Workout target visibility and feedback; completed-workout and History target comparisons; Performance longitudinal cohorts with band/RIR evidence and within-set drift; no migration, prescription change or iOS model change |
-| v1.5 | Cardio depth and calibration | **planned** | cardio data audit, reproducible cardio impulse/shadow load and comparable calibration data (§4.13a/§4.14); B1 rubric calibration review closed 2026-11-07 |
+| v1.5 | Cardio depth and calibration | **planned** | cardio data audit, reproducible cardio impulse/shadow load and comparable calibration data (§4.13a/§4.14); B1 rubric calibration review closed 2026-11-07 (loop since retired, `DEC-EVAL-09`) |
 | — | Training-day session fragments | **done 2026-11-01** | one local training day may contain multiple session fragments; attendance and budget use days, volume/spinal use combined sets, e1RM uses one day-level observation; no schema migration; see [`docs/TRAINING-DAY-MODEL.md`](docs/TRAINING-DAY-MODEL.md) |
 | — | Deterministic dynamic template resolver | **Steps 0–6 complete 2026-11-01/03; merged to `development` 2026-11-03; released in v1.2.0 as opt-in (`resolver.enabled` default false)** | plan and confirmed decisions at [`docs/archive/PROGRAMME-BUILDER-PLAN.md`](docs/archive/PROGRAMME-BUILDER-PLAN.md) and [`docs/DECISIONS.md`](docs/DECISIONS.md) (`DEC-RESOLVER-01`–`12`); Step 1 delivered policy/settings/provenance; Step 2 delivered and remediated the internal deterministic generator core (`generator.py`, `resolver_settings.py`, accepted pattern-flexibility mapping); remediation covers shared injury/constraint eligibility, power-slot safety, require_can_do/unrated/rotation-default semantics, fallback repair, structural availability, whole-session/duplicate-aggregated authoritative spinal scoring, completed-workout precedence, history merge, retired redundant rotation/preference weights and policy/catalogue digests; Step 3 adds the opt-in top-set/back-off structure, top-set persistence and role-aware workout logging, and the hinge maximal-week programme change; Step 4C wires the flag-on resolver path through candidate pools, bounded beam and read-only evaluator, adds pool-aware scheduler availability, rejects selection overrides, and records generated-session provenance; the 4C audit remediation enforces required patterns on final assignments, separates evaluator failure stages, fingerprints beam configuration and DataFrame schemas, and uses the same auto-candidate/slot matching in scheduling; Step 5 adds the dedicated Settings -> Resolver panel, append-only scalar settings, validated policy YAML with atomic writes and 20 timestamped backups, read-only preview with choices/alternatives/suggestions, inline suitability rating, top-set preview, regenerate/diff and a start handoff; the Step 5 remediation adds shared CLI/web readiness enforcement, atomic backup creation, shared resolver-enable confirmation, deterministic restore with a reported pre-restore snapshot, and a full-prescription preview diff; Step 6 adds generated-slot snapshot provenance for critique/exemption reads with a legacy-null fallback, top-set role-aware critique coverage, a real-database copy smoke test, flag/policy rollback verification and the rollout documentation; forecast remains fixed option (c); the flag remains off |
 | future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.5; Iteration 2 conditional** | phased workstream at §4.24; architecture, iteration gate and selector retirement in [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); no implementation in this pass |
+| future | Athlete Feedback & Coaching (AFC) | **AFC-2, AFC-2i, AFC-3 and AFC-4 implemented 2026-11-13; physical iPhone acceptance owner-confirmed 2026-11-14; AFC-5 scoped (docs only); backend, web and native iOS presentation** | §4.33; canonical plan [`AFC plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md); composes the existing adherence, VBT, readiness, feedback and volume services; AFC-1 dissolved and planned-session compliance excluded by `DEC-W7-01`; Phase 5A instruments frozen; AFC-2i renders the same report contract in the iPhone app (`DEC-AFC-03`) |
 | — | Symptom attribution and injury-signal verification | **done 2026-11-01** | Phases 1–2 closed: verification hygiene and optional session/lift attribution with required onset/confidence, migration `0047`, CLI/API/web and display-only views. Phase 3 was split into a separate roadmap phase (§4.28) |
 | future | Exercise-level symptom research (Phase 3) | **planned; unscheduled** | separate pre-registered descriptive research question; mechanical exposure and regional symptoms, not athlete attribution; no model, score, suitability rule or prescription change; Today follow-up `injury_attribution_phase3`; plan §10 and §4.28 |
 | — | 2026-10-26 pass | **done 2026-10-26** | declared breaks — append-only range, `break` CLI, Athlete panel, freeze in the trained-week cycle (`DEC-CONTINUITY-04`, `LIM-50`); P1 measured-test coverage view (`e1rm tests-needed` + Athlete table); symptom settling made fail-safe — a level-1 reading without a recorded 48 h settlement is a flare (`DEC-SYMPTOM-04`, Q25 closed) and `docs/SYMPTOM-LOGGING.md` documents the episode workflow; minimum-session target shown against the measured clock (`DEC-MIN-02`, `LIM-47` mitigated); gaps table folded into `docs/LIMITATIONS-REGISTER.md` |
@@ -121,20 +122,15 @@ sits exactly on it) a non-essential erector slot is trimmed rather than left dea
 e1RM sits far above the lift's recent median raises a display-only advisory rather than a load
 change (`DEC-E1RM-PLAUS-01`). The web UI exposes the one-session technique throttle on the Prescribe
 form (`MOD-TECH-001`) and appends e1RM overrides from an Exercises row or the ended-workout
-panel, where a recorded test feeds the measured/formula calibration. A performed session can now be
-**critiqued**: seven rubric items score it (RIR adherence, progression adherence, weekly spinal
-cost, essential work, redundancy, rotation and measured live-session duration) with evidence
-references. Imported-session duration and within-set velocity loss remain `measurable = 0`
-because the export cannot support them. The critique is persisted append-only inside a `run` trace. An **optional narrative** can explain
-either artifact: the model receives the facts as JSON, may not compute, and its output is
-recorded as a `run_event` rather than written into a prescription or a score. With no model
-configured (`NullLLM`) the run is structurally identical and loses only the prose. There is
-**the full v0 slice runs**: `strength-coach run --date` imports if needed, critiques the
-last session, prescribes the date, persists both inside a run trace, and prints a rationale
-that cites a rule or a stored fact. `review` is the calibration loop: it shows the session
-beside the rubric's scores, takes marks, stores them append-only, and reports running
-agreement immediately. Two of the three marks are reconstructed from memory and excluded;
-agreement is reported against the remembered marks; exact counts are private (`DEC-EVAL-03/04`).
+panel, where a recorded test feeds the measured/formula calibration. A performed session used to
+be **critiqued** by a deterministic rubric with evidence references; that rubric is retired
+(`DEC-EVAL-09`) and no session is scored any more, though the historical critiques remain readable
+through `GET /api/review/<session>`. An **optional narrative** can explain the prescription: the
+model receives the facts as JSON, may not compute, and its output is recorded as a `run_event`
+rather than written into a prescription or a score. With no model configured (`NullLLM`) the run
+is structurally identical and loses only the prose. **The full v0 slice runs**:
+`strength-coach run --date` imports if needed, prescribes the date, persists the prescription
+inside a run trace, and prints a rationale that cites a rule or a stored fact.
 
 ## 2A. Phase 5 — prospective validation and evidence-driven improvements
 
@@ -161,7 +157,10 @@ During Phase 5A:
 - do not introduce predictive models or tune thresholds to observations;
 - do not treat correlations as causal or silently change a metric because its result is unexpected;
 - data-integrity or incorrect-calculation bug fixes are permitted only when documented,
-  justified and tested.
+  justified and tested;
+- AFC (§4.33) is read-only composition and must not change `attendance.pct`, the flags in
+  `features/prospective.py`, monitoring/exposure/calibration configuration, or the end-screen
+  capture controls for session RPE, duration and productivity ([`AFC plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md) §5).
 
 Evaluate/classify every metric using the existing monitoring analysis infrastructure:
 
@@ -379,7 +378,7 @@ verify nothing personal is baked into config or defaults; keep `--db` as the onl
 needed; keep the exercise taxonomy editable so a different exercise vocabulary is a YAML edit.
 
 Acceptance: a second database with a different athlete's synthetic history runs `import`,
-`run`, `review` and `calibrate` with no code change and no access to the first database; no
+`run` and the reporting commands with no code change and no access to the first database; no
 personal value appears in any committed file; the user guide has a "new athlete" checklist.
 
 Delivered: `tests/test_portability.py` runs the whole loop on two databases with different
@@ -495,8 +494,8 @@ Three input paths, one downstream shape:
 
 Manual entry is also the only path that can capture **session duration**, because the export
 has no timestamps. `session.duration_min` becomes measurable (`duration_basis = measured`),
-and the rubric's `SESSION_DURATION` flips from `measurable = 0` to a real score — the first
-time that item can move.
+and the rubric's (now retired) `SESSION_DURATION` used to flip from `measurable = 0` to a real
+score — the first time that item could move.
 
 Manual entry must pass the same gates as cleaning: unknown exercise names are quarantined or
 reported (never dropped), `RIR 6` is a warm-up, and seconds-vs-reps follows the taxonomy.
@@ -506,13 +505,13 @@ Capture post-session fatigue (1-5) with the session; it feeds §4.12 and is not 
 **Status 2026-10-23:** manual logging is closed through live workout mode — Start from a
 prescription with the seven required readiness fields, manual/imported sets, inline correction,
 measured/editable duration, sRPE or not-recorded, end/abandon, plan overrides, materialisation
-into `clean_set`/`session`, and rubric/review. The standard dated training export remains the
+into `clean_set`/`session`. The standard dated training export remains the
 backfill path; the separate adapter work is §4.3.
 
 Acceptance: a manually logged session is indistinguishable downstream from an imported one
-(same tables, same critique); concluding a workout also catches up unreviewed sessions via
-`review --pending`; duration is stored when given and stays `unavailable` when not
-— never estimated; the rubric scores duration only when it exists.
+(same tables and downstream reports); completion no longer triggers a review step
+(`DEC-EVAL-09`); duration is stored when given and stays `unavailable` when not — never
+estimated.
 
 ### 4.3 Column-mapping adapters for other exports  (CLOSED 2026-10-23 — not needed)
 
@@ -772,9 +771,10 @@ Planned surfaces, in suggested order:
 3. **LLM proposals** — **closed as CLI-only.** `run --propose` keeps the proposal view, citations,
    warnings and policy veto in the terminal; the web UI does not duplicate it.
 4. **Manual workout logging** (4.2) — **done** via Workout mode: per-set entry, plan overrides,
-   import, end, review and calibration.
+   import, end and reports.
 5. **Programme view** (4.4) — **done**. Rolling session-type horizon with recomputation on the day; canonical session types are the only label.
-6. **Post-lift form** (4.8) — optional 1–5 per exercise, editable in History, rubric-only.
+6. **Post-lift form** (4.8) — optional 1–5 per exercise, editable in History; captured input,
+   not a rubric.
 7. **Readiness settings** (4.9) — **done**. Baseline window, minimum readings, slopes and
    weights; shadow baseline report.
 8. **Terminal** — **done**, then **removed 2026-10-28** (`DEC-WEB-02`): a browser surface that
@@ -974,15 +974,16 @@ No automatic cardio load effect and no parent-variant/weakness implementation in
 |---|---|---|
 | B0. Comparable data | Use Workout mode so prescriptions have snapshots; collect optional per-rep CSV where available | Comparable counts are reported per item, not just mark counts |
 | B1. Review the measurable items | **done 2026-11-07** — written review in [RUBRIC-CALIBRATION.md](docs/RUBRIC-CALIBRATION.md); rotation is a definitional split (app-assigned neutral), essential work is coverage-limited | Acceptance met: the review classifies the remaining disagreements as rubric, measurement or data-coverage; no retune |
-| B2. Reach the item gate | Priority gaps: progression, essential work, duration and velocity loss | No rubric retune until each targeted item has enough comparable observations; unknowns stay unknown |
-| B3. Rubric decision | Change a definition/weight only after the gate and a pre-declared review | Decision recorded in DECISIONS; no automatic tuning from the latest report |
+| B2. Reach the item gate | **retired 2026-11-13** — the loop ended before the gate was reached (`DEC-EVAL-09`) | No further marks are collected; the historical counts stay in RUBRIC-CALIBRATION.md |
+| B3. Rubric decision | **not taken; retired with the rubric** (`DEC-EVAL-09`) | No definition or weight change; this is closed, not deferred |
 
 **Sequence and timing**
 
 - **Weeks 1–2:** A0, A1, B0.
 - **Weeks 3–4:** A2, A3; start the shadow load display.
 - **Weeks 5–12:** collect cardio and comparable workout data; B1 review at the midpoint.
-- **Week 12+:** A4 model decision and B2/B3 rubric decision, only if the gates are met.
+- **Week 12+:** A4 model decision; the B2/B3 rubric decision was retired with the rubric
+  (`DEC-EVAL-09`).
 These are planning windows, not promises; missing data pauses the dependent phase.
 
 **Success criteria**
@@ -1011,9 +1012,12 @@ These are planning windows, not promises; missing data pauses the dependent phas
 
 ### 4.14 Labelled calibration set  (v1.5; deferred from v1.2, moved from v0.3)
 
-No code. Continue reviewing sessions while they are fresh; the rubric report needs roughly ten
-*remembered* sessions per item before changing a definition or weight (DEC-EVAL-03,
-DEC-EVAL-04). Reconstructed marks are stored but excluded from agreement.
+No code. **Retired since 2026-11-13** (`DEC-EVAL-08` dormant loop, `DEC-EVAL-09` removal): the
+rubric no longer scores a session, the `rubric_labels` review prompt is gone, and AFC is the
+canonical post-workout adherence evaluation. The historical sample below stays readable and
+nothing is rewritten or deleted. The loop previously aimed at roughly ten *remembered* sessions
+per item before changing a definition or weight (DEC-EVAL-03, DEC-EVAL-04); reconstructed marks
+stay stored but excluded from agreement.
 
 Current state (2026-11-07): **12 high-confidence reviewed sessions**, every rubric item has a
 mark; **61 comparable items, 84% agreement, MAE 0.12**. RIR 9/89%, weekly spinal 12/92%,
@@ -1023,10 +1027,10 @@ velocity loss 0. **B1 review closed 2026-11-07**: rotation is a definitional spl
 snapshot), and no rubric weight or definition is changed. See
 [`docs/RUBRIC-CALIBRATION.md`](docs/RUBRIC-CALIBRATION.md).
 
-**Next action (2026-11-07):** keep a thin stream of fresh high-confidence marks from live
-workouts; do not backfill old imports for calibration. Run `strength-coach calibrate` (or the
-Review page button) monthly or at the Phase 5A gate, not after every session. B2/B3 remain
-gated to the 2027-01-22 review; no rubric retune before it.
+**Next action (2026-11-13):** none. The engine and its tooling are removed, no marks are
+requested and no B3 decision is pending; B2/B3 stay gated to the 2027-01-22 review and no rubric
+retune is planned before it. `GET /api/review/<session>` still renders the stored rows. Reviving
+the loop would be a new decision, not a re-enable of removed code.
 
 Acceptance: the B1/B2/B3 gate — a pre-declared review and enough comparable observations per
 targeted item before a rubric change; every review appends, never edits; the report states the
@@ -1246,10 +1250,10 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | P2 | Volume modulation: weekly target + session cap | **complete/closed 2026-10-27** — steps 1, 2, 2b, 9a and 9b implemented: read-only budget, per-group accessory budget behind the off-by-default profile flag (`MOD-VOL-003`, constitution 1.17.0), opt-in main-lift `reduce`, compensation preview, and opt-in additive compensation application (`MOD-VOL-004`, executable load required, high-band guarded); **9c-1 drop engine** and **9c-2 identity/UX** implemented (labels/API/UI, startable empty technique, derived review, forecast actual types, migration 0038; `MOD-VOL-005`/constitution 1.18.0); **9c-3 confirmation/settings** implemented (Settings/API, local overlay, per-session confirmation); **7a settings registry/snapshot** implemented (deload reactive constants moved to config); **step 4 settings profile** implemented (append-only versions, budget wiring, snapshots); **7b profile-backed feature wiring** implemented (DUP, deload, volume, readiness, e1RM, plausibility); **step 5 Settings UI/guarded settings** implemented; **5b modality registry/UI** implemented (11 modules, CLI/API/UI parity); **step 6 budget-aware forecast/weekly panels**, **5c remaining modules** and **step 8 effective-set accounting** implemented and live; the plan is closed. Step 3 is a standing Today-page review follow-up, not a plan milestone. The programme forecast now supports 1–5 sessions/week; 4 uses Mon/Wed/Fri/Sun and 5 uses Mon/Tue/Thu/Fri/Sun. Design in `docs/archive/VOLUME-MODULATION-PLAN.md` |
 | v1.1 | Fatigue signals: exposure, substitution, advisories | **Phase 0 done 2026-10-28** (five decisions; `docs/FATIGUE-SIGNALS.md`, `docs/EXERCISE-DEMANDS.md`). **Phase 1 done 2026-10-28**: `config/exercises/demands.v1.yaml` populated for **28/63** reachable ids (4 in-scope dimensions at 55.6 % known, 2 `supported` claims, 4 evidence entries). **Rating path done 2026-10-28**: git-ignored `config/exercises/demands.local.yaml` overlay merged over the reviewed file, with `exercise demands report|unrated|set|clear` and automatic rollback on a rejected write (digest covers both files). **Phase 2 done 2026-10-28**: `features/exposure.py` (7/28-day ratio, coverage, gap/deload/break abstention, exposure dedup, per-group ratios), `exposure ratio` CLI, `GET /api/exposure`, Prescribe **Exposure ratio** panel and the Part D low-exposure advisory; report-only, trim not implemented. **Demand display done 2026-10-28**: Exercises rows show `rated/4` and the details dialog shows the profile with confidence, reason, catalogue digest and overlay state; the same form rates or clears a dimension (`POST /api/exercises/demands`, same `set_claim` as the CLI). **Phase 3 done 2026-10-28**: `MOD-EXP-001` (constitution 1.20.0) trims at most one non-essential accessory set per affected group (≤2/session, floor 1) when `athlete_profile.exposure_trim_enabled` is on (default off), skipping main lifts, essential items, readiness cuts and under-MEV additions; `shadow_decision` table + repository exist (append-only triggers). Shadow writes and the review report land in Phase 6 so forecast builds never write rows. **Phase 4 done 2026-10-28**: `prescribe/fatigue_selection.py` suggests at most one accessory substitution when the exposure signal is high, the candidate is A/B comparable, covers the current lift's primary muscles and is rated strictly lower on an in-scope demand dimension; `GET /api/substitution`, the Exercise-selection panel block and `select --fatigue` expose it. Suggest-only; abstains when the trim already acted or the metadata is unknown. **Phase 5 done 2026-10-28**: `features/residual.py` computes the VBT-only execution residual (observed minus prescribed velocity) from linked workout sets, lift-scoped, 84-day window, with the ≥5 signal and ≥20/8-week/two-lift evaluation gates; `residual`, `GET /api/residual` and the Prescribe panel expose it. Shadow only. **Phase 6 done 2026-10-28**: `prescribe/shadow.py` writes exposure + substitution rows only when a prescription is persisted; `features/shadow_report.py` and `shadow`/`GET /api/shadow`/Prescribe **Shadow review** expose counts, abstentions, conflicts and the four gate checks. The gate never enables anything (`activation_allowed: false`); the fatigue-signals specification is fully implemented. |
 | v1.5 | Cardio depth and shadow cardio load | planned (§4.13a, Q14) |
-| v1.5 | Deeper labelled calibration set | planned (§4.14) |
+| v1.5 | Deeper labelled calibration set | retired 2026-11-13 (§4.14, `DEC-EVAL-09`) |
 | future | LLM integration: analyst, explainer, constrained proposer | Iteration 1 planned; Iteration 2 conditional (§4.24; selector retirement is Phase 1b) |
 | future | Personalised volume-response model | idea only; shadow/gated (§13, Q28) |
-| future | Nicer UI, adherence encouragement and KPIs | placeholder only (§4.23) |
+| future | Athlete Feedback & Coaching (AFC) — deferred AFC-3 second cut | AFC-2, AFC-2i, AFC-3 and AFC-4 implemented 2026-11-13; physical iPhone report acceptance owner-confirmed 2026-11-14 (§4.33) |
 | done (Phases 0–3A) | Native iPhone online-first client | Phase 0 complete 2026-11-07; **Phase 1 complete 2026-11-07** (server facade + Swift client, simulator-verified and owner-confirmed on the physical iPhone); **Phase 2 complete 2026-11-07** (online readiness/prescription/workout/completion + Progress, simulator-verified and owner-confirmed on the physical iPhone); **Phase 3A closed 2026-11-08** (opt-in read-only HealthKit HRV/RHR/bodyweight readiness; physical HealthKit acceptance owner-confirmed); Apple PCC is an optional AI-only network exception (§4.29; [`iOS client plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/IOS-CLIENT-PLAN.md)) |
 
 ### 4.19.1 Deferred: web authentication and per-user data
@@ -1354,25 +1358,20 @@ unscheduled.
 **v1.5:** see §4.13a. First actions are the cardio data audit, capture completion, impulse
 contract, and comparable workout data collection.
 
-### 4.23 Nicer UI, adherence encouragement and KPIs  (future; not scheduled)
+### 4.23 Nicer UI, adherence encouragement and KPIs  (retired 2026-11-13; scope moved to §4.33)
 
-**Status:** placeholder only. No implementation date, no approved design, no rule change.
+**Status:** closed as a placeholder. It never had an implementation date or an approved design.
 
-The goal is to make the local UI easier to use and to make adherence visible without turning
-training into a streak contest. Planned scope:
+Its two halves did not belong together:
 
-- **UI polish:** clearer visual hierarchy, less repetitive form work, better empty/loading/error
-  states, and a guided path from readiness to review.
-- **Adherence encouragement:** weekly planned-vs-completed view, gentle nudges, and explicit
-  handling of planned breaks, illness and deloads so they are not counted as failure.
-- **KPI panel:** planned sessions, completed sessions, adherence %, set completion, skipped or
-  voided sessions, and volume target hit/miss, with the same definitions exposed by the CLI/API.
-  Adherence is descriptive, never a reason to override pain, readiness or a safety rule.
-- **No new prescription controller:** KPIs and nudges are read-only; they do not add sets, change
-  loads, or punish a legitimate break.
+- **UI polish** was delivered by the P0–P3 UI redesign, which closed on 2026-11-06
+  (`docs/archive/UI-DESIGN-IMPLEMENTATION-PLAN.md`). It is no longer open work.
+- **Adherence encouragement, gentle nudges and the KPI panel** are now AFC-4, composed from metrics
+  that already exist. The planned-vs-completed and skipped-session items are **not** carried over:
+  `DEC-W7-01` keeps attendance target-based and no planned-session calendar is stored.
 
-Design reference: [`docs/archive/UI-IMPROVEMENT-PLAN.md`](docs/archive/UI-IMPROVEMENT-PLAN.md). This placeholder
-does not schedule that plan; it records the next UI/adherence direction for a future pass.
+Design reference retained for history: [`docs/archive/UI-IMPROVEMENT-PLAN.md`](docs/archive/UI-IMPROVEMENT-PLAN.md).
+Canonical AFC scope: §4.33 and [`AFC plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md).
 
 ### 4.24 Future LLM integration workstream  (planned; dependency-ordered after v1.5)
 
@@ -1393,6 +1392,11 @@ layer but have different permissions:
   choices; Python resolves loads and re-validates; the deterministic baseline remains visible;
   the user must explicitly approve; shadow/opt-in rollout only.
 
+AFC (§4.33, [`AFC plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md)) is the deterministic producer of the metrics,
+observations and evidence these capabilities consume. The shared context/evidence builder in
+Iteration 1 phase 2 serialises AFC evidence ids; it does not recompute adherence, VBT, readiness or
+volume metrics. There is one evidence schema, defined in the AFC plan §6 and section 4 above.
+
 The deterministic engine, taxonomy, comparability rules, history and prescription validation
 remain authoritative. If no LLM is configured, the analyst/explainer/proposer functions are
 simply unavailable; deterministic training is unchanged. External calls require the
@@ -1412,7 +1416,7 @@ framework.
 |---|---|---|---|
 | 1 | Architecture and contracts: capability boundaries, permissions, context/evidence schema, prompt/schema versions, privacy, iteration boundary | owner approval | **planned** |
 | 1b | **Retire the minimal LLM exercise selector** as a separate work item: remove only selector-specific chooser/CLI/API/UI/engine/tests/docs plumbing; preserve shared LLM client/config, narrative/proposal, deterministic selection, taxonomy, comparability, class-B confirmation and history; acceptance in plan §8.2 | phase 1; **independent of the proposer** | **planned** |
-| 2 | **New** shared context/evidence builder + athlete analyst: lift progression, programme status, strength/power/longevity review | phase 1; existing features/repositories/provenance | **planned** |
+| 2 | **New** shared context/evidence builder + athlete analyst: lift progression, programme status, strength/power/longevity review | phase 1; existing features/repositories/provenance; the AFC evidence contract (AFC-2/AFC-3) | **planned** |
 | 3 | Programme explainer: persisted prescription, modifiers, baseline/previous comparison, concise + detailed | phase 2; prescription provenance | **planned** |
 | 4 | Constrained proposer in shadow: structured schema, deterministic validation, Python load resolution, baseline comparison; no application | phases 1–3; existing proposal/validator path | **planned** |
 | 5 | Opt-in approval + evaluation: diff UI/CLI, explicit approval, provenance, shadow/opt-in gates; no selector work | phase 4; phase 1b; approved gates; privacy review | **planned** |
@@ -1428,6 +1432,12 @@ decision.
 selection engine, taxonomy, movement-family classifications, comparability rules, validation,
 class-B `selection_confirmed` confirmation and history remain. Only the minimal LLM chooser is
 removed. The new proposer is decision `DEC-LLM-09`; it is not a continuation of the chooser.
+
+**Wider proposal licence.** The current constrained proposer may choose one bounded
+keep/easier/harder/heavier/lighter option. Once the menu has proved itself in real sessions, a
+later extension may allow more than one increment on that Python-computed menu. The menu
+principle and approval path do not change: the model chooses, Python resolves and re-validates,
+and the deterministic baseline stays visible.
 
 ### Iteration 2 — evidence retrieval and advanced architecture (conditional)
 
@@ -1682,7 +1692,7 @@ under `https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-R
 append-only `workout_execution_event`, authenticated batch ingestion and read-only execution
 analytics; the client records set/rest/exercise timing through the Phase 4 outbox and renders an
 execution timeline in completed History. Server and simulator gates pass; physical-iPhone
-acceptance remains pending. Phase 2 is closed 2026-11-07.
+acceptance was owner-confirmed 2026-11-14. Phase 2 is closed 2026-11-07.
 
 **Phase 3A completion record (closed 2026-11-08; physical acceptance owner-confirmed).** Server: migrations 0054_healthkit_readiness.sql and
 0055_healthkit_bodyweight.sql; the append-only healthkit_readiness table; one canonical
@@ -1790,6 +1800,93 @@ pending-session shell) and the “Send to iPhone” relay are deferred. 6.0, 6.1
 are implemented (watch target, credential handoff, mint/list/revoke, the phone-revocation watch
 cascade, and the read-only watch Today); 6.3 and later need a separate go-ahead.
 
+### 4.33 Athlete Feedback & Coaching (AFC)  (AFC-2, AFC-2i, AFC-3 and AFC-4 implemented 2026-11-13)
+
+**Status:** AFC-2, AFC-2i, AFC-3 and AFC-4 are implemented 2026-11-13; physical iPhone report
+acceptance was owner-confirmed 2026-11-14.
+Beyond AFC-2 this section is documentation only: no schema, API, rule or threshold change is part
+of it. The full plan is [`AFC plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md).
+
+AFC-2 was backend and web UI work; AFC-2i is a native iOS presentation phase over AFC-2's report.
+Neither is Phase 7. Phase 7 is the existing LLM narrative layer (status-table row 7) and keeps that
+designation.
+
+**Purpose.** Turn the training, adherence, VBT, readiness and performance data the server already
+computes into reliable, evidence-linked and actionable feedback. Deterministic calculations stay
+authoritative, feedback stays traceable to stored rows, and missing data is reported as unknown
+rather than as poor performance.
+
+**Composition, not reimplementation.** AFC adds no second calculation of any metric owned by
+`adherence.py`, `adherence_analytics.py`, `attendance.py`, `volume_budget.py`, `vbt_analysis.py`,
+`vbt_performance.py`, `residual.py`, `readiness_feedback.py`, `session_feedback.py` or
+`monitoring_analysis.py`. It composes them, starting from `workout.summary()`, which already
+returns completion, strength, dose, special exposure, feedback, ratios, comparison, adherence and
+VBT for a completed workout.
+
+| phase | scope | data change |
+|---|---|---|
+| AFC-2 | post-workout report: shared evidence contract, end-screen adherence, evidence and real quality flags, removal of the duplicate `summary.completion` — **completed 2026-11-13** | none |
+| AFC-2i | native post-workout report: render the AFC-2 summary/evidence payload after completion and from History — presentation and navigation only — **implemented 2026-11-13** | none |
+| AFC-3 | longitudinal observations: repeated RIR deviation, repeated incomplete work, VBT residual deviation — **completed 2026-11-13**; second cut (stagnation) deferred to AFC-5 | small, append-only |
+| AFC-4 | web UI coaching and nudges on existing hosts, with suppression — **implemented 2026-11-13** | small, append-only |
+| AFC-5 | evidence-gated prescription adaptation — **scoped 2026-11-13, docs only**; separate and gated; does not block AFC-2 to AFC-4 | separate |
+
+**AFC-2 is completed** (2026-11-13): `features/evidence.py` supplies deterministic evidence
+ids, the summary's duplicate `completion` block is gone with `adherence` as the single metric
+source, `quality.flags` is populated, the end screen renders adherence and data quality, the
+readiness follow-up reads `adherence.analyse`, and the three Phase 5A guards from
+`DEC-AFC-02` are in place. AFC-3 and AFC-4 are implemented below.
+
+**AFC-2i is implemented** (2026-11-13; physical iPhone acceptance owner-confirmed 2026-11-14). It consumes the
+delivered `GET /api/workout/<id>/summary` payload through the transport-only iOS facade —
+`adherence`, `vbt`, `feedback`, `quality.flags` and `evidence` — in the existing workout
+completion flow, and adds no calculation, capture, endpoint contract, schema or prescription change
+(`DEC-AFC-03`, [`AFC plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md) §7). It depends on AFC-2 only, not on AFC-3 or AFC-4,
+and it must not manufacture a coaching observation the payload does not carry. The summary now
+carries at most one deterministic observation (`DEC-AFC-08`); the web end screen renders it, and
+the iPhone report is a follow-up view change.
+
+**AFC-3 is completed** (2026-11-13, first cut): `features/observations.py` reads the existing
+`adherence` and `vbt_performance` payloads, applies `config/observations.v1.yaml` (3 of the last
+5 comparable sessions, 8-week window) and reports to `GET /api/observations` and
+`strength-coach observations`; observations are appended to the new append-only `observation`
+table, idempotent on the evidence id, and abstentions carry a reason; excluded sessions
+(imported, abandoned, technique, voided, adherence-unavailable) are counted and surfaced. VBT
+inherits the cohort gate. `workout.summary()` is unchanged. The second cut — stagnation and
+"improving performance with stable effort" — is deferred to AFC-5 (`DEC-AFC-07`).
+
+**AFC-4 is implemented** (2026-11-13): Today carries at most one nudge promoted from an AFC-3
+observation, with dismiss (per evidence window) and 14-day snooze recorded append-only in
+`maintenance_review`; Progress adds a programme-KPI panel composed from attendance, volume,
+adherence and the observation count. No notification channel and no new metric
+(`DEC-AFC-05`).
+
+**Tracked follow-ups.** The remaining AFC work is recorded as periodic review tasks rather than
+prose: `afc_device_acceptance` (closed 2026-11-14, owner-confirmed) and `afc_5a_historical`
+(AFC-5a, waiting until 2027-01-23). They appear in the review panel and change nothing by
+themselves.
+
+**Relationship to the critique rubric.** AFC is the canonical post-workout adherence
+evaluation. The deterministic critique rubric is retired from the runtime (`DEC-EVAL-09`): no
+session is scored, no review step follows completion, and its RIR and duration items are
+superseded by `adherence` and `feedback`. Historical rows stay read-only and no rubric item feeds
+a prescription or AFC metric.
+
+**AFC-1 is dissolved.** Attendance is already computed, rendered and correctly labelled as
+target-based; weekly set-volume attainment already exists in the volume budget. Planned-session
+compliance stays out of scope under `DEC-W7-01` ([`LIM-05`](docs/LIMITATIONS-REGISTER.md) is
+unchanged). The programme-level KPI panel is part of AFC-4.
+
+**Phase 5A.** AFC is read-only composition and changes no instrumented definition: `attendance.pct`,
+the prospective flags, monitoring/exposure/calibration configuration, or the end-screen capture
+controls for session RPE, duration and productivity. AFC-2 extended `workout.summary()` and
+`summary.js`; no feature module reads `summary()`. AFC-2i reads the same payload after completion
+and touches no capture surface, so it stays outside the instrument.
+
+**Out of scope.** Native iOS or watchOS *calculation, capture and instrumentation* — AFC-2i renders
+the report only — a watchOS report, cardio models, VBT calibration, the training engine, automatic
+adaptation, and the LLM capabilities in §4.24.
+
 ## 5. Known gaps and risks
 
 This section keeps **no list**. Every accepted limitation is registered with an id, a status and
@@ -1802,27 +1899,34 @@ comparability is tracked in §4.14 and the cardio impulse in §4.13a A2/A3.
 
 ## 6. Idea backlog (not approved, not scheduled)
 
-Recorded so good ideas are not lost, explicitly **not** commitments. Delivered ideas were
-removed on 2026-10-25; their record is in `CHANGELOG.md`.
+Recorded so genuinely open ideas are not lost, explicitly **not** commitments. Delivered and
+rejected ideas are recorded in §6.1; the LLM workstream lives in §4.24.
 
-- `sets_per_muscle_group_per_week` feature, so volume is audited in sets rather than sessions.
-- Readiness composite driven by `metric_definition` (not delivered: the table is used for
-  measurements; dynamic readiness needs weight/role/baseline metadata and shadow validation).
-- Rotation scoring split by session provenance (app-assigned vs self-directed).
-- Grip-strength left/right asymmetry as a readiness input and a unilateral-work trigger.
-- Per-lift manual velocity overrides with expiry.
-- Top set + back-off sets — **evidence review only**; a specific overview plus indirect
-  high-load/multiset and autoregulation evidence, but no direct trial against the current
-  4-5 × 3-5 @ RIR 2-3 prescription. Do not replace the programme yet
-  ([TOP-SET-BACKOFF-EVIDENCE.md](docs/TOP-SET-BACKOFF-EVIDENCE.md)).
+- Readiness composite driven by `metric_definition`: make the daily metric list, direction,
+  weight and baseline config/registry-driven rather than hard-coded. Not delivered: the table
+  is used for measurements; daily readiness needs weight/role/baseline metadata and shadow
+  validation. The daily input cadence and the score's non-authoritative status are unchanged.
 - Personalised volume-response model — future, shadow-only: estimate productive/tolerable
   volume per group/lift with calibrated uncertainty and a pre-registered prospective gate; no
   prescription change until validated. Fixed budget and safety guards remain authoritative.
   Idea only; see `docs/archive/VOLUME-MODULATION-PLAN.md` §13 and Q28.
-- Nicer UI, adherence encouragement and KPI panel (placeholder §4.23; not scheduled).
-- LLM integration workstream (planned §4.24; analyst, explainer, constrained proposer; not started).
-- Wider proposal licence (more than one increment on the menu) once the menu has proved itself
-  in real sessions.
+- Athlete Feedback & Coaching (AFC) — programme KPIs, post-workout report, longitudinal observations and nudges (§4.33; [`AFC plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md); not scheduled).
+
+### 6.1 Delivered or rejected from the former backlog
+
+- Set-based weekly volume auditing — delivered by movement pattern (`features/volume.py`);
+  per-muscle-group accounting is not planned because the programme is organised by movement
+  pattern and no exercise-to-muscle mapping exists.
+- Rotation scoring split by session provenance — delivered (`DEC-CRITIQUE-02`;
+  `critique/rubric.py`, since retired with the rubric in `DEC-EVAL-09`): app-assigned rotation is
+  neutral, self-directed churn is penalised.
+- Top set + back-off — delivered as an opt-in resolver structure; the evidence review found no
+  direct trial against the default 4-5 × 3-5 @ RIR 2-3 prescription and does not justify making
+  it the default. See [TOP-SET-BACKOFF-EVIDENCE.md](docs/TOP-SET-BACKOFF-EVIDENCE.md).
+- Per-set/rep manual velocity overrides — delivered (`vbt_override`, append-only); the
+  per-lift override with expiry idea is dropped.
+- Grip-strength readiness input — rejected (`DEC-GRIP-01`); grip remains a periodic
+  measurement, not a daily readiness input.
 
 ## 7. How to change this roadmap
 

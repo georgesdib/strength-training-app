@@ -5,12 +5,10 @@ from __future__ import annotations
 import sqlite3
 
 import pytest
-import yaml
 from conftest import make_readiness, make_training
 
-from strength_coach import cli
 from strength_coach.features import session_feedback
-from strength_coach.store import db, importer, queries
+from strength_coach.store import db, importer
 
 ROWS = [{"Date": "2024-01-01", "Exercise": "Trap Bar Deadlift", "Weight_Used": "150",
          "RIR": "2", "Reps_Done": "3"}]
@@ -71,32 +69,3 @@ def test_merged_feedback_keeps_latest_non_null_per_field():
     assert merged["duration_min"] == 75
     assert merged["sources"]["duration_min"]["feedback_id"]
     assert latest["duration_min"] is None
-
-
-def test_cli_review_flags_store_optional_detail(tmp_path):
-    training = make_training(ROWS)
-    readiness = make_readiness([{}])
-    path = tmp_path / "coach.db"
-    store = db.Store(path)
-    importer.import_export(
-        store.connection, training, readiness,
-        training_sha256=importer.sha256_frame(training),
-        readiness_sha256=importer.sha256_frame(readiness),
-    )
-    store.close()
-
-    marks = tmp_path / "marks.yaml"
-    marks.write_text(yaml.safe_dump({
-        "sessions": {"2024-01-01": {"confidence": "high",
-                                    "scores": {"RIR_ADHERENCE": 0.9}}}
-    }), encoding="utf-8")
-    assert cli.main(["--db", str(path), "review", "--session", "2024-01-01",
-                     "--scores", str(marks), "--session-rpe", "7",
-                     "--session-minutes", "75", "--productivity", "4"]) == 0
-
-    store = db.Store(path)
-    try:
-        feedback = queries.session_feedback(store.connection, "2024-01-01")
-    finally:
-        store.close()
-    assert (feedback["srpe"], feedback["duration_min"], feedback["productivity"]) == (7.0, 75.0, 4)

@@ -109,7 +109,8 @@ def test_history_lists_and_edits_with_superseding_rows():
         squat = next(item for item in after["sets"] if item["exercise_id"] == "ssb_squat")
         assert squat["load_kg"] == 105
         assert squat["reps"] == 4
-        assert after["needs_review"] == 1
+        # No rubric review follows a correction any more (DEC-EVAL-09).
+        assert after["needs_review"] == 0
         rows = conn.execute(
             "SELECT set_id, supersedes_id, voided FROM clean_set ORDER BY set_id"
         ).fetchall()
@@ -219,29 +220,6 @@ def test_invalid_form_does_not_commit_set_changes():
         after = {item["set_id"]: item for item in history.detail(conn, detail["session_id"])["sets"]}
         assert after[first["set_id"]]["load_kg"] == original[first["set_id"]]["load_kg"]
         assert conn.execute("SELECT COUNT(*) AS n FROM session_edit").fetchone()["n"] == 0
-    finally:
-        store.close()
-
-
-def test_critique_failure_is_sanitized(monkeypatch, caplog):
-    store = _store()
-    try:
-        conn = store.connection
-        detail = history.detail(conn, history.list_sessions(conn)["sessions"][0]["session_id"])
-        first = detail["sets"][0]
-
-        def boom(*_args, **_kwargs):
-            raise RuntimeError("secret /tmp/coach.db")
-
-        monkeypatch.setattr(history, "score_session", boom)
-        with caplog.at_level("ERROR"):
-            edited = history.edit_session(
-                conn, detail["session_id"],
-                sets=[{**first, "load_kg": 105}, detail["sets"][1]],
-            )
-        assert edited["warnings"] == ["critique not rebuilt; see server log"]
-        assert "secret" not in " ".join(edited["warnings"])
-        assert "RuntimeError" in caplog.text
     finally:
         store.close()
 

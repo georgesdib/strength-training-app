@@ -12,7 +12,6 @@ from __future__ import annotations
 import json
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from types import SimpleNamespace
 
 import pytest
 
@@ -25,13 +24,8 @@ from strength_coach.agents import (
     OpenAICompatibleClient,
     build_client,
     describe,
-    explain_critique,
     load_settings,
 )
-from strength_coach.agents.narrative import SYSTEM_PROMPT, critique_prompt
-from strength_coach.critique.rubric import Critique, RubricItem
-from strength_coach.store import db
-from strength_coach.trace import RunTrace
 
 # --- configuration ---------------------------------------------------------
 
@@ -133,67 +127,6 @@ class FailingClient(FakeClient):
         raise LLMError("connection refused")
 
 
-def test_null_llm_produces_no_narrative_and_no_event():
-    with db.Store(":memory:") as store:
-        with RunTrace.start(store.connection, input_hash="h") as trace:
-            critique = _critique()
-            text = explain_critique(NullLLM(), critique, _facts(), trace)
-        assert text is None
-        assert trace.events == []
-        assert store.connection.execute("SELECT COUNT(*) c FROM run_event").fetchone()["c"] == 0
-
-
-def test_narrative_is_recorded_as_an_event_with_tokens():
-    client = FakeClient()
-    with db.Store(":memory:") as store:
-        with RunTrace.start(store.connection, input_hash="h") as trace:
-            text = explain_critique(client, _critique(), _facts(), trace)
-        assert text == "solid session"
-        assert trace.llm_tokens == 17
-        row = store.connection.execute(
-            "SELECT payload FROM run_event WHERE kind = 'llm_output'"
-        ).fetchone()
-        payload = json.loads(row["payload"])
-        assert payload["status"] == "ok"
-        assert payload["model"] == "fake-1"
-        assert payload["text"] == "solid session"
-        assert store.connection.execute(
-            "SELECT llm_tokens FROM run WHERE run_id = ?", (trace.run_id,)
-        ).fetchone()["llm_tokens"] == 17
-
-
-def test_a_failing_model_is_recorded_and_does_not_raise():
-    with db.Store(":memory:") as store:
-        with RunTrace.start(store.connection, input_hash="h") as trace:
-            text = explain_critique(FailingClient(), _critique(), _facts(), trace)
-            trace.finish(status="llm_failed")
-        assert text is None
-        payload = json.loads(store.connection.execute(
-            "SELECT payload FROM run_event WHERE kind = 'llm_output'"
-        ).fetchone()["payload"])
-        assert payload["status"] == "error"
-        assert "connection refused" in payload["error"]
-        assert store.connection.execute(
-            "SELECT status FROM run WHERE run_id = ?", (trace.run_id,)
-        ).fetchone()["status"] == "llm_failed"
-
-
-# --- prompts ---------------------------------------------------------------
-
-
-def test_prompt_carries_the_facts_and_forbids_arithmetic():
-    prompt = critique_prompt(_critique(), _facts())
-    assert "PRG-RIR-001" in prompt
-    assert "2026-10-05" in prompt
-    assert "do not" in SYSTEM_PROMPT.lower() or "Do not" in SYSTEM_PROMPT
-    assert "calculate" in SYSTEM_PROMPT.lower()
-
-
-def test_unmeasurable_items_are_described_not_scored():
-    prompt = critique_prompt(_critique(), _facts())
-    assert '"measurable": false' in prompt
-
-
 # --- the HTTP adapter ------------------------------------------------------
 
 
@@ -268,29 +201,3 @@ def test_empty_completion_is_rejected():
 # --- fixtures --------------------------------------------------------------
 
 
-def _item(key: str, score: float | None, measurable: bool, rules: tuple[str, ...] = ()):
-    return RubricItem(
-        key=key,
-        weight=0.3,
-        score=score,
-        measurable=measurable,
-        evidence_refs=("set:2026-10-05/1",) if measurable else (),
-        rule_ids=rules,
-        detail="detail",
-    )
-
-
-def _critique() -> Critique:
-    return Critique(
-        session_id="2026-10-05",
-        facts_hash="abc",
-        items=(
-            _item("RIR_ADHERENCE", 0.89, True, ("PRG-RIR-001",)),
-            _item("SESSION_DURATION", None, False),
-        ),
-        narrative="deterministic",
-    )
-
-
-def _facts():
-    return SimpleNamespace(session_id="2026-10-05", occurred_on="2026-10-05", session_type="hinge")

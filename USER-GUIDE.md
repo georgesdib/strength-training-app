@@ -90,19 +90,11 @@ Use the CLI when needed:
 
 Do not remove a hard constraint just because a readiness score is high. Constraints and exercise-suitability ratings are separate from day-to-day readiness.
 
-### Step 3 — Mark one or two recent sessions
+### Step 3 — Read the post-workout report
 
-Open **Review**. Start with one or two sessions you can still remember and enter scores for the rubric items. Leave an item blank if you cannot judge it. Set memory confidence honestly (`high`, `low`, or `unknown`).
+Finish the workout without a separate review step. The end screen shows the session and its descriptive summary: prescription adherence (including RIR attainment), VBT results with their quality limits, session feedback and data-quality flags. The server calculates those numbers; the app only displays them.
 
-For the ongoing loop, mark each session on the day and prefer one you have just finished in Workout mode: the prescription snapshot is what makes essential work comparable. Do not backfill old imports just to create calibration labels; a reconstructed mark is stored but excluded from agreement.
-
-The calibration report compares the engine's rubric scores with your marks. It is not an automatic tuning system: the report is evidence for a human decision, and it does not automatically change rubric weights or prescription rules.
-
-You can catch up in the CLI:
-
-```bash
-.venv/bin/strength-coach review --pending
-```
+Rubric marks are no longer requested. The calibration loop is dormant ([`docs/RUBRIC-CALIBRATION.md`](docs/RUBRIC-CALIBRATION.md)) and AFC is the canonical post-workout evaluation; the **Review** view still shows historical marks if you open it.
 
 ### Step 4 — Log today's readiness
 
@@ -155,28 +147,24 @@ with a proportional timeline and prescribed-versus-actual rest table. These are 
 observations, not a fatigue or readiness score; older workouts without execution events are not
 backfilled with estimated timestamps.
 
-### After training — finish and review
+### After training — finish and read the report
 
 1. End the live workout, or import the updated external log.
-2. Open **Review workout** or the **Review** page.
-3. Compare the recorded session with the rubric and enter marks you can justify.
-4. Optionally record session RPE (1–10) and duration.
-5. Leave uncertain rubric items blank and use `high` memory confidence only when appropriate.
+2. Read the descriptive report on the end screen: prescription adherence, RIR attainment, VBT
+   results with their quality limits, session feedback and data-quality flags.
+3. Optionally record session RPE (1–10), length and productivity before ending — they appear in
+   the report.
+4. Nothing else is required. There is no rubric review step and no marks to enter.
 
-CLI example:
-
-```bash
-.venv/bin/strength-coach review --session YYYY-MM-DD
-```
-
-Marks and run history are append-only. A later correction adds a new record; it does not erase the earlier record.
+The **Review** page keeps the historical session sheets read-only; sessions completed after
+2026-11-13 have no rubric rows. Run history stays append-only, and a later correction adds a new
+record rather than erasing the earlier one.
 
 ## 5. Weekly maintenance
 
 Once a week, or after a meaningful change:
 
-- Check that each new live workout was marked on the day; do not backfill old imports for calibration.
-- Run the rubric calibration report monthly or at the Phase 5A gate, not after every session. The B1 review closed on 2026-11-07 with no rubric change; see [`docs/RUBRIC-CALIBRATION.md`](docs/RUBRIC-CALIBRATION.md).
+- No rubric marks are requested; the calibration loop is dormant and AFC carries the post-workout evaluation. The B1 review closed on 2026-11-07 with no rubric change; see [`docs/RUBRIC-CALIBRATION.md`](docs/RUBRIC-CALIBRATION.md).
 - Inspect the **Weekly volume** panel and any MRV/volume warnings.
 - Check athlete state, exercise suitability, constraints and block dates if they have changed.
 - Review symptoms and injury-signal information where relevant.
@@ -185,7 +173,6 @@ Once a week, or after a meaningful change:
 Useful CLI commands:
 
 ```bash
-.venv/bin/strength-coach calibrate
 .venv/bin/strength-coach readiness calibrate
 .venv/bin/strength-coach readiness shadow
 .venv/bin/strength-coach programme --weeks 4 --remaining

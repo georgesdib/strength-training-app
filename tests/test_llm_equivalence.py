@@ -96,7 +96,7 @@ def test_model_absence_changes_nothing_but_the_narrative(tmp_path, monkeypatch):
     fake = FakeClient()
     monkeypatch.setattr(cli, "build_client", lambda settings=None: fake)
     assert cli.main(["--db", str(on_path), "run", "--date", "2024-02-01", "--llm", "on"]) == 0
-    assert fake.calls == 2          # one narrative for the critique, one for the prescription
+    assert fake.calls == 1          # one narrative for the prescription (the rubric is retired)
 
     assert artifacts(off_path) == artifacts(on_path)
 
@@ -116,16 +116,17 @@ def test_the_model_output_lives_only_in_the_trace(tmp_path, monkeypatch):
                 "SELECT payload FROM run_event WHERE kind = 'llm_output'"
             )
         ]
-        assert len(events) == 2
+        assert len(events) == 1
         assert all(event["status"] == "ok" for event in events)
         assert any(event["text"] == "narrative 1" for event in events)
 
         run = store.connection.execute(
             "SELECT llm_tokens FROM run ORDER BY started_at DESC LIMIT 1"
         ).fetchone()
-        assert run["llm_tokens"] == 22
+        assert run["llm_tokens"] == 11
 
-        # The model's prose is not in the scored artifact.
+        # The model's prose is never written into a scored artifact (the critique table stays
+        # historical and empty for new sessions).
         narratives = [
             row["narrative"]
             for row in store.connection.execute("SELECT narrative FROM critique")

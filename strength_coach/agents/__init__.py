@@ -22,11 +22,7 @@ from strength_coach.agents.config import (
     describe,
     load_settings,
 )
-from strength_coach.agents.narrative import (
-    explain_critique,
-    explain_prescription,
-    narrate,
-)
+from strength_coach.agents.narrative import explain_prescription, narrate
 
 __all__ = [
     "LLMClient",
@@ -39,7 +35,6 @@ __all__ = [
     "OpenAICompatibleClient",
     "build_client",
     "describe",
-    "explain_critique",
     "explain_prescription",
     "load_settings",
     "narrate",

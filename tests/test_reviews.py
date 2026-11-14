@@ -85,7 +85,8 @@ def test_review_status_reports_data_gaps_without_writing():
     finally:
         store.close()
     tasks = {task["key"]: task for task in report["tasks"]}
-    assert tasks["rubric_labels"]["status"] == "attention"
+    # The rubric calibration prompt is retired (DEC-EVAL-08); its absence is the contract.
+    assert "rubric_labels" not in tasks
     assert tasks["srpe_coverage"]["status"] == "attention"
     assert tasks["readiness_baseline"]["status"] == "insufficient"
     assert tasks["back_pattern"]["status"] == "ok"
@@ -161,5 +162,34 @@ def test_the_fatigue_signal_review_is_periodic_and_points_at_the_adr():
         assert after["status"] == "not_due"
         assert after["due_on"] == (dt.date(2024, 1, 1) + dt.timedelta(weeks=8)).isoformat()
         assert reviews.snooze_days("fatigue_signals") == 14
+    finally:
+        store.close()
+
+
+def test_afc_followups_are_tracked_and_wait_for_the_gate():
+    from strength_coach.store import repositories
+
+    store = db.Store(":memory:")
+    try:
+        conn = store.connection
+        tasks = {task["key"]: task for task in reviews.status(conn, "2026-11-13")["tasks"]}
+        assert tasks["afc_device_acceptance"]["status"] == "attention"
+        assert tasks["afc_device_acceptance"]["periodic"] is True
+        assert tasks["afc_5a_historical"]["status"] == "waiting"
+        assert tasks["afc_5a_historical"]["due_on"] == "2027-01-23"
+
+        after_gate = {
+            task["key"]: task for task in reviews.status(conn, "2027-02-01")["tasks"]
+        }
+        assert after_gate["afc_5a_historical"]["status"] == "due"
+
+        repositories.append_maintenance_review(
+            conn, task_key="afc_device_acceptance", action="completed",
+            reviewed_on="2026-11-13", decision="not_applicable",
+        )
+        done = {
+            task["key"]: task for task in reviews.status(conn, "2026-11-14")["tasks"]
+        }
+        assert done["afc_device_acceptance"]["status"] == "done"
     finally:
         store.close()

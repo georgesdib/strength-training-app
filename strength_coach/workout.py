@@ -18,9 +18,7 @@ from typing import Any
 
 import pandas as pd
 
-from strength_coach import __version__, adherence
-from strength_coach.critique import build_facts, score_session
-from strength_coach.critique.rubric import persist as persist_critique
+from strength_coach import adherence
 from strength_coach.domain import load as load_mod
 from strength_coach.domain.plan_identity import item_identity as _item_identity
 from strength_coach.domain.plan_identity import row_plan_identity
@@ -32,11 +30,13 @@ from strength_coach.features import e1rm_source as e1rm_source_feature
 from strength_coach.features import (
     heavy_spinal,
     monitoring,
+    residual,
     strength_observations,
     vbt_analysis,
 )
 from strength_coach.features import relative_strength as relative_strength_feature
 from strength_coach.features import session_feedback as session_feedback_feature
+from strength_coach.features.evidence import EvidenceItem, make_source_fingerprint
 from strength_coach.prescribe import config as prescribe_config
 from strength_coach.prescribe import minimum_session as minimum_session_mod
 from strength_coach.prescribe import session_identity
@@ -551,6 +551,290 @@ def _summary_special(
     }
 
 
+def _summary_evidence(
+    *,
+    for_date: str,
+    adherence_payload: Mapping[str, Any],
+    vbt_payload: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    """Evidence items for the numbers this page shows.
+
+    Values are copied from payloads the owning services already produced; nothing is
+    recalculated here. Gates describe whether the evidence is readable, never whether the
+    session was good.
+    """
+    items: list[dict[str, Any]] = []
+    if adherence_payload.get("status") == "available":
+        view = adherence_payload.get("final_plan") or {}
+        matched_rows = [
+            row
+            for exercise in view.get("exercises") or []
+            for row in exercise.get("sets") or []
+            if row.get("matched") is True and row.get("set_id") is not None
+        ]
+        set_ids = [row.get("set_id") for row in matched_rows]
+        slots = view.get("set_completion") or {}
+        denominator = int(slots.get("denominator") or 0)
+        items.append(
+            EvidenceItem(
+                source="adherence.set_completion",
+                source_ids=tuple(set_ids),
+                window_start=for_date,
+                window_end=for_date,
+                value={
+                    "numerator": slots.get("numerator"),
+                    "denominator": slots.get("denominator"),
+                    "ratio": slots.get("ratio"),
+                },
+                source_fingerprint=make_source_fingerprint(matched_rows),
+                n=denominator,
+                gate="signal" if denominator else "insufficient",
+                comparability="comparable" if denominator else "not_comparable",
+                quality_flags=tuple(
+                    str(code)
+                    for code in (adherence_payload.get("quality") or {}).get(
+                        "unavailable_metrics"
+                    )
+                    or ()
+                ),
+                limitations=(
+                    "prescription adherence is descriptive; it is not a training outcome",
+                ),
+                rule_ids=("DEC-AFC-01",),
+            ).as_dict()
+        )
+    if vbt_payload.get("status") == "available":
+        quality = vbt_payload.get("quality") or {}
+        comparable_rows = [
+            row
+            for row in vbt_payload.get("sets") or []
+            if row.get("comparable") is True and row.get("set_id") is not None
+        ]
+        comparable_ids = [row.get("set_id") for row in comparable_rows]
+        comparable_sets = int(quality.get("comparable_sets") or 0)
+        gate = (
+            "signal"
+            if comparable_sets >= residual.MIN_OBSERVATIONS
+            else "insufficient"
+        )
+        items.append(
+            EvidenceItem(
+                source="vbt.target_comparison",
+                source_ids=tuple(comparable_ids),
+                window_start=for_date,
+                window_end=for_date,
+                value={
+                    "target_sets": quality.get("target_sets"),
+                    "comparable_sets": quality.get("comparable_sets"),
+                    "excluded_sets": quality.get("excluded_sets"),
+                },
+                source_fingerprint=make_source_fingerprint(comparable_rows),
+                n=comparable_sets,
+                gate=gate,
+                comparability="comparable" if comparable_sets else "not_comparable",
+                quality_flags=tuple(
+                    str(code) for code in (quality.get("reasons") or {})
+                ),
+                limitations=(
+                    "targets are conditional on rep count and RIR band; not a success score",
+                ),
+            ).as_dict()
+        )
+    return items
+
+
+def _summary_quality_flags(
+    adherence_payload: Mapping[str, Any],
+    vbt_payload: Mapping[str, Any],
+    feedback: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    """Collect the limitations that qualify a number on this page.
+
+    A flag means "read the number with this in mind", never "the session failed". Codes reuse
+    the vocabulary the owning service already emits; nothing new is inferred here.
+    """
+    flags: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    def add(code: str, detail: Any = None) -> None:
+        if code in seen:
+            return
+        seen.add(code)
+        flags.append({"code": str(code), "detail": None if detail is None else str(detail)})
+
+    if adherence_payload.get("status") != "available":
+        add("adherence_unavailable", adherence_payload.get("reason"))
+    else:
+        quality = adherence_payload.get("quality") or {}
+        if quality.get("plan_modified"):
+            add("plan_modified", "plan edited during the workout")
+        if quality.get("legacy_plan_without_order_index"):
+            add("legacy_plan_without_order_index")
+        if quality.get("sets_without_rir"):
+            add("sets_without_rir", quality.get("sets_without_rir"))
+        unmatched = quality.get("unmatched_sets") or {}
+        if unmatched.get("final_plan"):
+            add("unmatched_sets", unmatched.get("final_plan"))
+        ambiguous = quality.get("ambiguous_attribution") or {}
+        if ambiguous.get("final_plan"):
+            add("ambiguous_attribution", ambiguous.get("final_plan"))
+        for code in quality.get("unavailable_metrics") or ():
+            add(code)
+
+    if vbt_payload.get("status") != "available":
+        add("vbt_unavailable", vbt_payload.get("reason"))
+    else:
+        vbt_quality = vbt_payload.get("quality") or {}
+        if vbt_quality.get("target_sets") and not vbt_quality.get("comparable_sets"):
+            add("vbt_no_comparable_sets")
+        if (vbt_quality.get("target_metadata") or {}).get("legacy"):
+            add("vbt_legacy_target")
+
+    if feedback.get("srpe") is None:
+        add("srpe_not_recorded")
+    return flags
+
+
+def _summary_observation(
+    adherence_payload: Mapping[str, Any],
+    vbt_payload: Mapping[str, Any],
+    for_date: str,
+) -> dict[str, Any] | None:
+    """One deterministic per-workout observation, or None when nothing qualifies.
+
+    Descriptive only: it cites the evidence that produced it, abstains silently when the data
+    cannot support a claim, and never changes a prescription (DEC-AFC-08). The families are the
+    same definitions the reports already use; this function selects, it does not calculate.
+    """
+    candidates: list[tuple[float, int, str, str, EvidenceItem]] = []
+    if adherence_payload.get("status") == "available":
+        final = adherence_payload.get("final_plan") or {}
+        details = [
+            detail
+            for exercise in final.get("exercises") or []
+            for detail in exercise.get("sets") or []
+            if detail.get("set_id") is not None
+        ]
+        matched_rows = [detail for detail in details if detail.get("matched") is True]
+        set_ids = tuple(detail["set_id"] for detail in matched_rows)
+        rir = final.get("rir") or {}
+        rir_ids = tuple(rir.get("evaluated_set_ids") or ())
+        rir_id_set = set(rir_ids)
+        rir_rows = [detail for detail in details if detail.get("set_id") in rir_id_set]
+        evaluated = int(rir.get("evaluated_sets") or 0)
+        deviation = rir.get("mean_deviation")
+        tolerance = float(rir.get("tolerance") or 1)
+        if evaluated and deviation is not None and abs(float(deviation)) > tolerance:
+            direction = "above" if float(deviation) > 0 else "below"
+            candidates.append((
+                abs(float(deviation)) / tolerance, 0, "rir",
+                f"RIR averaged {float(deviation):+.1f} from target across "
+                f"{evaluated} rated working set(s).",
+                EvidenceItem(
+                    source="adherence.rir",
+                    source_ids=rir_ids,
+                    window_start=for_date,
+                    window_end=for_date,
+                    value={
+                        "mean_deviation": deviation,
+                        "tolerance": tolerance,
+                        "direction": direction,
+                        "evaluated_sets": evaluated,
+                    },
+                    source_fingerprint=make_source_fingerprint(rir_rows),
+                    unit="rir",
+                    n=evaluated,
+                    gate="signal",
+                    quality_flags=(
+                        ("sets_without_rir",)
+                        if int(rir.get("unavailable_sets") or 0) > 0 else ()
+                    ),
+                    limitations=(
+                        "RIR is self-reported; this is descriptive, not a judgment of effort",
+                    ),
+                    rule_ids=("PRG-RIR-001", "DEC-AFC-01"),
+                ),
+            ))
+        slots = final.get("set_completion") or {}
+        denominator = int(slots.get("denominator") or 0)
+        missing = denominator - int(slots.get("numerator") or 0)
+        if denominator and missing > 0:
+            candidates.append((
+                missing / denominator, 1, "incomplete_work",
+                f"{missing} of {denominator} prescribed working slot(s) were not filled.",
+                EvidenceItem(
+                    source="adherence.set_completion",
+                    source_ids=set_ids,
+                    window_start=for_date,
+                    window_end=for_date,
+                    value={
+                        "missing_sets": missing,
+                        "denominator": denominator,
+                        "set_completion": slots.get("ratio"),
+                    },
+                    source_fingerprint=make_source_fingerprint(matched_rows),
+                    unit="sets",
+                    n=denominator,
+                    gate="signal",
+                    limitations=(
+                        "unperformed prescribed slots are descriptive; this is not athlete failure",
+                    ),
+                    rule_ids=("DEC-AFC-01",),
+                ),
+            ))
+    if vbt_payload.get("status") == "available":
+        within = outside = 0
+        for exercise in vbt_payload.get("exercises") or []:
+            ratio = exercise.get("within_calibration_band") or {}
+            within += int(ratio.get("numerator") or 0)
+            outside += int(ratio.get("denominator") or 0) - int(ratio.get("numerator") or 0)
+        comparable = within + outside
+        if comparable and outside / comparable >= 0.5:
+            comparable_rows = [
+                row
+                for row in vbt_payload.get("sets") or []
+                if row.get("comparable") is True and row.get("set_id") is not None
+            ]
+            set_ids = tuple(row.get("set_id") for row in comparable_rows)
+            candidates.append((
+                outside / comparable, 2, "vbt",
+                f"{outside} of {comparable} comparable velocity set(s) fell outside the "
+                f"calibration band.",
+                EvidenceItem(
+                    source="vbt_analysis.band",
+                    source_ids=set_ids,
+                    window_start=for_date,
+                    window_end=for_date,
+                    value={
+                        "sets_outside_band": outside,
+                        "comparable_sets": comparable,
+                    },
+                    source_fingerprint=make_source_fingerprint(comparable_rows),
+                    unit="sets",
+                    n=comparable,
+                    gate="signal",
+                    limitations=(
+                        "a residual outside the calibration band is not a failed session",
+                    ),
+                    rule_ids=("DEC-AFC-01",),
+                ),
+            ))
+    if not candidates:
+        return None
+    severity, _, family, text, item = max(candidates, key=lambda row: (row[0], -row[1]))
+    evidence = item.as_dict()
+    return {
+        "family": family,
+        "text": text,
+        "gate": evidence["gate"],
+        "n": evidence["n"],
+        "evidence_id": evidence["evidence_id"],
+        "evidence": evidence,
+        "limitations": evidence["limitations"],
+        "basis": "deterministic selection over the session's own evidence",
+    }
+
+
 def summary(conn, workout_id: str) -> dict[str, Any]:
     """Read-only descriptive summary for a completed workout.
 
@@ -597,13 +881,6 @@ def summary(conn, workout_id: str) -> dict[str, Any]:
             "near_failure_sets": monitoring.near_failure_sets(exercise_sets),
             "load_base": load_info.get(exercise_id, {"kg": None, "source": "unavailable"}),
         })
-    completion = dict(data.get("comparison") or {})
-    completion["planned_sets"] = sum(
-        int(item.get("planned_sets") or 0) for item in completion.get("items") or []
-    )
-    completion["completed_sets"] = sum(
-        int(item.get("actual_sets") or 0) for item in completion.get("items") or []
-    )
     # Adherence reads the materialised leaf rows, not the live workout_set draft, so a later
     # history correction is reflected in the completed summary. A voided session is excluded
     # from metrics, so its adherence is explicitly unavailable rather than silently recomputed.
@@ -657,7 +934,6 @@ def summary(conn, workout_id: str) -> dict[str, Any]:
         "for_date": for_date,
         "session_type": data.get("session_type"),
         "status": data.get("status"),
-        "completion": completion,
         "strength": strength,
         "dose": {
             "per_exercise": per_exercise,
@@ -674,8 +950,16 @@ def summary(conn, workout_id: str) -> dict[str, Any]:
         "comparison": comparison,
         "adherence": adherence_payload,
         "vbt": vbt_payload,
+        "observation": _summary_observation(
+            adherence_payload, vbt_payload, for_date
+        ),
+        "evidence": _summary_evidence(
+            for_date=for_date,
+            adherence_payload=adherence_payload,
+            vbt_payload=vbt_payload,
+        ),
         "quality": {
-            "flags": [],
+            "flags": _summary_quality_flags(adherence_payload, vbt_payload, feedback),
             "coverage": {
                 "rir": rir_coverage,
                 "e1rm": None if not strength else raw_ok / len(strength),
@@ -1097,51 +1381,6 @@ def remove_set(conn, workout_id: str, set_id: int) -> dict:
            target_set_id=int(set_id))
     _touch(conn, workout_id)
     return get(conn, workout_id)
-
-
-def score(conn, workout_id: str) -> str:
-    """Run and persist the deterministic rubric for a materialised workout.
-
-    The critique is append-only and linked to a synthetic run so the end-workout review has
-    the same audit trail as a CLI prescription run. Re-running is a no-op.
-    """
-    workout = get(conn, workout_id)
-    if workout is None:
-        raise ValueError("workout not found")
-    if workout.get("critique_id"):
-        return str(workout["critique_id"])
-    fact = build_facts(conn, workout_id)
-    run = repositories.start_run(
-        conn,
-        input_hash="workout:" + workout_id,
-        code_version=__version__,
-        window_start=workout["for_date"],
-        window_end=workout["for_date"],
-    )
-    critique = score_session(conn, workout_id, facts=fact)
-    critique_id = persist_critique(conn, critique, run_id=run.run_id)
-    repositories.finish_run(conn, run.run_id)
-    conn.execute(
-        "UPDATE workout_session SET critique_id = ? WHERE workout_id = ?",
-        (critique_id, workout_id),
-    )
-    return critique_id
-
-
-def mark_reviewed(conn, session_id: str) -> bool:
-    """Mark the workout reviewed once human marks exist; idempotent."""
-    row = conn.execute(
-        "SELECT workout_id, reviewed_at FROM workout_session WHERE workout_id = ?",
-        (session_id,),
-    ).fetchone()
-    if row is None or row["reviewed_at"]:
-        return False
-    conn.execute(
-        "UPDATE workout_session SET reviewed_at = ? WHERE workout_id = ?",
-        (_now(), session_id),
-    )
-    _event(conn, session_id, "reviewed", {})
-    return True
 
 
 def _validate_exercise(exercise_id: str) -> str:
@@ -1747,6 +1986,10 @@ def undo_import(conn, workout_id: str) -> dict:
 def _comparison(workout: Mapping[str, Any], *, original: bool = False) -> dict:
     """Compare actual sets with the frozen plan using stored plan-item identity.
 
+    Display contract only. This is the comparison available before a workout is materialised
+    (in progress or abandoned), so `/api/workout/<id>` keeps it. It is not a metric source:
+    completed workouts use `adherence.analyse` (DEC-AFC-01).
+
     The exercise name is never used as the join key. A set written before the item index was
     stored, or one whose index points at a different exercise, remains unmatched and is
     visible in ``extra`` instead of being guessed into the first same-name item.
@@ -2013,19 +2256,18 @@ def end(
             session_rpe=rpe, session_rpe_recorded=not not_recorded, notes=notes,
             productivity=productivity,
         )
-        # A technique session is attendance only: it has no template and no normal rubric.
-        critique_id = (None if session_identity.is_technique(workout["session_type"])
-                       else score(conn, workout_id))
+        # No critique is computed at completion: the rubric is a retired diagnostic
+        # (DEC-EVAL-09), and ending a workout must not depend on it.
         conn.execute(
             """
             UPDATE workout_session
             SET status = 'completed', ended_at = ?, duration_measured_s = ?,
                 duration_min = ?, duration_source = ?, session_rpe = ?,
-                session_rpe_recorded = ?, notes = COALESCE(?, notes), critique_id = ?
+                session_rpe_recorded = ?, notes = COALESCE(?, notes)
             WHERE workout_id = ?
             """,
             (ended, measured_seconds, duration, source, rpe,
-             0 if not_recorded else 1, notes, critique_id, workout_id),
+             0 if not_recorded else 1, notes, workout_id),
         )
         _event(conn, workout_id, "end", {"duration_min": duration,
                                           "session_rpe": rpe,

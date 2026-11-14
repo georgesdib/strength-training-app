@@ -71,8 +71,19 @@ def test_summary_has_completion_strength_dose_special_and_feedback(conn):
     summary = workout.summary(conn, ended["workout_id"])
 
     assert summary["status"] == "completed"
-    assert summary["completion"]["planned_sets"] == 4
-    assert summary["completion"]["completed_sets"] == 3
+    # DEC-AFC-01: adherence is the single metric source; the duplicate count block is gone.
+    assert "completion" not in summary
+    assert summary["adherence"]["status"] == "available"
+    assert summary["adherence"]["final_plan"]["set_completion"]["denominator"] == 4
+    assert summary["quality"]["flags"]
+    evidence = summary["evidence"]
+    assert evidence
+    assert all(item["evidence_id"].startswith("ev:") for item in evidence)
+    assert {item["source"] for item in evidence} >= {"adherence.set_completion"}
+    assert all(item["window"] == {"start": "2024-01-01", "end": "2024-01-01"}
+               for item in evidence)
+    # Same rows and window reproduce the same ids.
+    assert workout.summary(conn, ended["workout_id"])["evidence"] == evidence
     assert summary["basis"] == {
         "performance": "raw_formula_epley_rir",
         "decay": "not_applied",
@@ -153,3 +164,51 @@ def test_cli_summary_json_uses_the_same_payload(tmp_path, capsys):
 def test_summary_missing_workout_is_a_value_error(conn):
     with pytest.raises(ValueError, match="not found"):
         workout.summary(conn, "missing")
+
+
+def _finish(conn, rir):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    for _ in range(2):
+        workout.add_set(
+            conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+            load_kg=100, reps=5, rir=rir,
+        )
+    for _ in range(2):
+        workout.add_set(
+            conn, started["workout_id"], exercise_id="competition_bench_press",
+            load_kg=80, reps=5, rir=rir,
+        )
+    workout.end(conn, started["workout_id"], session_rpe=7, duration_min=55)
+    return workout.summary(conn, started["workout_id"])
+
+
+def test_summary_observation_reports_rir_deviation(conn):
+    payload = _finish(conn, rir=4)
+    observation = payload["observation"]
+    assert observation is not None
+    assert observation["family"] == "rir"
+    assert observation["gate"] == "signal"
+    assert observation["evidence_id"].startswith("ev:")
+    assert "RIR averaged" in observation["text"]
+    assert observation["evidence"]["limitations"]
+
+
+def test_summary_observation_absent_when_nothing_qualifies(conn):
+    payload = _finish(conn, rir=2)
+    assert payload["observation"] is None
+    # The report still carries its evidence and quality sections.
+    assert payload["evidence"]
+
+
+def test_summary_observation_reports_incomplete_work(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    workout.add_set(
+        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+        load_kg=100, reps=5, rir=2,
+    )
+    workout.end(conn, started["workout_id"], session_rpe=7, duration_min=45)
+    payload = workout.summary(conn, started["workout_id"])
+    observation = payload["observation"]
+    assert observation is not None
+    assert observation["family"] == "incomplete_work"
+    assert "not filled" in observation["text"]

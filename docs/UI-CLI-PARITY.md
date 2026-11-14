@@ -36,7 +36,7 @@ This is deliberate: the UI is a planning surface until the athlete starts the wo
 | Readiness calibration/shadow/feedback | `readiness ...` | Readiness/Outcomes | same reports |
 | Workout start/perform | CLI subset | Workout page | UI-first start; both write the same workout |
 | Workout sets/update/remove/end/abandon/import | `workout ...` | Workout page | same workout functions |
-| Review one session | `review` | Review page | same marks/rubric |
+| Review one session | retired with the rubric (`DEC-EVAL-09`) | Review page shows stored scores read-only | n/a |
 | Post-lift form rating | no CLI command | Workout + History edit | UI-only capture; same rubric item from stored ratings |
 | Minimum effective session | `run --minimum-session` | Prescribe controls | same volume-only core; `MOD-MIN-001` |
 | Technique throttle | `run --technique-throttle [--throttle-pattern ...]` | Prescribe controls | same load/RIR core; repeatable pattern scope; `MOD-TECH-001` |
@@ -64,8 +64,8 @@ These are known and intentional or still open.
 |---|---|---|
 | UI prescribe preview artifact | `/api/prescribe` is read-only until workout start | intentional; start commits the artifact |
 | CLI `run --propose` / `--llm` narrative | no UI proposal/chat surface today | documented CLI-only (`DEC-LLM-*` / WEB-UI limitations); future analyst/explainer/proposer surfaces are planned in [`LLM-INTEGRATION-PLAN.md`](LLM-INTEGRATION-PLAN.md), not implemented |
-| `review --pending` bulk queue | UI reviews a selected recent session; no batch queue | open; CLI only since `DEC-WEB-02` |
-| `state --import` YAML | UI has individual state forms only | open; CLI only since `DEC-WEB-02` |
+| `review --pending` bulk queue | retired with the rubric (`DEC-EVAL-09`); the Review page is read-only | closed |
+| `state --import` YAML | UI has individual state forms only | accepted design choice 2026-11-13 (`LIM-27`); CLI only since `DEC-WEB-02` |
 | `e1rm calibrate --window-days` | UI shows the calibration table, no window control | partial |
 | `e1rm tests-needed --window-days` | UI shows the same coverage table with the default window | partial |
 | `test --status` standalone cadence | cadence shown in prescription notes | partial |

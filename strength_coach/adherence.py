@@ -450,6 +450,9 @@ def _rir_summary(details: Sequence[Mapping[str, Any]], matched_count: int) -> di
     at_target = sum(1 for row in evaluated if row["rir_status"] == "at_target")
     return {
         "evaluated_sets": len(evaluated),
+        "evaluated_set_ids": [
+            row["set_id"] for row in evaluated if row.get("set_id") is not None
+        ],
         "at_target": at_target,
         "above_target": sum(1 for row in evaluated if row["rir_status"] == "above"),
         "below_target": sum(1 for row in evaluated if row["rir_status"] == "below"),

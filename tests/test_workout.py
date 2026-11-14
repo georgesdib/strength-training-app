@@ -528,19 +528,18 @@ def test_weekly_residual_uses_stored_plan_item_target(conn):
     }]
 
 
-def test_end_scores_rubric_and_review_closes_workout(conn):
+def test_end_writes_no_critique(conn):
+    """The rubric is retired (DEC-EVAL-09): completion must not score the session."""
     started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
     workout.add_set(conn, started["workout_id"], exercise_id="trap_bar_deadlift",
                     load_kg=100, reps=5, rir=2)
     ended = workout.end(conn, started["workout_id"], session_rpe=7, duration_min=55)
-    assert ended["critique_id"]
+    assert not ended.get("critique_id")
     assert conn.execute(
         "SELECT COUNT(*) AS c FROM critique WHERE session_id = ?",
         (started["workout_id"],),
-    ).fetchone()["c"] == 1
-    assert workout.mark_reviewed(conn, started["workout_id"]) is True
-    assert workout.mark_reviewed(conn, started["workout_id"]) is False
-    assert workout.get(conn, started["workout_id"])["reviewed_at"]
+    ).fetchone()["c"] == 0
+    assert ended["status"] == "completed"
 
 
 def test_plan_overrides_keep_the_original_prescription(conn):
@@ -901,7 +900,7 @@ def test_end_retry_returns_the_completed_workout(conn):
     assert conn.execute(
         "SELECT COUNT(*) AS c FROM critique WHERE session_id = ?",
         (started["workout_id"],),
-    ).fetchone()["c"] == 1
+    ).fetchone()["c"] == 0
 
 
 def test_end_failure_rolls_back_the_completion(conn, monkeypatch):

@@ -203,8 +203,7 @@ async function loadOverview() {
     loadDropWindow();
     $("#today-title").textContent = data.profile ? "Your training day" : "Set up athlete profile";
     $("#today-sub").textContent = "Block week " + (data.block_week ?? "unknown")
-      + " · " + data.today + " · " + (data.unreviewed.length ? data.unreviewed.length
-        + " unreviewed session(s)" : "reviews up to date");
+      + " · " + data.today;
     const activeWorkout = await api("/api/workout/active").catch(() => ({workout: null}));
     $("#today-session").textContent = todaySessionActionLabel(activeWorkout.workout);
     const readiness = data.readiness;
@@ -228,7 +227,6 @@ async function loadOverview() {
       ["Cardio (4 wk avg)", data.cardio ? data.cardio.average_weekly_minutes + " min/wk" : "unknown",
         data.cardio ? "reference " + data.cardio.reference_min + "-" + data.cardio.reference_max
           + " · " + data.cardio.sessions + " session(s)" : "no entry"],
-      ["Unreviewed", data.unreviewed.length, data.unreviewed.length ? "run review to catch up" : "all caught up"],
     ];
     $("#cards").innerHTML = cards.map(([label, value, sub]) => `
       <div class="card"><div class="label">${esc(label)}</div>
@@ -267,13 +265,13 @@ async function refreshToday() {
 function renderTodayPriorities(data) {
   const target = $("#today-priorities");
   if (!target) return;
-  const open = (data.unreviewed || []).length;
+  renderNudge(target);
   const followup = data.form_evaluation || {};
   const due = followup.due_on ? `Review due ${followup.due_on}` : followup.message || "No follow-up status available";
   target.innerHTML = `<div class="today-priority-row">
-      <div><strong>${open ? `${open} session${open === 1 ? "" : "s"} need review` : "Reviews are up to date"}</strong>
-        <p class="muted">${open ? "Open Review to inspect stored sessions." : "No unreviewed sessions are currently listed."}</p></div>
-      <a class="button-link" href="#review" data-view-link="review">${open ? "Open Review" : "Review sessions"}</a>
+      <div><strong>Post-workout report</strong>
+        <p class="muted">Finish a workout to read the descriptive report; no review step follows.</p></div>
+      <a class="button-link" href="#workout" data-view-link="workout">Open workout</a>
     </div>
     <div class="today-priority-row">
       <div><strong>Form follow-up: ${esc(followup.status || "unknown")}</strong>
@@ -359,8 +357,35 @@ async function loadProgress() {
       <tbody>${rows || "<tr><td colspan='3' class='muted'>no targeted volume</td></tr>"}</tbody></table>
       <p class="muted">${esc(data.note)} Attendance is an aggregate, not adherence to planned dates.</p>
       <p><a href="#progress" data-view-link="progress">Open Progress overview</a></p>`;
+    loadObservations();
+    loadKpis(data);
   } catch (error) {
     $("#progress").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
+
+async function loadObservations() {
+  const target = $("#progress-observations");
+  if (!target) return;
+  try {
+    const data = await api("/api/observations");
+    const rows = (data.observations || []).map((row) => `
+      <div class="observation">
+        <p><strong>${esc(String(row.family).replace("_", " "))}</strong> · ${esc(row.statement)}</p>
+        <p class="muted">${esc(row.gate)} · n=${row.n} · <code>${esc(row.evidence_id)}</code></p>
+        <details class="muted"><summary>Limitations</summary>
+          <ul>${(row.evidence.limitations || []).map((item) => `<li>${esc(item)}</li>`).join("")}</ul>
+        </details>
+      </div>`).join("");
+    const abstain = (data.abstain || []).map((row) =>
+      `<li>${esc(row.family)}: ${esc(row.reason)}</li>`).join("");
+    target.innerHTML =
+      (rows || "<p class='muted'>No observation met its family's gate.</p>") +
+      (abstain
+        ? `<details class="muted"><summary>What could not be supported</summary><ul>${abstain}</ul></details>`
+        : "");
+  } catch (error) {
+    target.innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
 }
 
@@ -1349,19 +1374,9 @@ async function fillSessionSelect() {
   if (!sessions.length) { select.innerHTML = "<option value=''>no sessions</option>"; return; }
   const current = select.value;
   select.innerHTML = sessions.map((s) => `<option value="${esc(s.session_id)}">
-    ${esc(s.occurred_on)} · ${esc(sessionLabel(s.session_type))} · ${s.marks ? s.marks + " marks" : "unreviewed"}</option>`).join("");
+    ${esc(s.occurred_on)} · ${esc(sessionLabel(s.session_type))}</option>`).join("");
   if (current) select.value = current;
 }
-
-$("#rubric-calibration-run").addEventListener("click", async () => {
-  $("#rubric-calibration").innerHTML = "<p class='empty'>Loading…</p>";
-  try {
-    const data = await api("/api/calibrate");
-    $("#rubric-calibration").innerHTML = `<pre>${esc(data.text)}</pre>`;
-  } catch (error) {
-    $("#rubric-calibration").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
-  }
-});
 
 $("#review-form").addEventListener("submit", (event) => {
   event.preventDefault();
@@ -1376,15 +1391,10 @@ async function loadReview(session) {
   $("#review-result").innerHTML = "<p class='empty'>Loading sheet…</p>";
   try {
     const data = await api("/api/review/" + encodeURIComponent(session));
-    const items = data.items.map((item) => `<tr>
-      <td data-label="Item"><strong>${esc(item.key)}</strong><div class="muted">${esc(item.question)}</div>
-        <details class="review-anchors"><summary>Anchors</summary>
-          <p class="muted">${esc(item.anchors)}</p></details></td>
-      <td data-label="Engine" class="muted">${item.measurable ? fmt(item.score, 2) : "n/a"}</td>
-      <td data-label="Your score"><input type="number" min="0" max="1" step="0.05" data-key="${esc(item.key)}"
-        aria-label="Your score for ${esc(item.key)}" value="${item.existing ?? ""}" placeholder="skip"></td>
-      <td data-label="Why" class="muted"><details class="review-why"><summary>Why</summary>
-        <p>${esc(item.detail)}</p></details></td></tr>`).join("");
+    const rows = (data.items || []).map((item) => `<tr>
+      <td data-label="Item"><strong>${esc(item.key)}</strong>
+        <div class="muted">${esc((item.rules || []).join(", "))}${item.evidence_count ? " · " + item.evidence_count + " evidence ref(s)" : ""}</div></td>
+      <td data-label="Engine" class="muted">${item.measurable ? fmt(item.score, 2) : "n/a"}</td></tr>`).join("");
     const formRows = (data.form_context?.forms || []).map((form) => `
       <tr><td><code>${esc(form.exercise_id)}</code></td><td>${form.rating}/5</td>
       <td>${form.prior_avg ?? "—"} <span class="muted">(n=${form.prior_n})</span></td>
@@ -1393,89 +1403,26 @@ async function loadReview(session) {
       ? `<h3>Form context</h3><div class="table-scroll"><table><thead><tr><th>Lift</th><th>this session</th>
          <th>prior average</th><th>prior latest</th></tr></thead><tbody>${formRows}</tbody></table></div>`
       : "";
+    const table = rows
+      ? `<div class="table-scroll review-table-wrap"><table class="review-table">
+         <thead><tr><th>Item</th><th>engine</th></tr></thead>
+         <tbody>${rows}</tbody></table></div>`
+      : "<p class='muted'>No stored critique for this session: it was completed after the rubric was retired.</p>";
     $("#review-result").innerHTML = `<div class="panel">
       <div class="panel-head"><h2>${esc(data.session)} · ${esc(sessionLabel(data.session_type))}</h2>
-        <span class="badge">composite ${fmt(data.composite, 2)}</span></div>
+        <span class="badge">historical · read only</span></div>
       <p class="muted">Week ${esc(data.week)} · spinal cost ${fmt(data.week_cost, 2)}</p>
       ${reviewWorkoutSummary(data.workout)}
       ${formContext}
-      <div class="table-scroll review-table-wrap"><table class="review-table">
-      <thead><tr><th>Item</th><th>engine</th><th>your score</th><th>why</th></tr></thead>
-      <tbody>${items}</tbody></table></div>
-      <div class="form-row">
-        <label>Remembrance <select id="review-confidence">
-          <option value="high" ${data.confidence === "high" ? "selected" : ""}>high</option>
-          <option value="low" ${data.confidence === "low" ? "selected" : ""}>low</option>
-          <option value="unknown" ${data.confidence === "unknown" ? "selected" : ""}>unknown</option>
-        </select></label>
-        <label>Session RPE <input id="review-srpe" type="number" min="1" max="10"
-          step="0.5" placeholder="optional"
-          value="${data.feedback && data.feedback.srpe != null ? data.feedback.srpe : ""}"></label>
-        <label>Length (min) <input id="review-minutes" type="number" min="1" max="600"
-          step="1" placeholder="optional"
-          value="${data.feedback && data.feedback.duration_min != null ? data.feedback.duration_min : ""}"></label>
-        <label>Productivity
-          <select id="review-productivity">
-            <option value="">Not recorded</option>
-            <option value="1" ${data.feedback && data.feedback.productivity === 1 ? "selected" : ""}>1 — not at all</option>
-            <option value="2" ${data.feedback && data.feedback.productivity === 2 ? "selected" : ""}>2 — slightly</option>
-            <option value="3" ${data.feedback && data.feedback.productivity === 3 ? "selected" : ""}>3 — moderately</option>
-            <option value="4" ${data.feedback && data.feedback.productivity === 4 ? "selected" : ""}>4 — very</option>
-            <option value="5" ${data.feedback && data.feedback.productivity === 5 ? "selected" : ""}>5 — extremely</option>
-          </select>
-        </label>
-        <label class="grow">Note <input id="review-note" placeholder="optional"></label>
-        <button class="primary" id="save-review">End review</button>
-      </div>
-      <p class="muted">Only high-confidence marks count toward agreement. Blank = skip.</p>
-      <div id="review-calibration"></div>
+      ${table}
+      <p class="muted">The rubric calibration loop is dormant (DEC-EVAL-09). Stored engine scores
+        are shown; nothing is re-scored or recorded here, and post-workout evaluation lives in the
+        workout report.</p>
     </div>`;
-    $("#save-review").addEventListener("click", () => saveReview(session));
   } catch (error) {
     $("#review-result").innerHTML = `<div class="panel warnbox">${esc(error.message)}</div>`;
   }
 }
-
-async function saveReview(session) {
-  const button = $("#save-review");
-  const label = button.textContent;
-  button.disabled = true;
-  button.textContent = "Saving…";
-  const scores = {};
-  document.querySelectorAll("#review-result input[data-key]").forEach((input) => {
-    if (input.value !== "") scores[input.dataset.key] = Number(input.value);
-  });
-  const payload = {
-    scores,
-    confidence: $("#review-confidence").value,
-    note: $("#review-note").value || null,
-    session_rpe: $("#review-srpe").value || null,
-    session_minutes: $("#review-minutes").value || null,
-    productivity: $("#review-productivity").value || null,
-  };
-  try {
-    const data = await api("/api/review/" + encodeURIComponent(session), {
-      method: "POST", body: JSON.stringify(payload),
-    });
-    const saved = data.written
-      ? `Saved ${data.written} marks`
-      : "Saved session details (no marks)";
-    const post = data.postprocess
-      ? `<p class="muted">Rubric: ${esc(data.postprocess.rubric)} · calibration: ${esc(data.postprocess.calibration)} · workout closed: ${data.postprocess.workout_closed ? "yes" : "no"}</p>`
-      : "";
-    $("#review-calibration").innerHTML = `<div class="warnbox"><strong>${esc(saved)}</strong>${post}
-      <pre>${esc(data.calibration.text)}</pre></div>`;
-    notify(saved + " · review saved.");
-    loadOverview();
-  } catch (error) {
-    notify(error.message, "error");
-    $("#review-calibration").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
-  } finally {
-    button.disabled = false;
-    button.textContent = label;
-  }
-}
-
 /* --- exercise selection -------------------------------------------------- */
 async function loadSelection() {
   const date = $("#prescribe-date").value;
@@ -3722,3 +3669,82 @@ document.addEventListener("DOMContentLoaded", () => {
   loadOverview();
   applyHashRoute();
 });
+
+async function renderNudge(target) {
+  let data;
+  try {
+    data = await api("/api/nudge");
+  } catch (error) {
+    return;
+  }
+  if (!data || !data.nudge) return;
+  const nudge = data.nudge;
+  const row = document.createElement("div");
+  row.className = "today-priority-row";
+  row.id = "today-nudge";
+  row.innerHTML = `<div><strong>Coaching nudge · ${esc(String(nudge.family).replace("_", " "))}</strong>
+      <p class="muted">${esc(nudge.statement)}</p>
+      <p class="muted">${esc(nudge.gate)} · n=${nudge.n} · <code>${esc(nudge.evidence_id)}</code></p>
+      <details class="muted"><summary>Why this nudge</summary>
+        <ul>${(nudge.evidence.limitations || []).map((item) => `<li>${esc(item)}</li>`).join("")}</ul>
+      </details></div>
+    <div class="form-row">
+      <button class="ghost" type="button" id="nudge-snooze">Snooze 14 days</button>
+      <button class="ghost" type="button" id="nudge-dismiss">Dismiss</button>
+    </div>`;
+  target.prepend(row);
+  document.getElementById("nudge-snooze").addEventListener("click", () => decideNudge(nudge, "snooze"));
+  document.getElementById("nudge-dismiss").addEventListener("click", () => decideNudge(nudge, "dismiss"));
+}
+
+async function decideNudge(nudge, action) {
+  try {
+    await api("/api/nudge", {
+      method: "POST",
+      body: JSON.stringify({
+        action, key: nudge.key, evidence_id: nudge.evidence_id,
+      }),
+    });
+    notify(action === "dismiss" ? "Nudge dismissed" : "Nudge snoozed for 14 days");
+    const row = document.getElementById("today-nudge");
+    if (row) row.remove();
+  } catch (error) {
+    notify(error.message, "error");
+  }
+}
+
+async function loadKpis(progress) {
+  const target = $("#progress-kpis");
+  if (!target) return;
+  try {
+    const [adherence, observations] = await Promise.all([
+      api("/api/adherence/analytics?weeks=8").catch(() => ({})),
+      api("/api/observations").catch(() => ({})),
+    ]);
+    const attendance = progress.attendance || {};
+    const volume = (progress.volume || []).filter((row) => row.status !== "untargeted");
+    const plan = (adherence.final_plan || {});
+    const slots = plan.set_completion || {};
+    const rir = plan.rir || {};
+    const count = observations.count == null ? 0 : observations.count;
+    target.innerHTML = `<div class="cards compact-cards">
+      <div class="card"><div class="label">Training frequency</div>
+        <div class="value">${attendance.completed ?? "unknown"}${attendance.target == null ? "" : " / " + attendance.target}</div>
+        <div class="sub">${attendance.pct == null ? "target unknown" : attendance.pct + "% of target"}</div></div>
+      <div class="card"><div class="label">Volume patterns</div>
+        <div class="value">${volume.length}</div>
+        <div class="sub">targeted movement patterns in view</div></div>
+      <div class="card"><div class="label">Set completion</div>
+        <div class="value">${slots.numerator ?? "unknown"} / ${slots.denominator ?? "—"}</div>
+        <div class="sub">summed prescribed slots, 8 weeks</div></div>
+      <div class="card"><div class="label">RIR at target</div>
+        <div class="value">${rir.attainment && rir.attainment.ratio != null ? rir.attainment.numerator + " / " + rir.attainment.denominator : "unknown"}</div>
+        <div class="sub">rated sets inside the tolerance</div></div>
+      <div class="card"><div class="label">Observations</div>
+        <div class="value">${count}</div>
+        <div class="sub">repeated patterns currently supported</div></div>
+    </div>`;
+  } catch (error) {
+    target.innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
