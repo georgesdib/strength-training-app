@@ -58,6 +58,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | — | Training-day session fragments | **done 2026-11-01** | one local training day may contain multiple session fragments; attendance and budget use days, volume/spinal use combined sets, e1RM uses one day-level observation; no schema migration; see [`docs/TRAINING-DAY-MODEL.md`](docs/TRAINING-DAY-MODEL.md) |
 | — | Deterministic dynamic template resolver | **Steps 0–6 complete 2026-11-01/03; merged to `development` 2026-11-03; released in v1.2.0 as opt-in (`resolver.enabled` default false)** | plan and confirmed decisions at [`docs/archive/PROGRAMME-BUILDER-PLAN.md`](docs/archive/PROGRAMME-BUILDER-PLAN.md) and [`docs/DECISIONS.md`](docs/DECISIONS.md) (`DEC-RESOLVER-01`–`12`); Step 1 delivered policy/settings/provenance; Step 2 delivered and remediated the internal deterministic generator core (`generator.py`, `resolver_settings.py`, accepted pattern-flexibility mapping); remediation covers shared injury/constraint eligibility, power-slot safety, require_can_do/unrated/rotation-default semantics, fallback repair, structural availability, whole-session/duplicate-aggregated authoritative spinal scoring, completed-workout precedence, history merge, retired redundant rotation/preference weights and policy/catalogue digests; Step 3 adds the opt-in top-set/back-off structure, top-set persistence and role-aware workout logging, and the hinge maximal-week programme change; Step 4C wires the flag-on resolver path through candidate pools, bounded beam and read-only evaluator, adds pool-aware scheduler availability, rejects selection overrides, and records generated-session provenance; the 4C audit remediation enforces required patterns on final assignments, separates evaluator failure stages, fingerprints beam configuration and DataFrame schemas, and uses the same auto-candidate/slot matching in scheduling; Step 5 adds the dedicated Settings -> Resolver panel, append-only scalar settings, validated policy YAML with atomic writes and 20 timestamped backups, read-only preview with choices/alternatives/suggestions, inline suitability rating, top-set preview, regenerate/diff and a start handoff; the Step 5 remediation adds shared CLI/web readiness enforcement, atomic backup creation, shared resolver-enable confirmation, deterministic restore with a reported pre-restore snapshot, and a full-prescription preview diff; Step 6 adds generated-slot snapshot provenance for critique/exemption reads with a legacy-null fallback, top-set role-aware critique coverage, a real-database copy smoke test, flag/policy rollback verification and the rollout documentation; forecast remains fixed option (c); the flag remains off |
 | future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.5; Iteration 2 conditional** | phased workstream at §4.24; architecture, iteration gate and selector retirement in [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); no implementation in this pass |
+| future | Derived analytics layer | **design proposed 2026-11-14; not implemented** | §4.34; shared versioned, rebuildable analytics (per-set, session/exercise, weekly, selected snapshots) owned by the existing analytical modules; motivated by the ODROID overview (2.7 s p50) and monitoring (49 s) measurements |
 | future | Athlete Feedback & Coaching (AFC) | **AFC-2, AFC-2i, AFC-3 and AFC-4 implemented 2026-11-13; physical iPhone acceptance owner-confirmed 2026-11-14; AFC-5 scoped (docs only); backend, web and native iOS presentation** | §4.33; canonical plan [`AFC plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md); composes the existing adherence, VBT, readiness, feedback and volume services; AFC-1 dissolved and planned-session compliance excluded by `DEC-W7-01`; Phase 5A instruments frozen; AFC-2i renders the same report contract in the iPhone app (`DEC-AFC-03`) |
 | — | Symptom attribution and injury-signal verification | **done 2026-11-01** | Phases 1–2 closed: verification hygiene and optional session/lift attribution with required onset/confidence, migration `0047`, CLI/API/web and display-only views. Phase 3 was split into a separate roadmap phase (§4.28) |
 | future | Exercise-level symptom research (Phase 3) | **planned; unscheduled** | separate pre-registered descriptive research question; mechanical exposure and regional symptoms, not athlete attribution; no model, score, suitability rule or prescription change; Today follow-up `injury_attribution_phase3`; plan §10 and §4.28 |
@@ -1955,6 +1956,36 @@ Phase 1b selector retirement, which is still required before a server-side narra
 constrained proposer is deferred/unscheduled. §4.33 (AFC) remains the deterministic producer of the
 evidence this layer serialises. This workstream adds no model capability to Iteration 1 and does not
 reopen any completed phase.
+
+### 4.34 Derived analytics layer  (design proposed 2026-11-14; not implemented)
+
+**Status:** design only. No schema, cache, materialisation or runtime behaviour is part of this
+section yet. The full proposal is
+[`docs/design/DERIVED-ANALYTICS-ARCHITECTURE.md`](docs/design/DERIVED-ANALYTICS-ARCHITECTURE.md).
+
+The audit found no persistent analytical layer: dashboards and reports rescan and re-enrich the
+whole `clean_set` history, several modules derive e1RM independently, and the deployment host
+measures about 2.7 s p50 for `get_training_overview`, 1.7 s for a deload decision, 4.9 s for the
+8-week outcomes report and 49 s for the monitoring analysis on a synthetic 377-session database.
+
+The proposal is a selective, versioned, rebuildable materialisation owned by the existing
+analytical modules: per-set derived values, session/exercise aggregates, ISO-week spinal and
+volume aggregates, and result snapshots only for the most expensive reports. Owners keep their
+formulas and payloads; consumers keep calling the same functions; a background worker backfills
+and resumes after interruption; reads fall back to on-demand until the family is ready.
+
+| Phase | Scope | Status |
+|---|---|---|
+| 0 | Design approval | proposed |
+| 1 | Tables, coordinator, build state, status endpoint | not started |
+| 2 | Per-set and session/exercise materialisation, backfill | not started |
+| 3 | Migrate progress and strength trend | not started |
+| 4 | Migrate rules context and deload | not started |
+| 5 | Migrate outcomes and monitoring | not started |
+| 6 | ODROID verification and INT transport gate | not started |
+
+**Non-goals:** metric changes, deload policy changes, lookback truncation, a generic cache, MCP
+transport changes or client changes.
 
 ## 5. Known gaps and risks
 

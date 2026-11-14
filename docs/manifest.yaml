@@ -903,6 +903,14 @@ documents:
   status: archived
   audience: public
   nav: true
+- id: design-derived-analytics-architecture
+  path: docs/design/DERIVED-ANALYTICS-ARCHITECTURE.md
+  title: Derived analytics layer — audit and architecture
+  description: 'Design proposal: audit of repeated full-history analytics, a versioned rebuildable derived layer (per-set, session/exercise, weekly, selected snapshots), ownership and invalidation rules, background backfill, alternatives and a phased roadmap; no runtime change'
+  category: design
+  status: design
+  audience: maintainer
+  nav: false
 - id: design-ios-phase-1-contract
   path: docs/design/IOS-PHASE-1-CONTRACT.md
   title: iOS Phase 1 native foundation contract
