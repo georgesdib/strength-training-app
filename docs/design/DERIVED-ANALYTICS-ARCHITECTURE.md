@@ -289,13 +289,16 @@ Versions are not only per row: a change upstream invalidates every downstream fa
 |---|---|
 | e1RM method (`domain/e1rm.py`, `derived.add_e1rm`) | `derived_set`, `derived_session_exercise`, `derived_week` (intensity factor), every ratio and report that reads them |
 | Set classification (`is_working_set`, effort/velocity flags) | `derived_set` effort/velocity fields, then session/exercise hard-set counts and week rows |
-| Exercise taxonomy (pattern, `spinal_cost`, `high_fatigue_spinal`, e1RM applicability) | `derived_week` spinal costs, volume patterns, session/exercise eligibility |
+| Exercise taxonomy (pattern, `spinal_cost`, `high_fatigue_spinal`, e1RM applicability, power classification), including the UI-written overrides file | `derived_set` strength payloads, `derived_week` spinal costs, volume patterns, session/exercise eligibility |
 | Spinal rule configuration (costs, excluded patterns, set/intensity factors, cap) | `derived_week`, the deload verdict details and the policy consumers |
 | Volume configuration (targets, landmarks) | volume aggregates and the outcomes/volume reports; not `derived_set` |
 | Any downstream report method (outcomes, monitoring) | that report snapshot or aggregate family only |
 
-The fingerprint is a digest over the ordered dependency versions and configuration digests for
-the family. A family whose fingerprint does not match is not `ready`; it is rebuilt, and no
+For the `core` family the fingerprint includes a digest of both effective taxonomy files
+(`taxonomy.v1.yaml` and the UI-written `overrides.v1.yaml`); the owner computes the current spec
+on every readiness/build check, so a taxonomy edit makes existing strength payloads non-ready even
+without a source mutation. The fingerprint is a digest over the ordered dependency versions and
+configuration digests for the family. A family whose fingerprint does not match is not `ready`; it is rebuilt, and no
 aggregate is served as current merely because its direct rows were untouched.
 
 #### 4.4.5 Snapshots are optional
@@ -330,6 +333,20 @@ is not.
 - **Rebuilds.** A methodology or configuration change appends a revision, marks the family
   `pending`, and rebuilds; old rows are ignored by version and can be vacuumed later. No
   in-place edits of derived rows.
+
+**Deployment and upgrade.** Pulling the code and restarting the Python service applies the
+migrations when the database is opened; it does **not** materialise historical data. After the
+restart, run the backfill once against the deployment database:
+
+    strength-coach --db <coach.db> analytics build
+
+Until that command completes, the core family has no `ready` row and `progress`/`strength_trend`
+stay on the on-demand path — correct results, no speed-up. Take a database backup first and run
+the build while the server is idle (SQLite serialises writers, so it is safe under load but
+slower). The synthetic 377-session set takes about 8 s; real history will take longer. After the
+first build, workout completion, corrections, void/unvoid and small imports refresh incrementally;
+imports above 50 sessions mark the family stale until the next explicit build. `GET
+/api/analytics/status` reports the family state, revision and readiness.
 
 Why asynchronous: a first backfill over years of history is minutes, not milliseconds, and must
 not block startup or the request that triggers it. Why not a separate service: the deployment is

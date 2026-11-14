@@ -2012,9 +2012,14 @@ backfill is the explicit `strength-coach analytics build` command (paged session
 the Milestone A coordinator). Small source mutations refresh their session inside the same
 transaction; imports above 50 sessions mark the family stale for an explicit build. The owners
 call the read-only `core.ensure` and fall back to on-demand whenever the family is not verified
-current. Tests in [`tests/test_analytics_core.py`](tests/test_analytics_core.py) cover parity
+current. The fingerprint includes both taxonomy files (including UI-written overrides), so a
+taxonomy edit invalidates stored strength payloads until a rebuild. Tests in [`tests/test_analytics_core.py`](tests/test_analytics_core.py) cover parity
 before/after materialisation, corrections, void/unvoid, imports, fallback and failed-family
 behaviour.
+
+**Deployment:** pulling the code and restarting applies the migrations but does not materialise
+history; run `strength-coach --db <coach.db> analytics build` once after the upgrade (back up
+first, ideally while idle). Until then the consumed families stay on the on-demand path.
 
 ODROID benchmark (377 synthetic sessions, same method as the audit): overview p50 2,746 → 2,474 ms;
 dashboard 991 → 744 ms; one-lift strength trend 6,825 → 258 ms; full parity check passed. Backfill
