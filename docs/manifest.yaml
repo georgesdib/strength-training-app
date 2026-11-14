@@ -113,6 +113,14 @@ documents:
   status: development
   audience: public
   nav: true
+- id: intelligence-deployment
+  path: docs/INTELLIGENCE-DEPLOYMENT.md
+  title: TRAINING INTELLIGENCE — MCP DEPLOYMENT GUIDE
+  description: 'systemd unit, service user, configuration, token provisioning and revocation, logging, tailnet exposure and limitations for the read-only MCP server; installation plan, not yet validated on the target host'
+  category: architecture
+  status: development
+  audience: public
+  nav: true
 - id: core-training
   path: docs/CORE-TRAINING.md
   title: CORE TRAINING — is the programme doing enough?

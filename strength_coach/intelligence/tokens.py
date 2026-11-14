@@ -21,6 +21,7 @@ digest in place, so the previous token stops working immediately.
 from __future__ import annotations
 
 import datetime as dt
+import logging
 import os
 import re
 import secrets
@@ -32,6 +33,8 @@ import yaml
 
 from strength_coach.intelligence.auth import IntelligenceAuthError, Principal
 from strength_coach.utils import ios_credentials as credentials
+
+LOGGER = logging.getLogger(__name__)
 
 STORE_VERSION = 1
 CLIENT_PREFIX = "mcp-"
@@ -181,7 +184,14 @@ class TokenStore:
         return revoked
 
     def authenticate(self, token: object, *, now: dt.datetime | None = None) -> Principal:
-        """Verify a bearer token and return an MCP principal."""
+        """Verify a bearer token against the current file contents.
+
+        The store is reloaded on every call, so a CLI create/rotate/revoke takes effect on the
+        next request without restarting the MCP server. Writers replace the file atomically, so a
+        reader sees either the old or the new complete document, never a partial one. A file that
+        cannot be parsed denies every request (fail closed) rather than falling back to stale
+        credentials.
+        """
         if (
             not isinstance(token, str)
             or not token
@@ -189,7 +199,7 @@ class TokenStore:
         ):
             raise IntelligenceAuthError(401, "authentication required")
         matched: Client | None = None
-        for client in self.clients:
+        for client in self._current_clients():
             if credentials.verify_secret(token, client.token_sha256):
                 matched = client
                 break
@@ -198,6 +208,15 @@ class TokenStore:
         if not matched.active:
             raise IntelligenceAuthError(403, "client revoked")
         return Principal(identity=matched.client_id, kind="mcp")
+
+    def _current_clients(self) -> tuple[Client, ...]:
+        try:
+            return TokenStore.load(self.path).clients
+        except TokenStoreError:
+            LOGGER.warning(
+                "intelligence token store is unreadable; denying authentication"
+            )
+            raise IntelligenceAuthError(401, "authentication required") from None
 
     def _require(self, client_id: str) -> Client:
         for client in self.clients:

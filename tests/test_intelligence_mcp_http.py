@@ -10,6 +10,8 @@ import time
 from pathlib import Path
 
 import pytest
+
+pytest.importorskip("mcp", reason="optional intelligence MCP extra")
 import uvicorn
 from conftest import make_readiness, make_training
 from intelligence_support import enabled_config

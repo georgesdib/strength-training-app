@@ -1,7 +1,7 @@
 # TRAINING INTELLIGENCE — IMPLEMENTATION (INT-1)
 
-**Status:** INT-1 foundation implemented 2026-11-14; INT-1b MCP transport implemented 2026-11-14.
-Read-only, provider-neutral, independently runnable.
+**Status:** INT-1 foundation implemented 2026-11-14; INT-1b MCP transport implemented 2026-11-14;
+audit remediation applied 2026-11-14. Read-only, provider-neutral, independently runnable.
 **Scope owner:** the canonical plan is the portfolio
 [Training Intelligence plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md);
 the payload contract is the
@@ -26,6 +26,11 @@ This page records how the backend implements the foundation and what is delibera
 | Dedicated MCP client tokens and CLI (INT-1b) | implemented |
 | Strict tool-argument checking at the MCP boundary (INT-1b) | implemented |
 | Synthetic performance baseline for `get_training_overview` (INT-1b) | recorded |
+| Immediate token revocation/rotation without restart (remediation) | implemented |
+| Structured audit record for every tool/resource invocation (remediation) | implemented |
+| Tool timeout and serialized-result cap (remediation) | implemented |
+| Dedicated systemd unit and deployment guide (remediation) | implemented (not deployed) |
+| Live HTTP integration test with the official client (remediation) | implemented |
 | Baseline context package, evidence producers, INT-2 catalogue | **not implemented — INT-2** |
 | REST route, iOS adapter, model providers | **not implemented — INT-3 onward** |
 
@@ -51,7 +56,8 @@ catalogue remain absent.
 | `capabilities/__init__.py` | import-time registration (no discovery) |
 | `capabilities/session.py` | `get_session_details` (INT-1b) |
 | `resources.py` | `strength://athlete/profile` envelope (INT-1b) |
-| `tokens.py` | dedicated MCP client tokens: create, list, rotate, revoke, authenticate (INT-1b) |
+| `tokens.py` | dedicated MCP client tokens: create, list, rotate, revoke, authenticate; reloaded per request (INT-1b, remediation) |
+| `audit.py` | one structured metadata-only audit record per invocation (remediation) |
 | `mcp/db.py` | SQLite `mode=ro` connection for the transport (INT-1b) |
 | `mcp/security.py` | principal context, bearer middleware, rate/concurrency limits (INT-1b) |
 | `mcp/validation.py` | strict tool-argument middleware: unknown keys and type coercion rejected (INT-1b) |
@@ -157,11 +163,17 @@ Row counts and `total_changes` are captured before and after execution in a test
 ## 9. Limits and observability
 
 - Input bounds: 1–52 weeks and the configured day ceiling; `as_of` may not be in the future.
-- No hard in-process timeout. A cancellable timeout belongs to the transport that can abandon a
-  request; INT-1 records duration instead.
+- **Response deadline:** the MCP adapter waits `tool_timeout_seconds` (default 20) for a tool or
+  resource. On expiry it returns a sanitised `tool_timeout` error. The worker thread is not
+  cancellable and finishes its bounded read; its result is discarded. The deadline bounds the
+  response, not the work — see section 18 for the benchmark context.
+- **Serialized-size cap:** an envelope larger than `max_tool_result_bytes` (default 1 MiB) is
+  rejected with `result_too_large`. The envelope is never truncated, because a partial fact set
+  would misrepresent coverage.
 - No pagination yet: the overview returns bounded aggregates only.
-- Logging is metadata only (capability, outcome, duration, principal kind, argument hash). No token,
-  no payload, no health value. Tested with `caplog`.
+- Logging is metadata only. The transport emits one structured audit record per invocation
+  (section 19); the capability service keeps a DEBUG line for in-process callers. No token, no
+  payload, no health value. Tested with `caplog`.
 
 ## 10. Tests
 
@@ -178,6 +190,10 @@ Row counts and `total_changes` are captured before and after execution in a test
 | `tests/test_intelligence_mcp_protocol.py` | tool discovery, schemas, annotations, invocation, parity, errors, resource, modern and legacy eras |
 | `tests/test_intelligence_mcp_http.py` | 401/403, Host protection, body cap, rate limit, successful discover |
 | `tests/test_intelligence_mcp_limits.py` | rate and concurrency middleware |
+| `tests/test_intelligence_audit.py` | one complete audit record per tool/resource, no payload or token, logging failure tolerated |
+| `tests/test_intelligence_token_reload.py` | revocation/rotation without restart, fail-closed file, concurrent readers |
+| `tests/test_intelligence_runtime_limits.py` | response deadline, oversized result and resource, row-count extraction |
+| `tests/test_intelligence_mcp_live.py` | real HTTP server: auth, both tools, resource, no-data, errors, read-only database, clean shutdown |
 | `tests/intelligence_support.py` | synthetic builders only |
 | `tools/intelligence_benchmark.py` | synthetic performance baseline (not a test) |
 
@@ -199,8 +215,13 @@ Commands:
   argument component with the baseline package without changing the field.
 - **Timezone** is the platform's local zone name, not an IANA profile timezone (that is
   ROADMAP §4.19). The authoritative date remains the server's local calendar date.
-- **No cache.** Every call reads; caching is deferred until latency is measured.
-- **No hard timeout**; no result-size truncation (both transport concerns).
+- **No cache.** Every call reads; caching is deferred until the target host measurement exists.
+- **The timeout does not cancel work.** It bounds the response; a blocked SQLite read finishes in
+  its worker thread and its result is discarded. Leftover work is a bounded read on a connection
+  owned by that call.
+- **Rate and concurrency limits are per process.** Run one worker; the SDK multiplexes requests.
+- **The systemd unit has not been deployed or validated on the target host.** The deployment guide
+  is an installation plan until the acceptance steps are run there.
 
 ## 12. Adding an INT-2 capability
 
@@ -267,6 +288,8 @@ Transport keys in `config/intelligence.v1.yaml`:
 | `max_request_body_bytes` | 262144 | 1 KiB-1 MiB |
 | `rate_limit_per_minute` | 60 | per client; 0 disables |
 | `max_concurrent_calls` | 4 | in-flight calls per process |
+| `tool_timeout_seconds` | 20 | per-call response deadline, 1-300 s |
+| `max_tool_result_bytes` | 1048576 | serialized envelope cap, 1 KiB-10 MiB |
 
 Private-network deployment: set `bind_host` to the tailnet address **and** add the exact Host
 header clients will use to `allowed_hosts`. Tailscale is reachability, not authentication; the
@@ -276,6 +299,10 @@ bearer token remains mandatory. Never set `bind_host: 0.0.0.0` on an untrusted n
 
 - MCP clients have their own tokens; they are never iOS device credentials. `Principal.kind` is
   `mcp`, and no tool accepts a principal, user or database argument.
+- The token file is **re-read on every request**, so the CLI `revoke`/`rotate` takes effect without
+  restarting the server. Writes are atomic (`os.replace`), so a reader sees the old or the new file,
+  never a partial one; an unreadable file denies every request (fail closed) instead of falling
+  back to a stale in-memory list.
 - Only the SHA-256 digest is stored, in the git-ignored `config/intelligence.local.yaml`, mode 0600.
   The plaintext token is returned once by `create` or `rotate` and is never written or logged.
 - `revoke` sets `revoked_at`; the token immediately returns 403. `rotate` replaces the digest
@@ -303,6 +330,8 @@ bearer token remains mandatory. Never set `bind_host: 0.0.0.0` on an untrusted n
 | Errors | tool errors carry `code: message` only; unexpected failures return a fixed message and log the traceback |
 | Tool surface | explicit argument allowlist, strict types, read-only annotations, no SQL/table tools |
 | Data minimisation | the profile resource excludes injuries, symptoms, measurements and notes; session detail excludes notes, symptoms and form ratings |
+| Response deadline | `tool_timeout_seconds` (default 20 s); sanitised `tool_timeout` error, worker not cancellable |
+| Result size | `max_tool_result_bytes` (default 1 MiB); typed `result_too_large`, never a truncated envelope |
 
 Limits are per process. Run one worker; the SDK multiplexes concurrent requests. If more workers
 are ever needed, the per-client limits become approximate and would need a shared counter.
@@ -382,3 +411,45 @@ keyed on the database stamp. Caching stays deferred until that decision.
 
 Caveats: synthetic distribution, a warm OS page cache, one machine, one process; the numbers are a
 shape, not a service level objective.
+## 19. Structured audit record (remediation)
+
+Every MCP tool call and resource read emits exactly one JSON line on the
+`strength_coach.intelligence.audit` logger:
+
+| Field | Meaning |
+|---|---|
+| `schema` | `intelligence.audit.v1` |
+| `request_id` | generated per invocation (`int-...`), unique |
+| `kind` | `tool` or `resource` |
+| `name` | tool name or resource URI |
+| `client_id` | authenticated MCP client id, never the token |
+| `arguments_hash` | canonical-JSON SHA-256 prefix; correlation only, not redaction |
+| `duration_ms` | wall time from handler entry to result |
+| `result_rows` | rows the capability considered, from its own coverage block, when available |
+| `response_bytes` | serialized envelope size; 0 on failure |
+| `outcome` | `ok` or the stable error code (`invalid_argument`, `not_found`, `tool_timeout`, `internal`, ...) |
+| `status` | envelope status (`ok`/`no_data`/`insufficient`) when a payload exists |
+
+Privacy is structural: the schema has no field for arguments, payloads, notes, health values,
+tokens or authorization headers, so none can be logged by accident. The hash is not a substitute
+for redaction and no argument value is ever emitted. Error messages are reduced to their code.
+Emission is best-effort: a logging failure is swallowed after a debug line and never changes the
+result (tested).
+
+The capability service logs at DEBUG so a single INFO audit record exists per MCP invocation.
+In-process callers keep the DEBUG line until INT-5 routes them through the same audit helper.
+
+## 20. Deployment (remediation)
+
+`deploy/strength-intelligence-mcp.service` runs the server as a dedicated non-root user
+(`strength-intel`), with `ProtectSystem=strict`, `PrivateTmp`, `PrivateDevices`,
+`ProtectHome=read-only`, kernel and control-group protection, a restricted address-family list and
+no write access anywhere. It reads the database at `/var/lib/strength-coach/coach.db` (opened
+`mode=ro`), the configuration at `/etc/strength-coach/intelligence.v1.yaml` and the hashed tokens
+at `/etc/strength-coach/intelligence.local.yaml`; it contains no secrets. The unit is independent
+of `strength-coach-web.service` and binds to loopback by default.
+
+Installation, service-user creation, token provisioning, start/stop, log inspection, revocation
+semantics, tailnet exposure and troubleshooting are in
+[INTELLIGENCE-DEPLOYMENT.md](INTELLIGENCE-DEPLOYMENT.md). The unit has **not** been deployed or
+validated on the target host.

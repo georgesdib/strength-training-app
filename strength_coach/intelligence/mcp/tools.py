@@ -1,9 +1,9 @@
 """MCP tools: thin adapters over the INT-1 capability service.
 
-No analytics live here. Each handler validates nothing itself: the capability request parser owns
-validation, and the execution service owns the envelope, provenance and error taxonomy. This
-module only maps a tool call to a capability, turns an expected failure into a ToolError the model
-can read, and returns the envelope as structured content.
+No analytics live here. Each handler maps a tool call to a capability, enforces the transport's
+runtime limits (timeout, serialized size), emits exactly one structured audit record, and returns
+the unchanged envelope as structured content. Expected failures become a ToolError the model can
+read; internal failures never carry a traceback.
 """
 
 from __future__ import annotations
@@ -15,9 +15,10 @@ from typing import Any, TypedDict
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 
-from strength_coach.intelligence import IntelligenceService
+from strength_coach.intelligence import IntelligenceService, audit
 from strength_coach.intelligence.auth import Principal
 from strength_coach.intelligence.config import IntelligenceConfig
+from strength_coach.intelligence.envelope import Envelope
 from strength_coach.intelligence.mcp.db import readonly_connection
 from strength_coach.intelligence.mcp.security import current_principal
 
@@ -27,6 +28,9 @@ READ_ONLY = ToolAnnotations(
     idempotent_hint=True,
     open_world_hint=False,
 )
+
+#: Coverage keys that describe how many rows the capability considered, in preference order.
+ROW_KEYS = ("completed_sessions", "sets_considered", "constraints_included")
 
 
 class EnvelopePayload(TypedDict):
@@ -53,13 +57,21 @@ class EnvelopePayload(TypedDict):
     generated_at: str
 
 
+def rows_considered(envelope: Envelope) -> int | None:
+    for key in ROW_KEYS:
+        value = envelope.coverage.get(key)
+        if isinstance(value, int) and not isinstance(value, bool):
+            return value
+    return None
+
+
 def _execute(
     db_path: Path,
     config: IntelligenceConfig,
     principal: Principal,
     capability: str,
     payload: dict[str, object],
-) -> EnvelopePayload:
+) -> Envelope:
     with readonly_connection(db_path) as conn:
         result = IntelligenceService(conn, config=config).execute(
             principal, capability, payload
@@ -68,7 +80,7 @@ def _execute(
         assert result.error is not None
         raise ToolError(f"{result.error.code}: {result.error.message}")
     assert result.envelope is not None
-    return result.envelope.as_dict()  # type: ignore[return-value]
+    return result.envelope
 
 
 async def _run(
@@ -76,11 +88,34 @@ async def _run(
     config: IntelligenceConfig,
     capability: str,
     payload: dict[str, object],
+    *,
+    principal: Principal,
 ) -> EnvelopePayload:
-    principal = current_principal()
-    return await asyncio.to_thread(
-        _execute, db_path, config, principal, capability, payload
-    )
+    with audit.audit_call(
+        kind="tool",
+        name=capability,
+        client_id=principal.identity,
+        arguments=payload,
+    ) as call:
+        try:
+            envelope = await asyncio.wait_for(
+                asyncio.to_thread(_execute, db_path, config, principal, capability, payload),
+                timeout=config.tool_timeout_seconds,
+            )
+        except TimeoutError:
+            # The worker thread is not cancellable; it finishes its bounded read and its result is
+            # discarded. The audit record and this error are the response guarantee.
+            raise ToolError(
+                "tool_timeout: capability exceeded the configured timeout"
+            ) from None
+        body = envelope.as_dict()
+        size = len(envelope.canonical_json().encode("utf-8"))
+        if size > config.max_tool_result_bytes:
+            raise ToolError(
+                "result_too_large: result exceeds the configured maximum; narrow the request"
+            )
+        call.record(body, status=envelope.status, result_rows=rows_considered(envelope))
+        return body
 
 
 def register_tools(
@@ -104,7 +139,13 @@ def register_tools(
         payload: dict[str, object] = {"window_weeks": window_weeks}
         if as_of is not None:
             payload["as_of"] = as_of
-        return await _run(db_path, config, "get_training_overview", payload)
+        return await _run(
+            db_path,
+            config,
+            "get_training_overview",
+            payload,
+            principal=current_principal(),
+        )
 
     @server.tool(
         name="get_session_details",
@@ -127,4 +168,10 @@ def register_tools(
             payload["workout_id"] = workout_id
         if session_id is not None:
             payload["session_id"] = session_id
-        return await _run(db_path, config, "get_session_details", payload)
+        return await _run(
+            db_path,
+            config,
+            "get_session_details",
+            payload,
+            principal=current_principal(),
+        )

@@ -7,6 +7,8 @@ import json
 from pathlib import Path
 
 import pytest
+
+pytest.importorskip("mcp", reason="optional intelligence MCP extra")
 from conftest import make_readiness, make_training
 from intelligence_support import enabled_config, service
 from mcp import Client

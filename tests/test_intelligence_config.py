@@ -55,6 +55,11 @@ def test_parse_accepts_a_minimal_mapping():
         {"version": 1, "rate_limit_per_minute": 7000},
         {"version": 1, "max_concurrent_calls": 0},
         {"version": 1, "max_concurrent_calls": 65},
+        {"version": 1, "tool_timeout_seconds": 0},
+        {"version": 1, "tool_timeout_seconds": 301},
+        {"version": 1, "tool_timeout_seconds": "20"},
+        {"version": 1, "max_tool_result_bytes": 1023},
+        {"version": 1, "max_tool_result_bytes": 10_485_761},
         [],
         "text",
     ],
@@ -73,6 +78,8 @@ def test_transport_defaults_are_safe():
     assert config.max_request_body_bytes == 262_144
     assert config.rate_limit_per_minute == 60
     assert config.max_concurrent_calls == 4
+    assert config.tool_timeout_seconds == 20
+    assert config.max_tool_result_bytes == 1_048_576
 
 
 def test_transport_settings_are_configurable(tmp_path: Path):
@@ -127,5 +134,7 @@ def test_config_mapping_is_revision_ready():
         "max_request_body_bytes",
         "rate_limit_per_minute",
         "max_concurrent_calls",
+        "tool_timeout_seconds",
+        "max_tool_result_bytes",
     ):
         assert key in mapping
