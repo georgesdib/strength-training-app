@@ -485,7 +485,7 @@ def _edit_session_impl(conn, session_id: str, *, sets: list[dict],
         (edit_id, session_id, reason, json.dumps(before, separators=(",", ":")),
          json.dumps(after, separators=(",", ":"))),
     )
-    derived_was_ready = derived_core.is_ready(conn, derived_core.CORE_SPEC)
+    derived_was_ready = derived_core.is_ready(conn, derived_core.spec())
     analytics_revision.record_mutation(
         conn, "correction", session_id=str(session_id),
         detail={"sets": len(incoming)},
@@ -527,7 +527,7 @@ def void_session(conn, session_id: str, *, reason: str | None = None,
             "updated_at = ? WHERE session_id = ?",
             (0 if unvoid else 1, _now(), None if unvoid else reason, _now(), session_id),
         )
-        derived_was_ready = derived_core.is_ready(conn, derived_core.CORE_SPEC)
+        derived_was_ready = derived_core.is_ready(conn, derived_core.spec())
         analytics_revision.record_mutation(
             conn, action, session_id=str(session_id), detail={"reason": reason},
         )

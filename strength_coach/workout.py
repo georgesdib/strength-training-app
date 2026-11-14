@@ -2288,7 +2288,7 @@ def end(
             (ended, measured_seconds, duration, source, rpe,
              0 if not_recorded else 1, notes, workout_id),
         )
-        derived_was_ready = derived_core.is_ready(conn, derived_core.CORE_SPEC)
+        derived_was_ready = derived_core.is_ready(conn, derived_core.spec())
         analytics_revision.record_mutation(
             conn, "workout_end", session_id=workout_id,
             detail={"workout_id": workout_id},

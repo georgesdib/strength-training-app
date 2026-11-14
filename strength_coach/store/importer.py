@@ -137,7 +137,7 @@ def import_export(
             inserted, existing = repo.store_clean_sets(conn, result.sets, raw_ids=training_raw)
             if inserted:
                 derived_was_ready = derived_core.is_ready(
-                    conn, derived_core.CORE_SPEC
+                    conn, derived_core.spec()
                 )
                 analytics_revision.record_mutation(
                     conn, "import",

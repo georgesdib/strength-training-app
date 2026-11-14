@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import datetime as dt
 import sqlite3
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 
 from strength_coach.analytics.families import FamilySpec, spec_for
 from strength_coach.analytics.revision import current_revision, family_revision
@@ -295,11 +295,20 @@ def run_build(
         raise
 
 
-def status_snapshot(conn: sqlite3.Connection) -> dict:
-    """Serialisable status for the diagnostics endpoint; no payloads or personal values."""
+def status_snapshot(
+    conn: sqlite3.Connection, specs: Mapping[str, FamilySpec] | None = None
+) -> dict:
+    """Serialisable status for the diagnostics endpoint; no payloads or personal values.
+
+    `specs` lets a caller provide dynamic family identities (for example the core family's
+    effective taxonomy fingerprint) so validated readiness matches the read path.
+    """
     current = current_revision(conn)
     rows = conn.execute("SELECT * FROM analytics_build ORDER BY family").fetchall()
+    provided = specs or {}
     return {
         "revision": current,
-        "families": [_state(conn, row, None) for row in rows],
+        "families": [
+            _state(conn, row, provided.get(row["family"])) for row in rows
+        ],
     }

@@ -172,6 +172,19 @@ def test_import_refreshes_an_already_ready_family(store, monkeypatch):
     assert any(row["date"] == "2024-01-15" for row in expected)
 
 
+def test_taxonomy_change_invalidates_the_family(store, monkeypatch):
+    conn = store.connection
+    core.build(conn)
+    assert core.ensure(conn) is True
+    assert "taxonomy" in core.CORE_SPEC.dependencies
+
+    monkeypatch.setattr(core, "_taxonomy_digest", lambda: "files:changed")
+    assert core.ensure(conn) is False
+
+    monkeypatch.undo()
+    assert core.ensure(conn) is True
+
+
 def test_derived_rows_carry_the_method_version(store):
     conn = store.connection
     core.build(conn)

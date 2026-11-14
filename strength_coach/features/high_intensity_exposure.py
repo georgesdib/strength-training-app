@@ -234,7 +234,7 @@ def log_manual(
             from strength_coach.analytics import core as derived_core
             from strength_coach.analytics import revision as analytics_revision
 
-            was_ready = derived_core.is_ready(conn, derived_core.CORE_SPEC)
+            was_ready = derived_core.is_ready(conn, derived_core.spec())
             analytics_revision.record_mutation(
                 conn, "correction", session_id=str(session_id),
                 detail={"exposure": exposure_id},

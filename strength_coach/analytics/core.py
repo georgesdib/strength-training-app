@@ -8,18 +8,20 @@ on-demand path.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import sqlite3
 from collections import defaultdict
 from dataclasses import asdict
+from pathlib import Path
 
 from strength_coach.analytics.coordinator import is_ready, run_build
 from strength_coach.analytics.families import REGISTRY, FamilySpec
 from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.features import strength_observations
 from strength_coach.store import db, queries
-from strength_coach.utils import exercises
+from strength_coach.utils import exercises, paths
 
 LOGGER = logging.getLogger(__name__)
 
@@ -29,7 +31,29 @@ DEPENDENCIES = {
     "strength_observation": "raw_set_e1rm_v1",
     "materialiser": METHOD_VERSION,
 }
-CORE_SPEC = FamilySpec("core", METHOD_VERSION, DEPENDENCIES)
+def _taxonomy_digest() -> str:
+    """Digest of the effective taxonomy files, including UI-written overrides.
+
+    `raw_set_e1rm` reads entity properties (e1RM applicability, power pattern) from the
+    taxonomy, so a taxonomy edit must invalidate stored strength payloads even when no source
+    mutation occurred.
+    """
+    digest = hashlib.sha256()
+    for path in (paths.taxonomy_yaml(), paths.exercise_overrides_yaml()):
+        candidate = Path(path)
+        if candidate.exists():
+            digest.update(candidate.read_bytes())
+    return "files:" + digest.hexdigest()
+
+
+def spec() -> FamilySpec:
+    """Current family identity, including the effective taxonomy dependency."""
+    return FamilySpec(
+        "core", METHOD_VERSION, {**DEPENDENCIES, "taxonomy": _taxonomy_digest()}
+    )
+
+
+CORE_SPEC = spec()
 REGISTRY.setdefault(CORE_SPEC.family, CORE_SPEC)
 
 
@@ -206,7 +230,7 @@ def build(conn: sqlite3.Connection, *, batch_size: int = 200) -> dict:
     """Explicit build/rebuild entry point (also used lazily by the owners)."""
     return run_build(
         conn,
-        CORE_SPEC,
+        spec(),
         apply_revision,
         backfill=backfill_batch,
         batch_size=batch_size,
@@ -215,7 +239,7 @@ def build(conn: sqlite3.Connection, *, batch_size: int = 200) -> dict:
 
 def ensure(conn: sqlite3.Connection) -> bool:
     """True only when the published family is verified current; reads never build."""
-    return is_ready(conn, CORE_SPEC)
+    return is_ready(conn, spec())
 
 
 def refresh_sessions(
