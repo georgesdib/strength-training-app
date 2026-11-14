@@ -30,6 +30,7 @@ EXPECTED_TOOLS = {
     "get_vbt_analysis",
     "get_programme_block_summary",
     "compare_training_periods",
+    "get_weekly_review",
 }
 
 

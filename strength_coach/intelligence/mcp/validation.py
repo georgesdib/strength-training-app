@@ -68,6 +68,10 @@ ARGUMENTS: dict[str, dict[str, tuple[type, ...]]] = {
         "metric": (str,),
         "exercise_id": (str, type(None)),
     },
+    "get_weekly_review": {
+        "week_end": (str, type(None)),
+        "include_observations": (bool,),
+    },
 }
 
 

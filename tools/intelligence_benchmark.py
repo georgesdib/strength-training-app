@@ -215,6 +215,10 @@ def build_arguments(
                 }
         elif name == "get_programme_block_summary":
             arguments[name] = {"as_of": as_of}
+        elif name == "get_weekly_review":
+            arguments[name] = {
+                "week_end": (day - dt.timedelta(days=day.weekday() + 1)).isoformat(),
+            }
         elif name == "compare_training_periods":
             arguments[name] = {
                 "period_a": {"start": start_a, "end": end_a},

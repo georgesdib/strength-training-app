@@ -63,6 +63,6 @@ def test_fast_tools_prefer_use_and_slow_tools_allow_use():
 
 def test_latency_catalogue_is_serialisable_and_sorted():
     catalogue = latency.catalogue()
-    assert len(catalogue) == 9
+    assert len(catalogue) == 10
     assert [row["capability"] for row in catalogue] == sorted(row["capability"] for row in catalogue)
     assert all(isinstance(row["http_p95_ms"], int) for row in catalogue)

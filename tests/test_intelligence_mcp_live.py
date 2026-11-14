@@ -183,6 +183,7 @@ def test_live_http_tools_and_resource(live):
         "get_vbt_analysis",
         "get_programme_block_summary",
         "compare_training_periods",
+        "get_weekly_review",
     ]
 
     overview = results["overview"]

@@ -16,6 +16,7 @@ from strength_coach.intelligence.capabilities import (
     readiness,
     session,
     vbt,
+    weekly,
 )
 
 __all__ = [
@@ -28,4 +29,5 @@ __all__ = [
     "readiness",
     "session",
     "vbt",
+    "weekly",
 ]

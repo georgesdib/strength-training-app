@@ -80,12 +80,13 @@ def test_tools_are_discoverable_with_input_schemas(db_path):
 
     listed = asyncio.run(run())
     names = [tool.name for tool in listed.tools]
-    assert len(names) == 9
-    assert len(set(names)) == 9
+    assert len(names) == 10
+    assert len(set(names)) == 10
     assert set(names) == {
         "compare_training_periods", "get_adherence_analysis", "get_exercise_progression",
         "get_prescription", "get_programme_block_summary", "get_readiness_history",
         "get_session_details", "get_training_overview", "get_vbt_analysis",
+        "get_weekly_review",
     }
     overview = next(tool for tool in listed.tools if tool.name == "get_training_overview")
     properties = (overview.input_schema or {})["properties"]

@@ -1,0 +1,198 @@
+{
+  "coverage": {
+    "days_with_readiness": 4,
+    "planned_sessions": "not_tracked",
+    "sessions_considered": 2,
+    "tracked_lifts": 2,
+    "working_sets": 3
+  },
+  "facts": {
+    "activity": {
+      "basis": "derived",
+      "comparability": null,
+      "evidence_ids": [],
+      "gate": "signal",
+      "method": "strength_coach.features.attendance.summary",
+      "n": 2,
+      "note": null,
+      "quality_flags": [],
+      "unit": null,
+      "value": {
+        "completed_sessions": 2,
+        "session_types": {
+          "hinge": 2
+        },
+        "sessions_with_srpe": 1,
+        "target_sessions": 3,
+        "working_sets": 3
+      }
+    },
+    "adherence": {
+      "basis": "derived",
+      "comparability": null,
+      "evidence_ids": [],
+      "gate": "signal",
+      "method": "strength_coach.features.adherence_analytics.analytics",
+      "n": 2,
+      "note": null,
+      "quality_flags": [],
+      "unit": null,
+      "value": {
+        "available": true,
+        "extra_sets": 0,
+        "final_plan_ratio": 0.5,
+        "matched_sets": 1,
+        "missing_sets": 1,
+        "planned_sets": 2,
+        "status": "available"
+      }
+    },
+    "programme": {
+      "basis": "derived",
+      "comparability": null,
+      "evidence_ids": [],
+      "gate": null,
+      "method": "strength_coach.features.deload.decision",
+      "n": 0,
+      "note": null,
+      "quality_flags": [],
+      "unit": null,
+      "value": {
+        "breaks": [],
+        "deload": "none_scheduled",
+        "deload_reason": null,
+        "regime_findings": 0,
+        "regime_review": "stable"
+      }
+    },
+    "progression": {
+      "basis": "derived",
+      "comparability": null,
+      "evidence_ids": [],
+      "gate": "signal",
+      "method": "strength_coach.features.strength_trend.summarize",
+      "n": 2,
+      "note": null,
+      "quality_flags": [],
+      "unit": null,
+      "value": [
+        {
+          "change_kg": 1.2,
+          "change_pct": 1.0,
+          "direction": "up",
+          "display": "Bench Press",
+          "exercise_id": "bench_press",
+          "gate": "descriptive",
+          "n": 6
+        },
+        {
+          "change_kg": -71.5,
+          "change_pct": -36.7,
+          "direction": "down",
+          "display": "Trap-Bar Deadlift",
+          "exercise_id": "trap_bar_deadlift",
+          "gate": "descriptive",
+          "n": 7
+        }
+      ]
+    },
+    "readiness": {
+      "basis": "derived",
+      "comparability": null,
+      "evidence_ids": [],
+      "gate": "signal",
+      "method": "strength_coach.features.readiness_score.compute",
+      "n": 4,
+      "note": null,
+      "quality_flags": [],
+      "unit": null,
+      "value": {
+        "direction": "flat",
+        "first_date": "2026-11-02",
+        "last_date": "2026-11-08",
+        "observed_days": 4
+      }
+    },
+    "sessions": {
+      "basis": "observed",
+      "comparability": null,
+      "evidence_ids": [],
+      "gate": null,
+      "method": "strength_coach.history.list_sessions",
+      "n": 2,
+      "note": null,
+      "quality_flags": [],
+      "unit": null,
+      "value": [
+        {
+          "date": "2026-11-04",
+          "duration_min": 50.0,
+          "flags": [
+            "incomplete"
+          ],
+          "session_type": "hinge",
+          "source": "workout",
+          "srpe": 7.0,
+          "working_sets": 1
+        },
+        {
+          "date": "2026-11-02",
+          "duration_min": null,
+          "flags": [],
+          "session_type": "hinge",
+          "source": "import",
+          "srpe": null,
+          "working_sets": 2
+        }
+      ]
+    },
+    "volume": {
+      "basis": "derived",
+      "comparability": null,
+      "evidence_ids": [],
+      "gate": "signal",
+      "method": "strength_coach.features.volume.compute",
+      "n": 2,
+      "note": null,
+      "quality_flags": [],
+      "unit": null,
+      "value": {
+        "groups": [
+          {
+            "average": 2.0,
+            "pattern": "hinge",
+            "status": "under",
+            "target": [
+              6.0,
+              10.0
+            ]
+          },
+          {
+            "average": 1.0,
+            "pattern": "horizontal_push",
+            "status": "under",
+            "target": [
+              8.0,
+              18.0
+            ]
+          }
+        ],
+        "status": "mixed"
+      }
+    }
+  },
+  "missing": [
+    "no observation passed its evidence gate"
+  ],
+  "period": {
+    "days": 7,
+    "end": "2026-11-08",
+    "start": "2026-11-02",
+    "timezone": "GMT",
+    "weeks": 1
+  },
+  "quality_flags": [
+    "incomplete"
+  ],
+  "status": "ok"
+}

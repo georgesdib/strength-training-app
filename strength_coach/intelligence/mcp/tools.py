@@ -41,6 +41,7 @@ ROW_KEYS = (
     "prescribed_sets",
     "observed_days",
     "score_days",
+    "sessions_considered",
 )
 
 
@@ -381,5 +382,29 @@ def register_tools(
             payload["exercise_id"] = exercise_id
         return await _run(
             db_path, config, "compare_training_periods", payload,
+            principal=current_principal(),
+        )
+
+    @server.tool(
+        name="get_weekly_review",
+        description=(
+            "Deterministic Monday-Sunday review for a completed week: activity and attendance, "
+            "prescription adherence, completed sessions, main-lift progression, volume against "
+            "budget, readiness coverage and direction, programme state and at most two gated "
+            "observations. Every section names its owner; no narrative and no model. An empty week "
+            "returns no_data with the expected inputs listed, never zeros."
+            + latency.description("get_weekly_review")
+        ),
+        annotations=READ_ONLY,
+    )
+    async def get_weekly_review(
+        week_end: str | None = None,
+        include_observations: bool = True,
+    ) -> EnvelopePayload:
+        payload: dict[str, object] = {"include_observations": include_observations}
+        if week_end is not None:
+            payload["week_end"] = week_end
+        return await _run(
+            db_path, config, "get_weekly_review", payload,
             principal=current_principal(),
         )

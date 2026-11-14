@@ -27,6 +27,18 @@ MEASURED: dict[str, tuple[int, str]] = {
     "get_programme_block_summary": (278, "fast"),
     "get_training_overview": (672, "slow"),
     "get_session_details": (5684, "very_slow"),
+    # Added after the ODROID run: measured over real MCP HTTP on the development Mac
+    # (221-session synthetic database, 12 measured requests) and provisional until the next
+    # ODROID HTTP benchmark.
+    "get_weekly_review": (113, "fast"),
+}
+
+#: Capabilities whose figure comes from a different run than SOURCE.
+PROVISIONAL = {
+    "get_weekly_review": (
+        "development Mac, 221-session synthetic database, real MCP HTTP, 12 measured requests, "
+        "2026-11-14"
+    ),
 }
 
 _GUIDANCE = {
@@ -55,8 +67,9 @@ def description(name: str) -> str:
     if name not in MEASURED:
         raise KeyError(f"no latency measurement for {name!r}")
     p95, kind = MEASURED[name]
+    source = PROVISIONAL.get(name, SOURCE)
     return (
-        f"\n\nMeasured latency: {kind} (HTTP p95 {p95:,} ms on {MEASURED_ON}; {SOURCE}). "
+        f"\n\nMeasured latency: {kind} (HTTP p95 {p95:,} ms on {MEASURED_ON}; {source}). "
         "This is a historical benchmark, not a runtime guarantee. "
         f"{_GUIDANCE[kind]} Never omit or alter required evidence merely to avoid latency."
     )
