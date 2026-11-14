@@ -1692,7 +1692,7 @@ under `https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-R
 append-only `workout_execution_event`, authenticated batch ingestion and read-only execution
 analytics; the client records set/rest/exercise timing through the Phase 4 outbox and renders an
 execution timeline in completed History. Server and simulator gates pass; physical-iPhone
-acceptance remains pending. Phase 2 is closed 2026-11-07.
+acceptance was owner-confirmed 2026-11-14. Phase 2 is closed 2026-11-07.
 
 **Phase 3A completion record (closed 2026-11-08; physical acceptance owner-confirmed).** Server: migrations 0054_healthkit_readiness.sql and
 0055_healthkit_bodyweight.sql; the append-only healthkit_readiness table; one canonical
