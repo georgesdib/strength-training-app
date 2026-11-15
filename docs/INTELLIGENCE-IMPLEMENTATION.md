@@ -897,3 +897,24 @@ Three additive iOS intelligence routes expose the plan capabilities that were MC
 
 The adapters open SQLite read-only and return the unchanged envelope; unknown query parameters
 are 400. Tests cover all three routes and the unknown-query rejection (12 route tests).
+
+## 28. INT-4e — plan-aware chat and suggestions (implemented 2026-11-15; device test pending)
+
+**Delivered.** A default-off plan-data toggle in Chat adds three read-only tools — prescription
+(date, prescription id, or current), programme summary and adherence — to on-device and DeepSeek
+chat. The backend exposes them through the three additive routes documented in section 27, now
+deployed to the ODROID.
+
+**Suggestions.** Both providers return a structured answer plus a separate suggestions list; the
+UI renders “Suggestion — not applied. Not medical advice.” Suggestions may include numbers and
+medical considerations, are exempt from data grounding, and are never applied. Factual answers keep
+the existing soft verification.
+
+**Capacity.** The physical-device probe reported 8,192 tokens, tool calling and guided generation;
+eight tools with four history messages and 60 fact lines passed.
+
+**Tests.** 42 chat-related tests pass, including plan-tool gating, structured DeepSeek answers and
+suggestion carrying. The three backend routes and unknown-query rejection are covered (12 tests).
+
+**Open.** Device acceptance on both models; a visible “plan data omitted” note on the context
+fallback.
