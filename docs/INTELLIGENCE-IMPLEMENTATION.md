@@ -913,10 +913,15 @@ the existing soft verification.
 **Dates.** The prescription tool resolves today and yesterday on the phone before calling the route,
 and accepts an ISO date or a prescription id; this avoids treating a relative word as an id.
 
-**Tool use.** A plan question (prescription, programme, adherence) registers only the matching plan
-tool — not the base five — and requires a tool call, so the model cannot answer from history alone.
-On a context overflow it retries with an empty history; if that still fails it says the conversation
-is too long. The Chat header shows whether plan data is on.
+**Tool use.** A plan question on-device does **not** register a plan tool: the app fetches the
+matching compact facts first, injects them into the prompt and answers without tool calling. This
+avoids both the context overflow and an endless required-tool loop. DeepSeek keeps the plan tools.
+A context overflow retries with empty history. The prompt carries a "Today: YYYY-MM-DD" line so
+"yesterday" is resolved against today, not against the latest prescription. The Chat header shows
+whether plan data is on.
+
+**Raw data.** Each assistant answer carries a “Show raw data” disclosure with the exact compact
+tool/fact text used, so the full prescription items can be inspected.
 
 **Projections.** Plan tools use compact, capability-specific projections instead of the generic
 envelope projection. The generic 6,000-character projection truncated a 7.9 KB prescription to its
@@ -927,8 +932,8 @@ exercises, and a programme summary.
 **Capacity.** The physical-device probe reported 8,192 tokens, tool calling and guided generation;
 eight tools with four history messages and 60 fact lines passed.
 
-**Tests.** 46 chat-related tests pass, including plan-tool gating, date resolution, every-prescription-
-item projection, plan-only tool selection, structured DeepSeek answers and suggestion carrying. The three backend routes and unknown-query rejection are covered (12 tests).
+**Tests.** 49 chat-related tests pass, including plan-fact injection, date/week extraction, raw
+outputs, every-prescription-item projection, structured DeepSeek answers and suggestion carrying. The three backend routes and unknown-query rejection are covered (12 tests).
 
 **Open.** Device acceptance on both models; a visible “plan data omitted” note on the context
 fallback.
