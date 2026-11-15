@@ -798,10 +798,12 @@ local projection. The MCP readiness gate is a separate deployment decision and i
 `DEC-AFC-03` still holds: the client formats server facts; it does not compute them.
 
 **Tools and budget.** The five Foundation Models `Tool` adapters from contract §10 are implemented over
-`IntelligenceCapabilityProviding`; each returns a compact projection, and the session registers them
-when a REST-backed provider is available. `NarrativeBudget` estimates tokens at four characters per
-token and trims observations, missing entries and limitations first, then trailing facts; if the
-core cannot fit it falls back instead of sending a truncated prompt.
+`IntelligenceCapabilityProviding` and tested, but they are **not registered in the session yet**: the
+tool schemas consume most of the model's 8,192-token window and caused a real overflow on the device
+at the Detailed preset. The session uses the facts already loaded for the screen. `NarrativeBudget`
+estimates tokens at four characters per token and trims observations, missing entries and limitations
+first, then trailing facts; the first attempt uses 1,200 tokens and a context overflow retries at 600
+before falling back. Conditional tool registration with a measured budget is a follow-up.
 
 **Tests.** `StrengthAppTests/IntelligenceNarrativeTests.swift`: projection contents (facts, gates,
 no evidence ids), grounded acceptance, invented-number rejection (including number words), an
@@ -810,8 +812,12 @@ rejection, detail presets, the overview projection, the five-tool surface, a too
 trim/fallback, availability messages and the panel state transitions. The model itself is not
 unit-tested.
 
-**Device acceptance.** Confirmed manually by the owner on 2026-11-15 on the iPhone: the on-device
-narrative rendered; the fallback path was not exercised in that run.
+**Device acceptance.** The owner confirmed the narrative rendered on 2026-11-15, then found two
+issues on the Detailed preset: a context overflow caused by registering the five tool schemas, and an
+over-strict grounding check that rejected percentages, thousands separators and the digit in
+`e1RM`. Both are fixed (tools are not registered; the validator uses a structured allow-list with
+percent/thousands variants and a digit-boundary regex, and the message names the offending number).
+A device re-run is pending.
 
 **Open in INT-4.** The stub UI test (the panel state is unit-tested, not driven through the UI) and a
 fresh device run after the tool/budget changes remain open.

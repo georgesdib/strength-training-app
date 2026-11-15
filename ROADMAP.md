@@ -1943,6 +1943,14 @@ model.
 **INT-4 delivered (2026-11-15, stub UI test open):** the on-device narrative is available on the
 weekly review and the Progress overview behind a default-off toggle, with availability reasons,
 detail presets, a compact facts projection, a structured-number grounding validator, a token budget
+with trimming and a deterministic fallback. The five native tool adapters are implemented and tested
+as an adapter surface but not registered yet: their schemas overflowed the 8,192-token window at the
+Detailed preset. The budget trims and retries; the grounding check now accepts percentages and
+thousands separators and ignores the digit in `e1RM`. The owner confirmed the narrative manually and
+found those two issues; a re-run is pending, and the stub UI test remains open.
+** the on-device narrative is available on the
+weekly review and the Progress overview behind a default-off toggle, with availability reasons,
+detail presets, a compact facts projection, a structured-number grounding validator, a token budget
 with trimming and a deterministic fallback. The five native tool adapters are implemented over the
 REST provider. The owner confirmed the device acceptance manually; the stub UI test remains open.
 
