@@ -52,5 +52,8 @@ tests/*_integration.py
 *backupDB*.csv
 *backupReadiness*.csv
 
+# Local database backups (real athlete data; never commit)
+backups/
+
 # macOS Finder metadata
 .DS_Store
