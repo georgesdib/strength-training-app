@@ -1940,10 +1940,11 @@ summary, period comparison) and two more resources (`strength://programme/curren
 latency-aware budget and enabled the transport; INT-2 adds no caching, no new REST route and no
 model.
 
-**INT-4 first slice (2026-11-15):** the on-device narrative is available on the weekly review and the
-Progress overview behind a default-off toggle, with availability reasons, detail presets, a compact
-facts projection, a grounding validator and a deterministic fallback. The five native tool adapters,
-token budgeting, the stub UI test and the real-device acceptance run remain open.
+**INT-4 delivered (2026-11-15, stub UI test open):** the on-device narrative is available on the
+weekly review and the Progress overview behind a default-off toggle, with availability reasons,
+detail presets, a compact facts projection, a structured-number grounding validator, a token budget
+with trimming and a deterministic fallback. The five native tool adapters are implemented over the
+REST provider. The owner confirmed the device acceptance manually; the stub UI test remains open.
 
 **INT-4 read surface (2026-11-15):** the iOS intelligence routes for overview, exercise progression,
 readiness and session details are implemented alongside the weekly review, so the native adapter

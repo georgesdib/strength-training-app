@@ -797,11 +797,21 @@ transcript is persisted, and the readiness values the app already receives may b
 local projection. The MCP readiness gate is a separate deployment decision and is not changed here.
 `DEC-AFC-03` still holds: the client formats server facts; it does not compute them.
 
-**Tests.** `StrengthAppTests/IntelligenceNarrativeTests.swift`: projection contents (facts, gates,
-no evidence ids), grounded acceptance, invented-number rejection (including number words), overlong
-rejection, detail presets and the overview projection. The model itself is not unit-tested.
+**Tools and budget.** The five Foundation Models `Tool` adapters from contract §10 are implemented over
+`IntelligenceCapabilityProviding`; each returns a compact projection, and the session registers them
+when a REST-backed provider is available. `NarrativeBudget` estimates tokens at four characters per
+token and trims observations, missing entries and limitations first, then trailing facts; if the
+core cannot fit it falls back instead of sending a truncated prompt.
 
-**Open in INT-4.** The five Foundation Models `Tool` adapters from contract §10 are not built yet;
-the first slice passes the facts in the prompt instead. Context-budget estimation/trimming is a
-single 6,000-character cap with an error fallback, not a token estimator. The stub UI test and the
-real-device acceptance run remain open.
+**Tests.** `StrengthAppTests/IntelligenceNarrativeTests.swift`: projection contents (facts, gates,
+no evidence ids), grounded acceptance, invented-number rejection (including number words), an
+injection fixture where instruction-like text cannot smuggle an ungrounded number, overlong
+rejection, detail presets, the overview projection, the five-tool surface, a tool call, the budget
+trim/fallback, availability messages and the panel state transitions. The model itself is not
+unit-tested.
+
+**Device acceptance.** Confirmed manually by the owner on 2026-11-15 on the iPhone: the on-device
+narrative rendered; the fallback path was not exercised in that run.
+
+**Open in INT-4.** The stub UI test (the panel state is unit-tested, not driven through the UI) and a
+fresh device run after the tool/budget changes remain open.
