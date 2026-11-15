@@ -1943,7 +1943,8 @@ model.
 sections (activity, adherence, sessions, progression, volume, readiness coverage/direction,
 programme, gated observations) from their owners, and the additive iOS read route
 `GET /api/ios/v1/intelligence/weekly-review` returns the envelope unchanged under the existing
-device bearer auth. The iOS review screen and adapter are INT-3b.
+device bearer auth. The iOS `StrengthCore` envelope/adapter and the Progress → Weekly review screen
+were delivered on 2026-11-15 in the StrengthApp repository.
 
 The canonical cross-repository plan, audit, contract and decisions are in the portfolio
 repository: [plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md)

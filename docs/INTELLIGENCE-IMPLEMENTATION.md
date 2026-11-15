@@ -716,5 +716,11 @@ unchanged, under the existing device bearer auth. Validation failures are 400, a
 week, imported-only quality flags, observation opt-out, read-only counts, MCP/service parity, and the
 live route (200, 401, 400, capability advertisement).
 
-**Not in this phase:** the iOS screen, any narrative, and any model call. The narrative path remains
-INT-4/INT-5 and the iOS adapter is INT-3b.
+**iOS (2026-11-15).** `StrengthCore/Intelligence/IntelligenceEnvelope.swift` decodes the envelope
+with unknown-field tolerance and fails on a missing required field;
+`IOSAPIClient.weeklyReview(session:weekEnd:)` calls the route; `WeeklyReviewView` renders the
+sections, coverage and limitations with no client-side calculation, and Progress links to it.
+Tests decode the fixture, assert the missing-field failure and the date-only Week navigation.
+
+**Not in this phase:** any narrative or model call. The narrative path remains INT-4/INT-5 and the
+five-capability native provider surface is INT-4.
