@@ -1922,10 +1922,11 @@ extra and only the transport imports it. See
 performance baseline — the development Mac and, separately, the deployment host (p50 3.10 s /
 p95 3.17 s at 377 sessions, 2026-11-14). That host measurement is above the ADR-INT-010
 one-second threshold, so the transport is **gated** there until the addendum is decided. There is
-still **no REST route, no model provider, no migration and no change to any existing endpoint.**
-INT-2 delivered the rest of the read-only catalogue on 2026-11-14; INT-3a then delivered the
-weekly review and the additive iOS read route. The baseline context package, evidence producers for
-the aggregate capabilities and the INT-3b iOS adapter remain open.
+still **no model provider, no migration and no change to any existing endpoint**; the INT-3
+weekly-review route is additive. INT-2 delivered the rest of the read-only catalogue on 2026-11-14
+and INT-3 delivered the weekly review, its REST route and the iOS read surface; **INT-3 is closed
+2026-11-15**. The baseline context package, evidence producers for the aggregate capabilities and
+the INT-4 native model surface remain open.
 
 **Audit remediation 2026-11-14:** immediate token revocation/rotation without restart, a
 structured metadata-only audit record per invocation, a configurable tool timeout and result-size
@@ -1939,11 +1940,12 @@ summary, period comparison) and two more resources (`strength://programme/curren
 latency-aware budget and enabled the transport; INT-2 adds no caching, no new REST route and no
 model.
 
-**INT-3a delivered 2026-11-14:** `get_weekly_review` composes the deterministic Monday-Sunday
+**INT-3 closed 2026-11-15:** `get_weekly_review` composes the deterministic Monday-Sunday
 sections (activity, adherence, sessions, progression, volume, readiness coverage/direction,
 programme, gated observations) from their owners, and the additive iOS read route
 `GET /api/ios/v1/intelligence/weekly-review` returns the envelope unchanged under the existing
-device bearer auth. The iOS `StrengthCore` envelope/adapter and the Progress → Weekly review screen
+device bearer auth. Acceptance evidence is the golden fixture, the empty and imported-only week
+tests, and the model-free screen. The iOS `StrengthCore` envelope/adapter and the Progress → Weekly review screen
 were delivered on 2026-11-15 in the StrengthApp repository. The REST entrypoint and the MCP process
 both open SQLite read-only; raw readiness fields are rejected over MCP unless the deployment sets
 `allow_sensitive_readiness`, and the weekly review reports `week_complete`/`week_partial`.

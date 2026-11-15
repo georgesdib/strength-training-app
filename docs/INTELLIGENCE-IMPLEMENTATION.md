@@ -1,9 +1,10 @@
 # TRAINING INTELLIGENCE — BACKEND IMPLEMENTATION
 
-**Status:** INT-1 foundation, INT-1b MCP transport, the audit remediation and the INT-2 capability
-catalogue implemented 2026-11-14. Read-only, provider-neutral, independently runnable. The
-baseline context package, evidence producers for the new aggregates, the weekly review (INT-3) and
-the REST/iOS surface are not implemented.
+**Status:** INT-1 foundation, INT-1b MCP transport, the audit remediation, the INT-2 capability
+catalogue and INT-3 (weekly review plus the iOS read surface) are implemented; **INT-3 closed
+2026-11-15**. Read-only, provider-neutral, independently runnable. The baseline context package and
+model path (INT-5), evidence producers for the aggregate capabilities and the INT-4 native model
+surface are not implemented.
 **Scope owner:** the canonical plan is the portfolio
 [Training Intelligence plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md);
 the payload contract is the
@@ -37,21 +38,22 @@ them: delivered work is marked delivered, and later phases are not advanced by t
 | Live HTTP integration test with the official client (remediation) | implemented |
 | INT-2 catalogue: seven further tools (INT-2) | implemented |
 | INT-2 resources: `strength://programme/current`, `strength://overview/current` (INT-2) | implemented |
-| `get_weekly_review` capability (INT-3a) | implemented |
-| `GET /api/ios/v1/intelligence/weekly-review` (INT-3a) | implemented |
-| iOS weekly-review screen and adapter (INT-3b) | **not implemented — INT-3b** |
-| Baseline context package (shared compact context) | **not implemented — INT-3** |
-| Evidence producers for the INT-2 aggregates | **deferred** — owners do not emit evidence items for these aggregates; `get_session_details` returns the real evidence |
-| Weekly review package (INT-3) | **not implemented — INT-3** |
-| REST route, iOS adapter, model providers | **not implemented — INT-3 onward** |
+| `get_weekly_review` capability (INT-3) | implemented; INT-3 closed 2026-11-15 |
+| `GET /api/ios/v1/intelligence/weekly-review` (INT-3) | implemented; INT-3 closed 2026-11-15 |
+| iOS weekly-review screen and adapter (INT-3) | implemented 2026-11-15 |
+| Baseline context package (shared compact context) | **not implemented — INT-5** |
+| Evidence producers for the aggregate capabilities | **deferred** — owners do not emit evidence items for these aggregates; `get_session_details` returns the real evidence |
+| Native model surface (five capabilities, `Tool` adapters) | **not implemented — INT-4** |
+| Model providers and narration | **not implemented — INT-4/INT-5** |
 
 The plan's INT-1 originally bundled the MCP skeleton and two tools. The approved implementation
 prompt narrowed INT-1 to the foundation and deferred the transport, so that scope moved to
 **INT-1b**, delivered 2026-11-14 and recorded in the plan and roadmap. **INT-2** then delivered the
-remaining read-only catalogue and its two resources on 2026-11-14. Everything marked INT-1b and
-INT-2 above is implemented. What remains is the baseline context package, evidence producers for
-the aggregate capabilities, the INT-3 weekly review and REST surface, and model integration; none
-of those is implied by INT-2 and none is claimed here.
+remaining read-only catalogue and its two resources on 2026-11-14, and **INT-3** delivered the
+weekly review, its REST route and the iOS read surface on 2026-11-15. Everything marked INT-1,
+INT-1b, INT-2 and INT-3 above is implemented. What remains is the baseline context package and
+model path (INT-5), evidence producers for the aggregate capabilities, and the INT-4 native model
+surface; none of those is claimed here.
 
 ## 2. Package layout
 
@@ -687,7 +689,7 @@ measured roughly 14x the Mac on the overview benchmark, so the readiness score s
 capability to watch there. No cache was added (ADR-INT-010) and the transport remains gated on that
 host until the addendum is decided.
 
-## 22. INT-3a — weekly review and the iOS REST route (2026-11-14)
+## 22. INT-3 — weekly review and the iOS read surface (closed 2026-11-15)
 
 `get_weekly_review` is the tenth read-only capability. It composes the Monday-Sunday sections in
 the plan §8.2 from their owners and adds no calculation beyond presentation labels:
@@ -734,8 +736,11 @@ and classifies the capability as **slow** under the T-1 fast threshold (500 ms);
 the slow/very_slow 7 s budget. The single source is `strength_coach/intelligence/latency.py`;
 the tool description is generated from it.
 
-**Not in this phase:** any narrative or model call. The narrative path remains INT-4/INT-5 and the
-five-capability native provider surface is INT-4.
+**Closed 2026-11-15.** Acceptance evidence: the completed week renders from the golden fixture;
+an empty week is `no_data` with expected inputs; an imported-only week reports `imported_sessions_only`
+and `adherence_unavailable`; the screen works with no model and no route beyond the existing REST
+call; `DEC-AFC-03` holds (no client-side training arithmetic). Any narrative or model call remains
+INT-4/INT-5, and the five-capability native provider surface is INT-4.
 
 ## 23. Read-only boundary, outbound data and partial weeks (2026-11-15)
 
