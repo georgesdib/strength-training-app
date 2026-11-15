@@ -822,7 +822,7 @@ A device re-run is pending.
 **Open in INT-4.** The stub UI test (the panel state is unit-tested, not driven through the UI) and a
 fresh device run after the tool/budget changes remain open.
 
-## 25. INT-4b — on-device training chat (first slice, 2026-11-15)
+## 25. INT-4b — on-device training chat (delivered 2026-11-15)
 
 **Delivered.** A dedicated Chat screen from Progress, behind a separate default-off *Chat with your
 training* consent toggle. Suggested prompts, non-streaming answers, a sources line naming the
@@ -852,5 +852,6 @@ returns "No progression was found for '…'" with example ids, a missing session
 load failure says the data is unavailable. The prompt tells the model to ask for clarification
 rather than repeat a tool error.
 
-**Open.** The device run (the model and tool schemas only exist on the phone) and tool-selection
-tuning; the single-shot explanation path remains unchanged.
+**Status.** Complete (2026-11-15). The manual device matrix passed: weekly review, overview,
+progression, session details without an id, readiness, refusal of plan/medical prompts, and
+transcript clearing. No UI test by owner decision. The single-shot explanation path is unchanged.
