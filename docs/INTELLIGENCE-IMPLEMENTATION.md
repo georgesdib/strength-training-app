@@ -843,7 +843,9 @@ test is required.
 **Numeric facts.** The chat allow-list includes numbers from numeric-like string facts
 (`"5.3 kg"`, `"80%"`) and accepts decimal variants such as `5.30` and signed progression values in
 either direction (`-5.3` and `5.3`, including a typographic minus); instruction-like strings are
-not parsed, so they cannot widen the set. A number the model computes itself is still rejected.
+not parsed, so they cannot widen the set. A number the model computes itself is still rejected. A time window echoed from the question
+("last 3 months") grounds only when the answer itself uses it as a time window, so it cannot
+license "3 sessions".
 
 **Tool errors.** A tool never throws a raw error into the conversation: an unknown exercise id
 returns "No progression was found for '…'" with example ids, a missing session says so, and a data
