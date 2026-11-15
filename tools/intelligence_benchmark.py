@@ -358,7 +358,11 @@ async def _run_http_async(
                     try:
                         result = await client.call_tool(name, translated[name])
                         elapsed = (time.perf_counter() - started) * 1000
-                        if getattr(result, "isError", False):
+                        # mcp >= 2 names this is_error; the old isError spelling silently
+                        # counted every tool error as a successful sample.
+                        if getattr(result, "is_error", False) or getattr(
+                            result, "isError", False
+                        ):
                             errors.append("tool_error")
                         else:
                             samples.append(elapsed)
