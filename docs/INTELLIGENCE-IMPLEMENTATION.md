@@ -845,10 +845,15 @@ not parsed, so they cannot widen the set. A number the model computes itself is 
 ("last 3 months") grounds only when the answer itself uses it as a time window, so it cannot
 license "3 sessions".
 
-**Tool errors.** A tool never throws a raw error into the conversation: an unknown exercise id
-returns "No progression was found for '…'" with example ids, a missing session says so, and a data
-load failure says the data is unavailable. The prompt tells the model to ask for clarification
-rather than repeat a tool error.
+**Tool errors.** A tool never throws a raw error into the conversation. Failures are classified as
+not_found, invalid_identifier, unauthorized, unavailable, server or unknown, recorded in a
+`ToolFailureLog`, and mapped to a short message: progression examples appear only for
+not_found/invalid_identifier, while transport, server and auth failures say so plainly. The prompt
+tells the model to ask for clarification rather than repeat a tool error.
+
+**Session identity.** Session details resolve the most recently completed session only when no id is
+supplied. An explicit id must resolve to that exact workout; a failed lookup is surfaced and is
+never silently replaced by another session.
 
 **Status.** Complete (2026-11-15). The manual device matrix passed: weekly review, overview,
 progression, session details without an id, readiness, refusal of plan/medical prompts, and
