@@ -93,6 +93,24 @@ def run_chat(
         blocks.append(
             {"capability": name, "status": envelope.status, "data": narrative_facts(envelope)}
         )
+    latest = service.connection.execute(
+        "SELECT occurred_on, duration_min FROM session "
+        "WHERE voided = 0 AND duration_min IS NOT NULL "
+        "ORDER BY occurred_on DESC, created_at DESC LIMIT 1"
+    ).fetchone()
+    if latest is not None:
+        blocks.append(
+            {
+                "capability": "latest_session_duration",
+                "status": "ok",
+                "data": {
+                    "occurred_on": latest["occurred_on"],
+                    "duration_min": latest["duration_min"],
+                },
+            }
+        )
+        tools.append("latest_session_duration")
+    duration_numbers = () if latest is None else (str(latest["duration_min"]),)
     truncated = False
     while len(json.dumps(blocks, ensure_ascii=False, default=str)) > 18_000 and len(blocks) > 1:
         blocks.pop()
@@ -114,7 +132,7 @@ def run_chat(
         answer,
         response.tokens,
         tools,
-        number_warnings(answer, envelopes),
+        number_warnings(answer, envelopes, duration_numbers),
         suggestions,
     )
 

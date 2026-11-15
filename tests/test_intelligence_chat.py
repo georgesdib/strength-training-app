@@ -57,3 +57,28 @@ def test_chat_trims_history_to_the_recent_window():
         assert "turn 11" in client.prompt
     finally:
         store.close()
+
+
+class DurationClient:
+    model = "duration"
+
+    def complete(self, prompt, *, system=None):
+        self.prompt = prompt
+        return LLMResponse(text="That session took 52.5 min.", model=self.model, tokens=3)
+
+
+def test_latest_session_duration_is_in_the_dossier_and_grounded():
+    store = seed_store()
+    try:
+        store.connection.execute(
+            "INSERT INTO session (session_id, occurred_on, set_count, exercise_count, duration_min) "
+            "VALUES ('s-duration', '2026-11-10', 1, 1, 52.5)"
+        )
+        client = DurationClient()
+        result = run_chat(service(store.connection), client, [{"role": "user", "content": "How long?"}])
+        assert "latest_session_duration" in result.tools
+        assert "52.5" in client.prompt
+        assert result.warnings == []
+        assert result.answer == "That session took 52.5 min."
+    finally:
+        store.close()

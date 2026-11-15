@@ -995,8 +995,8 @@ needs `config/llm.local.toml` with a provider key before `narrate` can call a mo
 
 **Delivered.** `POST /api/intelligence/chat` and a Programme Intelligence **Chat** view. The
 client sends up to 20 user/assistant turns; the server executes a fresh six-capability fact dossier
-(weekly review, overview, adherence, programme, prescription, readiness) and asks the configured
-model for one answer. The answer carries advisory number warnings, the
+(weekly review, overview, adherence, programme, prescription, readiness, plus the latest session
+duration) and asks the configured model for one answer. The answer carries advisory number warnings, the
 source capability names and tokens; the run trace records the input and token result without storing prose.
 
 **Policy.** Session-only browser memory, no transcript persistence, no write. The model may suggest
@@ -1008,6 +1008,8 @@ blocks first. The daily token budget applies.
 `tests/test_intelligence_chat_eval.py` runs a four-case multi-turn matrix (one turn, multi-turn,
 long thread, injection). No real model call in CI.
 
-**Closed/deferred.** Model-driven tool orchestration is closed; the provider stalled on tool calls,
-and the deterministic dossier covers the six core capabilities. Streaming remains deferred;
-transcript policy is session-only. Chat tokens are persisted and count against the daily budget.
+**Limitation.** Model-driven tool selection is **not implemented**. The provider stalled on tool
+calls, so the model receives the fixed dossier above; answers cannot query a capability outside it.
+
+**Closed/deferred.** Streaming is not planned; transcript policy is session-only. Chat tokens are
+persisted and count against the daily budget.

@@ -184,10 +184,11 @@ def _add_variants(token: str, out: set[str]) -> None:
         out.add("+" + token)
 
 
-def number_warnings(text: str, envelopes) -> list[str]:
+def number_warnings(text: str, envelopes, extra_numbers=()) -> list[str]:
     allowed: set[str] = set()
     for envelope in envelopes:
         _allowed_numbers(envelope.as_dict(), allowed)
+    _allowed_numbers(list(extra_numbers), allowed)
     missing = [
         token
         for token in re.findall(r"(?<![\w.])[+-]?\d+(?:[.,]\d+)?", text)

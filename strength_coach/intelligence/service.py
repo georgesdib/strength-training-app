@@ -180,6 +180,11 @@ class IntelligenceService:
     def config(self) -> IntelligenceConfig:
         return self._config
 
+    @property
+    def connection(self):
+        """Read-only connection for compact chat context; capabilities remain the only queries."""
+        return self._conn
+
     def describe(self) -> list[dict[str, object]]:
         return self._registry.describe()
 
