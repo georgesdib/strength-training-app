@@ -42,6 +42,33 @@ class LLMClient(Protocol):
     @property
     def available(self) -> bool: ...
 
+    def complete_with_tools(
+        self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "tools": tools,
+            "tool_choice": "auto",
+            "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
+        }
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        body = self._transport(
+            f"{self.base_url}/chat/completions", payload, headers, self.timeout_s
+        )
+        try:
+            message = json.loads(body)["choices"][0]["message"]
+        except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
+            raise LLMError(f"unexpected tool response from {self.base_url}: {exc}") from exc
+        return {
+            "content": message.get("content") or "",
+            "tool_calls": message.get("tool_calls") or [],
+            "tokens": (json.loads(body).get("usage") or {}).get("total_tokens"),
+        }
+
     def complete(self, prompt: str, *, system: str | None = None) -> LLMResponse: ...
 
 

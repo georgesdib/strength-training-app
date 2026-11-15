@@ -3349,6 +3349,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._test_llm())
             elif path == "/api/intelligence/narrate":
                 self._json(200, self._with_conn(lambda c: self._narrate(c, body)))
+            elif path == "/api/intelligence/chat":
+                self._json(200, self._with_conn(lambda c: self._chat(c, body)))
             elif path == "/api/prescribe":
                 self._json(200, self._with_conn(lambda c: self._prescribe(c, body)))
             elif path == "/api/readiness/presets":
@@ -3820,6 +3822,61 @@ class Handler(BaseHTTPRequestHandler):
                 "settings",
             )
             raise FieldError(message, {field: message}) from exc
+
+    def _chat(self, conn, body: dict) -> dict:
+        import hashlib
+
+        from strength_coach.intelligence.config import load_config
+        from strength_coach.intelligence.model import ensure_daily_budget, run_chat
+        from strength_coach.intelligence.service import IntelligenceService
+        from strength_coach.trace.run import RunTrace
+
+        messages = body.get("messages")
+        if not isinstance(messages, list) or not messages or len(messages) > 20:
+            raise FieldError("messages must be one to twenty turns", {"messages": "1-20 turns"})
+        clean = []
+        for message in messages:
+            if not isinstance(message, dict):
+                raise FieldError("each message must be an object", {"messages": "object"})
+            role = message.get("role")
+            content = message.get("content")
+            if role not in {"user", "assistant"} or not isinstance(content, str) or not content.strip():
+                raise FieldError("each message needs a user/assistant role and text", {"messages": "invalid"})
+            if len(content) > 4000:
+                raise FieldError("a message is too long", {"messages": "max 4000 characters"})
+            clean.append({"role": role, "content": content.strip()})
+
+        settings = load_settings()
+        if not settings.enabled:
+            raise ValueError("LLM is disabled or incomplete; configure it in Settings")
+        client = build_client(settings)
+        try:
+            ensure_daily_budget(conn, settings.daily_tokens)
+        except Exception as exc:
+            raise ValueError(str(exc)) from exc
+        service = IntelligenceService(conn, config=load_config())
+        trace = RunTrace.start(
+            conn,
+            input_hash=hashlib.sha256(json.dumps(clean, sort_keys=True).encode("utf-8")).hexdigest(),
+            llm_model=client.model,
+        )
+        trace.event("input", {"turns": len(clean)})
+        try:
+            result = run_chat(service, client, clean)
+        except Exception:
+            trace.finish(status="llm_failed")
+            conn.commit()
+            raise
+        trace.event("llm_output", {"tools": result.tools, "tokens": result.tokens})
+        trace.finish(status="ok")
+        conn.commit()
+        return {
+            "answer": result.answer,
+            "warnings": result.warnings,
+            "tools": result.tools,
+            "tokens": result.tokens,
+            "model": client.model,
+        }
 
     def _narrate(self, conn, body: dict) -> dict:
         import hashlib

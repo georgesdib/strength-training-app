@@ -184,6 +184,18 @@ def _add_variants(token: str, out: set[str]) -> None:
         out.add("+" + token)
 
 
+def number_warnings(text: str, envelopes) -> list[str]:
+    allowed: set[str] = set()
+    for envelope in envelopes:
+        _allowed_numbers(envelope.as_dict(), allowed)
+    missing = [
+        token
+        for token in re.findall(r"(?<![\w.])[+-]?\d+(?:[.,]\d+)?", text)
+        if token.replace(",", ".") not in allowed and token not in allowed
+    ]
+    return [f"number {token!r} is not in the facts" for token in dict.fromkeys(missing)]
+
+
 def _allowed_numbers(value: Any, out: set[str] | None = None) -> set[str]:
     if out is None:
         out = set()

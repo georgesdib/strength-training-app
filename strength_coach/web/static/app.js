@@ -3844,3 +3844,54 @@ $("#narrate-form")?.addEventListener("submit", async (event) => {
     button.disabled = false;
   }
 });
+
+/* --- Training chat (INT-6) --------------------------------------------- */
+const chatTurns = [];
+function renderChat() {
+  const log = $("#chat-log");
+  if (!log) return;
+  log.innerHTML = chatTurns.map((turn) => {
+    if (turn.role === "user") {
+      return '<div class="chat-bubble user">' + esc(turn.content) + "</div>";
+    }
+    const warnings = (turn.warnings || []).map((w) => "<li>" + esc(w) + "</li>").join("");
+    return '<div class="chat-bubble assistant">' + esc(turn.content).replaceAll("\n", "<br>") +
+      (warnings ? '<div class="warnbox"><strong>Unverified numbers</strong><ul>' + warnings + "</ul></div>" : "") +
+      (turn.tools?.length ? '<div class="muted">tools: ' + esc(turn.tools.join(", ")) + "</div>" : "") +
+      "</div>";
+  }).join("");
+  log.scrollTop = log.scrollHeight;
+}
+$("#chat-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const input = $("#chat-input");
+  const message = $("#chat-msg");
+  const button = $("#chat-send");
+  const text = input.value.trim();
+  if (!text) return;
+  if (chatTurns.length >= 20) {
+    message.textContent = "Conversation limit reached; reload to start again.";
+    return;
+  }
+  chatTurns.push({ role: "user", content: text });
+  input.value = "";
+  message.textContent = "Thinking…";
+  button.disabled = true;
+  renderChat();
+  try {
+    const data = await api("/api/intelligence/chat", {
+      method: "POST",
+      body: JSON.stringify({ messages: chatTurns.map(({ role, content }) => ({ role, content })) }),
+    });
+    chatTurns.push({
+      role: "assistant", content: data.answer, warnings: data.warnings || [], tools: data.tools || [],
+    });
+    message.textContent = "";
+  } catch (error) {
+    chatTurns.pop();
+    message.textContent = error.message || "Chat failed.";
+  } finally {
+    button.disabled = false;
+    renderChat();
+  }
+});

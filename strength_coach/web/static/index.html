@@ -59,6 +59,7 @@
           <button data-view="programme">Programme</button>
           <button data-view="review">Review</button>
           <button data-view="narrate">Narrate</button>
+          <button data-view="chat">Chat</button>
         </div>
       </details>
       <details class="nav-group">
@@ -871,6 +872,20 @@
         <p class="muted">The trace records the model and token count, not the prompt or narrative. The narrative is not saved as a training artifact.</p>
       </div>
       <div id="narrate-result"></div>
+    </section>
+
+    <section id="view-chat" class="view">
+      <div class="panel">
+        <div class="panel-head"><h2>Training chat</h2><span class="muted">read only · session memory</span></div>
+        <p class="section-help"><span>Ask follow-ups over the read-only capabilities. The model may call a capability tool before answering; it never writes or computes a load.</span> <a class="doc-link" href="#settings" data-view-link="settings">Model settings</a></p>
+        <div id="chat-log" class="chat-log"></div>
+        <form id="chat-form" class="form-row">
+          <label class="grow">Message <input id="chat-input" autocomplete="off" placeholder="What changed this week?"></label>
+          <button class="primary" type="submit" id="chat-send">Send</button>
+          <span class="muted" id="chat-msg"></span>
+        </form>
+        <p class="muted">Up to 20 turns per conversation; cleared when this page reloads. Suggestions are proposals, not applied; not medical advice.</p>
+      </div>
     </section>
 
     <section id="view-readiness" class="view">
