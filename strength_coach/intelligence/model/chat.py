@@ -10,7 +10,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
-from strength_coach.agents.client import LLMClient, LLMError
+from strength_coach.agents.client import LLMClient
 from strength_coach.intelligence.auth import INTERNAL_PRINCIPAL
 from strength_coach.intelligence.model.narrative import narrative_facts, number_warnings
 from strength_coach.intelligence.service import IntelligenceService
@@ -60,53 +60,49 @@ def run_chat(
     *,
     max_rounds: int = 4,
 ) -> ChatResult:
-    if not hasattr(client, "complete_with_tools"):
-        raise LLMError("the configured model does not support tool calling")
-    conversation = [{"role": "system", "content": SYSTEM_PROMPT}, *messages]
-    tokens = 0
-    tools: list[str] = []
+    """Answer one conversational turn from a fresh read-only fact dossier.
+
+    Tool calling is deliberately not used in the first server/web slice: some providers stall on
+    it. Every capability is available as structured facts instead.
+    """
+    import datetime as dt
+
+    today = dt.date.today()
+    start = (today - dt.timedelta(days=6)).isoformat()
+    cases = [
+        ("get_weekly_review", {}),
+        ("get_training_overview", {}),
+        ("get_adherence_analysis", {"weeks": 12}),
+        ("get_programme_block_summary", {}),
+        ("get_prescription", {}),
+        ("get_readiness_history", {"from": start, "to": today.isoformat(), "fields": ["score"]}),
+    ]
+    blocks = []
     envelopes = []
-    for _ in range(max_rounds + 1):
-        response = client.complete_with_tools(conversation, [CAPABILITY_TOOL])
-        tokens += int(response.get("tokens") or 0)
-        content = str(response.get("content") or "").strip()
-        calls = response.get("tool_calls") or []
-        if not calls:
-            return ChatResult(
-                content, tokens or None, tools, number_warnings(content, envelopes)
-            )
-        conversation.append(
-            {"role": "assistant", "content": content or None, "tool_calls": calls}
+    tools = []
+    for name, payload in cases:
+        result = service.execute(INTERNAL_PRINCIPAL, name, payload)
+        if not result.ok:
+            continue
+        envelope = result.envelope
+        envelopes.append(envelope)
+        tools.append(name)
+        blocks.append(
+            {"capability": name, "status": envelope.status, "data": narrative_facts(envelope)}
         )
-        for call in calls:
-            function = call.get("function") or {}
-            try:
-                args = json.loads(function.get("arguments") or "{}")
-            except json.JSONDecodeError:
-                args = {}
-            capability = str(args.get("name") or "")
-            payload = args.get("payload") or {}
-            result = service.execute(INTERNAL_PRINCIPAL, capability, payload)
-            tools.append(capability)
-            if result.ok:
-                envelope = result.envelope
-                body = {
-                    "status": envelope.status,
-                    "data": narrative_facts(envelope),
-                }
-                envelopes.append(envelope)
-            else:
-                body = {"error": result.error.code, "message": result.error.message}
-            conversation.append(
-                {
-                    "role": "tool",
-                    "tool_call_id": str(call.get("id") or ""),
-                    "content": json.dumps(body, ensure_ascii=False, default=str),
-                }
-            )
+    facts = json.dumps(blocks, ensure_ascii=False, default=str)
+    history = "\n".join(
+        f"{message['role']}: {message['content']}" for message in messages[-18:]
+    )
+    prompt = (
+        "Answer the latest athlete message using only these facts. If the facts do not cover it, "
+        "say so. Label any change proposal as 'Suggestions (not applied)'.\n\n"
+        + "CONVERSATION:\n" + history + "\n\nFACTS:\n" + facts
+    )
+    response = client.complete(prompt, system=SYSTEM_PROMPT)
     return ChatResult(
-        "I stopped after the tool-call limit without a final answer.",
-        tokens or None,
+        response.text,
+        response.tokens,
         tools,
-        [],
+        number_warnings(response.text, envelopes),
     )

@@ -1942,7 +1942,7 @@ model.
 
 **Phase 1b selector retirement (2026-11-15):** the minimal LLM exercise-variant chooser and its CLI/API/UI/engine plumbing are removed; deterministic selection and class-B confirmation remain.
 
-**INT-6 web chat first slice (2026-11-15):** Programme Intelligence Chat posts up to 20 turns to `/api/intelligence/chat`, where the model uses one generic training_data tool over the read-only capabilities (max four rounds). Session-only browser memory, advisory warnings, daily budget, no write. Full multi-turn evaluation and streaming remain.
+**INT-6 web chat first slice (2026-11-15):** Programme Intelligence Chat posts up to 20 turns to `/api/intelligence/chat`, where the server supplies a fresh six-capability fact dossier. Session-only browser memory, advisory warnings, daily budget, no write. Full multi-turn evaluation and streaming remain.
 
 **INT-5 server narration delivered (2026-11-15):** intelligence narrate and the web Narrate view
 cover every registered capability, with a daily token budget, advisory number warnings, a

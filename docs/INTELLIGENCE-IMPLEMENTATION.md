@@ -993,16 +993,16 @@ needs `config/llm.local.toml` with a provider key before `narrate` can call a mo
 ## 30. INT-6 — server/web chat first slice (2026-11-15)
 
 **Delivered.** `POST /api/intelligence/chat` and a Programme Intelligence **Chat** view. The
-client sends up to 20 user/assistant turns; the server calls the configured model with one generic
-`training_data` tool carrying a capability name and payload. Up to four tool rounds, executed
-through the real read-only capability service. The answer carries advisory number warnings, the
-tool names and tokens; the run trace records the input and tool/token result without storing prose.
+client sends up to 20 user/assistant turns; the server executes a fresh six-capability fact dossier
+(weekly review, overview, adherence, programme, prescription, readiness) and asks the configured
+model for one answer. The answer carries advisory number warnings, the
+source capability names and tokens; the run trace records the input and tool/token result without storing prose.
 
 **Policy.** Session-only browser memory, no transcript persistence, no write. The model may suggest
 changes but they are proposals; the UI says so. The daily token budget applies.
 
-**Tests.** `tests/test_intelligence_chat.py` exercises the tool call then final answer with a fake
-client; no real model call in CI.
+**Tests.** `tests/test_intelligence_chat.py` exercises the dossier and answer with a fake client; no
+real model call in CI.
 
-**Open.** A full evaluated multi-turn matrix, richer suggestions block, streaming and transcript
-policy remain future work.
+**Open.** Tool-calling orchestration (some providers stalled on it), a full evaluated multi-turn
+matrix, a richer suggestions block, streaming and transcript policy remain future work.
