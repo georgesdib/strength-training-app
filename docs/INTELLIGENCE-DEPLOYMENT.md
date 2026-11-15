@@ -1,10 +1,10 @@
 # TRAINING INTELLIGENCE — MCP DEPLOYMENT GUIDE
 
-**Status:** written 2026-11-14 for the INT-1b service; validated manually on the home host on
-2026-11-15 (all ten tools over Streamable HTTP, `get_weekly_review` included). The **systemd unit
-is not installed**: it targets `/opt/strength-training-app` and user `strength-intel`, while this
-host runs from `/home/dsh/strength-training-app` as `dsh`. The service therefore runs as a manual
-process and does not survive a reboot until §6 is completed with host-adapted paths.
+**Status:** written 2026-11-14 for the INT-1b service; deployed on the home host on 2026-11-15 with
+`deploy/install-intelligence-mcp.sh`, which rendered the unit for `/home/dsh/strength-training-app`
+and user `dsh`. The unit is enabled and active (all ten tools over Streamable HTTP,
+`get_weekly_review` included) and it survives a reboot. The `/opt` paths in this page remain the
+reference for a dedicated-user deployment.
 
 Architecture, tool schemas and the performance baseline are in
 [INTELLIGENCE-IMPLEMENTATION.md](INTELLIGENCE-IMPLEMENTATION.md). The canonical contract is the

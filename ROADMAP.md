@@ -1990,8 +1990,9 @@ C-1 keeps materialisation current, and T-3 improves latency. The LLM objective r
 T-3 is measured and the transport decision is reviewed; existing benchmark numbers stay valid
 until that remeasurement.
 
-**Operational status (2026-11-15).** The MCP server runs as a user-level process from the production
-checkout's virtual environment (the systemd unit is still not installed) on `10.0.0.44:8765` (the LAN address; loopback is no
+**Operational status (2026-11-15).** The MCP server runs under `strength-intelligence-mcp.service`
+(installed the same day with `deploy/install-intelligence-mcp.sh`), enabled at boot, from the
+production checkout's virtual environment on `10.0.0.44:8765` (the LAN address; loopback is no
 longer bound, `allowed_hosts` lists `10.0.0.44:*`, and a mismatched Host is rejected with 421 even
 with a valid token), full
 ten-tool catalogue, token file under the checkout's git-ignored config. It reads the production

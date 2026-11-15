@@ -1,8 +1,8 @@
 # PRODUCTION DEPLOYMENT — DERIVED ANALYTICS AND MCP CUTOVER
 
 Status: executed on the home host on 2026-11-15 for Derived Analytics Milestones A-C, the
-renumbered migrations and the C-1 units. The MCP service runs from the same checkout and has been
-validated over Streamable HTTP, but its systemd unit is not installed yet (§8).
+renumbered migrations, the C-1 units and the MCP service. The MCP unit was installed with the
+host-adapted installer (§8) and is enabled.
 
 ## 1. Scope and decisions
 
@@ -102,8 +102,9 @@ system units it is a no-op and the 15-minute timer is authoritative.
 ## 8. Enable the MCP service
 
 The repository unit targets /opt/strength-training-app and user strength-intel. On this host the
-checkout is /home/dsh/strength-training-app; adapt the unit paths/user or use a drop-in, keeping the
-database read-only.
+checkout is /home/dsh/strength-training-app; `sudo deploy/install-intelligence-mcp.sh` renders the
+unit with the real paths, checks the preconditions, stops a manual listener and installs it. The
+manual steps below remain the reference for a dedicated-user deployment.
 
 1. Enable intelligence in the service config (enabled: true); set bind_host/allowed_hosts for the
    trusted network. Loopback-only is the safe default.
@@ -162,6 +163,6 @@ is the only very_slow tool and is optional follow-up T-3a. These are 2026-11-14 
 guarantees; re-run the HTTP benchmark after deployment.
 
 C-1 is installed and active: the timer last ran successfully on 2026-11-15 08:15 and the web unit
-carries the `ExecStartPost` hook. The MCP service has been validated from the same checkout (all
-ten capabilities over Streamable HTTP) but its systemd unit is not installed, so it does not
-survive a reboot until §8 is completed with host-adapted paths.
+carries the `ExecStartPost` hook. The MCP service is installed, enabled and active from the same
+checkout (all ten capabilities over Streamable HTTP); `deploy/install-intelligence-mcp.sh` renders
+the host-adapted unit and is the repeatable path for this host.
