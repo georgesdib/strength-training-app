@@ -9,7 +9,7 @@ under `MOD-SELECT-001`; this module deliberately stops short of that.
 from __future__ import annotations
 
 import statistics
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -296,15 +296,10 @@ def select(
     session_type: str,
     *,
     config: SelectionConfig | None = None,
-    chooser: Callable[[templates.Slot, tuple[Candidate, ...]], tuple[str, str] | None] | None = None,
     include_different: bool = False,
     comparability: ComparisonConfig | None = None,
 ) -> list[SlotSelection]:
-    """Rank variants per slot; never modify the prescription.
-
-    `chooser` is an optional LLM/policy hook. It receives the slot and the deterministic
-    candidates and must return `(exercise_id, reason)` or None. The id is validated here.
-    """
+    """Rank variants per slot; never modify the prescription."""
     cfg = config or SelectionConfig.load()
     comparison = comparability or ComparisonConfig.load()
     template = templates.SessionTemplate.load(session_type)
@@ -458,16 +453,6 @@ def select(
                 reason = f"{trigger_reason}; no lower-tax same-pattern candidate"
                 tax_reason = "no lower-tax candidate"
             source = "python"
-        elif chooser is not None:
-            try:
-                chosen = chooser(slot, ranked)
-            except Exception as exc:  # LLM failure must fall back, never break the page
-                chosen = None
-                reason = f"deterministic fallback: {exc}"
-            if chosen is not None:
-                chosen_id, chosen_reason = chosen
-                if any(candidate.exercise_id == chosen_id for candidate in ranked):
-                    suggested, source, reason = chosen_id, "llm", chosen_reason
         # Stable preference: a tie keeps the current variant.
         if suggested != current:
             top = next(c for c in ranked if c.exercise_id == suggested)

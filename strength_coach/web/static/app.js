@@ -945,18 +945,12 @@ let prescribeBusy = false;
 let prescribeQueued = false;
 
 $("#prescribe-apply-selection").addEventListener("change", () => {
-  const llmWrap = $("#prescribe-selection-llm-wrap");
   const confirmWrap = $("#prescribe-selection-confirm-wrap");
   const on = $("#prescribe-apply-selection").checked;
-  llmWrap.hidden = !on;
   confirmWrap.hidden = !on;
   if (!on) {
-    $("#prescribe-selection-llm").checked = false;
     $("#prescribe-selection-confirm").checked = false;
   }
-  if (prescribeBusy) prescribeQueued = true;
-});
-$("#prescribe-selection-llm").addEventListener("change", () => {
   if (prescribeBusy) prescribeQueued = true;
 });
 $("#prescribe-selection-confirm").addEventListener("change", () => {
@@ -1027,14 +1021,13 @@ $("#prescribe-form").addEventListener("submit", async (event) => {
   const sessionType = $("#prescribe-session-type").value;
   $("#prescribe-result").innerHTML = "<p class='empty'>Building…</p>";
   const applySelection = $("#prescribe-apply-selection").checked;
-  const selectionLlm = applySelection && $("#prescribe-selection-llm").checked;
   const selectionConfirmed = applySelection && $("#prescribe-selection-confirm").checked;
   const scoreReady = window.__workflowReadinessData?.score?.status === "ready";
   const topSetValue = $("#prescribe-top-set").value;
   lastPrescribePayload = {
     date, session_type: sessionType,
     top_set: topSetValue === "on" ? true : topSetValue === "off" ? false : null,
-    apply_selection: applySelection, selection_llm: selectionLlm,
+    apply_selection: applySelection,
     selection_confirmed: selectionConfirmed,
     minimum_session: $("#prescribe-minimum").checked,
     target_minutes: Number($("#prescribe-target").value),
@@ -1265,11 +1258,8 @@ function renderPrescription(p, options = {}) {
   const selectionSuggestions = (selection?.slots || []).filter(
     (s) => s.trigger && s.trigger !== "none" && s.changed
   );
-  const selectionLlmWarning = selection?.llm_unavailable
-    ? '<p class="warnbox">LLM requested but not configured; NullLLM fallback was used.</p>'
-    : "";
-  const selectionBox = selectionLlmWarning + (selection?.applied
-    ? `<p class="muted">Selection applied (${esc(selection.llm_used ? "LLM" : "Python")}); substituted slots are cited as <code>MOD-SELECT-001</code>.</p>`
+  const selectionBox = (selection?.applied
+    ? `<p class="muted">Selection applied (deterministic); substituted slots are cited as <code>MOD-SELECT-001</code>.</p>`
     : selection?.slots?.some((s) => s.blocked_reason)
       ? `<p class="warnbox">Selection skipped: ${esc(selection.slots.filter((s) => s.blocked_reason).map((s) => s.slot_id + " (" + s.blocked_reason + ")").join("; "))}</p>`
       : selectionSuggestions.length
@@ -1428,11 +1418,10 @@ async function loadSelection() {
   const date = $("#prescribe-date").value;
   const sessionType = $("#prescribe-session-type").value;
   if (!date) { $("#selection-result").innerHTML = "<p class='empty'>Choose a date first.</p>"; return; }
-  const llm = $("#selection-llm").checked ? "1" : "0";
   const different = $("#selection-include-different").checked ? "1" : "0";
   $("#selection-result").innerHTML = "<p class='empty'>Scoring variants…</p>";
   try {
-    const data = await api(`/api/selection?date=${encodeURIComponent(date)}&session_type=${encodeURIComponent(sessionType)}&llm=${llm}&include_different=${different}`);
+    const data = await api(`/api/selection?date=${encodeURIComponent(date)}&session_type=${encodeURIComponent(sessionType)}&include_different=${different}`);
     const rows = (data.slots || []).map((slot) => {
       const candidates = slot.candidates.map((c) =>
         `<li>${esc(c.exercise_id)} — ${c.score}
@@ -3004,14 +2993,6 @@ function renderProgramme(entries, fromCache = false) {
     $("#programme-result").innerHTML = "<p class='warnbox'>No sessions in that horizon.</p>";
     return;
   }
-  const llmFallback = entries.some(
-    (entry) => entry.prescription.notes?.selection?.llm_unavailable
-  );
-  const llmWarning = llmFallback
-    ? `<p class="warnbox"><strong>LLM requested but not configured.</strong>
-       NullLLM fallback was used for exercise selection. Configure an LLM in Settings or untick
-       <em>Use LLM</em>.</p>`
-    : "";
   const cacheNote = fromCache
     ? `<p class="muted">Loaded from this session's cache for these form options. Switching an
        option back can restore its earlier build without rebuilding.</p>`
@@ -3041,7 +3022,7 @@ function renderProgramme(entries, fromCache = false) {
       <td>${esc(entry.date)}</td>
       <td><strong>${esc(sessionLabel(entry.session_type))}</strong>
         ${entry.prescription.notes?.selection?.requested
-          ? `<div class="muted">selection ${entry.prescription.notes.selection.applied ? "applied" : "preview"}${entry.prescription.notes.selection.llm_used ? " · LLM" : entry.prescription.notes.selection.llm_requested ? " · LLM fallback" : ""}</div>`
+          ? `<div class="muted">selection ${entry.prescription.notes.selection.applied ? "applied" : "preview"}</div>`
           : ""}</td>
       <td>${esc(programmeStatus(entry))}</td>
       <td><ul class="plain">${items}</ul>
@@ -3051,7 +3032,7 @@ function renderProgramme(entries, fromCache = false) {
         ${warn}</td>
     </tr>`;
   }).join("");
-  $("#programme-result").innerHTML = `<div class="panel">${llmWarning}${cacheNote}<table>
+  $("#programme-result").innerHTML = `<div class="panel">${cacheNote}<table>
     <thead><tr><th>Date</th><th>Session type</th><th>Status</th><th>Session</th></tr></thead>
     <tbody>${rows}</tbody></table></div>`;
 }
@@ -3089,7 +3070,6 @@ function programmePayload() {
     sessions_per_week: Number($("#programme-per-week").value || 3),
     start_session_type: $("#programme-session-type").value || "auto",
     apply_selection: applySelection,
-    selection_llm: applySelection && $("#programme-selection-llm").checked,
     selection_confirmed: applySelection && $("#programme-selection-confirm").checked,
   };
 }
@@ -3173,15 +3153,12 @@ function programmeSelectionChanged() {
 
 function syncProgrammeSelection() {
   const on = $("#programme-apply-selection").checked;
-  $("#programme-selection-llm-wrap").hidden = !on;
   $("#programme-selection-confirm-wrap").hidden = !on;
   if (!on) {
-    $("#programme-selection-llm").checked = false;
     $("#programme-selection-confirm").checked = false;
   }
 }
 $("#programme-apply-selection")?.addEventListener("change", programmeSelectionChanged);
-$("#programme-selection-llm")?.addEventListener("change", programmeSelectionChanged);
 $("#programme-selection-confirm")?.addEventListener("change", programmeSelectionChanged);
 syncProgrammeSelection();
 

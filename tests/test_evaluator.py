@@ -318,7 +318,6 @@ def test_shared_input_contract_covers_every_build_input() -> None:
         "vbt",
         "readiness_config",
         "apply_selection",
-        "selection_chooser",
         "selection_confirmed",
         "minimum_session",
         "minimum_target_minutes",
@@ -342,7 +341,6 @@ def test_selection_inputs_are_rejected_by_resolver_evaluation() -> None:
         for inputs in (
             evaluator.EvaluationInputs(apply_selection=True),
             evaluator.EvaluationInputs(selection_confirmed=True),
-            evaluator.EvaluationInputs(selection_chooser=lambda **kwargs: None),
         ):
             with pytest.raises(ValueError, match="cannot apply selection"):
                 evaluator.evaluate_assignment(

@@ -43,7 +43,6 @@ from strength_coach import (
     workout,
     workout_execution,
 )
-from strength_coach.agents import selection as agent_selection
 from strength_coach.agents.client import LLMError
 from strength_coach.agents.config import (
     PROVIDERS,
@@ -609,17 +608,12 @@ def _programme_request(body: dict) -> dict[str, Any]:
         "sessions_per_week": int(body.get("sessions_per_week") or 3),
         "start_session_type": body.get("start_session_type") or None,
         "apply_selection": _truth(body.get("apply_selection")),
-        "selection_llm": _truth(body.get("selection_llm")),
         "selection_confirmed": _truth(body.get("selection_confirmed")),
     }
 
 
 def programme_payload(conn, body: dict) -> dict:
     request = _programme_request(body)
-    chooser = (
-        agent_selection.chooser(build_client(load_settings()))
-        if request["apply_selection"] and request["selection_llm"] else None
-    )
     pages = programme_feature.build_programme(
         conn,
         start=request["start"],
@@ -628,7 +622,6 @@ def programme_payload(conn, body: dict) -> dict:
         start_session_type=request["start_session_type"],
         apply_deload=True,
         apply_selection=request["apply_selection"],
-        selection_chooser=chooser,
         selection_confirmed=request["selection_confirmed"],
     )
     return {"entries": [
@@ -3121,12 +3114,9 @@ class Handler(BaseHTTPRequestHandler):
                 query = parse_qs(urlparse(self.path).query)
                 day = query.get("date", [datetime.date.today().isoformat()])[0]
                 session_type = query.get("session_type", [None])[0]
-                use_llm = query.get("llm", ["0"])[0] == "1"
                 include_different = query.get("include_different", ["0"])[0] == "1"
                 self._json(200, self._with_conn(
-                    lambda c: self._selection(
-                        c, day, session_type, use_llm, include_different
-                    )
+                    lambda c: self._selection(c, day, session_type, include_different)
                 ))
             elif path.startswith("/api/programme/jobs/"):
                 job_id = path.rsplit("/", 1)[-1]
@@ -4510,7 +4500,7 @@ class Handler(BaseHTTPRequestHandler):
         readiness_score.require_ready(
             conn, for_date, allow_unknown=allow_unknown
         )
-        if _truth(body.get("apply_selection")) or _truth(body.get("selection_llm")) or (
+        if _truth(body.get("apply_selection")) or (
             _truth(body.get("selection_confirmed"))
         ):
             raise FieldError(
@@ -4640,11 +4630,6 @@ class Handler(BaseHTTPRequestHandler):
         )
         apply_selection = _truth(body.get("apply_selection"))
         selection_confirmed = _truth(body.get("selection_confirmed")) and apply_selection
-        selection_llm = _truth(body.get("selection_llm")) and apply_selection
-        chooser = (
-            agent_selection.chooser(build_client(load_settings()))
-            if selection_llm else None
-        )
         minimum_session = _truth(body.get("minimum_session"))
         minimum_include_main = _truth(body.get("minimum_include_main")) and minimum_session
         # MOD-TECH-001 is a user request, so it only runs when explicitly asked for; selected
@@ -4689,7 +4674,7 @@ class Handler(BaseHTTPRequestHandler):
                 scheduled_suggestion = scheduled
         prescription = build_prescription(
             conn, for_date=for_date, session_type=session_type,
-            apply_selection=apply_selection, selection_chooser=chooser,
+            apply_selection=apply_selection,
             selection_confirmed=selection_confirmed,
             minimum_session=minimum_session,
             minimum_target_minutes=target_minutes,
@@ -5051,16 +5036,13 @@ class Handler(BaseHTTPRequestHandler):
         return self._cardio(conn, body)
 
     def _selection(self, conn, day: str, session_type: str | None,
-                   use_llm: bool, include_different: bool = False) -> dict:
-        chooser = None
-        if use_llm:
-            chooser = agent_selection.chooser(build_client(load_settings()))
+                   include_different: bool = False) -> dict:
         resolved = (
             schedule_mod.next_session_type(conn, day)
             if session_type in (None, "", "auto") else str(session_type)
         )
         rows = selection_mod.select(
-            conn, None, day, resolved, chooser=chooser,
+            conn, None, day, resolved,
             include_different=include_different,
         )
         return {

@@ -18,7 +18,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Callable, Collection, Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import replace
 from typing import Any
 
@@ -72,7 +72,6 @@ def build_prescription(
     history: History | None = None,
     vbt: vbt_calibration.CalibrationResult | None = None,
     apply_selection: bool = False,
-    selection_chooser: Callable | None = None,
     selection_confirmed: bool = False,
     minimum_session: bool = False,
     minimum_target_minutes: int | None = None,
@@ -170,7 +169,6 @@ def build_prescription(
             vbt=vbt,
             readiness_config=readiness_config,
             apply_selection=apply_selection,
-            selection_chooser=selection_chooser,
             selection_confirmed=selection_confirmed,
             minimum_session=minimum_session,
             minimum_target_minutes=minimum_target_minutes,
@@ -262,19 +260,9 @@ def build_prescription(
         )
     selection_rows: dict[str, selection_mod.SlotSelection] = {}
     selection_notes: list[dict] = []
-    selection_llm_unavailable = bool(
-        apply_selection
-        and selection_chooser is not None
-        and getattr(selection_chooser, "llm_available", True) is False
-    )
-    if selection_llm_unavailable:
-        warnings.append(
-            "selection LLM requested but no LLM is configured; NullLLM fallback was used"
-        )
     if apply_selection:
         selected = selection_mod.select(
             conn, context, for_date, session_type,
-            chooser=selection_chooser,
         )
         selection_rows = {row.slot_id: row for row in selected}
         selection_notes = [row.as_dict() for row in selected]
@@ -853,9 +841,6 @@ def build_prescription(
             "selection": {
                 "requested": bool(apply_selection),
                 "applied": any(row.get("applied") for row in selection_notes),
-                "llm_requested": bool(selection_chooser),
-                "llm_used": any(row.get("source") == "llm" for row in selection_notes),
-                "llm_unavailable": selection_llm_unavailable,
                 "slots": selection_notes,
             },
         },

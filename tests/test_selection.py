@@ -62,29 +62,6 @@ def test_can_do_false_excludes_a_candidate():
     assert "pull_up" in {c.exercise_id for c in slot.candidates}
 
 
-def test_an_llm_choice_must_come_from_the_candidate_list():
-    with store_with() as store:
-        context = RuleContext.from_store(store.connection, end="2024-01-15")
-        rows = selection.select(
-            store.connection, context, "2024-01-15", "hinge",
-            chooser=lambda slot, candidates: ("pull_up", "model prefers the pull-up"),
-            include_different=True,
-        )
-    slot = pull_slot(rows)
-    assert slot.suggested == "pull_up"
-    assert slot.source == "llm"
-
-    with store_with() as store:
-        context = RuleContext.from_store(store.connection, end="2024-01-15")
-        rows = selection.select(
-            store.connection, context, "2024-01-15", "hinge",
-            chooser=lambda slot, candidates: ("invented_exercise", "bad answer"),
-        )
-    slot = pull_slot(rows)
-    assert slot.suggested in {"pull_up", "lat_pulldown", "close_grip_pulldown"}
-    assert slot.source == "python"
-
-
 def test_squat_has_catalogue_variants_even_though_the_template_has_one_exercise():
     with store_with() as store:
         context = RuleContext.from_store(store.connection, end="2024-01-15")

@@ -100,7 +100,7 @@ whose date/session no longer matches the form is discarded, and changing the for
 invalidates the cache immediately. The Workflow
 build itself runs as a polled background job and shows elapsed seconds, so a long resolver build
 cannot end in a browser load failure. The cache is
-not a server-side prescription and is cleared when the workout starts. **Use LLM** appears only when Apply is ticked. Without the toggle the
+not a server-side prescription and is cleared when the workout starts. Apply selection is deterministic. Without the toggle the
   prescription is unchanged. The **Retrospective validation** panel runs the walk-forward check. A scheduled deload is shown as a suggestion with an **Apply deload** button; it is not applied until confirmed. Reactive deloads are automatic. Applied deloads cite `MOD-DELOAD-001`. Main lifts show their warm-up ramp; the strength-test cadence is shown in the notes. The volume ledger now applies `MOD-VOL-002` (one accessory set after three weeks below MEV). When a trustworthy calibration exists, each prescription item has an expandable **VBT** target showing the median velocity, robust calibration band, rep count, RIR band, lift/family scope, sample size, method version and calibration id. A missing target is stated with its reason; no target is invented and no legacy target is reconstructed.
 - **Outcomes → Form trend** — current vs previous equal window, latest rating, change and
   session counts; descriptive only.
@@ -285,7 +285,7 @@ behaviour still require a physical-device pass.
 - State editing is available; the taxonomy itself and programme rules remain config/CLI.
 - The **Logs** page shows the in-memory application/HTTP tail (`/api/logs`); it is a local
   diagnostic surface and resets when the web process restarts.
-- When **Use LLM** is requested without a configured model, the prescription carries a warning
+- Selection is deterministic; no model chooses exercises.
   and `selection.llm_unavailable = true`; the UI says that NullLLM fallback was used.
 - The Programme page uses the **job + sessionStorage cache** path. The cache key includes the
   app version, request, resolved profile, database revision and relevant config hashes, so a

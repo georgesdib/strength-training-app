@@ -975,6 +975,11 @@ unknown fields, NullLLM and prompt content (5 tests).
 150,000; 0 disables the cap). Before a narrative, the sum of today's `run.llm_tokens` is checked and
 the call is refused with a clear message once the cap is reached.
 
+**Phase 1b.** The minimal LLM exercise-variant chooser is retired: `agents/selection.py`, the
+`selection_llm`/`selection_chooser` plumbing in the web API/UI, CLI, engine, programme feature and
+evaluator, and the obsolete controls/copy are removed. Deterministic `apply_selection` and class-B
+`selection_confirmed` remain.
+
 **Not yet delivered.** Multi-tool orchestration (one capability per call, deferred to INT-6), the
-evaluation harness, MCP-client parity and Phase 1b selector retirement. The server also
+evaluation harness and MCP-client parity. The server also
 needs `config/llm.local.toml` with a provider key before `narrate` can call a model.

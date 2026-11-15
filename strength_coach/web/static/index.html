@@ -489,10 +489,8 @@
         <p class="muted">Ranks the configured variants for each slot using readiness, recent
           stress, rotation and preference. Tick <strong>Apply selection</strong> above to let the
           chosen candidates replace the slot exercise; the load is then re-solved from the
-          selected lift's own history. The model option may only choose from that ranked list;
-          Python falls back deterministically.</p>
+          selected lift's own history. Selection is deterministic.</p>
         <div class="form-row">
-          <label><input type="checkbox" id="selection-llm"> use LLM</label>
           <label><input type="checkbox" id="selection-include-different"> show different lifts (C)</label>
           <button class="ghost" id="selection-run">Check selection</button>
         </div>
@@ -606,7 +604,6 @@
           </label>
           <label><input type="checkbox" id="prescribe-apply-selection"> Apply selection</label>
           <label id="prescribe-selection-confirm-wrap" hidden><input type="checkbox" id="prescribe-selection-confirm"> Confirm near-comparable (B)</label>
-          <label id="prescribe-selection-llm-wrap" hidden><input type="checkbox" id="prescribe-selection-llm"> Use LLM</label>
           <p class="muted" id="prescribe-apply-selection-note"><strong>Apply selection:</strong> reruns the per-slot ranking and substitutes only <strong>class A</strong> candidates automatically; <strong>class B</strong> requires <em>Confirm near-comparable</em>; <strong>class C</strong> is never applied. Each applied slot cites <code>MOD-SELECT-001</code> and its load is re-solved from that lift's own history. It does not change the session type, and nothing is persisted until <strong>Start workout</strong>.</p>
           <label>Top set
             <select id="prescribe-top-set">
@@ -818,11 +815,10 @@
           </label>
           <label><input type="checkbox" id="programme-apply-selection"> Apply selection</label>
           <label id="programme-selection-confirm-wrap" hidden><input type="checkbox" id="programme-selection-confirm"> Confirm near-comparable (B)</label>
-          <label id="programme-selection-llm-wrap" hidden><input type="checkbox" id="programme-selection-llm"> Use LLM</label>
           <p class="muted" id="programme-selection-note"><strong>Apply selection:</strong> reruns the per-slot ranking for every forecast session and substitutes only <strong>class A</strong> candidates automatically; <strong>class B</strong> requires <em>Confirm near-comparable</em>; <strong>class C</strong> is never applied. Each applied slot cites <code>MOD-SELECT-001</code> and its load is re-solved from that lift's own history.</p>
           <button class="primary" type="submit">Build forecast</button>
         </form>
-        <p class="muted">Rolling session-type forecast. Loads are projections, and every session is rebuilt when its day arrives. Nothing is persisted. <strong>Use LLM</strong> (available after Apply selection) lets the configured model choose only among Python-filtered exercise variants; it never supplies a load, set or RIR.</p>
+        <p class="muted">Rolling session-type forecast. Loads are projections, and every session is rebuilt when its day arrives. Nothing is persisted. Selection is deterministic; the model never chooses exercises.</p>
       </div>
       <div id="programme-result"></div>
     </section>

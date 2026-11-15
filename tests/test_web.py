@@ -144,7 +144,7 @@ def test_the_page_and_overview_are_served(server):
     assert "fatigue-model" in page
     assert "selection-result" in page
     assert 'id="programme-apply-selection"' in page
-    assert 'id="programme-selection-llm"' in page
+    assert 'id="programme-selection-llm"' not in page
     assert 'id="programme-selection-confirm"' in page
     # Import page explains that calibration is a later, separate step.
     assert "After the import" in page and "import-next" in page
@@ -646,27 +646,14 @@ def test_programme_job_endpoint_returns_a_pollable_result(server):
 
 
 @pytest.mark.slow
-def test_programme_endpoint_accepts_selection_flags(server):
+def test_programme_endpoint_accepts_deterministic_selection(server):
     data = post(server, "/api/programme", {
         "weeks": 1, "start": "2024-01-02", "start_session_type": "squat",
-        "apply_selection": True, "selection_llm": True,
+        "apply_selection": True,
     })
     assert data["entries"]
     selection = data["entries"][0]["prescription"]["notes"]["selection"]
     assert selection["requested"] is True
-    assert selection["llm_requested"] is True
-    assert selection["llm_unavailable"] is True
-    assert any("NullLLM" in warning for warning in data["entries"][0]["prescription"]["warnings"])
-
-
-def test_programme_cache_key_separates_llm_and_python_options(server):
-    base = {
-        "weeks": 1, "start": "2024-01-02", "start_session_type": "squat",
-        "apply_selection": True, "selection_confirmed": True,
-    }
-    python_key = post(server, "/api/programme/key", {**base, "selection_llm": False})["cache_key"]
-    llm_key = post(server, "/api/programme/key", {**base, "selection_llm": True})["cache_key"]
-    assert python_key != llm_key
 
 
 def test_programme_cache_key_changes_after_a_database_write(server):

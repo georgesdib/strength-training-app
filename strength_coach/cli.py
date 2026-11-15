@@ -31,7 +31,6 @@ from strength_coach.agents import (
     load_settings,
 )
 from strength_coach.agents import proposal as proposal_mod
-from strength_coach.agents import selection as agent_selection
 from strength_coach.analytics import core as derived_core
 from strength_coach.critique import UnknownSessionError
 from strength_coach.domain import e1rm as e1rm_mod
@@ -131,8 +130,6 @@ def main(argv: list[str] | None = None) -> int:
                      help="ask the model for a structural proposal (requires --llm on)")
     run.add_argument("--apply-selection", action="store_true",
                      help="apply the shadow selector's exercise substitutions")
-    run.add_argument("--selection-llm", action="store_true",
-                     help="let the model choose among the filtered candidates (requires --apply-selection)")
     run.add_argument("--selection-confirm", action="store_true",
                      help="confirm a near-comparable (class B) substitution; class C is never automatic")
     run.add_argument("--yes", action="store_true",
@@ -240,8 +237,6 @@ def main(argv: list[str] | None = None) -> int:
                            help="first session type; default: rolling")
     programme.add_argument("--apply-selection", action="store_true",
                            help="apply the shadow selector's exercise substitutions to each forecast")
-    programme.add_argument("--selection-llm", action="store_true",
-                           help="let the model choose among filtered candidates (requires --apply-selection)")
     programme.add_argument("--selection-confirm", action="store_true",
                            help="confirm a near-comparable (class B) substitution")
 
@@ -707,19 +702,12 @@ def _cmd_run(args) -> int:
         if args.minimum_include_main and not args.minimum_session:
             print("--minimum-include-main requires --minimum-session")
             return 2
-        if args.selection_llm and not args.apply_selection:
-            print("--selection-llm requires --apply-selection")
-            return 2
         if args.selection_confirm and not args.apply_selection:
             print("--selection-confirm requires --apply-selection")
             return 2
         session_type = (
             schedule_mod.next_session_type(conn, args.date)
             if args.session_type == "auto" else args.session_type
-        )
-        chooser = (
-            agent_selection.chooser(build_client(load_settings()))
-            if args.selection_llm else None
         )
         # Resolve deload before building: the engine must apply it before minimum session and
         # final validation, not after validation.
@@ -751,7 +739,7 @@ def _cmd_run(args) -> int:
                           "(use --deload yes to apply)")
         prescription = build_prescription(
             conn, for_date=args.date, session_type=session_type,
-            apply_selection=args.apply_selection, selection_chooser=chooser,
+            apply_selection=args.apply_selection,
             selection_confirmed=args.selection_confirm,
             minimum_session=args.minimum_session,
             minimum_target_minutes=args.target_minutes,
@@ -1259,21 +1247,14 @@ def _cmd_programme(args) -> int:
         elif start is None:
             profile = queries.athlete_profile(conn)
             start = (profile or {}).get("block_start_date") or datetime.date.today().isoformat()
-        if args.selection_llm and not args.apply_selection:
-            print("--selection-llm requires --apply-selection")
-            return 2
         if args.selection_confirm and not args.apply_selection:
             print("--selection-confirm requires --apply-selection")
             return 2
-        chooser = (
-            agent_selection.chooser(build_client(load_settings()))
-            if args.selection_llm else None
-        )
         entries = programme_feature.build_programme(
             conn, start=start, weeks=args.weeks,
             per_week=args.sessions_per_week,
             start_session_type=args.start_session_type,
-            apply_selection=args.apply_selection, selection_chooser=chooser,
+            apply_selection=args.apply_selection,
             selection_confirmed=args.selection_confirm,
         )
         print(f"programme: {args.weeks} week(s) from {start}; forecast only, "
@@ -2225,11 +2206,8 @@ def _cmd_select(args) -> int:
     store = db.Store(args.db)
     try:
         conn = store.connection
-        chooser = None
-        if args.llm:
-            chooser = agent_selection.chooser(build_client(load_settings()))
         rows = selection_mod.select(
-            conn, None, args.date, args.session_type, chooser=chooser,
+            conn, None, args.date, args.session_type,
             include_different=args.include_different,
         )
         fatigue = (

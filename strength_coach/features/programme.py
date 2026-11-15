@@ -62,7 +62,6 @@ def reactive_deload_reason(conn, as_of: str, *,
 def build_programme(conn, *, start: str | None = None, weeks: int = 4,
                     per_week: int = 3, start_session_type: str | None = None,
                     apply_deload: bool = True, apply_selection: bool = False,
-                    selection_chooser=None,
                     selection_confirmed: bool = False) -> list[ProgrammeEntry]:
     # The UI and API bound the horizon; the core enforces the same limit so a direct call
     # cannot start an unbounded forecast (DEC-PROGRAMME-09).
@@ -127,7 +126,6 @@ def build_programme(conn, *, start: str | None = None, weeks: int = 4,
             history=history,
             vbt=vbt,
             apply_selection=apply_selection,
-            selection_chooser=selection_chooser,
             selection_confirmed=selection_confirmed,
             deload_decision=reactive,
             use_resolver=False,
