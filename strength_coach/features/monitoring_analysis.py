@@ -79,7 +79,14 @@ def build_analysis(
     db_path: str | Path | None = None,
 ) -> dict[str, Any]:
     sessions = queries.sessions(conn, end=as_of)
-    sets = queries.clean_sets(conn, end=as_of)
+    from strength_coach.analytics import core as derived_core
+
+    derived_sets = derived_core.ensure(conn)
+    sets = (
+        derived_core.set_frame(conn, end=as_of)
+        if derived_sets
+        else queries.clean_sets(conn, end=as_of)
+    )
     exercise_session_counts = (
         sets.groupby("exercise_id")["session_id"].nunique()
         if not sets.empty else pd.Series(dtype="int64")
@@ -139,7 +146,7 @@ def build_analysis(
     for exercise_id in exercises:
         observations = strength_trend.observations(
             conn, exercise_id, "1900-01-01", as_of,
-            frame=sets_by_exercise.get(exercise_id, empty_sets),
+            frame=None if derived_sets else sets_by_exercise.get(exercise_id, empty_sets),
             session_ids=allowed_sessions,
             excluded=excluded_sets,
         )

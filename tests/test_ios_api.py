@@ -361,6 +361,7 @@ def test_bootstrap_contract(ios):
         "healthkit": False,
         "healthkit_readiness": True,
         "offline": False,
+        "intelligence_read": True,
     }
 
 

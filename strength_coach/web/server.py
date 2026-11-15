@@ -54,6 +54,8 @@ from strength_coach.agents.config import (
     load_settings,
     update_llm_settings,
 )
+from strength_coach.analytics import core as derived_core
+from strength_coach.analytics import status_snapshot as analytics_status_snapshot
 from strength_coach.critique import UnknownSessionError, build_facts
 from strength_coach.domain import athlete_state
 from strength_coach.domain import e1rm as e1rm_mod
@@ -102,6 +104,7 @@ from strength_coach.features import vbt_performance as vbt_performance_feature
 from strength_coach.features import volume as volume_feature
 from strength_coach.features import weekly as weekly_feature
 from strength_coach.features.readiness_score import ReadinessRequired
+from strength_coach.intelligence import api as intelligence_api
 from strength_coach.prescribe import (
     build_prescription,
     fatigue_selection,
@@ -251,6 +254,8 @@ def _ios_capabilities() -> dict[str, bool]:
     capabilities["prescription"] = enabled
     capabilities["workout_write"] = enabled
     capabilities["healthkit_readiness"] = enabled
+    # Additive read route; advertised only because the route exists, per the contract.
+    capabilities["intelligence_read"] = True
     return capabilities
 
 
@@ -1040,6 +1045,8 @@ class Handler(BaseHTTPRequestHandler):
                         **_ios_clock(),
                         "capabilities": _ios_capabilities(),
                     }
+                elif path == "/api/ios/v1/intelligence/weekly-review":
+                    payload = intelligence_api.weekly_review(self.db_path, device, self.path)
                 elif path == "/api/ios/v1/today":
                     self._ios_idle_sweep(conn)
                     clock = _ios_clock()
@@ -1166,6 +1173,8 @@ class Handler(BaseHTTPRequestHandler):
                     return
                 self._json(200, payload)
         except ios_devices.AuthError as exc:
+            self._error(exc.status, exc.message)
+        except intelligence_api.RouteError as exc:
             self._error(exc.status, exc.message)
         except FieldError as exc:
             self._error(400, str(exc), exc.fields)
@@ -3043,6 +3052,12 @@ class Handler(BaseHTTPRequestHandler):
                 day = query.get("date", [datetime.date.today().isoformat()])[0]
                 nudge = self._with_conn(lambda c: nudges_feature.current(c, on_date=day))
                 self._json(200, {"on_date": day, "nudge": nudge})
+            elif path == "/api/analytics/status":
+                self._json(200, self._with_conn(
+                    lambda c: analytics_status_snapshot(
+                        c, {derived_core.CORE_SPEC.family: derived_core.spec()}
+                    )
+                ))
             elif path == "/api/observations":
                 query = parse_qs(urlparse(self.path).query)
                 weeks = int(query.get("weeks", ["8"])[0])

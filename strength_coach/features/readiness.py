@@ -17,6 +17,7 @@ import re
 import tempfile
 from collections.abc import Mapping
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -87,6 +88,7 @@ class ReadinessConfig:
         return None
 
     @classmethod
+    @lru_cache(maxsize=8)
     def load(cls, path: str | Path | None = None) -> ReadinessConfig:
         source = Path(path or paths.readiness_yaml())
         if not source.exists():

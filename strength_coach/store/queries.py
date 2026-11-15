@@ -746,3 +746,77 @@ def shadow_decisions(conn, *, since: str | None = None,
         (*params, int(limit)),
     ).fetchall()
     return [dict(row) for row in rows]
+
+
+def prescription_detail(
+    conn, *, prescription_id: str | None = None, on_date: str | None = None
+) -> dict | None:
+    """Read one persisted prescription with its items and recorded modifiers.
+
+    This is a fetch, not a calculation: the rows are the append-only artifact the prescription
+    engine wrote. With neither identifier it returns the newest prescription, which is what an
+    "explain the latest plan" caller means. An issued plan that was never started has no row here,
+    so it cannot be returned as a persisted prescription.
+    """
+    if prescription_id is not None:
+        row = conn.execute(
+            "SELECT * FROM prescription WHERE prescription_id = ?", (str(prescription_id),)
+        ).fetchone()
+    elif on_date is not None:
+        row = conn.execute(
+            "SELECT * FROM prescription WHERE for_date = ? "
+            "ORDER BY created_at DESC, rowid DESC LIMIT 1",
+            (str(on_date),),
+        ).fetchone()
+    else:
+        row = conn.execute(
+            "SELECT * FROM prescription ORDER BY created_at DESC, rowid DESC LIMIT 1"
+        ).fetchone()
+    if row is None:
+        return None
+    data = dict(row)
+    items = conn.execute(
+        "SELECT * FROM prescription_item WHERE prescription_id = ? ORDER BY order_index",
+        (data["prescription_id"],),
+    ).fetchall()
+    modifiers = conn.execute(
+        "SELECT modifier_key, applied_on, detail_json FROM prescription_modifier "
+        "WHERE prescription_id = ? ORDER BY applied_on, modifier_key",
+        (data["prescription_id"],),
+    ).fetchall()
+    parsed_items = []
+    for item in items:
+        entry = dict(item)
+        entry["rationale_refs"] = _json_list(entry.get("rationale_refs"))
+        parsed_items.append(entry)
+    data["items"] = parsed_items
+    data["calibration_ids"] = _json_list(data.get("calibration_ids"))
+    data["modifiers"] = [
+        {
+            "modifier_key": str(modifier["modifier_key"]),
+            "applied_on": str(modifier["applied_on"]),
+            "detail": _json_object(modifier["detail_json"]),
+        }
+        for modifier in modifiers
+    ]
+    return data
+
+
+def _json_list(value: object) -> list:
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return []
+        return parsed if isinstance(parsed, list) else []
+    return list(value) if isinstance(value, (list, tuple)) else []
+
+
+def _json_object(value: object) -> dict:
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+    return dict(value) if isinstance(value, dict) else {}

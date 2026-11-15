@@ -17,6 +17,10 @@ from strength_coach.store import queries
 
 
 def _session_lift_e1rms(conn) -> tuple[dict[str, dict[str, float]], dict[str, str]]:
+    from strength_coach.analytics import core as derived_core
+
+    if derived_core.ensure(conn):
+        return derived_core.session_lift_e1rms(conn)
     cursor = conn.execute(
         """
         SELECT session_id, occurred_on, exercise_id, load_kg, reps, rir

@@ -32,6 +32,7 @@ from strength_coach.agents import (
 )
 from strength_coach.agents import proposal as proposal_mod
 from strength_coach.agents import selection as agent_selection
+from strength_coach.analytics import core as derived_core
 from strength_coach.critique import UnknownSessionError
 from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.features import breaks as breaks_feature
@@ -108,6 +109,13 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("import", help="load data/raw into the store")
+
+    analytics = sub.add_parser("analytics", help="derived analytics families")
+    analytics_sub = analytics.add_subparsers(dest="analytics_command", required=True)
+    analytics_build = analytics_sub.add_parser(
+        "build", help="backfill/refresh the core derived family"
+    )
+    analytics_build.add_argument("--batch-size", type=int, default=200)
 
     run = sub.add_parser("run", help="prescribe a date from the latest session")
     run.add_argument("--date", required=True, help="date to prescribe, YYYY-MM-DD")
@@ -542,6 +550,40 @@ def main(argv: list[str] | None = None) -> int:
     web.add_argument("--port", type=int, default=8000, help="port (default 8000)")
     web.add_argument("--open", action="store_true", help="open a browser")
 
+    intelligence = sub.add_parser(
+        "intelligence",
+        help="run the read-only MCP server or manage its client tokens",
+    )
+    intelligence_sub = intelligence.add_subparsers(
+        dest="intelligence_command", required=True
+    )
+    intelligence_serve = intelligence_sub.add_parser(
+        "serve", help="run the read-only MCP server (Streamable HTTP)"
+    )
+    intelligence_serve.add_argument("--config", default=None, help="intelligence config path")
+    intelligence_serve.add_argument("--tokens", default=None, help="client token file path")
+    intelligence_serve.add_argument("--host", default=None, help="bind address override")
+    intelligence_serve.add_argument("--port", type=int, default=None, help="bind port override")
+    intelligence_token = intelligence_sub.add_parser(
+        "token", help="create, list, rotate or revoke MCP client tokens"
+    )
+    token_sub = intelligence_token.add_subparsers(dest="token_command", required=True)
+    token_create = token_sub.add_parser("create", help="create a client token (shown once)")
+    token_create.add_argument("--label", required=True, help="human label for the client")
+    token_create.add_argument("--tokens", default=None, help="client token file path")
+    token_list = token_sub.add_parser("list", help="list clients and their status")
+    token_list.add_argument("--tokens", default=None, help="client token file path")
+    token_rotate = token_sub.add_parser(
+        "rotate", help="replace a client token; the old token stops working"
+    )
+    token_rotate.add_argument("client_id")
+    token_rotate.add_argument("--tokens", default=None, help="client token file path")
+    token_revoke = token_sub.add_parser(
+        "revoke", help="revoke a client; its token stops working"
+    )
+    token_revoke.add_argument("client_id")
+    token_revoke.add_argument("--tokens", default=None, help="client token file path")
+
     block = sub.add_parser("block", help="declare or reset the block start (week 1)")
     block.add_argument("--date", required=True, help="YYYY-MM-DD")
     block.add_argument("--force", action="store_true",
@@ -592,6 +634,8 @@ def main(argv: list[str] | None = None) -> int:
         "readiness": _cmd_readiness,
         "ios": _cmd_ios,
         "web": _cmd_web,
+        "intelligence": _cmd_intelligence,
+        "analytics": _cmd_analytics,
     }
     try:
         return handlers[args.command](args)
@@ -1302,6 +1346,72 @@ def _cmd_ios(args) -> int:
         return 2
     finally:
         store.close()
+
+
+def _cmd_intelligence(args) -> int:
+    """Run the read-only MCP server or manage its client tokens.
+
+    Tokens are per MCP client and live only as SHA-256 digests in the git-ignored
+    config/intelligence.local.yaml. create and rotate print the plaintext token exactly once.
+    """
+    from strength_coach.intelligence.config import local_config_path
+    from strength_coach.intelligence.tokens import TokenStore, TokenStoreError
+
+    if args.intelligence_command == "serve":
+        from strength_coach.intelligence.mcp.run import serve
+
+        return serve(
+            config_path=args.config,
+            db_path=args.db,
+            tokens_path=args.tokens,
+            host=args.host,
+            port=args.port,
+        )
+
+    path = Path(args.tokens) if args.tokens else local_config_path()
+    try:
+        store = TokenStore.load(path)
+        if args.token_command == "create":
+            client, token = store.create(args.label)
+            print(f"client {client.client_id} ({client.label}) created")
+            print(f"token: {token}")
+            print("store it now: it is not recoverable and is never written to disk")
+            return 0
+        if args.token_command == "list":
+            clients = store.clients
+            if not clients:
+                print(f"no MCP clients in {path}")
+                return 0
+            print(f"{'client_id':<16}{'status':<10}{'created':<22}{'label'}")
+            for client in clients:
+                status = "active" if client.active else "revoked"
+                print(f"{client.client_id:<16}{status:<10}{client.created_at:<22}{client.label}")
+            return 0
+        if args.token_command == "rotate":
+            client, token = store.rotate(args.client_id)
+            print(f"client {client.client_id} rotated; the previous token is now invalid")
+            print(f"token: {token}")
+            print("store it now: it is not recoverable and is never written to disk")
+            return 0
+        if args.token_command == "revoke":
+            client = store.revoke(args.client_id)
+            print(f"client {client.client_id} revoked")
+            return 0
+    except TokenStoreError as exc:
+        print(f"intelligence token: {exc}")
+        return 2
+    print("unknown intelligence token command")
+    return 2
+
+
+def _cmd_analytics(args) -> int:
+    store = db.Store(args.db)
+    try:
+        state = derived_core.build(store.connection, batch_size=args.batch_size)
+    finally:
+        store.close()
+    print(json.dumps(state, indent=2, default=str))
+    return 0 if state.get("ready") else 1
 
 
 def _cmd_web(args) -> int:

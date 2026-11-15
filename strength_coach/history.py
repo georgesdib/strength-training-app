@@ -14,6 +14,8 @@ import uuid
 from typing import Any
 
 from strength_coach import adherence, workout
+from strength_coach.analytics import core as derived_core
+from strength_coach.analytics import revision as analytics_revision
 from strength_coach.domain import load as load_mod
 from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.features import training_day, vbt_analysis
@@ -495,6 +497,14 @@ def _edit_session_impl(conn, session_id: str, *, sets: list[dict],
         (edit_id, session_id, reason, json.dumps(before, separators=(",", ":")),
          json.dumps(after, separators=(",", ":"))),
     )
+    derived_was_ready = derived_core.is_ready(conn, derived_core.spec())
+    analytics_revision.record_mutation(
+        conn, "correction", session_id=str(session_id),
+        detail={"sets": len(incoming)},
+    )
+    derived_core.refresh_sessions(
+        conn, [str(session_id)], was_ready=derived_was_ready
+    )
     # The critique used to be rebuilt here. It is a retired diagnostic (DEC-EVAL-09), so an
     # audited correction no longer re-scores anything; the historical rows stay untouched.
     return {"session": detail(conn, session_id), "edit_id": edit_id, "warnings": []}
@@ -524,15 +534,23 @@ def void_session(conn, session_id: str, *, reason: str | None = None,
     """Mark a session excluded from metrics/calibration; never delete its rows."""
     detail(conn, session_id)
     action = "unvoid" if unvoid else "void"
-    conn.execute(
-        "INSERT INTO session_void (session_id, action, reason) VALUES (?, ?, ?)",
-        (session_id, action, reason),
-    )
-    conn.execute(
-        "UPDATE session SET voided = ?, voided_at = ?, void_reason = ?, "
-        "updated_at = ? WHERE session_id = ?",
-        (0 if unvoid else 1, _now(), None if unvoid else reason, _now(), session_id),
-    )
+    with db.transaction(conn):
+        conn.execute(
+            "INSERT INTO session_void (session_id, action, reason) VALUES (?, ?, ?)",
+            (session_id, action, reason),
+        )
+        conn.execute(
+            "UPDATE session SET voided = ?, voided_at = ?, void_reason = ?, "
+            "updated_at = ? WHERE session_id = ?",
+            (0 if unvoid else 1, _now(), None if unvoid else reason, _now(), session_id),
+        )
+        derived_was_ready = derived_core.is_ready(conn, derived_core.spec())
+        analytics_revision.record_mutation(
+            conn, action, session_id=str(session_id), detail={"reason": reason},
+        )
+        derived_core.refresh_sessions(
+            conn, [str(session_id)], was_ready=derived_was_ready
+        )
     return detail(conn, session_id)
 
 def _latest_vbt(conn, set_id: int, rep_index: int | None) -> dict | None:
