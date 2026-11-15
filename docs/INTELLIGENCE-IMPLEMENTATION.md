@@ -780,3 +780,28 @@ the cleaner long-term model.
 containing today is partial and adds a `missing` note saying the sections cover completed work so
 far. The default request still selects the most recently completed Monday-Sunday week. Boundary
 tests cover current partial, last completed, empty, and Monday/Sunday boundaries.
+
+## 24. INT-4 — on-device narrative (first slice, 2026-11-15)
+
+**Delivered.** A default-off Intelligence setting with the on-device consent copy; an availability
+check with the three model-unavailable reasons; three narrative detail presets; a compact facts
+projection built from the envelope (no evidence arrays or provenance); a Foundation Models
+`@Generable` narrative with a fixed acceptance prompt; a grounding validator that rejects any
+number (digit or common number word) not present in the facts and enforces the detail limits; a
+deterministic fallback that leaves the review unchanged when the model is unavailable, refuses,
+overflows the context or produces ungrounded text; and an explicit “Explain this week” / “Explain
+the last four weeks” action on the weekly review and Progress.
+
+**Boundary.** The model runs on the iPhone. No network call is made from the narrative path, no
+transcript is persisted, and the readiness values the app already receives may be included in the
+local projection. The MCP readiness gate is a separate deployment decision and is not changed here.
+`DEC-AFC-03` still holds: the client formats server facts; it does not compute them.
+
+**Tests.** `StrengthAppTests/IntelligenceNarrativeTests.swift`: projection contents (facts, gates,
+no evidence ids), grounded acceptance, invented-number rejection (including number words), overlong
+rejection, detail presets and the overview projection. The model itself is not unit-tested.
+
+**Open in INT-4.** The five Foundation Models `Tool` adapters from contract §10 are not built yet;
+the first slice passes the facts in the prompt instead. Context-budget estimation/trimming is a
+single 6,000-character cap with an error fallback, not a token estimator. The stub UI test and the
+real-device acceptance run remain open.
