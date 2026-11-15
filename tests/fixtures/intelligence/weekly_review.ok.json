@@ -4,6 +4,7 @@
     "planned_sessions": "not_tracked",
     "sessions_considered": 2,
     "tracked_lifts": 2,
+    "tracked_lifts_omitted": 0,
     "working_sets": 3
   },
   "facts": {
@@ -60,8 +61,11 @@
       "value": {
         "breaks": [],
         "deload": "none_scheduled",
+        "deload_policy": "none_scheduled",
         "deload_reason": null,
+        "deload_trigger": null,
         "regime_findings": 0,
+        "regime_findings_detail": [],
         "regime_review": "stable"
       }
     },
@@ -77,22 +81,24 @@
       "unit": null,
       "value": [
         {
-          "change_kg": 1.2,
-          "change_pct": 1.0,
-          "direction": "up",
-          "display": "Bench Press",
-          "exercise_id": "bench_press",
-          "gate": "descriptive",
-          "n": 6
-        },
-        {
           "change_kg": -71.5,
           "change_pct": -36.7,
           "direction": "down",
           "display": "Trap-Bar Deadlift",
           "exercise_id": "trap_bar_deadlift",
           "gate": "descriptive",
-          "n": 7
+          "n": 7,
+          "recent_median_kg": 194.9
+        },
+        {
+          "change_kg": 1.2,
+          "change_pct": 1.0,
+          "direction": "up",
+          "display": "Bench Press",
+          "exercise_id": "bench_press",
+          "gate": "descriptive",
+          "n": 6,
+          "recent_median_kg": 122.1
         }
       ]
     },
@@ -157,9 +163,21 @@
       "quality_flags": [],
       "unit": null,
       "value": {
+        "coverage": {
+          "accounting": "hard",
+          "complete": true,
+          "denominator": 4,
+          "excluded_weeks": [],
+          "mode": "unknown",
+          "observed_weeks": 4,
+          "reset_weeks": [],
+          "training_weeks": 4,
+          "window_weeks": 4,
+          "zero_weeks": []
+        },
         "groups": [
           {
-            "average": 2.0,
+            "average": 1.25,
             "pattern": "hinge",
             "status": "under",
             "target": [
@@ -177,7 +195,8 @@
             ]
           }
         ],
-        "status": "mixed"
+        "status": "mixed",
+        "window_weeks": 4
       }
     }
   },

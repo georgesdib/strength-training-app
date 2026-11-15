@@ -697,14 +697,18 @@ the plan §8.2 from their owners and adds no calculation beyond presentation lab
 | activity | `attendance.summary` |
 | adherence | `adherence_analytics.analytics` |
 | sessions | `history.list_sessions` |
-| progression | `strength_trend.observations` + `summarize` over 84 days for main lifts |
-| volume | `volume.compute` (per-pattern target and status) |
+| progression | `strength_trend.observations` + `summarize` over 84 days for main lifts, ordered by recency then evidence; at most eight, with omissions counted |
+| volume | `volume.compute` over the configured rolling window, with declared-break weeks excluded and reported in coverage |
 | readiness | `queries.readiness_series` + `readiness_score.compute` (coverage and direction only; the direction is the sign of the canonical composite change, never a category average or an invented threshold) |
-| programme | `deload.decision`, `regime_change.detect`, `breaks.active_on` |
+| programme | `deload.decision`, `regime_change.detect`, `breaks.active_on`; the top two regime findings keep lift, drop and substitutes, and the deload label is the policy state on the Sunday |
 | observations | `observations.analyse(..., persist=False)`, at most two |
 
 An empty week is `no_data` with the expected inputs listed, never zeros. An imported-only week keeps
 `status: ok` and reports `imported_sessions_only` and `adherence_unavailable` in `quality_flags`.
+
+**Volume.** The section asks the engine for its configured window (four weeks), excluding declared
+break weeks, so the landmarks and coverage are the engine's own. It is not a single-week frame
+labelled as a window.
 
 **REST.** `GET /api/ios/v1/intelligence/weekly-review?week_end=YYYY-MM-DD` returns the envelope
 unchanged, under the existing device bearer auth. Validation failures are 400, an unknown resource

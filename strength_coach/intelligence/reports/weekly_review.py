@@ -33,6 +33,7 @@ MAX_TRACKED_LIFTS = 8
 MAX_SESSIONS = 20
 MAX_PATTERNS = 12
 MAX_BREAKS = 5
+MAX_FINDINGS = 2
 
 LIMITATIONS = (
     "Attendance is target-based; no planned-session calendar exists (DEC-W7-01).",
@@ -108,17 +109,33 @@ def _readiness_section(conn, start: str, end: str) -> tuple[Section, dict]:
                    n=len(scores), gate=gate), {"scores": scores}
 
 
-def _progression(conn, week_end: str) -> list[dict]:
+def _progression(conn, week_end: str) -> tuple[list[dict], int]:
+    """Main lifts with observations, ordered by recency then evidence, not alphabet."""
     taxonomy = exercises.taxonomy()
     start = (dt.date.fromisoformat(week_end)
              - dt.timedelta(days=MAIN_LIFT_WINDOW_DAYS - 1)).isoformat()
-    tracked: list[dict] = []
-    for exercise_id, entity in sorted(taxonomy.entities.items()):
+    candidates: list[tuple[str, dict]] = []
+    for exercise_id, entity in taxonomy.entities.items():
         if not entity.get("main_lift"):
             continue
         points = strength_trend.observations(conn, exercise_id, start, week_end)
         if not points:
             continue
+        candidates.append((exercise_id, {"entity": entity, "points": points}))
+    # Selection policy: most recently observed lift first, then more observations, then id.
+    # Taxonomy order is not a priority order; the cap must not drop a lift that moved this week.
+    candidates.sort(
+        key=lambda item: (
+            item[1]["points"][-1].date,
+            len(item[1]["points"]),
+            item[0],
+        ),
+        reverse=True,
+    )
+    tracked: list[dict] = []
+    for exercise_id, item in candidates[:MAX_TRACKED_LIFTS]:
+        entity = item["entity"]
+        points = item["points"]
         summary = strength_trend.summarize(points)
         change = summary.get("change_from_median_kg")
         median = summary.get("recent_median_kg")
@@ -132,17 +149,32 @@ def _progression(conn, week_end: str) -> list[dict]:
             "direction": _direction(change),
             "change_kg": change,
             "change_pct": change_pct,
+            "recent_median_kg": median,
             "n": summary.get("n"),
             "gate": summary.get("status"),
         })
-        if len(tracked) >= MAX_TRACKED_LIFTS:
-            break
-    return tracked
+    return tracked, max(0, len(candidates) - len(tracked))
 
 
 def _volume_section(conn, start: str, end: str) -> tuple[Section, dict]:
-    frame = queries.clean_sets(conn, start=start, end=end)
-    report = volume.compute(frame, on_date=end)
+    # The engine judges a rolling window, not a single week. Give it the full configured
+    # window plus the declared-break weeks, or it would average one observed week and call
+    # the coverage complete. No accounting logic is recreated here.
+    closing = dt.date.fromisoformat(end)
+    current_week_start = closing - dt.timedelta(days=closing.weekday())
+    config = volume.VolumeConfig.load()
+    window_start = current_week_start - dt.timedelta(weeks=config.window_weeks - 1)
+    frame = queries.clean_sets(conn, start=window_start.isoformat(), end=end)
+    break_weeks = sorted({
+        int(week) for _, week in breaks.break_weeks(conn, window_start.isoformat(), end)
+    })
+    report = volume.compute(
+        frame,
+        on_date=end,
+        config=config,
+        excluded_weeks=break_weeks,
+        reset_weeks=break_weeks,
+    )
     patterns = [
         {
             "pattern": row.get("pattern"),
@@ -162,7 +194,12 @@ def _volume_section(conn, start: str, end: str) -> tuple[Section, dict]:
     else:
         label = "mixed"
     return Section(
-        value={"status": label, "groups": patterns},
+        value={
+            "status": label,
+            "groups": patterns,
+            "window_weeks": config.window_weeks,
+            "coverage": report.get("coverage"),
+        },
         method="strength_coach.features.volume.compute",
         n=len(patterns),
         gate="insufficient" if not patterns else "signal",
@@ -177,11 +214,33 @@ def _programme_section(conn, end: str) -> tuple[Section, dict]:
     regime_label = "stable" if not findings else (
         "review" if len(findings) >= 2 else "one_finding"
     )
+    detail = [
+        {
+            "main_lift": row.get("main_lift"),
+            "category": row.get("category"),
+            "kind": row.get("kind"),
+            "drop_pct": row.get("drop_pct"),
+            "baseline_sets": row.get("baseline_sets"),
+            "current_sets": row.get("current_sets"),
+            "substitutes": [
+                {
+                    "exercise_id": substitute.get("exercise_id"),
+                    "increase": substitute.get("increase"),
+                }
+                for substitute in (row.get("substitutes") or [])[:2]
+            ],
+        }
+        for row in findings[:MAX_FINDINGS]
+    ]
     value = {
+        # Policy state on the report's Sunday, not evidence that a deload was performed.
         "deload": "active" if decision is not None else "none_scheduled",
+        "deload_policy": "active" if decision is not None else "none_scheduled",
         "deload_reason": getattr(decision, "reason", None),
+        "deload_trigger": getattr(decision, "trigger", None),
         "regime_review": regime_label,
         "regime_findings": len(findings),
+        "regime_findings_detail": detail,
         "breaks": active,
     }
     return Section(value=value, method="strength_coach.features.deload.decision",
@@ -259,7 +318,7 @@ def build(
         basis="observed",
     )
 
-    tracked = _progression(conn, end)
+    tracked, omitted = _progression(conn, end)
     report.sections["progression"] = Section(
         value=tracked,
         method="strength_coach.features.strength_trend.summarize",
@@ -304,6 +363,7 @@ def build(
         "working_sets": working_sets,
         "days_with_readiness": len(readiness_meta["scores"]),
         "tracked_lifts": len(tracked),
+        "tracked_lifts_omitted": omitted,
         "planned_sessions": "not_tracked",
     }
 
@@ -316,6 +376,10 @@ def build(
         missing.append("no eligible main-lift observations in the 84-day window")
     if not readiness_meta["scores"]:
         missing.append("no readiness entry in the week")
+    if omitted:
+        missing.append(
+            f"{omitted} further main lift(s) with observations are outside the report cap"
+        )
     if include_observations and not report.observations:
         missing.append("no observation passed its evidence gate")
     report.missing = missing

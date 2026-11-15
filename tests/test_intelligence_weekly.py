@@ -340,3 +340,42 @@ def test_readiness_direction_has_no_invented_threshold(conn, monkeypatch):
         "2026-11-08": (0.705, 0.70),
     })
     assert fact.value["direction"] == "up"
+
+
+def test_volume_uses_the_full_rolling_window_and_breaks(conn):
+    from strength_coach.features import breaks as breaks_feature
+    from strength_coach.features import volume as volume_feature
+
+    config = volume_feature.VolumeConfig.load()
+    breaks_feature.record(
+        conn, starts_on="2026-10-26", ends_on="2026-11-01", reason="holiday"
+    )
+    result = _run(conn, week_end=WEEK_END)
+    assert result.ok, result.error
+    value = result.envelope.facts["volume"].value
+    coverage = value["coverage"]
+
+    assert value["window_weeks"] == config.window_weeks
+    assert coverage["window_weeks"] == config.window_weeks
+    assert coverage["observed_weeks"] >= 2, "the engine sees the whole window, not one week"
+    assert coverage["excluded_weeks"] == [44], "the declared break week is excluded"
+    assert coverage["denominator"] == config.window_weeks - 1
+
+
+def test_progression_rows_expose_the_median_and_omission_count(conn):
+    result = _run(conn, week_end=WEEK_END)
+    assert result.ok, result.error
+    rows = result.envelope.facts["progression"].value
+    assert rows
+    assert all("recent_median_kg" in row for row in rows)
+    assert result.envelope.coverage["tracked_lifts_omitted"] == 0
+    assert "tracked_lifts" in result.envelope.coverage
+
+
+def test_programme_surfaces_findings_and_the_policy_label(conn):
+    result = _run(conn, week_end=WEEK_END)
+    assert result.ok, result.error
+    value = result.envelope.facts["programme"].value
+    assert value["deload_policy"] == "none_scheduled"
+    assert value["deload"] == "none_scheduled"
+    assert isinstance(value["regime_findings_detail"], list)
