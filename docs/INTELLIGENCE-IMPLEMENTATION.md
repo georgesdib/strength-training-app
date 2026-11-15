@@ -821,3 +821,23 @@ A device re-run is pending.
 
 **Open in INT-4.** The stub UI test (the panel state is unit-tested, not driven through the UI) and a
 fresh device run after the tool/budget changes remain open.
+
+## 25. INT-4b — on-device training chat (first slice, 2026-11-15)
+
+**Delivered.** A dedicated Chat screen from Progress, behind a separate default-off *Chat with your
+training* consent toggle. Suggested prompts, non-streaming answers, a sources line naming the
+tools used, and a session-only transcript cleared when the screen is left. The five capability
+tools are registered for chat; a context overflow retries with three tools before failing.
+
+**Grounding.** `ChatToolbox` records every envelope a tool returns; after each answer the numbers
+are checked against the structured allow-list built from those envelopes, and an ungrounded number
+is rejected with the number named. No tool call plus a number in the answer therefore fails closed.
+Conversation history is capped at 2,400 characters and answers at 2,500.
+
+**Tests.** `StrengthAppTests/TrainingChatTests.swift`: send appends question and reply with sources,
+an unavailable model does not send, failures are shown and reset clears, the prompt keeps only
+recent turns, and the grounding guard rejects ungrounded numbers and overlong answers (6/6). No UI
+test is required.
+
+**Open.** The device run (the model and tool schemas only exist on the phone) and tool-selection
+tuning; the single-shot explanation path remains unchanged.

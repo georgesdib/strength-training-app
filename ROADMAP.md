@@ -1940,6 +1940,11 @@ summary, period comparison) and two more resources (`strength://programme/curren
 latency-aware budget and enabled the transport; INT-2 adds no caching, no new REST route and no
 model.
 
+**INT-4b chat first slice (2026-11-15):** a dedicated on-device Chat screen behind a separate
+default-off toggle, with suggested prompts, non-streaming answers, a sources line, session-only
+transcripts and grounding against the envelopes the tools returned. The five tools are registered
+with a 5-to-3 context fallback. Device run and tool-selection tuning remain.
+
 **INT-4 delivered (2026-11-15, stub UI test open):** the on-device narrative is available on the
 weekly review and the Progress overview behind a default-off toggle, with availability reasons,
 detail presets, a compact facts projection, a structured-number grounding validator, a token budget
