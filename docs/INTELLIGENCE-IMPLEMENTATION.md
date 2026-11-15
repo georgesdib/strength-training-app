@@ -840,7 +840,8 @@ recent turns, and the grounding guard rejects ungrounded numbers and overlong an
 test is required.
 
 **Numeric facts.** The chat allow-list includes numbers from numeric-like string facts
-(`"5.3 kg"`, `"80%"`) and accepts decimal variants such as `5.30`; instruction-like strings are
+(`"5.3 kg"`, `"80%"`) and accepts decimal variants such as `5.30` and signed progression values in
+either direction (`-5.3` and `5.3`, including a typographic minus); instruction-like strings are
 not parsed, so they cannot widen the set. A number the model computes itself is still rejected.
 
 **Tool errors.** A tool never throws a raw error into the conversation: an unknown exercise id
