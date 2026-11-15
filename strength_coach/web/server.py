@@ -3878,6 +3878,7 @@ class Handler(BaseHTTPRequestHandler):
             "headline": narrative.headline,
             "observations": list(narrative.observations),
             "limitations": list(narrative.limitations),
+            "warnings": list(narrative.warnings),
             "tokens": narrative.tokens,
             "model": client.model,
         }

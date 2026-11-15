@@ -3790,11 +3790,14 @@ $("#narrate-form")?.addEventListener("submit", async (event) => {
       .map((item) => "<li>" + esc(item) + "</li>").join("");
     const limitations = (data.limitations || [])
       .map((item) => "<li>" + esc(item) + "</li>").join("");
+    const warnings = (data.warnings || [])
+      .map((item) => "<li>" + esc(item) + "</li>").join("");
     target.innerHTML = '<div class="panel">' +
       '<div class="panel-head"><h2>' + esc(data.headline || "Narrative") +
       '</h2><span class="muted">' + esc(data.model || "model") +
       (data.tokens == null ? "" : " · " + esc(data.tokens) + " tokens") + "</span></div>" +
       (observations ? "<ul>" + observations + "</ul>" : "") +
+      (warnings ? "<div class=\"warnbox\"><strong>Unverified numbers</strong><ul>" + warnings + "</ul></div>" : "") +
       (limitations ? "<p class=\"muted\"><strong>Limitations</strong></p><ul>" + limitations + "</ul>" : "") +
       '<p class="muted">Read-only narrative. The envelope is unchanged; only the model and token count are traced.</p>' +
       "</div>";

@@ -1484,6 +1484,7 @@ def _cmd_intelligence_narrate(args) -> int:
                         "headline": narrative.headline,
                         "observations": list(narrative.observations),
                         "limitations": list(narrative.limitations),
+                        "warnings": list(narrative.warnings),
                         "tokens": narrative.tokens,
                     },
                     indent=2,

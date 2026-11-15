@@ -59,13 +59,13 @@ def test_grounded_narrative_is_accepted():
     assert "FACTS" in client.prompts[0]
 
 
-def test_invented_number_is_rejected():
+def test_invented_number_is_a_warning():
     envelope = FakeEnvelope(
         {"activity": {"value": {"completed_sessions": 2, "target_sessions": 3}}}
     )
     client = FakeClient(_answer("9 of three sessions"))
-    with pytest.raises(NarrativeValidationError, match="not in the facts"):
-        narrate_envelope(client, envelope)
+    narrative = narrate_envelope(client, envelope)
+    assert narrative.warnings == ("number '9' is not in the facts",)
 
 
 def test_signed_fact_grounds_the_unsigned_number():

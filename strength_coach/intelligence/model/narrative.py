@@ -37,6 +37,7 @@ class Narrative:
     headline: str
     observations: tuple[str, ...]
     limitations: tuple[str, ...]
+    warnings: tuple[str, ...] = ()
     tokens: int | None = None
 
 
@@ -61,6 +62,7 @@ def narrate_envelope(client: LLMClient, envelope: Envelope, trace=None) -> Narra
         headline=narrative.headline,
         observations=narrative.observations,
         limitations=narrative.limitations,
+        warnings=narrative.warnings,
         tokens=response.tokens,
     )
 
@@ -120,19 +122,30 @@ def _parse(text: str, envelope: Envelope) -> Narrative:
         if not isinstance(item, str) or not item.strip() or len(item) > MAX_LIMITATION:
             raise NarrativeValidationError("each limitation must be a short non-empty string")
 
-    narrative = Narrative(headline.strip(), tuple(o.strip() for o in observations),
-                          tuple(item.strip() for item in limitations))
-    _validate_numbers(narrative, envelope)
-    return narrative
+    narrative = Narrative(
+        headline.strip(),
+        tuple(o.strip() for o in observations),
+        tuple(item.strip() for item in limitations),
+    )
+    warnings = _number_warnings(narrative, envelope)
+    return Narrative(
+        headline=narrative.headline,
+        observations=narrative.observations,
+        limitations=narrative.limitations,
+        warnings=warnings,
+    )
 
 
-def _validate_numbers(narrative: Narrative, envelope: Envelope) -> None:
+def _number_warnings(narrative: Narrative, envelope: Envelope) -> tuple[str, ...]:
     payload = envelope.as_dict()
     allowed = _allowed_numbers(payload)
     text = " ".join((narrative.headline, *narrative.observations, *narrative.limitations))
-    for token in re.findall(r"(?<![\w.])[+-]?\d+(?:[.,]\d+)?", text):
-        if token.replace(",", ".") not in allowed and token not in allowed:
-            raise NarrativeValidationError(f"number {token!r} is not in the facts")
+    missing = [
+        token
+        for token in re.findall(r"(?<![\w.])[+-]?\d+(?:[.,]\d+)?", text)
+        if token.replace(",", ".") not in allowed and token not in allowed
+    ]
+    return tuple(f"number {token!r} is not in the facts" for token in dict.fromkeys(missing))
 
 
 def _add_variants(token: str, out: set[str]) -> None:
