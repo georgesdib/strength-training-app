@@ -1,12 +1,14 @@
-"""Server chat: multi-turn over the read-only capability catalogue.
+"""Server chat: multi-turn over a fresh read-only capability dossier.
 
-One generic tool lets the model choose a capability and its payload. The model never computes a
-number or writes an artifact; tool results are envelopes and the answer is advisory text.
+The first slice does not use model tool calling (the configured provider stalled on it). Each turn
+supplies a compact dossier and the model answers from it; no number is computed and no artifact is
+written.
 """
 
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -16,10 +18,10 @@ from strength_coach.intelligence.model.narrative import narrative_facts, number_
 from strength_coach.intelligence.service import IntelligenceService
 
 SYSTEM_PROMPT = (
-    "You are a training assistant. Answer only from facts returned by the training_data tool. "
-    "Call the tool before making a data claim. Never invent a number, prescribe a load or plan, or "
-    "give medical advice. You may suggest changes in a clearly labelled 'Suggestions (not applied)' "
-    "section; they are proposals and are never applied. Keep answers under 200 words."
+    "You are a training assistant. Answer only from the supplied training facts. Never invent a "
+    "number, prescribe a load or plan, or give medical advice. You may suggest changes only after "
+    "an empty line headed exactly 'Suggestions (not applied):' followed by bullet lines; they are "
+    "proposals and are never applied. Keep answers under 200 words."
 )
 
 CAPABILITY_TOOL: dict[str, Any] = {
@@ -51,6 +53,7 @@ class ChatResult:
     tokens: int | None
     tools: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    suggestions: list[str] = field(default_factory=list)
 
 
 def run_chat(
@@ -72,10 +75,10 @@ def run_chat(
     cases = [
         ("get_weekly_review", {}),
         ("get_training_overview", {}),
-        ("get_adherence_analysis", {"weeks": 12}),
-        ("get_programme_block_summary", {}),
         ("get_prescription", {}),
         ("get_readiness_history", {"from": start, "to": today.isoformat(), "fields": ["score"]}),
+        ("get_adherence_analysis", {"weeks": 12}),
+        ("get_programme_block_summary", {}),
     ]
     blocks = []
     envelopes = []
@@ -90,9 +93,15 @@ def run_chat(
         blocks.append(
             {"capability": name, "status": envelope.status, "data": narrative_facts(envelope)}
         )
+    truncated = False
+    while len(json.dumps(blocks, ensure_ascii=False, default=str)) > 18_000 and len(blocks) > 1:
+        blocks.pop()
+        truncated = True
+    if truncated:
+        blocks.append({"note": "dossier truncated; ask about a narrower window for more detail"})
     facts = json.dumps(blocks, ensure_ascii=False, default=str)
     history = "\n".join(
-        f"{message['role']}: {message['content']}" for message in messages[-18:]
+        f"{message['role']}: {message['content']}" for message in messages[-10:]
     )
     prompt = (
         "Answer the latest athlete message using only these facts. If the facts do not cover it, "
@@ -100,9 +109,26 @@ def run_chat(
         + "CONVERSATION:\n" + history + "\n\nFACTS:\n" + facts
     )
     response = client.complete(prompt, system=SYSTEM_PROMPT)
+    answer, suggestions = _split_suggestions(response.text)
     return ChatResult(
-        response.text,
+        answer,
         response.tokens,
         tools,
-        number_warnings(response.text, envelopes),
+        number_warnings(answer, envelopes),
+        suggestions,
     )
+
+
+def _split_suggestions(text: str) -> tuple[str, list[str]]:
+    match = re.search(
+        r"(?im)^\s*(?:\*\*)?Suggestions \(not applied\)(?:\*\*)?\s*:?\s*$", text
+    )
+    if match is None:
+        return text.strip(), []
+    answer = text[: match.start()].strip()
+    items = []
+    for line in text[match.end() :].splitlines():
+        item = re.sub(r"^\s*(?:[-*]|\d+[.)])\s*", "", line).strip()
+        if item:
+            items.append(item)
+    return answer, items[:6]

@@ -3855,9 +3855,11 @@ function renderChat() {
       return '<div class="chat-bubble user">' + esc(turn.content) + "</div>";
     }
     const warnings = (turn.warnings || []).map((w) => "<li>" + esc(w) + "</li>").join("");
+    const suggestions = (turn.suggestions || []).map((s) => "<li>" + esc(s) + "</li>").join("");
     return '<div class="chat-bubble assistant">' + esc(turn.content).replaceAll("\n", "<br>") +
+      (suggestions ? '<div class="suggestion-box"><strong>Suggestion — not applied.</strong><ul>' + suggestions + "</ul></div>" : "") +
       (warnings ? '<div class="warnbox"><strong>Unverified numbers</strong><ul>' + warnings + "</ul></div>" : "") +
-      (turn.tools?.length ? '<div class="muted">tools: ' + esc(turn.tools.join(", ")) + "</div>" : "") +
+      (turn.tools?.length ? '<div class="muted">sources: ' + esc(turn.tools.join(", ")) + "</div>" : "") +
       "</div>";
   }).join("");
   log.scrollTop = log.scrollHeight;
@@ -3884,7 +3886,8 @@ $("#chat-form")?.addEventListener("submit", async (event) => {
       body: JSON.stringify({ messages: chatTurns.map(({ role, content }) => ({ role, content })) }),
     });
     chatTurns.push({
-      role: "assistant", content: data.answer, warnings: data.warnings || [], tools: data.tools || [],
+      role: "assistant", content: data.answer, warnings: data.warnings || [],
+      suggestions: data.suggestions || [], tools: data.tools || [],
     });
     message.textContent = "";
   } catch (error) {

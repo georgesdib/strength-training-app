@@ -999,10 +999,14 @@ model for one answer. The answer carries advisory number warnings, the
 source capability names and tokens; the run trace records the input and tool/token result without storing prose.
 
 **Policy.** Session-only browser memory, no transcript persistence, no write. The model may suggest
-changes but they are proposals; the UI says so. The daily token budget applies.
+changes; the server splits a `Suggestions (not applied)` section into its own UI block. The prompt
+uses the last ten messages and caps the dossier at roughly 18k characters, dropping lower-priority
+blocks first. The daily token budget applies.
 
-**Tests.** `tests/test_intelligence_chat.py` exercises the dossier and answer with a fake client; no
-real model call in CI.
+**Tests.** `tests/test_intelligence_chat.py` covers the dossier, suggestion split and history trim;
+`tests/test_intelligence_chat_eval.py` runs a four-case multi-turn matrix (one turn, multi-turn,
+long thread, injection). No real model call in CI.
 
-**Open.** Tool-calling orchestration (some providers stalled on it), a full evaluated multi-turn
-matrix, a richer suggestions block, streaming and transcript policy remain future work.
+**Closed/deferred.** Model-driven tool orchestration is closed for the first slice; the provider
+stalled on tool calls, and the deterministic dossier covers the six core capabilities. Streaming
+remains deferred; transcript policy is session-only.

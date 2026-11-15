@@ -3845,6 +3845,8 @@ class Handler(BaseHTTPRequestHandler):
             if len(content) > 4000:
                 raise FieldError("a message is too long", {"messages": "max 4000 characters"})
             clean.append({"role": role, "content": content.strip()})
+        # Keep context bounded; the UI may hold 20 turns but only the recent window is sent.
+        clean = clean[-10:]
 
         settings = load_settings()
         if not settings.enabled:
@@ -3874,6 +3876,7 @@ class Handler(BaseHTTPRequestHandler):
             "answer": result.answer,
             "warnings": result.warnings,
             "tools": result.tools,
+            "suggestions": result.suggestions,
             "tokens": result.tokens,
             "model": client.model,
         }
