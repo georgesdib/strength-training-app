@@ -147,3 +147,12 @@ def test_config_mapping_is_revision_ready():
         "allow_sensitive_readiness",
     ):
         assert key in mapping
+
+
+def test_config_path_can_be_overridden_for_the_web_service(monkeypatch, tmp_path: Path):
+    from strength_coach.intelligence.config import ENV_CONFIG, config_path
+
+    target = tmp_path / "intelligence.v1.yaml"
+    monkeypatch.setenv(ENV_CONFIG, str(target))
+    assert config_path() == target
+    assert config_path("/explicit.yaml") == Path("/explicit.yaml")

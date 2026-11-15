@@ -12,6 +12,7 @@ operator enables it.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -108,8 +109,22 @@ class IntelligenceConfig:
         }
 
 
+ENV_CONFIG = "STRENGTH_INTELLIGENCE_CONFIG"
+
+
 def config_path(path: str | Path | None = None) -> Path:
-    return Path(path) if path is not None else paths.config_dir(FILENAME)
+    """Resolve the config file.
+
+    An explicit path wins, then ``STRENGTH_INTELLIGENCE_CONFIG`` (the web service has no
+    ``--config`` flag and must point at the same deployment file as the MCP process), then the
+    repository's ``config/`` directory.
+    """
+    if path is not None:
+        return Path(path)
+    override = os.environ.get(ENV_CONFIG)
+    if override:
+        return Path(override).expanduser()
+    return paths.config_dir(FILENAME)
 
 
 def local_config_path(path: str | Path | None = None) -> Path:

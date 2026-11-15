@@ -52,6 +52,15 @@ It needs **no** write access anywhere. `ProtectSystem=strict` enforces that at t
 
 ## 4. Configuration
 
+The MCP process takes `--config`; the web service has no such flag and reads the repository's
+`config/intelligence.v1.yaml` (which ships `enabled: false`). Point it at the same deployment file
+with a drop-in, or the iOS intelligence route returns 503:
+
+    sudo mkdir -p /etc/systemd/system/strength-coach-web.service.d
+    printf '[Service]\nEnvironment=STRENGTH_INTELLIGENCE_CONFIG=/etc/strength-coach/intelligence.v1.yaml\n' \
+      | sudo tee /etc/systemd/system/strength-coach-web.service.d/intelligence.conf
+    sudo systemctl daemon-reload && sudo systemctl restart strength-coach-web
+
 Install `config/intelligence.v1.yaml` as `/etc/strength-coach/intelligence.v1.yaml` and edit:
 
 - `enabled: true` (the server refuses to start otherwise);
@@ -172,6 +181,7 @@ The database is opened only for that call, so the leftover work is a read that e
 | Symptom | Cause and fix |
 |---|---|
 | exit 2, `intelligence is disabled` | set `enabled: true` |
+| 503 on the iOS intelligence route | the web service is reading the disabled repository template; set `STRENGTH_INTELLIGENCE_CONFIG` in a `strength-coach-web` drop-in (see §5) and restart |
 | exit 2, `no active MCP client tokens` | create a token with the path the unit passes |
 | 401 on every request | wrong token, wrong file path, or malformed token file (check the journal warning) |
 | 403 | client revoked; create a new one |
