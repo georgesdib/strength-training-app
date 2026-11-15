@@ -12,8 +12,8 @@ from __future__ import annotations
 
 MEASURED_ON = "2026-11-14"
 SOURCE = (
-    "ODROID, copied production database (377 sessions, 7,978 clean sets), "
-    "real MCP HTTP, 30 measured requests and 5 warm-ups"
+    "ODROID, copied production database (377-378 sessions, ~8,000 clean sets), "
+    "real MCP HTTP, 30 measured requests and 5 warm-ups; weekly review measured 2026-11-15"
 )
 
 #: capability name -> (HTTP p95 in milliseconds, classification)
@@ -30,16 +30,11 @@ MEASURED: dict[str, tuple[int, str]] = {
     # Added after the ODROID run: measured over real MCP HTTP on the development Mac
     # (221-session synthetic database, 12 measured requests) and provisional until the next
     # ODROID HTTP benchmark.
-    "get_weekly_review": (113, "fast"),
+    "get_weekly_review": (571, "slow"),
 }
 
 #: Capabilities whose figure comes from a different run than SOURCE.
-PROVISIONAL = {
-    "get_weekly_review": (
-        "development Mac, 221-session synthetic database, real MCP HTTP, 12 measured requests, "
-        "2026-11-14"
-    ),
-}
+PROVISIONAL: dict[str, str] = {}
 
 _GUIDANCE = {
     "fast": "Prefer this capability when it supplies sufficient evidence.",

@@ -722,5 +722,12 @@ with unknown-field tolerance and fails on a missing required field;
 sections, coverage and limitations with no client-side calculation, and Progress links to it.
 Tests decode the fixture, assert the missing-field failure and the date-only Week navigation.
 
+**Performance (2026-11-15).** Real MCP Streamable HTTP on the ODROID against a copied production
+database (378 sessions, 8,003 sets), core family verified ready, 30 measured requests and 5
+warm-ups: **median 560.7 ms, p95 571.3 ms**. That replaces the provisional 113 ms Mac measurement
+and classifies the capability as **slow** under the T-1 fast threshold (500 ms); it is well inside
+the slow/very_slow 7 s budget. The single source is `strength_coach/intelligence/latency.py`;
+the tool description is generated from it.
+
 **Not in this phase:** any narrative or model call. The narrative path remains INT-4/INT-5 and the
 five-capability native provider surface is INT-4.
