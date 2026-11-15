@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
+pytest.importorskip("mcp", reason="optional intelligence MCP extra")
+
 from strength_coach.intelligence import latency
 from strength_coach.intelligence.config import IntelligenceConfig
 from strength_coach.intelligence.mcp.tools import register_tools

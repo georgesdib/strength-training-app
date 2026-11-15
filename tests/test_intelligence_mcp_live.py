@@ -4,6 +4,7 @@ Starts the actual ASGI application under uvicorn, authenticates with the officia
 HTTP, and exercises both tools and the resource. No transport is mocked.
 """
 
+# ruff: noqa: E402  (the optional MCP extras are skipped before their imports)
 from __future__ import annotations
 
 import asyncio
@@ -13,10 +14,11 @@ import threading
 import time
 from pathlib import Path
 
-import httpx2
 import pytest
 
 pytest.importorskip("mcp", reason="optional intelligence MCP extra")
+pytest.importorskip("httpx2", reason="MCP client dependency")
+import httpx2
 import uvicorn
 from conftest import make_readiness, make_training
 from intelligence_support import enabled_config

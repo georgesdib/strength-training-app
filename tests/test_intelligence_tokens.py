@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import os
 import stat
 from pathlib import Path
@@ -13,6 +14,11 @@ from strength_coach.intelligence.auth import IntelligenceAuthError
 from strength_coach.intelligence.config import local_config_path
 from strength_coach.intelligence.mcp.run import serve
 from strength_coach.intelligence.tokens import TokenStore, TokenStoreError
+
+requires_mcp = pytest.mark.skipif(
+    importlib.util.find_spec("mcp") is None,
+    reason="optional intelligence MCP extra",
+)
 
 
 @pytest.fixture()
@@ -146,6 +152,7 @@ def test_cli_token_lifecycle(tmp_path: Path, capsys):
         TokenStore.load(Path(path)).authenticate(token)
 
 
+@requires_mcp
 def test_serve_refuses_when_disabled(tmp_path: Path, capsys):
     config = tmp_path / "intelligence.v1.yaml"
     config.write_text("version: 1\nenabled: false\n", encoding="utf-8")
@@ -153,6 +160,7 @@ def test_serve_refuses_when_disabled(tmp_path: Path, capsys):
     assert "disabled" in capsys.readouterr().err
 
 
+@requires_mcp
 def test_serve_refuses_without_a_database(tmp_path: Path, capsys):
     config = tmp_path / "intelligence.v1.yaml"
     config.write_text("version: 1\nenabled: true\n", encoding="utf-8")
@@ -160,6 +168,7 @@ def test_serve_refuses_without_a_database(tmp_path: Path, capsys):
     assert "database not found" in capsys.readouterr().err
 
 
+@requires_mcp
 def test_serve_refuses_without_active_tokens(tmp_path: Path, capsys):
     config = tmp_path / "intelligence.v1.yaml"
     config.write_text("version: 1\nenabled: true\n", encoding="utf-8")
