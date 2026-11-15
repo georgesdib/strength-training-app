@@ -860,7 +860,7 @@ never silently replaced by another session.
 progression, session details without an id, readiness, refusal of plan/medical prompts, and
 transcript clearing. No UI test by owner decision. The single-shot explanation path is unchanged.
 
-## 26. INT-4d — DeepSeek chat via API key (implemented 2026-11-15; device test pending)
+## 26. INT-4d — DeepSeek chat via API key (delivered 2026-11-15)
 
 **Delivered.** A Chat-only model choice: On-device (default) or DeepSeek. When DeepSeek is selected,
 the iPhone calls `https://api.deepseek.com` directly with `deepseek-chat` and the OpenAI-compatible
@@ -881,5 +881,6 @@ on-device tools.
 then grounded answer, ungrounded retry then warning, missing key, 401 and 429, malformed JSON. The
 chat-related suite is 38 tests, all passing.
 
-**Open.** A device test with the owner's key; then a small live check of the four-round cap and a
-real 429 if one occurs.
+**Status.** Complete (2026-11-15). The owner confirmed DeepSeek chat on the iPhone with a real key.
+A real 429 and a live four-round cap were not exercised; the cap and the error mappings are covered
+by unit tests.

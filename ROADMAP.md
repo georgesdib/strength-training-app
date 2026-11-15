@@ -1940,9 +1940,10 @@ summary, period comparison) and two more resources (`strength://programme/curren
 latency-aware budget and enabled the transport; INT-2 adds no caching, no new REST route and no
 model.
 
-**INT-4d DeepSeek chat implemented (2026-11-15, device test pending):** a chat-only model choice,
+**INT-4d DeepSeek chat delivered (2026-11-15):** a chat-only model choice,
 direct from the iPhone, key in the Keychain, OpenAI-compatible tool loop over the five capabilities,
-soft verification and no fallback. Weekly and overview explanations stay on-device.
+soft verification and no fallback. Weekly and overview explanations stay on-device. The owner
+confirmed it on the iPhone with a real key; the four-round cap and error mappings are unit-tested.
 
 **INT-4b chat delivered (2026-11-15):** a dedicated on-device Chat screen behind a separate
 default-off toggle, with suggested prompts, non-streaming answers, a sources line, session-only
