@@ -839,5 +839,10 @@ an unavailable model does not send, failures are shown and reset clears, the pro
 recent turns, and the grounding guard rejects ungrounded numbers and overlong answers (6/6). No UI
 test is required.
 
+**Tool errors.** A tool never throws a raw error into the conversation: an unknown exercise id
+returns "No progression was found for '…'" with example ids, a missing session says so, and a data
+load failure says the data is unavailable. The prompt tells the model to ask for clarification
+rather than repeat a tool error.
+
 **Open.** The device run (the model and tool schemas only exist on the phone) and tool-selection
 tuning; the single-shot explanation path remains unchanged.
