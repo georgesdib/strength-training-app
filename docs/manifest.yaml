@@ -116,7 +116,7 @@ documents:
 - id: intelligence-implementation
   path: docs/INTELLIGENCE-IMPLEMENTATION.md
   title: TRAINING INTELLIGENCE — BACKEND IMPLEMENTATION
-  description: 'INT-1 foundation, INT-1b MCP transport, audit remediation and the INT-2 read-only catalogue: envelopes, validation, authentication, read-only execution, nine tools, three resources, limits and tests; no model provider, no REST route'
+  description: 'INT-1 foundation, INT-1b MCP transport, audit remediation, the INT-2 read-only catalogue and INT-3 weekly review: envelopes, validation, authentication, read-only execution, ten tools, three resources, one additive iOS read route, limits and tests; no model provider'
   category: architecture
   status: development
   audience: public

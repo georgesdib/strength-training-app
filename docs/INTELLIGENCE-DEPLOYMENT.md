@@ -101,6 +101,11 @@ The manual steps below are the equivalent for a host that matches the unit's `/o
 The process refuses to start (exit 2, visible in the journal) when the feature is disabled, the
 database is missing, or no active client token exists.
 
+If the database is in WAL mode (the default), a read-only connection still needs to create and map
+the `-shm`/`-wal` files beside it. The unit grants `ReadWritePaths` on the database directory for
+that reason; without it every tool call fails with `internal: intelligence capability failed` and
+the journal shows `sqlite3.OperationalError: unable to open database file`.
+
 ## 7. Logs
 
     journalctl -u strength-intelligence-mcp.service -f
@@ -130,7 +135,8 @@ The default bind is loopback. To serve the owner's tailnet or LAN:
 1. set `bind_host` to the specific tailnet or LAN address (never `0.0.0.0` on an untrusted
    network);
 2. add the exact Host header clients use to `allowed_hosts`, for example
-   `odroid.tailnet.ts.net:*` or `10.0.0.44:*`;
+   `odroid.tailnet.ts.net:*`, `10.0.0.44:*` or `odroid.local:*`. List **every** value a client may
+   send; a missing value is a 421, not a network failure;
 3. keep the bearer token mandatory — reachability is not authentication;
 4. do not port-forward; the web UI and this endpoint are not public services.
 
@@ -169,7 +175,8 @@ The database is opened only for that call, so the leftover work is a read that e
 | exit 2, `no active MCP client tokens` | create a token with the path the unit passes |
 | 401 on every request | wrong token, wrong file path, or malformed token file (check the journal warning) |
 | 403 | client revoked; create a new one |
-| 421 `Invalid Host header` | add the client's Host value to `allowed_hosts` |
+| 421 `Invalid Host header` | add the client's Host value to `allowed_hosts`; include every hostname and address a client may use |
+| `internal: intelligence capability failed`, journal shows `unable to open database file` | the service cannot create the WAL `-shm`/`-wal` files; add the database directory to `ReadWritePaths` (the unit does) and restart |
 | 413 | request body over `max_request_body_bytes` |
 | 429 | per-client rate or concurrency limit; wait for `Retry-After` or raise the limit |
 | @tool_timeout` in a tool result | host is slower than the deadline; raise `tool_timeout_seconds` or reduce history pressure (see the baseline section) |
@@ -282,8 +289,9 @@ never serves a partial build. Retry with `systemctl start strength-analytics-mai
 To roll back, `systemctl disable --now strength-analytics-maintenance.timer` and remove the web
 unit's `ExecStartPost` line; no data migration is required. The worker needs write access to the
 database and must run as the same user as the web service, not as the read-only MCP service user.
-The units are documented and tested here but have **not been deployed or validated on the target
-ODROID host**.
+The MCP unit and the analytics timer are installed and running on the ODROID (2026-11-15) as
+host-specific variants; the checked-in templates target `/opt` and `/var/lib` and have not been
+validated verbatim. The MCP unit needs `ReadWritePaths` on the database directory for SQLite WAL.
 
 ## 15. Remaining limitations
 
@@ -293,7 +301,8 @@ ODROID host**.
 - No metrics endpoint; use the journal audit lines.
 - No package for a distribution's package manager; install from the virtual environment.
 - A stored IANA profile timezone is still ROADMAP §4.19 work; set `TZ` on the host.
-- The systemd unit has not been installed on the target host. The synthetic baseline there
+- The MCP unit is installed and running on the ODROID as a host-specific variant. The synthetic
+  baseline there
   measured **p50 3,101.9 ms / p95 3,169.4 ms at 377 sessions** (2026-11-14), above the one-second
   threshold; ADR-INT-010 accepted the latency-aware budget and enabled the catalogue, so treat those
   numbers as guidance and T-3 as the optimisation track. The web UI and CLI are unaffected.

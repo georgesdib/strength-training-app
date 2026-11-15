@@ -253,8 +253,9 @@ owning scorer; the cap keeps one request bounded and is reported in coverage.
 exercises, 20 workouts) and report truncation; nothing is silently omitted.
 - **VBT per-set rows are summarised**, because the owner payload can be large; cohort and drift
   detail is preserved.
-- **The systemd unit has not been deployed or validated on the target host.** The deployment guide
-  is an installation plan until the acceptance steps are run there.
+- **The systemd unit is installed and running on the ODROID as a host-specific variant.** The
+  checked-in template has not been validated verbatim there; the live unit adds `ReadWritePaths`
+  for the WAL files.
 
 ## 12. Adding an INT-2 capability
 
@@ -637,14 +638,16 @@ In-process callers keep the DEBUG line until INT-5 routes them through the same 
 `ProtectHome=read-only`, kernel and control-group protection, a restricted address-family list and
 no write access anywhere. It reads the database at `/var/lib/strength-coach/coach.db` (opened
 `mode=ro`), the configuration at `/etc/strength-coach/intelligence.v1.yaml` and the hashed tokens
-at `/etc/strength-coach/intelligence.local.yaml`; it contains no secrets. The unit is independent
+at `/etc/strength-coach/intelligence.local.yaml`; it contains no secrets. A read-only SQLite
+connection to a WAL database still needs write access to the directory for `-shm`/`-wal`, so the
+unit grants `ReadWritePaths` on the data directory while keeping the database itself `mode=ro`. The unit is independent
 of `strength-coach-web.service` and binds to loopback by default.
 
 Installation, service-user creation, token provisioning, start/stop, log inspection, revocation
 semantics, tailnet exposure and troubleshooting are in
-[INTELLIGENCE-DEPLOYMENT.md](INTELLIGENCE-DEPLOYMENT.md). The systemd unit has **not** been
-installed or validated on the target host; per ADR-INT-010 the transport runs there as a user-level
-process with the full catalogue until it is.
+[INTELLIGENCE-DEPLOYMENT.md](INTELLIGENCE-DEPLOYMENT.md). The systemd unit is installed and active on the ODROID (2026-11-15) as a host-specific variant;
+the checked-in template's `/opt` and `/var/lib` paths have not been validated verbatim there. The
+live unit grants `ReadWritePaths` for the WAL files.
 
 ## 21. INT-2 catalogue (2026-11-14)
 

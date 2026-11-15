@@ -36,22 +36,31 @@ for argument in "$@"; do
 done
 
 # The service must not run as root. Prefer the user who invoked sudo, then the checkout owner.
+# stat differs between GNU and BSD; the installer is exercised on macOS as well as Linux.
+checkout_owner() {
+  stat -c %U "$1" 2>/dev/null || stat -f %Su "$1" 2>/dev/null || id -un
+}
 SERVICE_USER="${MCP_USER:-${SUDO_USER:-}}"
 if [ -z "$SERVICE_USER" ] || [ "$SERVICE_USER" = root ]; then
-  SERVICE_USER="$(stat -c %U "$ROOT")"
+  SERVICE_USER="$(checkout_owner "$ROOT")"
 fi
 SERVICE_GROUP="$(id -gn "$SERVICE_USER")"
-USER_HOME="$(getent passwd "$SERVICE_USER" | cut -d: -f6)"
+USER_HOME="$(getent passwd "$SERVICE_USER" 2>/dev/null | cut -d: -f6 || true)"
+if [ -z "$USER_HOME" ]; then
+  USER_HOME="$(python3 -c 'import pwd, sys; print(pwd.getpwnam(sys.argv[1]).pw_dir)' "$SERVICE_USER" 2>/dev/null || true)"
+  [ -n "$USER_HOME" ] || USER_HOME="${HOME:-/tmp}"
+fi
 CONFIG="${MCP_CONFIG:-$USER_HOME/.config/strength-coach/intelligence.v1.yaml}"
 TOKENS="${MCP_TOKENS:-$ROOT/config/intelligence.local.yaml}"
 DB="${MCP_DB:-$ROOT/data/coach.db}"
+DB_DIR="$(dirname "$DB")"
 
 TZ_VALUE="$(timedatectl show -p Timezone --value 2>/dev/null || true)"
 [ -n "$TZ_VALUE" ] || TZ_VALUE="$(cat /etc/timezone 2>/dev/null || echo UTC)"
 
-BIND_HOST="$(sed -n 's/^bind_host:[[:space:]]*//p' "$CONFIG" 2>/dev/null | head -1)"
+BIND_HOST="$(sed -n 's/^bind_host:[[:space:]]*//p' "$CONFIG" 2>/dev/null | head -1 || true)"
 BIND_HOST="${BIND_HOST:-127.0.0.1}"
-BIND_PORT="$(sed -n 's/^bind_port:[[:space:]]*//p' "$CONFIG" 2>/dev/null | head -1)"
+BIND_PORT="$(sed -n 's/^bind_port:[[:space:]]*//p' "$CONFIG" 2>/dev/null | head -1 || true)"
 BIND_PORT="${BIND_PORT:-8765}"
 CHECK_HOST="$BIND_HOST"
 [ "$CHECK_HOST" = "0.0.0.0" ] && CHECK_HOST=127.0.0.1
@@ -87,6 +96,9 @@ PrivateTmp=true
 PrivateDevices=true
 ProtectSystem=strict
 ProtectHome=read-only
+# A read-only SQLite connection still needs to create/map the WAL -shm/-wal files beside a
+# WAL-mode database. Keep the rest of the filesystem read-only but allow this directory.
+ReadWritePaths=$DB_DIR
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true

@@ -1930,7 +1930,7 @@ the INT-4 native model surface remain open.
 
 **Audit remediation 2026-11-14:** immediate token revocation/rotation without restart, a
 structured metadata-only audit record per invocation, a configurable tool timeout and result-size
-cap, a dedicated systemd unit with a deployment guide (not yet deployed), and a live HTTP
+cap, a dedicated systemd unit with a deployment guide (installed on the ODROID 2026-11-15), and a live HTTP
 integration test. The implementation page records the semantics and limitations.
 
 **INT-2 delivered 2026-11-14:** seven further read-only capabilities (exercise progression,
@@ -1991,15 +1991,17 @@ T-3 is measured and the transport decision is reviewed; existing benchmark numbe
 until that remeasurement.
 
 **Operational status (2026-11-15).** The MCP server runs under `strength-intelligence-mcp.service`
-(installed the same day with `deploy/install-intelligence-mcp.sh`), enabled at boot, from the
-production checkout's virtual environment on `10.0.0.44:8765` (the LAN address; loopback is no
-longer bound, `allowed_hosts` lists `10.0.0.44:*`, and a mismatched Host is rejected with 421 even
-with a valid token), full
-ten-tool catalogue, token file under the checkout's git-ignored config. It reads the production
-database read-only. Validated over real Streamable HTTP on 2026-11-15: all ten capabilities
-answered, `get_weekly_review` 623 ms and `get_session_details` 5.7 s. **Migration collision
-resolved:** the production database's 0060 is development's `0060_plank_variants.sql` (checksum 7ed6); the analytics migrations had reused 0060-0062. They are
-renumbered **0061-0063** on `llm-integration`, so the production schema applies cleanly without
+(installed the same day with `deploy/install-intelligence-mcp.sh`, user `dsh`, host-specific
+paths), enabled at boot, from the production checkout's virtual environment on `10.0.0.44:8765`
+(the LAN address; loopback is no longer bound). The `allowed_hosts` list contains `10.0.0.44:*` and
+`odroid.local:*`; a mismatched Host is rejected with 421 even with a valid token. Full ten-tool
+catalogue, token file under the checkout's git-ignored config. It reads the production database
+read-only; the unit grants `ReadWritePaths` on the data directory because SQLite WAL needs
+`-shm`/`-wal` even for a read-only connection. Validated over real Streamable HTTP on 2026-11-15:
+all ten capabilities answered, `get_weekly_review` 623 ms and `get_session_details` 5.7 s.
+**Migration collision resolved:** the production database's 0060 is development's
+`0060_plank_variants.sql` (checksum 7ed6); the analytics migrations had reused 0060-0062. They are
+renumbered **0061-0063** on `development`, so the production schema applies cleanly without
 deleting the recorded row. A fresh copy was migrated and built successfully after the renumber.
 T-3 first pass is implemented and remeasured: bounded deload flare lookup, cached readiness
 config loading and one summary rule context. Overview is down to 672 ms p95, programme 278 ms,

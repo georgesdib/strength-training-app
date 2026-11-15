@@ -37,6 +37,9 @@ PrivateTmp=true
 PrivateDevices=true
 ProtectSystem=strict
 ProtectHome=read-only
+# A read-only SQLite connection still needs to create/map the WAL -shm/-wal files beside a
+# WAL-mode database. Keep the rest of the filesystem read-only but allow this directory.
+ReadWritePaths=/var/lib/strength-coach
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
