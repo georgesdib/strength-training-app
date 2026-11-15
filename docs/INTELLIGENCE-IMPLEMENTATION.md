@@ -1,16 +1,16 @@
 # TRAINING INTELLIGENCE — BACKEND IMPLEMENTATION
 
-**Status:** INT-1 foundation, INT-1b MCP transport, the audit remediation, the INT-2 capability
-catalogue and INT-3 (weekly review plus the iOS read surface) are implemented; **INT-3 closed
-2026-11-15**. Read-only, provider-neutral, independently runnable. The baseline context package and
-model path (INT-5), evidence producers for the aggregate capabilities and the INT-4 native model
-surface are not implemented.
+**Status:** INT-1 foundation, INT-1b MCP transport, the audit remediation, INT-2 catalogue, INT-3
+weekly review (closed 2026-11-15), INT-4 native model surface, INT-5 server narration and INT-6
+server/web chat are implemented. Read-only, provider-neutral, independently runnable. Evidence
+producers for the aggregate capabilities remain deferred; INT-6 model tool calling and streaming are
+deferred by owner decision.
 **Scope owner:** the canonical plan is the portfolio
 [Training Intelligence plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md);
 the payload contract is the
 [Training Intelligence contract](https://github.com/georgesdib/strength-app/blob/main/docs/contracts/TRAINING-INTELLIGENCE-CONTRACT.md).
-This page records how the backend implements the delivered intelligence surface (INT-1, INT-1b,
-remediation and INT-2) and what is deliberately absent. Phase boundaries stay as the plan states
+This page records how the backend implements the delivered intelligence surface (INT-1 to INT-6)
+and what is deliberately absent. Phase boundaries stay as the plan states
 them: delivered work is marked delivered, and later phases are not advanced by this page.
 
 ## 1. What is delivered
@@ -41,19 +41,20 @@ them: delivered work is marked delivered, and later phases are not advanced by t
 | `get_weekly_review` capability (INT-3) | implemented; INT-3 closed 2026-11-15 |
 | `GET /api/ios/v1/intelligence/weekly-review` (INT-3) | implemented; INT-3 closed 2026-11-15 |
 | iOS weekly-review screen and adapter (INT-3) | implemented 2026-11-15 |
-| Baseline context package (shared compact context) | **not implemented — INT-5** |
+| Baseline context package (shared compact context) | implemented for narration as the envelope fact projection; no separate package |
 | Evidence producers for the aggregate capabilities | **deferred** — owners do not emit evidence items for these aggregates; `get_session_details` returns the real evidence |
-| Native model surface (five capabilities, `Tool` adapters) | **not implemented — INT-4** |
-| Model providers and narration | **not implemented — INT-4/INT-5** |
+| Native model surface (five capabilities, `Tool` adapters) | implemented — INT-4 |
+| Model providers and narration | implemented — INT-4 on-device and INT-5 server |
+| Server/web chat and dossier (INT-6) | implemented 2026-11-15; tool calling and streaming deferred |
 
 The plan's INT-1 originally bundled the MCP skeleton and two tools. The approved implementation
 prompt narrowed INT-1 to the foundation and deferred the transport, so that scope moved to
 **INT-1b**, delivered 2026-11-14 and recorded in the plan and roadmap. **INT-2** then delivered the
 remaining read-only catalogue and its two resources on 2026-11-14, and **INT-3** delivered the
-weekly review, its REST route and the iOS read surface on 2026-11-15. Everything marked INT-1,
-INT-1b, INT-2 and INT-3 above is implemented. What remains is the baseline context package and
-model path (INT-5), evidence producers for the aggregate capabilities, and the INT-4 native model
-surface; none of those is claimed here.
+weekly review, its REST route and the iOS read surface on 2026-11-15. INT-4, INT-5 and INT-6 then
+delivered the native model surface, server narration and server/web chat. Everything marked above is
+implemented. The remaining deferred items are evidence producers for the aggregate capabilities,
+INT-6 model tool calling and streaming; none of those is claimed here.
 
 ## 2. Package layout
 
@@ -629,7 +630,7 @@ Emission is best-effort: a logging failure is swallowed after a debug line and n
 result (tested).
 
 The capability service logs at DEBUG so a single INFO audit record exists per MCP invocation.
-In-process callers keep the DEBUG line until INT-5 routes them through the same audit helper.
+In-process callers keep the DEBUG line; INT-5 narrate and INT-6 chat use their own run trace.
 
 ## 20. Deployment (remediation)
 
@@ -744,8 +745,8 @@ the tool description is generated from it.
 **Closed 2026-11-15.** Acceptance evidence: the completed week renders from the golden fixture;
 an empty week is `no_data` with expected inputs; an imported-only week reports `imported_sessions_only`
 and `adherence_unavailable`; the screen works with no model and no route beyond the existing REST
-call; `DEC-AFC-03` holds (no client-side training arithmetic). Any narrative or model call remains
-INT-4/INT-5, and the five-capability native provider surface is INT-4.
+call; `DEC-AFC-03` holds (no client-side training arithmetic). Any narrative or model call is
+INT-4/INT-5 and is delivered; the five-capability native provider surface is INT-4.
 
 ## 23. Read-only boundary, outbound data and partial weeks (2026-11-15)
 

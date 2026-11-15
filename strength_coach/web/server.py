@@ -3870,6 +3870,7 @@ class Handler(BaseHTTPRequestHandler):
             conn.commit()
             raise
         trace.event("llm_output", {"tools": result.tools, "tokens": result.tokens})
+        trace.add_tokens(result.tokens or 0)
         trace.finish(status="ok")
         conn.commit()
         return {
