@@ -827,10 +827,11 @@ training* consent toggle. Suggested prompts, non-streaming answers, a sources li
 tools used, and a session-only transcript cleared when the screen is left. The five capability
 tools are registered for chat; a context overflow retries with three tools before failing.
 
-**Grounding.** `ChatToolbox` records every envelope a tool returns; after each answer the numbers
-are checked against the structured allow-list built from those envelopes, and an ungrounded number
-is rejected with the number named. No tool call plus a number in the answer therefore fails closed.
-Conversation history is capped at 2,400 characters and answers at 2,500. Session details resolve
+**Grounding.** `ChatToolbox` records every envelope a tool returns; after each answer the digits
+are checked against the structured allow-list built from those envelopes. An ungrounded digit
+triggers one corrective retry; if it survives, the answer is shown with a visible "Unverified
+numbers" warning rather than blocked. Number words are treated as prose, not claims. Conversation
+history is capped at 2,400 characters and answers at 2,500. Session details resolve
 the most recently completed session when the model has no workout id.
 
 **Tests.** `StrengthAppTests/TrainingChatTests.swift`: send appends question and reply with sources,
@@ -841,7 +842,7 @@ test is required.
 **Numeric facts.** The chat allow-list includes numbers from numeric-like string facts
 (`"5.3 kg"`, `"80%"`) and accepts decimal variants such as `5.30` and signed progression values in
 either direction (`-5.3` and `5.3`, including a typographic minus); instruction-like strings are
-not parsed, so they cannot widen the set. A number the model computes itself is still rejected. A time window echoed from the question
+not parsed, so they cannot widen the set. A number the model computes itself triggers the retry and then the warning. A time window echoed from the question
 ("last 3 months") grounds only when the answer itself uses it as a time window, so it cannot
 license "3 sessions".
 
