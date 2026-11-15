@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import datetime as dt
 import json
+import sqlite3
 import threading
 import urllib.error
 import urllib.request
@@ -17,6 +18,7 @@ from intelligence_support import enabled_config, service
 from strength_coach import workout
 from strength_coach.intelligence import INTERNAL_PRINCIPAL
 from strength_coach.intelligence import api as intelligence_api
+from strength_coach.intelligence.mcp.db import readonly_connection
 from strength_coach.intelligence.reports import weekly_review
 from strength_coach.store import db, importer, ios_devices, repositories
 from strength_coach.web.server import create_server
@@ -379,3 +381,48 @@ def test_programme_surfaces_findings_and_the_policy_label(conn):
     assert value["deload_policy"] == "none_scheduled"
     assert value["deload"] == "none_scheduled"
     assert isinstance(value["regime_findings_detail"], list)
+
+
+def test_partial_week_is_flagged(conn):
+    partial = _run(conn, week_end="2026-11-14")
+    assert partial.ok, partial.error
+    assert partial.envelope.coverage["week_partial"] == 1
+    assert partial.envelope.coverage["week_complete"] == 0
+    assert any("still in progress" in item for item in partial.envelope.missing)
+
+    complete = _run(conn, week_end="2026-11-08")
+    assert complete.envelope.coverage["week_complete"] == 1
+    assert complete.envelope.coverage["week_partial"] == 0
+    assert not any("still in progress" in item for item in complete.envelope.missing)
+
+
+def test_rest_entrypoint_opens_a_read_only_database(tmp_path):
+    path = tmp_path / "coach.db"
+    store = db.Store(path)
+    seed(store.connection)
+    before = store.connection.execute("SELECT COUNT(*) FROM session").fetchone()[0]
+    store.close()
+
+    envelope = intelligence_api.weekly_review(
+        path,
+        {"device_id": "test-phone", "kind": "phone"},
+        "/api/ios/v1/intelligence/weekly-review?week_end=2026-11-08",
+        config=enabled_config(),
+    )
+    assert envelope["capability"] == "get_weekly_review"
+
+    store = db.Store(path)
+    try:
+        after = store.connection.execute("SELECT COUNT(*) FROM session").fetchone()[0]
+    finally:
+        store.close()
+    assert after == before
+
+    with readonly_connection(path) as conn:
+        assert conn.execute("PRAGMA query_only").fetchone()[0] == 1
+        with pytest.raises(sqlite3.OperationalError):
+            conn.execute(
+                "INSERT INTO readiness_day (on_date, sleep) VALUES ('2099-01-01', 3)"
+            )
+        with pytest.raises(sqlite3.OperationalError):
+            conn.execute("DELETE FROM session")

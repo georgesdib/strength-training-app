@@ -7,11 +7,13 @@ envelope the capability layer produced. No route reshapes or partially returns a
 from __future__ import annotations
 
 import sqlite3
+from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 from strength_coach.intelligence.auth import Principal
 from strength_coach.intelligence.config import load_config
+from strength_coach.intelligence.mcp.db import readonly_connection
 from strength_coach.intelligence.service import IntelligenceService
 
 ERROR_STATUS = {
@@ -72,15 +74,17 @@ def run(
 
 
 def weekly_review(
-    conn: sqlite3.Connection,
+    db_path: str | Path,
     device: dict[str, Any],
     raw_path: str,
     *,
     config=None,
     clock=None,
 ) -> dict[str, Any]:
+    """The REST entrypoint opens SQLite read-only; a caller cannot hand it a writable handle."""
     query = _query(raw_path, {"week_end"})
     payload: dict[str, Any] = {}
     if "week_end" in query:
         payload["week_end"] = query["week_end"]
-    return run(conn, device, "get_weekly_review", payload, config=config, clock=clock)
+    with readonly_connection(db_path) as conn:
+        return run(conn, device, "get_weekly_review", payload, config=config, clock=clock)

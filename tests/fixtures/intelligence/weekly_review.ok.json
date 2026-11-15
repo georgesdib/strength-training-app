@@ -5,6 +5,8 @@
     "sessions_considered": 2,
     "tracked_lifts": 2,
     "tracked_lifts_omitted": 0,
+    "week_complete": 1,
+    "week_partial": 0,
     "working_sets": 3
   },
   "facts": {

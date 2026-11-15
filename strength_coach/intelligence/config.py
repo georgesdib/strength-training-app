@@ -34,6 +34,9 @@ DEFAULT_RATE_LIMIT_PER_MINUTE = 60
 DEFAULT_MAX_CONCURRENT_CALLS = 4
 DEFAULT_TOOL_TIMEOUT_SECONDS = 20
 DEFAULT_MAX_TOOL_RESULT_BYTES = 1_048_576
+# Raw readiness values are local-only by default; the MCP dispatch rejects them unless the
+# owner deliberately permits them for a trusted host.
+DEFAULT_ALLOW_SENSITIVE_READINESS = False
 
 MIN_WINDOW_DAYS = 28
 MAX_WINDOW_DAYS = 400
@@ -62,6 +65,7 @@ FIELDS = (
     "max_concurrent_calls",
     "tool_timeout_seconds",
     "max_tool_result_bytes",
+    "allow_sensitive_readiness",
 )
 
 
@@ -83,6 +87,7 @@ class IntelligenceConfig:
     max_concurrent_calls: int = DEFAULT_MAX_CONCURRENT_CALLS
     tool_timeout_seconds: int = DEFAULT_TOOL_TIMEOUT_SECONDS
     max_tool_result_bytes: int = DEFAULT_MAX_TOOL_RESULT_BYTES
+    allow_sensitive_readiness: bool = DEFAULT_ALLOW_SENSITIVE_READINESS
 
     def as_mapping(self) -> dict[str, object]:
         return {
@@ -99,6 +104,7 @@ class IntelligenceConfig:
             "max_concurrent_calls": self.max_concurrent_calls,
             "tool_timeout_seconds": self.tool_timeout_seconds,
             "max_tool_result_bytes": self.max_tool_result_bytes,
+            "allow_sensitive_readiness": self.allow_sensitive_readiness,
         }
 
 
@@ -152,6 +158,10 @@ def parse_config(data: object) -> IntelligenceConfig:
     if version != VERSION:
         raise ValueError(f"version must be {VERSION}")
     enabled = _boolean(data.get("enabled", DEFAULT_ENABLED), "enabled")
+    allow_sensitive = _boolean(
+        data.get("allow_sensitive_readiness", DEFAULT_ALLOW_SENSITIVE_READINESS),
+        "allow_sensitive_readiness",
+    )
     window = _bounded_int(
         data.get("max_window_days", DEFAULT_MAX_WINDOW_DAYS),
         "max_window_days",
@@ -215,6 +225,7 @@ def parse_config(data: object) -> IntelligenceConfig:
         max_concurrent_calls=concurrent,
         tool_timeout_seconds=timeout,
         max_tool_result_bytes=result_bytes,
+        allow_sensitive_readiness=allow_sensitive
     )
 
 

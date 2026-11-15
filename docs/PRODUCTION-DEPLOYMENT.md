@@ -132,7 +132,10 @@ Do not put the token on the command line or in shell history.
 - 0060-0063 recorded; analytics/derived tables exist.
 - core family ready: true, readiness: verified.
 - C-1 timer active; one manual run succeeded and reports ready.
-- MCP tools/list returns 9 tools; slow tools are callable.
+- MCP tools/list returns 10 tools; slow tools are callable.
+- iOS/backend compatibility: bootstrap capabilities include `intelligence_read`; the app hides
+  the Weekly review entry on an older server (capability absent). The weekly-review route returns
+  200 with the envelope, and a stale app build still works because the field is additive.
 - One fast and one slow tool return valid envelopes.
 - MCP performs no source writes; worker writes only derived/build tables.
 - Post-deployment HTTP benchmark recorded before drawing performance conclusions.
@@ -145,6 +148,12 @@ Do not put the token on the command line or in shell history.
 - Migrations are forward-only. If migration fails, stop the web service and restore the step-3
   backup; never delete migration rows or edit migration files.
 - Derived tables are disposable and can be rebuilt with analytics build; source data is untouched.
+- Partial failure: if the web service will not start after migrations, restore the step-3 backup
+  and keep the old checkout; migrations are forward-only, so do not delete rows to "fix" a number.
+  If the MCP unit installs but fails its smoke test, disable only that unit and keep the web
+  service; intelligence is additive and its failure must not block training.
+- If the timer was installed but the first analytics build failed, disable the timer, fix or
+  report the build error, and leave consumers on their on-demand fallback.
 
 ## 11. Measured expectations and limitations
 

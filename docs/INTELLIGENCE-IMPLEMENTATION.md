@@ -736,3 +736,37 @@ the tool description is generated from it.
 
 **Not in this phase:** any narrative or model call. The narrative path remains INT-4/INT-5 and the
 five-capability native provider surface is INT-4.
+
+## 23. Read-only boundary, outbound data and partial weeks (2026-11-15)
+
+**Read-only enforcement is at the database, not by convention.** MCP opens SQLite with
+`mode=ro` plus `PRAGMA query_only`; the REST weekly-review entrypoint opens its own read-only
+connection from the database path and cannot be handed a writable handle. The capability service's
+deferred `BEGIN` and rollback remain defence in depth, not the guarantee. A test attempts `INSERT`
+and `DELETE` on the read-only connection and asserts `OperationalError`, and the REST test
+asserts the session count is unchanged after a call.
+
+**Outbound data matrix.** What a capability may put in an envelope:
+
+| Capability | Leaves the server | Never leaves |
+|---|---|---|
+| `get_training_overview` | training totals, ratios, volume, readiness *coverage* | readiness values, notes, symptoms |
+| `get_session_details` | sets, adherence, VBT, effort, quality flags | notes, form ratings, symptoms |
+| `get_exercise_progression` | e1RM observations and summary | — (training only) |
+| `get_readiness_history` | readiness *score* series and coverage | raw readiness fields over MCP |
+| `get_adherence_analysis` | aggregated set completion | free text |
+| `get_prescription` | persisted plan, modifiers, rule refs | — (training only) |
+| `get_vbt_analysis` | cohort and drift aggregates | per-rep raw data outside the summary |
+| `get_programme_block_summary` | settings, budget, deload policy, findings | injury constraints, notes |
+| `compare_training_periods` | two owner-produced sides and their delta | — (training only) |
+| `get_weekly_review` | sections, readiness coverage and direction | readiness values, notes, symptoms |
+
+The raw-readiness restriction is enforced in the MCP tool handler before the capability runs; the
+config switch `allow_sensitive_readiness` (default false) is the only escape hatch, for a trusted
+host. Local CLIs and the web UI keep the full field set. ADR-INT-012 proposes per-token scopes as
+the cleaner long-term model.
+
+**Partial weeks.** The weekly review reports `coverage.week_complete` / `week_partial`; a week
+containing today is partial and adds a `missing` note saying the sections cover completed work so
+far. The default request still selects the most recently completed Monday-Sunday week. Boundary
+tests cover current partial, last completed, empty, and Monday/Sunday boundaries.

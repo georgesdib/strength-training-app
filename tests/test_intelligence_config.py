@@ -120,6 +120,14 @@ def test_missing_file_is_reported(tmp_path: Path):
         load_config(tmp_path / "absent.yaml")
 
 
+def test_sensitive_readiness_is_off_by_default_and_parseable():
+    assert IntelligenceConfig().allow_sensitive_readiness is False
+    enabled = parse_config({"version": 1, "allow_sensitive_readiness": True})
+    assert enabled.allow_sensitive_readiness is True
+    with pytest.raises(ValueError):
+        parse_config({"version": 1, "allow_sensitive_readiness": "yes"})
+
+
 def test_config_mapping_is_revision_ready():
     mapping = IntelligenceConfig(enabled=True).as_mapping()
     assert mapping["version"] == 1
@@ -136,5 +144,6 @@ def test_config_mapping_is_revision_ready():
         "max_concurrent_calls",
         "tool_timeout_seconds",
         "max_tool_result_bytes",
+        "allow_sensitive_readiness",
     ):
         assert key in mapping

@@ -45,3 +45,8 @@ max_tool_result_bytes: 1048576
 
 rate_limit_per_minute: 60
 max_concurrent_calls: 4
+
+# Raw readiness values (sleep, mood, stress, soreness, HRV, RHR, bodyweight) are local-only by
+# default: the MCP dispatch rejects them. Set true only for a trusted host that genuinely needs
+# them; the weekly review exposes direction and coverage only either way.
+allow_sensitive_readiness: false

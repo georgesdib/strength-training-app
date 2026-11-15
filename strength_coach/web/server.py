@@ -1046,7 +1046,7 @@ class Handler(BaseHTTPRequestHandler):
                         "capabilities": _ios_capabilities(),
                     }
                 elif path == "/api/ios/v1/intelligence/weekly-review":
-                    payload = intelligence_api.weekly_review(conn, device, self.path)
+                    payload = intelligence_api.weekly_review(self.db_path, device, self.path)
                 elif path == "/api/ios/v1/today":
                     self._ios_idle_sweep(conn)
                     clock = _ios_clock()

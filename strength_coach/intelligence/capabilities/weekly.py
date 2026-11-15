@@ -40,6 +40,7 @@ MODULES = (
 class WeeklyRequest(CapabilityRequest):
     week_end: dt.date
     include_observations: bool
+    today: dt.date
 
     @classmethod
     def parse(
@@ -71,7 +72,7 @@ class WeeklyRequest(CapabilityRequest):
                 "invalid_argument", "include_observations must be true or false",
                 field="include_observations",
             )
-        return cls(week_end=week_end, include_observations=include_observations)
+        return cls(week_end=week_end, include_observations=include_observations, today=today)
 
     def to_mapping(self) -> dict[str, object]:
         return {
@@ -84,7 +85,10 @@ def weekly_review_capability(
     conn: sqlite3.Connection, request: WeeklyRequest, execution: ExecutionContext
 ) -> Envelope:
     report = weekly_review.build(
-        conn, week_end=request.week_end, include_observations=request.include_observations
+        conn,
+        week_end=request.week_end,
+        include_observations=request.include_observations,
+        today=request.today,
     )
     facts = {
         name: FactBlock(

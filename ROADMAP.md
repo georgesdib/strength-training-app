@@ -1944,7 +1944,9 @@ sections (activity, adherence, sessions, progression, volume, readiness coverage
 programme, gated observations) from their owners, and the additive iOS read route
 `GET /api/ios/v1/intelligence/weekly-review` returns the envelope unchanged under the existing
 device bearer auth. The iOS `StrengthCore` envelope/adapter and the Progress → Weekly review screen
-were delivered on 2026-11-15 in the StrengthApp repository.
+were delivered on 2026-11-15 in the StrengthApp repository. The REST entrypoint and the MCP process
+both open SQLite read-only; raw readiness fields are rejected over MCP unless the deployment sets
+`allow_sensitive_readiness`, and the weekly review reports `week_complete`/`week_partial`.
 
 The canonical cross-repository plan, audit, contract and decisions are in the portfolio
 repository: [plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md)

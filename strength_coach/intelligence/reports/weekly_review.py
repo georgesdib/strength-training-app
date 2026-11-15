@@ -63,6 +63,7 @@ class WeeklyReview:
     missing: list[str] = field(default_factory=list)
     quality_flags: list[str] = field(default_factory=list)
     limitations: list[str] = field(default_factory=list)
+    complete: bool = True
 
 
 def week_bounds(week_end: dt.date) -> tuple[dt.date, dt.date]:
@@ -248,11 +249,13 @@ def _programme_section(conn, end: str) -> tuple[Section, dict]:
 
 
 def build(
-    conn, *, week_end: dt.date, include_observations: bool = True
+    conn, *, week_end: dt.date, include_observations: bool = True,
+    today: dt.date | None = None,
 ) -> WeeklyReview:
     monday, sunday = week_bounds(week_end)
+    complete = week_end < (today or dt.date.today())
     start, end = monday.isoformat(), sunday.isoformat()
-    report = WeeklyReview(week_start=start, week_end=end, status="ok")
+    report = WeeklyReview(week_start=start, week_end=end, status="ok", complete=complete)
 
     listing = history.list_sessions(conn, limit=200, start=start, end=end)
     rows = [row for row in listing["sessions"] if not row.get("voided")]
@@ -365,6 +368,8 @@ def build(
         "tracked_lifts": len(tracked),
         "tracked_lifts_omitted": omitted,
         "planned_sessions": "not_tracked",
+        "week_complete": int(complete),
+        "week_partial": int(not complete),
     }
 
     missing: list[str] = []
@@ -379,6 +384,10 @@ def build(
     if omitted:
         missing.append(
             f"{omitted} further main lift(s) with observations are outside the report cap"
+        )
+    if not complete:
+        missing.append(
+            "the current week is still in progress; sections cover only completed work so far"
         )
     if include_observations and not report.observations:
         missing.append("no observation passed its evidence gate")

@@ -183,3 +183,33 @@ def test_compare_accepts_nested_periods(db_path):
     result = asyncio.run(run())
     assert result.is_error is False
     assert result.structured_content["facts"]["comparison"]["value"]["metric"] == "attendance"
+
+
+def test_raw_readiness_fields_are_blocked_over_mcp(db_path):
+    async def call(arguments, *, allow_sensitive=False):
+        server = build_server(
+            db_path=db_path,
+            config=enabled_config(allow_sensitive_readiness=allow_sensitive),
+        )
+        async with Client(server) as client:
+            with authenticated(INTERNAL_PRINCIPAL):
+                return await client.call_tool("get_readiness_history", arguments)
+
+    blocked = asyncio.run(call(
+        {"start": "2026-09-01", "end": "2026-11-14", "fields": ["sleep"]}
+    ))
+    assert blocked.is_error is True
+    assert "raw readiness fields are not available over MCP" in blocked.content[0].text
+
+    score_only = asyncio.run(call(
+        {"start": "2026-09-01", "end": "2026-11-14", "fields": ["score"]}
+    ))
+    assert score_only.is_error is False
+    assert "score_series" in score_only.structured_content["facts"]
+
+    opted_in = asyncio.run(call(
+        {"start": "2026-09-01", "end": "2026-11-14", "fields": ["sleep"]},
+        allow_sensitive=True,
+    ))
+    assert opted_in.is_error is False
+    assert "readiness" in opted_in.structured_content["facts"]

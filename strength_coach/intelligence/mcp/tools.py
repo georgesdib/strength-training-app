@@ -224,9 +224,10 @@ def register_tools(
     @server.tool(
         name="get_readiness_history",
         description=(
-            "Read-only readiness history for an inclusive date window of at most 366 days. By "
-            "default returns the owner's readiness score per observed day; raw fields (sleep, "
-            "energy, mood, stress, soreness and the measured fields) are returned only when named. "
+            "Read-only readiness history for an inclusive date window of at most 366 days. "
+            "Returns the owner's readiness score per observed day. Raw health fields (sleep, "
+            "energy, mood, stress, soreness, HRV, RHR, bodyweight) are local-only: over MCP they "
+            "are rejected unless the deployment explicitly enables allow_sensitive_readiness. "
             "Missing days are reported, never filled. Score series are limited to the most recent "
             "120 observed days."
             + latency.description("get_readiness_history")
@@ -238,6 +239,12 @@ def register_tools(
         end: str,
         fields: list[str] | None = None,
     ) -> EnvelopePayload:
+        if fields is not None and any(field != "score" for field in fields) \
+                and not config.allow_sensitive_readiness:
+            raise ToolError(
+                "invalid_argument: raw readiness fields are not available over MCP; request "
+                "only score, or have the owner enable allow_sensitive_readiness for a trusted host"
+            )
         payload: dict[str, object] = {"from": start, "to": end}
         if fields is not None:
             payload["fields"] = fields
