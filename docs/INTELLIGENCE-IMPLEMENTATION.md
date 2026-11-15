@@ -913,9 +913,10 @@ the existing soft verification.
 **Dates.** The prescription tool resolves today and yesterday on the phone before calling the route,
 and accepts an ISO date or a prescription id; this avoids treating a relative word as an id.
 
-**Tool use.** A plan question on-device does **not** register a plan tool: the app fetches the
+**Tool use.** A plan question on either provider does **not** call a plan tool: the app fetches the
 matching compact facts first, injects them into the prompt and answers without tool calling. This
-avoids both the context overflow and an endless required-tool loop. DeepSeek keeps the plan tools.
+avoids the context overflow, the endless required-tool loop and the model's own date arithmetic.
+Prescription answers use a 900-token output budget and may exceed 150 words to list every item.
 A context overflow retries with empty history. The prompt carries a "Today: YYYY-MM-DD" line so
 "yesterday" is resolved against today, not against the latest prescription. The Chat header shows
 whether plan data is on.
