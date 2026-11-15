@@ -961,7 +961,8 @@ JSON narrative (headline, observations, limitations). The model uses the existin
 client (DeepSeek by default). There is no new REST endpoint.
 
 **Validation.** The narrative is parsed as JSON, field and length checked, and every digit must
-appear in the envelope facts. An invented number, malformed JSON, unknown field or oversized fact
+appear in the envelope facts. Signed facts ground either sign (a -5.3 progression accepts 5.3), consistent with the iOS
+validator. An invented number, malformed JSON, unknown field or oversized fact
 pack is rejected; the deterministic envelope is never changed.
 
 **Trace.** Unless `--no-trace`, a `run` row and an `input` plus `llm_output` event are written; the

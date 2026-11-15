@@ -68,6 +68,13 @@ def test_invented_number_is_rejected():
         narrate_envelope(client, envelope)
 
 
+def test_signed_fact_grounds_the_unsigned_number():
+    envelope = FakeEnvelope({"progression": {"value": -5.3}})
+    client = FakeClient(_answer("The trend was 5.3 kg."))
+    narrative = narrate_envelope(client, envelope)
+    assert narrative.headline == "The trend was 5.3 kg."
+
+
 def test_non_json_is_rejected():
     client = FakeClient("I think you did well.")
     with pytest.raises(NarrativeValidationError, match="not JSON"):

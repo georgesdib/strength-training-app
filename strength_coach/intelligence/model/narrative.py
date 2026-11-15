@@ -135,24 +135,31 @@ def _validate_numbers(narrative: Narrative, envelope: Envelope) -> None:
             raise NarrativeValidationError(f"number {token!r} is not in the facts")
 
 
+def _add_variants(token: str, out: set[str]) -> None:
+    out.add(token)
+    out.add(token.replace(",", ""))
+    out.add(token.replace(",", "."))
+    if token.startswith(("+", "-")):
+        out.add(token[1:])
+    else:
+        out.add("-" + token)
+        out.add("+" + token)
+
+
 def _allowed_numbers(value: Any, out: set[str] | None = None) -> set[str]:
     if out is None:
         out = set()
     if isinstance(value, bool) or value is None:
         return out
     if isinstance(value, (int, float)):
-        text = str(value)
-        out.add(text)
+        for text in (str(value), f"{value:.1f}", f"{value:.2f}"):
+            _add_variants(text, out)
         if isinstance(value, float) and value.is_integer():
-            out.add(str(int(value)))
-        out.add(f"{value:.1f}")
-        out.add(f"{value:.2f}")
+            _add_variants(str(int(value)), out)
         return out
     if isinstance(value, str):
         for token in re.findall(r"(?<![\w.])[+-]?\d+(?:[.,]\d+)?", value):
-            out.add(token)
-            out.add(token.replace(",", ""))
-            out.add(token.replace(",", "."))
+            _add_variants(token, out)
         return out
     if isinstance(value, dict):
         for item in value.values():
