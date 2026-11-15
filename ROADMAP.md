@@ -1948,7 +1948,8 @@ device bearer auth. Acceptance evidence is the golden fixture, the empty and imp
 tests, and the model-free screen. The iOS `StrengthCore` envelope/adapter and the Progress → Weekly review screen
 were delivered on 2026-11-15 in the StrengthApp repository. The REST entrypoint and the MCP process
 both open SQLite read-only; raw readiness fields are rejected over MCP unless the deployment sets
-`allow_sensitive_readiness`, and the weekly review reports `week_complete`/`week_partial`.
+`allow_sensitive_readiness`, and the weekly review reports `week_complete`/`week_partial`. The
+intelligence branch was merged into `development` on 2026-11-15.
 
 The canonical cross-repository plan, audit, contract and decisions are in the portfolio
 repository: [plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md)

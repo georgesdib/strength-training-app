@@ -5,10 +5,9 @@ Derived Analytics Milestones A-C, the renumbered migrations, the MCP catalogue a
 
 ## 1. Scope and decisions
 
-- Release branch: the owner chooses one of:
-  - deploy llm-integration directly, or
-  - merge llm-integration into development and deploy development.
-  Do not change the branch on the host without recording that decision.
+- Release branch: llm-integration was merged into development on 2026-11-15, so either branch
+  contains the release; deploy development by preference. Do not change the branch on the host
+  without recording that decision.
 - The production database already has migration 0060 (development's plank variants). Analytics are
   0061-0063; do not delete the 0060 row.
 - MCP remains read-only. The maintenance worker writes only derived tables and build state.
