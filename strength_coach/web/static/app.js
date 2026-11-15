@@ -3750,17 +3750,74 @@ async function loadKpis(progress) {
 }
 
 /* --- Narrate (INT-5) --------------------------------------------------- */
-const NARRATE_PRESETS = {
-  get_exercise_progression: { exercise_id: "trap_bar_deadlift" },
+const NARRATE_GUIDE = {
+  get_weekly_review: {
+    text: "Explain the most recently completed Monday–Sunday week: activity, adherence, sessions, progression, volume, readiness coverage and programme state.",
+    usage: "Payload: {} for the latest completed week, or {\"week_end\":\"YYYY-MM-DD\"} for the week containing that date.",
+    example: {},
+  },
+  get_training_overview: {
+    text: "Explain the four-week training overview: attendance, performance direction, volume coverage and readiness coverage.",
+    usage: "Payload: {} for the last four weeks, or {\"as_of\":\"YYYY-MM-DD\",\"window_weeks\":4}.",
+    example: {},
+  },
+  get_exercise_progression: {
+    text: "Explain one exercise's e1RM progression, its confidence interval and whether the trend is comparable.",
+    usage: "Required: exercise_id. Payload: {\"exercise_id\":\"trap_bar_deadlift\",\"window_days\":84}.",
+    example: { exercise_id: "trap_bar_deadlift" },
+  },
+  get_readiness_history: {
+    text: "Explain the readiness score and coverage over a date range. Raw health fields are optional and bounded by the capability.",
+    usage: "Required: from and to. Payload: {\"from\":\"YYYY-MM-DD\",\"to\":\"YYYY-MM-DD\",\"fields\":[\"score\"]}.",
+    example: { from: "2026-11-01", to: "2026-11-15", fields: ["score"] },
+  },
+  get_session_details: {
+    text: "Explain one completed workout: exercises, sets, loads, RIR and the comparison with the frozen prescription.",
+    usage: "Required: exactly one of workout_id or session_id. Payload: {\"session_id\":\"<id>\"}.",
+    example: {},
+  },
+  get_prescription: {
+    text: "Explain the persisted training prescription for a date, or the current prescription, including items and provenance.",
+    usage: "Payload: {} for the current prescription, or {\"for_date\":\"YYYY-MM-DD\"}; prescription_id is also accepted.",
+    example: {},
+  },
+  get_programme_block_summary: {
+    text: "Explain the programme block state: window, settings, deload, regime and attendance.",
+    usage: "Payload: {} for today, or {\"as_of\":\"YYYY-MM-DD\",\"block_weeks\":4} (4, 6 or 8).",
+    example: {},
+  },
+  get_adherence_analysis: {
+    text: "Explain adherence: set completion, reps/load/RIR attainment, weekly periods and per-exercise coverage.",
+    usage: "Payload: {\"weeks\":12}, or {\"from\":\"YYYY-MM-DD\",\"to\":\"YYYY-MM-DD\"}.",
+    example: { weeks: 12 },
+  },
+  compare_training_periods: {
+    text: "Explain a descriptive comparison between two date windows for one metric.",
+    usage: "Required: period_a, period_b and metric. Payload example uses attendance; strength_direction also needs exercise_id.",
+    example: {
+      period_a: { start: "2026-09-01", end: "2026-09-30" },
+      period_b: { start: "2026-10-01", end: "2026-10-31" },
+      metric: "attendance",
+    },
+  },
+  get_vbt_analysis: {
+    text: "Explain velocity-based training coverage and estimated 1RM from the available rep-velocity data.",
+    usage: "Payload: {\"window_days\":56}, optionally exercise_id.",
+    example: { window_days: 56 },
+  },
 };
-function syncNarratePayload() {
+function syncNarrateCapability() {
   const capability = $("#narrate-capability")?.value;
-  const preset = NARRATE_PRESETS[capability] || {};
+  const guide = NARRATE_GUIDE[capability] || {};
+  const help = $("#narrate-help");
+  const usage = $("#narrate-usage");
   const payload = $("#narrate-payload");
-  if (payload) payload.value = JSON.stringify(preset, null, 2);
+  if (help) help.textContent = guide.text || "";
+  if (usage) usage.textContent = guide.usage || "";
+  if (payload) payload.value = JSON.stringify(guide.example || {}, null, 2);
 }
-$("#narrate-capability")?.addEventListener("change", syncNarratePayload);
-if ($("#narrate-capability") && !$("#narrate-payload").value.trim()) syncNarratePayload();
+$("#narrate-capability")?.addEventListener("change", syncNarrateCapability);
+if ($("#narrate-capability")) syncNarrateCapability();
 
 $("#narrate-form")?.addEventListener("submit", async (event) => {
   event.preventDefault();
