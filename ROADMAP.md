@@ -1940,10 +1940,10 @@ summary, period comparison) and two more resources (`strength://programme/curren
 latency-aware budget and enabled the transport; INT-2 adds no caching, no new REST route and no
 model.
 
-**INT-4e plan-aware chat implemented (2026-11-15, device test pending):** a default-off plan-data
+**INT-4e plan-aware chat delivered (2026-11-15):** a default-off plan-data
 toggle adds prescription, programme summary and adherence to on-device and DeepSeek chat. Answers
 are structured with a separate suggestion block; suggestions are proposals, not applied. The three
-backend routes are deployed; device acceptance remains.
+backend routes are deployed. The owner confirmed both providers; on-device may abbreviate a long prescription answer though the raw facts are complete.
 
 **INT-4d DeepSeek chat delivered (2026-11-15):** a chat-only model choice,
 direct from the iPhone, key in the Keychain, OpenAI-compatible tool loop over the five capabilities,
