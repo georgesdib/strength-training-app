@@ -114,14 +114,20 @@ journal level.
 
 ## 9. Private-network exposure
 
-The default bind is loopback. To serve the owner's tailnet:
+The default bind is loopback. To serve the owner's tailnet or LAN:
 
-1. set `bind_host` to the tailnet address (never `0.0.0.0` on an untrusted network);
-2. add the exact Host header clients use to `allowed_hosts`, for example `odroid.tailnet.ts.net:*`;
-3. keep the bearer token mandatory — Tailscale is reachability, not authentication;
+1. set `bind_host` to the specific tailnet or LAN address (never `0.0.0.0` on an untrusted
+   network);
+2. add the exact Host header clients use to `allowed_hosts`, for example
+   `odroid.tailnet.ts.net:*` or `10.0.0.44:*`;
+3. keep the bearer token mandatory — reachability is not authentication;
 4. do not port-forward; the web UI and this endpoint are not public services.
 
-Verify with a client on the tailnet, not from the open internet.
+The home host binds its LAN address this way (`bind_host: 10.0.0.44`,
+`allowed_hosts` includes `10.0.0.44:*`). A request whose Host does not match is rejected with
+**421** even when it carries a valid token, so DNS rebinding stays closed.
+
+Verify with a client on the tailnet or LAN, not from the open internet.
 
 ## 10. Database read-only guarantee
 

@@ -1991,7 +1991,9 @@ T-3 is measured and the transport decision is reviewed; existing benchmark numbe
 until that remeasurement.
 
 **Operational status (2026-11-15).** The MCP server runs as a user-level process from the production
-checkout's virtual environment (the systemd unit is still not installed) on `127.0.0.1:8765`, full
+checkout's virtual environment (the systemd unit is still not installed) on `10.0.0.44:8765` (the LAN address; loopback is no
+longer bound, `allowed_hosts` lists `10.0.0.44:*`, and a mismatched Host is rejected with 421 even
+with a valid token), full
 ten-tool catalogue, token file under the checkout's git-ignored config. It reads the production
 database read-only. Validated over real Streamable HTTP on 2026-11-15: all ten capabilities
 answered, `get_weekly_review` 623 ms and `get_session_details` 5.7 s. **Migration collision
