@@ -980,6 +980,10 @@ the call is refused with a clear message once the cap is reached.
 evaluator, and the obsolete controls/copy are removed. Deterministic `apply_selection` and class-B
 `selection_confirmed` remain.
 
-**Not yet delivered.** Multi-tool orchestration (one capability per call, deferred to INT-6), the
-evaluation harness and MCP-client parity. The server also
+**Evaluation and parity.** A fixed ten-capability harness in
+strength_coach/intelligence/model/eval.py runs through the real capability layer and validator
+with a fake client; normal tests make no model call. MCP parity is covered by the existing
+cross-transport test comparing MCP structured content with the in-process envelope.
+
+**Scope.** Multi-tool orchestration is deferred to INT-6; INT-5 stays one capability per call. The server also
 needs `config/llm.local.toml` with a provider key before `narrate` can call a model.
