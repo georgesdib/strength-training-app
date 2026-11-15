@@ -913,11 +913,17 @@ the existing soft verification.
 **Dates.** The prescription tool resolves today and yesterday on the phone before calling the route,
 and accepts an ISO date or a prescription id; this avoids treating a relative word as an id.
 
+**Projections.** Plan tools use compact, capability-specific projections instead of the generic
+envelope projection. The generic 6,000-character projection truncated a 7.9 KB prescription to its
+first item and a 42 KB adherence payload to a fragment; the compact forms keep every prescription
+item (exercise, sets, reps, load, RIR, rest) and adherence totals, coverage, 12 periods and top
+exercises, and a programme summary.
+
 **Capacity.** The physical-device probe reported 8,192 tokens, tool calling and guided generation;
 eight tools with four history messages and 60 fact lines passed.
 
-**Tests.** 43 chat-related tests pass, including plan-tool gating, date resolution, structured
-DeepSeek answers and suggestion carrying. The three backend routes and unknown-query rejection are covered (12 tests).
+**Tests.** 44 chat-related tests pass, including plan-tool gating, date resolution, every-prescription-
+item projection, structured DeepSeek answers and suggestion carrying. The three backend routes and unknown-query rejection are covered (12 tests).
 
 **Open.** Device acceptance on both models; a visible “plan data omitted” note on the context
 fallback.
