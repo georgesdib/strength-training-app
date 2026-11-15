@@ -80,6 +80,17 @@ holds SHA-256 digests only and is written mode 0600. List and manage clients wit
 
 ## 6. Install, start, stop
 
+On a host whose checkout is not `/opt` (the home host keeps it under `/home/dsh`), use the
+installer. It renders this unit with the real service user, checkout, config, token and database
+paths, refuses to run the service as root, stops a manual listener on the port, installs, enables
+and verifies it:
+
+    sudo deploy/install-intelligence-mcp.sh              # install or update
+    sudo deploy/install-intelligence-mcp.sh --uninstall  # disable and remove
+    deploy/install-intelligence-mcp.sh --print           # render only; no root needed
+
+The manual steps below are the equivalent for a host that matches the unit's `/opt` paths:
+
     sudo install -m 0644 deploy/strength-intelligence-mcp.service /etc/systemd/system/
     sudo systemctl daemon-reload
     sudo systemctl enable --now strength-intelligence-mcp.service
