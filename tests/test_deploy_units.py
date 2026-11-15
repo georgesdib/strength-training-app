@@ -45,3 +45,11 @@ def test_worker_and_web_share_the_same_deployment_root():
     web = _unit("strength-coach-web.service")["Service"]
     assert service["WorkingDirectory"] == web["WorkingDirectory"]
     assert service["User"] == web["User"]
+
+
+def test_mcp_unit_passes_the_database_before_the_subcommand():
+    service = _unit("strength-intelligence-mcp.service")["Service"]
+    start = service["ExecStart"]
+    # --db is a global CLI option. After the subcommand argparse rejects it and the unit exits.
+    assert start.index("--db") < start.index("intelligence serve")
+    assert start.endswith("intelligence.local.yaml")

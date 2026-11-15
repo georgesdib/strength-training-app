@@ -24,7 +24,8 @@ Environment=PYTHONUNBUFFERED=1
 Environment=PYTHONDONTWRITEBYTECODE=1
 # The training date is server-local; set the intended zone explicitly.
 Environment=TZ=Europe/London
-ExecStart=/opt/strength-training-app/.venv/bin/strength-coach intelligence serve --db /var/lib/strength-coach/coach.db --config /etc/strength-coach/intelligence.v1.yaml --tokens /etc/strength-coach/intelligence.local.yaml
+# --db is a global CLI option: it must precede the subcommand or argparse rejects the unit.
+ExecStart=/opt/strength-training-app/.venv/bin/strength-coach --db /var/lib/strength-coach/coach.db intelligence serve --config /etc/strength-coach/intelligence.v1.yaml --tokens /etc/strength-coach/intelligence.local.yaml
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=20

@@ -303,7 +303,7 @@ exercises, 20 workouts) and report truncation; nothing is silently omitted.
 
     # enable the feature, then run the server as its own process
     #   config/intelligence.v1.yaml: enabled: true
-    strength-coach intelligence serve --db data/coach.db
+    strength-coach --db data/coach.db intelligence serve
     # equivalent: strength-intelligence-mcp --db data/coach.db
 
 The endpoint is `http://127.0.0.1:8765/mcp` by default. The server refuses to start (exit 2) when
