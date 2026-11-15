@@ -921,8 +921,10 @@ A context overflow retries with empty history. The prompt carries a "Today: YYYY
 "yesterday" is resolved against today, not against the latest prescription. The Chat header shows
 whether plan data is on.
 
-**Raw data.** Each assistant answer carries a “Show raw data” disclosure with the exact compact
-tool/fact text used, so the full prescription items can be inspected.
+**Plan card and raw data.** A prescription answer carries a deterministic card built from the
+fetched envelope: the exact date, session type and every item (exercise, sets × reps, load, RIR).
+The card is not model output, so it cannot be abbreviated or dated wrongly. A “Show raw data”
+disclosure still exposes the exact facts used.
 
 **Projections.** Plan tools use compact, capability-specific projections instead of the generic
 envelope projection. The generic 6,000-character projection truncated a 7.9 KB prescription to its
@@ -933,11 +935,10 @@ exercises, and a programme summary.
 **Capacity.** The physical-device probe reported 8,192 tokens, tool calling and guided generation;
 eight tools with four history messages and 60 fact lines passed.
 
-**Tests.** 49 chat-related tests pass, including plan-fact injection, date/week extraction, raw
-outputs, every-prescription-item projection, structured DeepSeek answers and suggestion carrying. The three backend routes and unknown-query rejection are covered (12 tests).
+**Tests.** 50 chat-related tests pass, including plan-fact injection, date/week extraction, the plan
+card, raw outputs, every-prescription-item projection, structured DeepSeek answers and suggestion
+carrying. The three backend routes and unknown-query rejection are covered (12 tests).
 
-**Status.** Complete (2026-11-15). The owner confirmed both providers on the iPhone. Known
-limitation: the on-device model may abbreviate a long prescription answer, though the full facts are
-injected and visible under “Show raw data”; DeepSeek can be slightly confusing about the date in
-prose while the facts are correct. Optional follow-up: deterministic formatting of a long
-prescription list.
+**Status.** Complete (2026-11-15). The owner confirmed both providers on the iPhone. The deterministic prescription card now shows the full list and exact date, so model prose
+abbreviation or a confused date no longer hides the prescription. Optional follow-up: shorten the
+model prose when a card is present.
