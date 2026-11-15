@@ -2138,3 +2138,26 @@ if (cohortHtml.indexOf("vbt-test") < 0 || cohortHtml.indexOf("Target 0.42") < 0)
     script = script.replace("SOURCE", json.dumps(source))
     result = _run_node(script)
     assert result.returncode == 0, result.stderr
+
+
+def test_workout_reps_input_switches_to_seconds_for_time_based_exercises() -> None:
+    page = (STATIC / "index.html").read_text(encoding="utf-8")
+    workout = (STATIC / "workout.js").read_text(encoding="utf-8")
+    # The label has its own node so the script can swap it without rebuilding the form.
+    assert "workout-set-reps-label" in page
+    assert "workout-edit-reps-label" in page
+    assert "function workoutRepsLabel" in workout
+    assert "function applyWorkoutRepsLabel" in workout
+    assert "meta.time_based" in workout
+    assert "applyWorkoutRepsLabel();" in workout
+
+
+def test_exercise_save_reports_why_it_did_not_send() -> None:
+    exercises = (STATIC / "exercises.js").read_text(encoding="utf-8")
+    # A blank id used to return silently: no request, no message, nothing saved.
+    assert "An exercise id is required" in exercises
+    # Native validation blocks the submit before the handler, so it must be surfaced too.
+    assert 'addEventListener("invalid"' in exercises
+    assert "is required or invalid" in exercises
+    # A catalogue that has not loaded leaves the required pattern select empty.
+    assert "loadExerciseCatalog().then" in exercises

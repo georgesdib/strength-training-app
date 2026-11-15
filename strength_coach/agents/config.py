@@ -46,6 +46,7 @@ ENV_KEYS = {
     "API_KEY": "api_key",
     "TEMPERATURE": "temperature",
     "MAX_TOKENS": "max_tokens",
+    "DAILY_TOKENS": "daily_tokens",
     "TIMEOUT_S": "timeout_s",
 }
 
@@ -62,6 +63,7 @@ class LLMSettings:
     api_key: str | None = None
     temperature: float = 0.2
     max_tokens: int = 700
+    daily_tokens: int = 150_000
     timeout_s: float = 30.0
     source: str = "defaults"
 
@@ -129,6 +131,7 @@ def _from_file(path: Path) -> LLMSettings:
         api_key=_optional_str(block.get("api_key")),
         temperature=float(block.get("temperature", 0.2)),
         max_tokens=int(block.get("max_tokens", 700)),
+        daily_tokens=int(block.get("daily_tokens", 150_000)),
         timeout_s=float(block.get("timeout_s", 30.0)),
     )
 
@@ -173,6 +176,7 @@ def describe(settings: LLMSettings | None = None) -> dict[str, Any]:
         "api_key": settings.masked_key(),
         "temperature": settings.temperature,
         "max_tokens": settings.max_tokens,
+        "daily_tokens": settings.daily_tokens,
         "timeout_s": settings.timeout_s,
         "enabled": settings.enabled,
         "source": settings.source,
@@ -207,6 +211,7 @@ def save_settings(settings: LLMSettings, path: str | Path | None = None) -> Path
     lines.extend([
         f"temperature = {float(settings.temperature)}",
         f"max_tokens = {int(settings.max_tokens)}",
+        f"daily_tokens = {int(settings.daily_tokens)}",
         f"timeout_s = {float(settings.timeout_s)}",
         "",
     ])
@@ -226,6 +231,7 @@ def update_llm_settings(
     clear_api_key: bool = False,
     temperature: float = 0.2,
     max_tokens: int = 700,
+    daily_tokens: int = 150_000,
     timeout_s: float = 30.0,
     path: str | Path | None = None,
 ) -> dict[str, Any]:
@@ -244,6 +250,8 @@ def update_llm_settings(
             raise LLMConfigError("temperature must be between 0 and 2")
         if int(max_tokens) <= 0:
             raise LLMConfigError("max_tokens must be positive")
+        if int(daily_tokens) < 0:
+            raise LLMConfigError("daily_tokens must be zero or positive")
         if float(timeout_s) <= 0:
             raise LLMConfigError("timeout_s must be positive")
     settings = LLMSettings(
@@ -253,6 +261,7 @@ def update_llm_settings(
         api_key=key,
         temperature=float(temperature),
         max_tokens=int(max_tokens),
+        daily_tokens=int(daily_tokens),
         timeout_s=float(timeout_s),
     )
     save_settings(settings, path)

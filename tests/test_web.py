@@ -144,7 +144,7 @@ def test_the_page_and_overview_are_served(server):
     assert "fatigue-model" in page
     assert "selection-result" in page
     assert 'id="programme-apply-selection"' in page
-    assert 'id="programme-selection-llm"' in page
+    assert 'id="programme-selection-llm"' not in page
     assert 'id="programme-selection-confirm"' in page
     # Import page explains that calibration is a later, separate step.
     assert "After the import" in page and "import-next" in page
@@ -537,7 +537,11 @@ def test_state_can_be_edited(server):
 def test_exercise_catalogue_is_served(server):
     status, body = get(server, "/api/exercises")
     assert status == 200
-    assert any(row["id"] == "ssb_squat" for row in json.loads(body))
+    rows = {row["id"]: row for row in json.loads(body)}
+    assert "ssb_squat" in rows
+    # The client labels a time-based movement in seconds instead of reps.
+    assert rows["plank"]["time_based"] is True
+    assert rows["bench_press"]["time_based"] is False
 
 def test_rubric_calibration_endpoint_is_gone(server):
     with pytest.raises(urllib.error.HTTPError) as excinfo:
@@ -642,27 +646,14 @@ def test_programme_job_endpoint_returns_a_pollable_result(server):
 
 
 @pytest.mark.slow
-def test_programme_endpoint_accepts_selection_flags(server):
+def test_programme_endpoint_accepts_deterministic_selection(server):
     data = post(server, "/api/programme", {
         "weeks": 1, "start": "2024-01-02", "start_session_type": "squat",
-        "apply_selection": True, "selection_llm": True,
+        "apply_selection": True,
     })
     assert data["entries"]
     selection = data["entries"][0]["prescription"]["notes"]["selection"]
     assert selection["requested"] is True
-    assert selection["llm_requested"] is True
-    assert selection["llm_unavailable"] is True
-    assert any("NullLLM" in warning for warning in data["entries"][0]["prescription"]["warnings"])
-
-
-def test_programme_cache_key_separates_llm_and_python_options(server):
-    base = {
-        "weeks": 1, "start": "2024-01-02", "start_session_type": "squat",
-        "apply_selection": True, "selection_confirmed": True,
-    }
-    python_key = post(server, "/api/programme/key", {**base, "selection_llm": False})["cache_key"]
-    llm_key = post(server, "/api/programme/key", {**base, "selection_llm": True})["cache_key"]
-    assert python_key != llm_key
 
 
 def test_programme_cache_key_changes_after_a_database_write(server):
@@ -3815,3 +3806,25 @@ def test_observations_payload_carries_a_count(server):
     data = json.loads(body)
     assert data["count"] == len(data["observations"])
     assert isinstance(data["families"], list)
+
+
+def test_history_edit_accepts_productivity(server):
+    status, body = get(server, "/api/history?limit=10&offset=0")
+    assert status == 200
+    session_id = json.loads(body)["sessions"][0]["session_id"]
+    status, body = get(server, f"/api/history/{session_id}")
+    detail = json.loads(body)
+
+    result = post(server, f"/api/history/{session_id}/edit", {
+        "sets": detail["sets"],
+        "productivity": 4,
+        "reason": "productivity backfill",
+    })
+    assert result["session"]["feedback"]["productivity"] == 4
+
+    code, body = post_status(server, f"/api/history/{session_id}/edit", {
+        "sets": detail["sets"],
+        "productivity": 9,
+        "reason": "invalid productivity",
+    })
+    assert code == 400

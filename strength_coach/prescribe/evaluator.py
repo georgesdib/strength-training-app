@@ -9,7 +9,7 @@ generator into the engine.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -48,7 +48,6 @@ class EvaluationInputs:
     vbt: Any = None
     readiness_config: Any = None
     apply_selection: bool = False
-    selection_chooser: Callable[..., Any] | None = None
     selection_confirmed: bool = False
     minimum_session: bool = False
     minimum_target_minutes: int | None = None
@@ -65,10 +64,10 @@ class EvaluationInputs:
 
     def validate_for_resolver(self) -> None:
         """Reject inputs that could replace the assigned exercise selection."""
-        if self.apply_selection or self.selection_chooser is not None or self.selection_confirmed:
+        if self.apply_selection or self.selection_confirmed:
             raise ValueError(
                 "resolver evaluation cannot apply selection; "
-                "apply_selection/selection_chooser/selection_confirmed must be off"
+                "apply_selection/selection_confirmed must be off"
             )
 
     def as_build_kwargs(self) -> dict[str, Any]:
@@ -81,7 +80,6 @@ class EvaluationInputs:
             "vbt": self.vbt,
             "readiness_config": self.readiness_config,
             "apply_selection": self.apply_selection,
-            "selection_chooser": self.selection_chooser,
             "selection_confirmed": self.selection_confirmed,
             "minimum_session": self.minimum_session,
             "minimum_target_minutes": self.minimum_target_minutes,

@@ -351,6 +351,14 @@ function openExerciseDetails(row) {
   $("#exercise-detail-dose").innerHTML = row
     ? "<p class='empty'>Loading complete-range analytics…</p>" : "<p class='empty'>Save the exercise before viewing analytics.</p>";
   $("#exercise-detail-records").innerHTML = "<p class='empty'>No historical records loaded.</p>";
+  $("#exercise-details-msg").textContent = "";
+  if (!(window.__exerciseCatalog && (window.__exerciseCatalog.patterns || []).length)) {
+    // The pattern select is built from the catalogue. Without it the required field is empty,
+    // the browser blocks the submit, and the save looks like it did nothing.
+    loadExerciseCatalog().then(function () {
+      setPatternSelect("#exercise-detail-pattern", props.pattern || "");
+    });
+  }
   $("#exercise-details-dialog").showModal();
   if (row) loadExerciseTrends(row);
 }
@@ -384,7 +392,13 @@ function saveExerciseDetails(event) {
   event.preventDefault();
   const id = $("#exercise-detail-id").value.trim();
   window.__exerciseDetailsId = id;
-  if (!id) return;
+  if (!id) {
+    // Never fail silently: a blank id used to return here with no request and no message.
+    $("#exercise-details-msg").textContent =
+      "An exercise id is required: lowercase letters, digits and underscores (for example side_plank).";
+    $("#exercise-detail-id").focus();
+    return;
+  }
   let extra;
   try {
     extra = JSON.parse($("#exercise-detail-extra").value.trim() || "{}");
@@ -451,6 +465,14 @@ function saveExerciseDetails(event) {
 
 $("#exercise-details-cancel").addEventListener("click", () => $("#exercise-details-dialog").close());
 $("#exercise-details-form").addEventListener("submit", saveExerciseDetails);
+// Native validation blocks the submit before the handler runs, so a missing ID, display name
+// or pattern used to look like "nothing happened". Say it inside the dialog instead.
+$("#exercise-details-form").addEventListener("invalid", function (event) {
+  const field = event.target;
+  const label = field.closest("label");
+  const name = label ? label.textContent.trim().split(/\s+/)[0] : "A field";
+  $("#exercise-details-msg").textContent = name + " is required or invalid.";
+}, true);
 function renderExerciseCatalog() {
   const data = window.__exerciseCatalog;
   if (!data) return;

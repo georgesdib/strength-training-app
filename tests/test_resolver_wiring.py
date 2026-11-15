@@ -747,7 +747,7 @@ def test_prescription_fingerprint_canonical_and_material() -> None:
         }, **change}
         assert resolver.prescription_input_fingerprint(**altered) != base
 
-    with pytest.raises(TypeError, match="unsupported fingerprint input"):
+    with pytest.raises(TypeError, match="unexpected keyword argument"):
         resolver.prescription_input_fingerprint(
             for_date="2024-01-15",
             session_type="squat",
@@ -755,7 +755,8 @@ def test_prescription_fingerprint_canonical_and_material() -> None:
             template_digest="t" * 64,
             policy_digest="p" * 64,
             catalogue_digest="c" * 64,
-            inputs=EvaluationInputs(selection_chooser=object()),
+            inputs=EvaluationInputs(),
+            bogus_input=1,
             resolved={},
             resolver_settings={},
             candidate_pools={},

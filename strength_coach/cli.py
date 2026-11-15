@@ -31,7 +31,7 @@ from strength_coach.agents import (
     load_settings,
 )
 from strength_coach.agents import proposal as proposal_mod
-from strength_coach.agents import selection as agent_selection
+from strength_coach.analytics import core as derived_core
 from strength_coach.critique import UnknownSessionError
 from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.features import breaks as breaks_feature
@@ -109,6 +109,13 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("import", help="load data/raw into the store")
 
+    analytics = sub.add_parser("analytics", help="derived analytics families")
+    analytics_sub = analytics.add_subparsers(dest="analytics_command", required=True)
+    analytics_build = analytics_sub.add_parser(
+        "build", help="backfill/refresh the core derived family"
+    )
+    analytics_build.add_argument("--batch-size", type=int, default=200)
+
     run = sub.add_parser("run", help="prescribe a date from the latest session")
     run.add_argument("--date", required=True, help="date to prescribe, YYYY-MM-DD")
     run.add_argument("--session-type", choices=("auto", "squat", "hinge", "bench_squat", "bench_hinge", "accessory"),
@@ -123,8 +130,6 @@ def main(argv: list[str] | None = None) -> int:
                      help="ask the model for a structural proposal (requires --llm on)")
     run.add_argument("--apply-selection", action="store_true",
                      help="apply the shadow selector's exercise substitutions")
-    run.add_argument("--selection-llm", action="store_true",
-                     help="let the model choose among the filtered candidates (requires --apply-selection)")
     run.add_argument("--selection-confirm", action="store_true",
                      help="confirm a near-comparable (class B) substitution; class C is never automatic")
     run.add_argument("--yes", action="store_true",
@@ -232,8 +237,6 @@ def main(argv: list[str] | None = None) -> int:
                            help="first session type; default: rolling")
     programme.add_argument("--apply-selection", action="store_true",
                            help="apply the shadow selector's exercise substitutions to each forecast")
-    programme.add_argument("--selection-llm", action="store_true",
-                           help="let the model choose among filtered candidates (requires --apply-selection)")
     programme.add_argument("--selection-confirm", action="store_true",
                            help="confirm a near-comparable (class B) substitution")
 
@@ -542,6 +545,51 @@ def main(argv: list[str] | None = None) -> int:
     web.add_argument("--port", type=int, default=8000, help="port (default 8000)")
     web.add_argument("--open", action="store_true", help="open a browser")
 
+    intelligence = sub.add_parser(
+        "intelligence",
+        help="run the read-only MCP server or manage its client tokens",
+    )
+    intelligence_sub = intelligence.add_subparsers(
+        dest="intelligence_command", required=True
+    )
+    intelligence_serve = intelligence_sub.add_parser(
+        "serve", help="run the read-only MCP server (Streamable HTTP)"
+    )
+    intelligence_serve.add_argument("--config", default=None, help="intelligence config path")
+    intelligence_serve.add_argument("--tokens", default=None, help="client token file path")
+    intelligence_serve.add_argument("--host", default=None, help="bind address override")
+    intelligence_serve.add_argument("--port", type=int, default=None, help="bind port override")
+    intelligence_narrate = intelligence_sub.add_parser(
+        "narrate", help="explain one capability envelope with the configured model"
+    )
+    intelligence_narrate.add_argument("--capability", required=True, help="capability name")
+    intelligence_narrate.add_argument(
+        "--payload", default="{}", help="capability request JSON (default: {})"
+    )
+    intelligence_narrate.add_argument("--json", action="store_true", help="emit JSON")
+    intelligence_narrate.add_argument(
+        "--no-trace", action="store_true", help="do not write a run/run_event trace"
+    )
+    intelligence_token = intelligence_sub.add_parser(
+        "token", help="create, list, rotate or revoke MCP client tokens"
+    )
+    token_sub = intelligence_token.add_subparsers(dest="token_command", required=True)
+    token_create = token_sub.add_parser("create", help="create a client token (shown once)")
+    token_create.add_argument("--label", required=True, help="human label for the client")
+    token_create.add_argument("--tokens", default=None, help="client token file path")
+    token_list = token_sub.add_parser("list", help="list clients and their status")
+    token_list.add_argument("--tokens", default=None, help="client token file path")
+    token_rotate = token_sub.add_parser(
+        "rotate", help="replace a client token; the old token stops working"
+    )
+    token_rotate.add_argument("client_id")
+    token_rotate.add_argument("--tokens", default=None, help="client token file path")
+    token_revoke = token_sub.add_parser(
+        "revoke", help="revoke a client; its token stops working"
+    )
+    token_revoke.add_argument("client_id")
+    token_revoke.add_argument("--tokens", default=None, help="client token file path")
+
     block = sub.add_parser("block", help="declare or reset the block start (week 1)")
     block.add_argument("--date", required=True, help="YYYY-MM-DD")
     block.add_argument("--force", action="store_true",
@@ -592,6 +640,8 @@ def main(argv: list[str] | None = None) -> int:
         "readiness": _cmd_readiness,
         "ios": _cmd_ios,
         "web": _cmd_web,
+        "intelligence": _cmd_intelligence,
+        "analytics": _cmd_analytics,
     }
     try:
         return handlers[args.command](args)
@@ -652,19 +702,12 @@ def _cmd_run(args) -> int:
         if args.minimum_include_main and not args.minimum_session:
             print("--minimum-include-main requires --minimum-session")
             return 2
-        if args.selection_llm and not args.apply_selection:
-            print("--selection-llm requires --apply-selection")
-            return 2
         if args.selection_confirm and not args.apply_selection:
             print("--selection-confirm requires --apply-selection")
             return 2
         session_type = (
             schedule_mod.next_session_type(conn, args.date)
             if args.session_type == "auto" else args.session_type
-        )
-        chooser = (
-            agent_selection.chooser(build_client(load_settings()))
-            if args.selection_llm else None
         )
         # Resolve deload before building: the engine must apply it before minimum session and
         # final validation, not after validation.
@@ -696,7 +739,7 @@ def _cmd_run(args) -> int:
                           "(use --deload yes to apply)")
         prescription = build_prescription(
             conn, for_date=args.date, session_type=session_type,
-            apply_selection=args.apply_selection, selection_chooser=chooser,
+            apply_selection=args.apply_selection,
             selection_confirmed=args.selection_confirm,
             minimum_session=args.minimum_session,
             minimum_target_minutes=args.target_minutes,
@@ -1204,21 +1247,14 @@ def _cmd_programme(args) -> int:
         elif start is None:
             profile = queries.athlete_profile(conn)
             start = (profile or {}).get("block_start_date") or datetime.date.today().isoformat()
-        if args.selection_llm and not args.apply_selection:
-            print("--selection-llm requires --apply-selection")
-            return 2
         if args.selection_confirm and not args.apply_selection:
             print("--selection-confirm requires --apply-selection")
             return 2
-        chooser = (
-            agent_selection.chooser(build_client(load_settings()))
-            if args.selection_llm else None
-        )
         entries = programme_feature.build_programme(
             conn, start=start, weeks=args.weeks,
             per_week=args.sessions_per_week,
             start_session_type=args.start_session_type,
-            apply_selection=args.apply_selection, selection_chooser=chooser,
+            apply_selection=args.apply_selection,
             selection_confirmed=args.selection_confirm,
         )
         print(f"programme: {args.weeks} week(s) from {start}; forecast only, "
@@ -1302,6 +1338,172 @@ def _cmd_ios(args) -> int:
         return 2
     finally:
         store.close()
+
+
+def _cmd_intelligence(args) -> int:
+    """Run the read-only MCP server or manage its client tokens.
+
+    Tokens are per MCP client and live only as SHA-256 digests in the git-ignored
+    config/intelligence.local.yaml. create and rotate print the plaintext token exactly once.
+    """
+    from strength_coach.intelligence.config import local_config_path
+    from strength_coach.intelligence.tokens import TokenStore, TokenStoreError
+
+    if args.intelligence_command == "serve":
+        from strength_coach.intelligence.mcp.run import serve
+
+        return serve(
+            config_path=args.config,
+            db_path=args.db,
+            tokens_path=args.tokens,
+            host=args.host,
+            port=args.port,
+        )
+
+    if args.intelligence_command == "narrate":
+        return _cmd_intelligence_narrate(args)
+
+    path = Path(args.tokens) if args.tokens else local_config_path()
+    try:
+        store = TokenStore.load(path)
+        if args.token_command == "create":
+            client, token = store.create(args.label)
+            print(f"client {client.client_id} ({client.label}) created")
+            print(f"token: {token}")
+            print("store it now: it is not recoverable and is never written to disk")
+            return 0
+        if args.token_command == "list":
+            clients = store.clients
+            if not clients:
+                print(f"no MCP clients in {path}")
+                return 0
+            print(f"{'client_id':<16}{'status':<10}{'created':<22}{'label'}")
+            for client in clients:
+                status = "active" if client.active else "revoked"
+                print(f"{client.client_id:<16}{status:<10}{client.created_at:<22}{client.label}")
+            return 0
+        if args.token_command == "rotate":
+            client, token = store.rotate(args.client_id)
+            print(f"client {client.client_id} rotated; the previous token is now invalid")
+            print(f"token: {token}")
+            print("store it now: it is not recoverable and is never written to disk")
+            return 0
+        if args.token_command == "revoke":
+            client = store.revoke(args.client_id)
+            print(f"client {client.client_id} revoked")
+            return 0
+    except TokenStoreError as exc:
+        print(f"intelligence token: {exc}")
+        return 2
+    print("unknown intelligence token command")
+    return 2
+
+
+def _cmd_intelligence_narrate(args) -> int:
+    """Run one read-only capability and explain its envelope.
+
+    The deterministic envelope is the artifact; the model only writes prose. Trace rows are
+    append-only and are skipped with --no-trace.
+    """
+    import hashlib
+
+    from strength_coach.agents.client import LLMError, LLMUnavailable
+    from strength_coach.agents.config import build_client
+    from strength_coach.intelligence.auth import INTERNAL_PRINCIPAL
+    from strength_coach.intelligence.config import load_config
+    from strength_coach.intelligence.model import (
+        NarrativeBudgetError,
+        NarrativeValidationError,
+        ensure_daily_budget,
+        narrate_envelope,
+        narrative_facts,
+    )
+    from strength_coach.intelligence.service import IntelligenceService
+    from strength_coach.store import db
+    from strength_coach.trace.run import RunTrace
+
+    try:
+        payload = json.loads(args.payload)
+    except json.JSONDecodeError as exc:
+        print(f"narrate: --payload is not JSON: {exc}")
+        return 2
+    if not isinstance(payload, dict):
+        print("narrate: --payload must be a JSON object")
+        return 2
+
+    from strength_coach.agents.config import load_settings
+
+    settings = load_settings()
+    client = build_client(settings)
+    if not client.available:
+        print("narrate: no model is configured (set config/llm.local.toml)")
+        return 2
+
+    store = db.Store(args.db)
+    trace = None
+    try:
+        service = IntelligenceService(store.connection, config=load_config())
+        result = service.execute(INTERNAL_PRINCIPAL, args.capability, payload)
+        if not result.ok:
+            error = result.error
+            print(f"narrate: {error.code}: {error.message}")
+            return 2
+        envelope = result.envelope
+        ensure_daily_budget(store.connection, settings.daily_tokens)
+        if not args.no_trace:
+            trace = RunTrace.start(
+                store.connection,
+                input_hash=hashlib.sha256(
+                    json.dumps([args.capability, payload], sort_keys=True).encode("utf-8")
+                ).hexdigest(),
+                llm_model=client.model,
+            )
+            trace.event(
+                "input", {"capability": args.capability, "payload": payload}
+            )
+        narrative = narrate_envelope(client, envelope, trace)
+        if trace is not None:
+            trace.finish(status="ok")
+            store.connection.commit()
+        if args.json:
+            print(
+                json.dumps(
+                    {
+                        "headline": narrative.headline,
+                        "observations": list(narrative.observations),
+                        "limitations": list(narrative.limitations),
+                        "warnings": list(narrative.warnings),
+                        "raw": narrative_facts(envelope),
+                        "tokens": narrative.tokens,
+                    },
+                    indent=2,
+                )
+            )
+        else:
+            print(narrative.headline)
+            for observation in narrative.observations:
+                print(f"- {observation}")
+            for limitation in narrative.limitations:
+                print(f"limitation: {limitation}")
+        return 0
+    except (LLMUnavailable, LLMError, NarrativeBudgetError, NarrativeValidationError) as exc:
+        if trace is not None:
+            trace.finish(status="llm_failed")
+            store.connection.commit()
+        print(f"narrate: {exc}")
+        return 1
+    finally:
+        store.close()
+
+
+def _cmd_analytics(args) -> int:
+    store = db.Store(args.db)
+    try:
+        state = derived_core.build(store.connection, batch_size=args.batch_size)
+    finally:
+        store.close()
+    print(json.dumps(state, indent=2, default=str))
+    return 0 if state.get("ready") else 1
 
 
 def _cmd_web(args) -> int:
@@ -2004,11 +2206,8 @@ def _cmd_select(args) -> int:
     store = db.Store(args.db)
     try:
         conn = store.connection
-        chooser = None
-        if args.llm:
-            chooser = agent_selection.chooser(build_client(load_settings()))
         rows = selection_mod.select(
-            conn, None, args.date, args.session_type, chooser=chooser,
+            conn, None, args.date, args.session_type,
             include_different=args.include_different,
         )
         fatigue = (

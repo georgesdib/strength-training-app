@@ -1,4 +1,4 @@
-# Generated documentation bundle (tools/docs_pdf.py); build output, not source.
+# Generated build output, not source.
 dist/
 
 # Python
@@ -26,6 +26,8 @@ data/resolver-policy-backups/
 # file may contain an API key and must never be pushed.
 # ---------------------------------------------------------------------------
 config/llm.local.toml
+# MCP client token digests. The committed config/intelligence.v1.yaml has no secrets.
+config/intelligence.local.yaml
 config/volume.local.yaml
 config/exercises/demands.local.yaml
 config/strength-relationships.local.yaml
@@ -49,6 +51,9 @@ tests/*_integration.py
 # Anything that looks like a personal export
 *backupDB*.csv
 *backupReadiness*.csv
+
+# Local database backups (real athlete data; never commit)
+backups/
 
 # macOS Finder metadata
 .DS_Store

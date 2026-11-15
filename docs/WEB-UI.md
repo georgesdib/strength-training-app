@@ -100,7 +100,7 @@ whose date/session no longer matches the form is discarded, and changing the for
 invalidates the cache immediately. The Workflow
 build itself runs as a polled background job and shows elapsed seconds, so a long resolver build
 cannot end in a browser load failure. The cache is
-not a server-side prescription and is cleared when the workout starts. **Use LLM** appears only when Apply is ticked. Without the toggle the
+not a server-side prescription and is cleared when the workout starts. Apply selection is deterministic. Without the toggle the
   prescription is unchanged. The **Retrospective validation** panel runs the walk-forward check. A scheduled deload is shown as a suggestion with an **Apply deload** button; it is not applied until confirmed. Reactive deloads are automatic. Applied deloads cite `MOD-DELOAD-001`. Main lifts show their warm-up ramp; the strength-test cadence is shown in the notes. The volume ledger now applies `MOD-VOL-002` (one accessory set after three weeks below MEV). When a trustworthy calibration exists, each prescription item has an expandable **VBT** target showing the median velocity, robust calibration band, rep count, RIR band, lift/family scope, sample size, method version and calibration id. A missing target is stated with its reason; no target is invented and no legacy target is reconstructed.
 - **Outcomes → Form trend** — current vs previous equal window, latest rating, change and
   session counts; descriptive only.
@@ -194,8 +194,10 @@ ratio inherits its precision limits.
   path.
 - **Prescribe → Regime change** — read-only 8-week check for a main lift disappearing while a
   same-category substitute rises; a review question, never an action.
+- **Chat** — read-only multi-turn conversation over the same capability catalogue, with a 20-turn cap, only the recent ten messages sent, session-only browser memory, a separate “Suggestion — not applied” block, source capabilities and unverified-number warnings. It never writes or applies a suggestion.
+- **Narrate** — under Programme Intelligence: choose any registered read-only capability, edit its JSON payload, and ask the configured model for a validated narrative. The model and token count are shown; numbers absent from the envelope appear as an **Unverified numbers** warning rather than a failure. Selecting a capability shows its description, required/optional payload fields and a working example; **Show raw output** exposes the exact facts passed to the model. The envelope is unchanged and the prompt/narrative are not stored. A missing model is a clear error, not a fallback.
 - **Settings** — appearance (System / Light / Dark), optional LLM configuration (enable/disable, model, endpoint, write-only key,
-  temperature/tokens/timeout), an **iOS settings** panel for `config/ios.v1.yaml` (`mutations_enabled`, issued-plan TTL, plan-request TTL and receipt retention; integer/boolean controls with server ranges, effective values, source and per-request reload, so no restart is needed), browser-only Prescribe defaults, a collapsed read-only **Monitoring & reports** inventory with search/group filters, a dedicated **Resolver** panel (append-only scalar settings with explicit enable confirmation, validated structural YAML with backups/digest, read-only preview with alternatives/suggestions, unrated suggestions shown provisionally with inline suitability rating and a Start handoff blocked until they are rated; the preview runs as a polled background job so a long resolver build cannot end in a browser load failure), and read-only app/database paths.
+  temperature/tokens/timeout/daily token budget), an **iOS settings** panel for `config/ios.v1.yaml` (`mutations_enabled`, issued-plan TTL, plan-request TTL and receipt retention; integer/boolean controls with server ranges, effective values, source and per-request reload, so no restart is needed), browser-only Prescribe defaults, a collapsed read-only **Monitoring & reports** inventory with search/group filters, a dedicated **Resolver** panel (append-only scalar settings with explicit enable confirmation, validated structural YAML with backups/digest, read-only preview with alternatives/suggestions, unrated suggestions shown provisionally with inline suitability rating and a Start handoff blocked until they are rated; the preview runs as a polled background job so a long resolver build cannot end in a browser load failure), and read-only app/database paths.
   The key is masked and lives in git-ignored `config/llm.local.toml`.
 - **Logs** — manually refreshed recent tail, capped at 500 records in process memory and cleared
   when the server restarts; this is not a durable audit history or system-health monitor.
@@ -284,7 +286,7 @@ behaviour still require a physical-device pass.
 - State editing is available; the taxonomy itself and programme rules remain config/CLI.
 - The **Logs** page shows the in-memory application/HTTP tail (`/api/logs`); it is a local
   diagnostic surface and resets when the web process restarts.
-- When **Use LLM** is requested without a configured model, the prescription carries a warning
+- Selection is deterministic; no model chooses exercises.
   and `selection.llm_unavailable = true`; the UI says that NullLLM fallback was used.
 - The Programme page uses the **job + sessionStorage cache** path. The cache key includes the
   app version, request, resolved profile, database revision and relevant config hashes, so a

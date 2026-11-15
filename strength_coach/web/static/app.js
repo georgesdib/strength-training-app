@@ -945,18 +945,12 @@ let prescribeBusy = false;
 let prescribeQueued = false;
 
 $("#prescribe-apply-selection").addEventListener("change", () => {
-  const llmWrap = $("#prescribe-selection-llm-wrap");
   const confirmWrap = $("#prescribe-selection-confirm-wrap");
   const on = $("#prescribe-apply-selection").checked;
-  llmWrap.hidden = !on;
   confirmWrap.hidden = !on;
   if (!on) {
-    $("#prescribe-selection-llm").checked = false;
     $("#prescribe-selection-confirm").checked = false;
   }
-  if (prescribeBusy) prescribeQueued = true;
-});
-$("#prescribe-selection-llm").addEventListener("change", () => {
   if (prescribeBusy) prescribeQueued = true;
 });
 $("#prescribe-selection-confirm").addEventListener("change", () => {
@@ -1027,14 +1021,13 @@ $("#prescribe-form").addEventListener("submit", async (event) => {
   const sessionType = $("#prescribe-session-type").value;
   $("#prescribe-result").innerHTML = "<p class='empty'>Building…</p>";
   const applySelection = $("#prescribe-apply-selection").checked;
-  const selectionLlm = applySelection && $("#prescribe-selection-llm").checked;
   const selectionConfirmed = applySelection && $("#prescribe-selection-confirm").checked;
   const scoreReady = window.__workflowReadinessData?.score?.status === "ready";
   const topSetValue = $("#prescribe-top-set").value;
   lastPrescribePayload = {
     date, session_type: sessionType,
     top_set: topSetValue === "on" ? true : topSetValue === "off" ? false : null,
-    apply_selection: applySelection, selection_llm: selectionLlm,
+    apply_selection: applySelection,
     selection_confirmed: selectionConfirmed,
     minimum_session: $("#prescribe-minimum").checked,
     target_minutes: Number($("#prescribe-target").value),
@@ -1265,11 +1258,8 @@ function renderPrescription(p, options = {}) {
   const selectionSuggestions = (selection?.slots || []).filter(
     (s) => s.trigger && s.trigger !== "none" && s.changed
   );
-  const selectionLlmWarning = selection?.llm_unavailable
-    ? '<p class="warnbox">LLM requested but not configured; NullLLM fallback was used.</p>'
-    : "";
-  const selectionBox = selectionLlmWarning + (selection?.applied
-    ? `<p class="muted">Selection applied (${esc(selection.llm_used ? "LLM" : "Python")}); substituted slots are cited as <code>MOD-SELECT-001</code>.</p>`
+  const selectionBox = (selection?.applied
+    ? `<p class="muted">Selection applied (deterministic); substituted slots are cited as <code>MOD-SELECT-001</code>.</p>`
     : selection?.slots?.some((s) => s.blocked_reason)
       ? `<p class="warnbox">Selection skipped: ${esc(selection.slots.filter((s) => s.blocked_reason).map((s) => s.slot_id + " (" + s.blocked_reason + ")").join("; "))}</p>`
       : selectionSuggestions.length
@@ -1428,11 +1418,10 @@ async function loadSelection() {
   const date = $("#prescribe-date").value;
   const sessionType = $("#prescribe-session-type").value;
   if (!date) { $("#selection-result").innerHTML = "<p class='empty'>Choose a date first.</p>"; return; }
-  const llm = $("#selection-llm").checked ? "1" : "0";
   const different = $("#selection-include-different").checked ? "1" : "0";
   $("#selection-result").innerHTML = "<p class='empty'>Scoring variants…</p>";
   try {
-    const data = await api(`/api/selection?date=${encodeURIComponent(date)}&session_type=${encodeURIComponent(sessionType)}&llm=${llm}&include_different=${different}`);
+    const data = await api(`/api/selection?date=${encodeURIComponent(date)}&session_type=${encodeURIComponent(sessionType)}&include_different=${different}`);
     const rows = (data.slots || []).map((slot) => {
       const candidates = slot.candidates.map((c) =>
         `<li>${esc(c.exercise_id)} — ${c.score}
@@ -3004,14 +2993,6 @@ function renderProgramme(entries, fromCache = false) {
     $("#programme-result").innerHTML = "<p class='warnbox'>No sessions in that horizon.</p>";
     return;
   }
-  const llmFallback = entries.some(
-    (entry) => entry.prescription.notes?.selection?.llm_unavailable
-  );
-  const llmWarning = llmFallback
-    ? `<p class="warnbox"><strong>LLM requested but not configured.</strong>
-       NullLLM fallback was used for exercise selection. Configure an LLM in Settings or untick
-       <em>Use LLM</em>.</p>`
-    : "";
   const cacheNote = fromCache
     ? `<p class="muted">Loaded from this session's cache for these form options. Switching an
        option back can restore its earlier build without rebuilding.</p>`
@@ -3041,7 +3022,7 @@ function renderProgramme(entries, fromCache = false) {
       <td>${esc(entry.date)}</td>
       <td><strong>${esc(sessionLabel(entry.session_type))}</strong>
         ${entry.prescription.notes?.selection?.requested
-          ? `<div class="muted">selection ${entry.prescription.notes.selection.applied ? "applied" : "preview"}${entry.prescription.notes.selection.llm_used ? " · LLM" : entry.prescription.notes.selection.llm_requested ? " · LLM fallback" : ""}</div>`
+          ? `<div class="muted">selection ${entry.prescription.notes.selection.applied ? "applied" : "preview"}</div>`
           : ""}</td>
       <td>${esc(programmeStatus(entry))}</td>
       <td><ul class="plain">${items}</ul>
@@ -3051,7 +3032,7 @@ function renderProgramme(entries, fromCache = false) {
         ${warn}</td>
     </tr>`;
   }).join("");
-  $("#programme-result").innerHTML = `<div class="panel">${llmWarning}${cacheNote}<table>
+  $("#programme-result").innerHTML = `<div class="panel">${cacheNote}<table>
     <thead><tr><th>Date</th><th>Session type</th><th>Status</th><th>Session</th></tr></thead>
     <tbody>${rows}</tbody></table></div>`;
 }
@@ -3089,7 +3070,6 @@ function programmePayload() {
     sessions_per_week: Number($("#programme-per-week").value || 3),
     start_session_type: $("#programme-session-type").value || "auto",
     apply_selection: applySelection,
-    selection_llm: applySelection && $("#programme-selection-llm").checked,
     selection_confirmed: applySelection && $("#programme-selection-confirm").checked,
   };
 }
@@ -3173,15 +3153,12 @@ function programmeSelectionChanged() {
 
 function syncProgrammeSelection() {
   const on = $("#programme-apply-selection").checked;
-  $("#programme-selection-llm-wrap").hidden = !on;
   $("#programme-selection-confirm-wrap").hidden = !on;
   if (!on) {
-    $("#programme-selection-llm").checked = false;
     $("#programme-selection-confirm").checked = false;
   }
 }
 $("#programme-apply-selection")?.addEventListener("change", programmeSelectionChanged);
-$("#programme-selection-llm")?.addEventListener("change", programmeSelectionChanged);
 $("#programme-selection-confirm")?.addEventListener("change", programmeSelectionChanged);
 syncProgrammeSelection();
 
@@ -3748,3 +3725,176 @@ async function loadKpis(progress) {
     target.innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
 }
+
+/* --- Narrate (INT-5) --------------------------------------------------- */
+const NARRATE_GUIDE = {
+  get_weekly_review: {
+    text: "Explain the most recently completed Monday–Sunday week: activity, adherence, sessions, progression, volume, readiness coverage and programme state.",
+    usage: "Payload: {} for the latest completed week, or {\"week_end\":\"YYYY-MM-DD\"} for the week containing that date.",
+    example: {},
+  },
+  get_training_overview: {
+    text: "Explain the four-week training overview: attendance, performance direction, volume coverage and readiness coverage.",
+    usage: "Payload: {} for the last four weeks, or {\"as_of\":\"YYYY-MM-DD\",\"window_weeks\":4}.",
+    example: {},
+  },
+  get_exercise_progression: {
+    text: "Explain one exercise's e1RM progression, its confidence interval and whether the trend is comparable.",
+    usage: "Required: exercise_id. Payload: {\"exercise_id\":\"trap_bar_deadlift\",\"window_days\":84}.",
+    example: { exercise_id: "trap_bar_deadlift" },
+  },
+  get_readiness_history: {
+    text: "Explain the readiness score and coverage over a date range. Raw health fields are optional and bounded by the capability.",
+    usage: "Required: from and to. Payload: {\"from\":\"YYYY-MM-DD\",\"to\":\"YYYY-MM-DD\",\"fields\":[\"score\"]}.",
+    example: { from: "2026-11-01", to: "2026-11-15", fields: ["score"] },
+  },
+  get_session_details: {
+    text: "Explain one completed workout: exercises, sets, loads, RIR and the comparison with the frozen prescription.",
+    usage: "Required: exactly one of workout_id or session_id. Payload: {\"session_id\":\"<id>\"}.",
+    example: {},
+  },
+  get_prescription: {
+    text: "Explain the persisted training prescription for a date, or the current prescription, including items and provenance.",
+    usage: "Payload: {} for the current prescription, or {\"for_date\":\"YYYY-MM-DD\"}; prescription_id is also accepted.",
+    example: {},
+  },
+  get_programme_block_summary: {
+    text: "Explain the programme block state: window, settings, deload, regime and attendance.",
+    usage: "Payload: {} for today, or {\"as_of\":\"YYYY-MM-DD\",\"block_weeks\":4} (4, 6 or 8).",
+    example: {},
+  },
+  get_adherence_analysis: {
+    text: "Explain adherence: set completion, reps/load/RIR attainment, weekly periods and per-exercise coverage.",
+    usage: "Payload: {\"weeks\":12}, or {\"from\":\"YYYY-MM-DD\",\"to\":\"YYYY-MM-DD\"}.",
+    example: { weeks: 12 },
+  },
+  compare_training_periods: {
+    text: "Explain a descriptive comparison between two date windows for one metric.",
+    usage: "Required: period_a, period_b and metric. Payload example uses attendance; strength_direction also needs exercise_id.",
+    example: {
+      period_a: { start: "2026-09-01", end: "2026-09-30" },
+      period_b: { start: "2026-10-01", end: "2026-10-31" },
+      metric: "attendance",
+    },
+  },
+  get_vbt_analysis: {
+    text: "Explain velocity-based training coverage and estimated 1RM from the available rep-velocity data.",
+    usage: "Payload: {\"window_days\":56}, optionally exercise_id.",
+    example: { window_days: 56 },
+  },
+};
+function syncNarrateCapability() {
+  const capability = $("#narrate-capability")?.value;
+  const guide = NARRATE_GUIDE[capability] || {};
+  const help = $("#narrate-help");
+  const usage = $("#narrate-usage");
+  const payload = $("#narrate-payload");
+  if (help) help.textContent = guide.text || "";
+  if (usage) usage.textContent = guide.usage || "";
+  if (payload) payload.value = JSON.stringify(guide.example || {}, null, 2);
+}
+$("#narrate-capability")?.addEventListener("change", syncNarrateCapability);
+if ($("#narrate-capability")) syncNarrateCapability();
+
+$("#narrate-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = $("#narrate-submit");
+  const message = $("#narrate-msg");
+  const target = $("#narrate-result");
+  const capability = $("#narrate-capability").value;
+  message.textContent = "Narrating…";
+  message.setAttribute("role", "status");
+  button.disabled = true;
+  target.innerHTML = "";
+  try {
+    let payload;
+    try {
+      payload = JSON.parse($("#narrate-payload").value || "{}");
+    } catch (error) {
+      throw new Error("Request payload is not valid JSON: " + error.message);
+    }
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      throw new Error("Request payload must be a JSON object.");
+    }
+    const data = await api("/api/intelligence/narrate", {
+      method: "POST",
+      body: JSON.stringify({ capability, payload }),
+    });
+    const observations = (data.observations || [])
+      .map((item) => "<li>" + esc(item) + "</li>").join("");
+    const limitations = (data.limitations || [])
+      .map((item) => "<li>" + esc(item) + "</li>").join("");
+    const warnings = (data.warnings || [])
+      .map((item) => "<li>" + esc(item) + "</li>").join("");
+    target.innerHTML = '<div class="panel">' +
+      '<div class="panel-head"><h2>' + esc(data.headline || "Narrative") +
+      '</h2><span class="muted">' + esc(data.model || "model") +
+      (data.tokens == null ? "" : " · " + esc(data.tokens) + " tokens") + "</span></div>" +
+      (observations ? "<ul>" + observations + "</ul>" : "") +
+      (warnings ? "<div class=\"warnbox\"><strong>Unverified numbers</strong><ul>" + warnings + "</ul></div>" : "") +
+      (limitations ? "<p class=\"muted\"><strong>Limitations</strong></p><ul>" + limitations + "</ul>" : "") +
+      (data.raw ? "<details class=\"raw-output\"><summary>Show raw output</summary><pre>" + esc(data.raw) + "</pre></details>" : "") +
+      '<p class="muted">Read-only narrative. The envelope is unchanged; only the model and token count are traced.</p>' +
+      "</div>";
+    message.textContent = "";
+  } catch (error) {
+    message.textContent = error.message || "Narration failed.";
+    message.setAttribute("role", "alert");
+  } finally {
+    button.disabled = false;
+  }
+});
+
+/* --- Training chat (INT-6) --------------------------------------------- */
+const chatTurns = [];
+function renderChat() {
+  const log = $("#chat-log");
+  if (!log) return;
+  log.innerHTML = chatTurns.map((turn) => {
+    if (turn.role === "user") {
+      return '<div class="chat-bubble user">' + esc(turn.content) + "</div>";
+    }
+    const warnings = (turn.warnings || []).map((w) => "<li>" + esc(w) + "</li>").join("");
+    const suggestions = (turn.suggestions || []).map((s) => "<li>" + esc(s) + "</li>").join("");
+    return '<div class="chat-bubble assistant">' + esc(turn.content).replaceAll("\n", "<br>") +
+      (suggestions ? '<div class="suggestion-box"><strong>Suggestion — not applied.</strong><ul>' + suggestions + "</ul></div>" : "") +
+      (warnings ? '<div class="warnbox"><strong>Unverified numbers</strong><ul>' + warnings + "</ul></div>" : "") +
+      (turn.tools?.length ? '<div class="muted">sources: ' + esc(turn.tools.join(", ")) + "</div>" : "") +
+      "</div>";
+  }).join("");
+  log.scrollTop = log.scrollHeight;
+}
+$("#chat-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const input = $("#chat-input");
+  const message = $("#chat-msg");
+  const button = $("#chat-send");
+  const text = input.value.trim();
+  if (!text) return;
+  if (chatTurns.length >= 20) {
+    message.textContent = "Conversation limit reached; reload to start again.";
+    return;
+  }
+  chatTurns.push({ role: "user", content: text });
+  input.value = "";
+  message.textContent = "Thinking…";
+  button.disabled = true;
+  renderChat();
+  try {
+    const data = await api("/api/intelligence/chat", {
+      method: "POST",
+      body: JSON.stringify({ messages: chatTurns.map(({ role, content }) => ({ role, content })) }),
+    });
+    chatTurns.push({
+      role: "assistant", content: data.answer, warnings: data.warnings || [],
+      suggestions: data.suggestions || [], tools: data.tools || [],
+    });
+    message.textContent = "";
+  } catch (error) {
+    chatTurns.pop();
+    message.textContent = error.message || "Chat failed.";
+  } finally {
+    button.disabled = false;
+    renderChat();
+  }
+});

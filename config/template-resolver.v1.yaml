@@ -89,6 +89,12 @@ slot_pools:
     hinge_main:
       - trap_bar_deadlift
       - sumo_deadlift
+  # DEC-SPINE-09: the bench+hinge support lift may be the trap bar as well as the sumo. Sumo
+  # stays first (the default); the trap bar carries the lower spinal cost (2 against 2.5).
+  bench_hinge:
+    hinge_support:
+      - sumo_deadlift
+      - trap_bar_deadlift
 
 # A session should not become five variations of the same pattern or primary muscle. These are
 # policy defaults, not evidence-derived optima; Step 2 may tune them.

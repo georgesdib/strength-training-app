@@ -98,6 +98,60 @@ def _best_with_quality(
     return best
 
 
+def _derived_observations(
+    conn,
+    exercise_id: str,
+    from_date: str,
+    to_date: str,
+    *,
+    quality: str,
+    session_type: str | None,
+    include_deloads: bool,
+) -> list[RawObservation]:
+    from strength_coach.analytics import core as derived_core
+
+    rows = derived_core.strength_sets(conn, exercise_id, from_date, to_date)
+    if not rows:
+        return []
+    allowed = _session_ids(conn, from_date, to_date, session_type, include_deloads)
+    if allowed is not None:
+        rows = [row for row in rows if str(row["session_id"]) in allowed]
+    best: dict[str, tuple[strength_observations.RawEstimate, dict]] = {}
+    for row in rows:
+        payload = json.loads(row["strength_json"])
+        data = dict(payload["estimate"])
+        if data.get("quality") != quality:
+            continue
+        data["flags"] = tuple(data.get("flags") or ())
+        estimate = strength_observations.RawEstimate(**data)
+        current = best.get(str(row["session_id"]))
+        if current is None or (estimate.kg, estimate.set_id or -1) > (
+            current[0].kg, current[0].set_id or -1
+        ):
+            best[str(row["session_id"])] = (estimate, payload)
+    out = [
+        RawObservation(
+            exercise_id=exercise_id,
+            session_id=session_id,
+            date=estimate.occurred_on,
+            estimate=estimate,
+            load_basis=payload.get("load_basis"),
+            raw_exercise=payload.get("raw_exercise"),
+        )
+        for session_id, (estimate, payload) in best.items()
+    ]
+    by_day: dict[str, RawObservation] = {}
+    for observation in out:
+        current = by_day.get(observation.date)
+        if current is None or (
+            observation.estimate.kg, observation.estimate.set_id or -1
+        ) > (
+            current.estimate.kg, current.estimate.set_id or -1
+        ):
+            by_day[observation.date] = observation
+    return sorted(by_day.values(), key=lambda item: (item.date, item.session_id))
+
+
 def _observations(
     conn,
     exercise_id: str,
@@ -112,6 +166,14 @@ def _observations(
     excluded: dict[int, str] | None = None,
 ) -> list[RawObservation]:
     if frame is None:
+        from strength_coach.analytics import core as derived_core
+
+        if derived_core.ensure(conn):
+            return _derived_observations(
+                conn, exercise_id, from_date, to_date,
+                quality=quality, session_type=session_type,
+                include_deloads=include_deloads,
+            )
         frame = queries.clean_sets(conn, start=from_date, end=to_date)
     if frame.empty:
         return []

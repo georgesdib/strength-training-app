@@ -43,7 +43,6 @@ from strength_coach import (
     workout,
     workout_execution,
 )
-from strength_coach.agents import selection as agent_selection
 from strength_coach.agents.client import LLMError
 from strength_coach.agents.config import (
     PROVIDERS,
@@ -54,6 +53,8 @@ from strength_coach.agents.config import (
     load_settings,
     update_llm_settings,
 )
+from strength_coach.analytics import core as derived_core
+from strength_coach.analytics import status_snapshot as analytics_status_snapshot
 from strength_coach.critique import UnknownSessionError, build_facts
 from strength_coach.domain import athlete_state
 from strength_coach.domain import e1rm as e1rm_mod
@@ -102,6 +103,7 @@ from strength_coach.features import vbt_performance as vbt_performance_feature
 from strength_coach.features import volume as volume_feature
 from strength_coach.features import weekly as weekly_feature
 from strength_coach.features.readiness_score import ReadinessRequired
+from strength_coach.intelligence import api as intelligence_api
 from strength_coach.prescribe import (
     build_prescription,
     fatigue_selection,
@@ -251,6 +253,8 @@ def _ios_capabilities() -> dict[str, bool]:
     capabilities["prescription"] = enabled
     capabilities["workout_write"] = enabled
     capabilities["healthkit_readiness"] = enabled
+    # Additive read route; advertised only because the route exists, per the contract.
+    capabilities["intelligence_read"] = True
     return capabilities
 
 
@@ -347,6 +351,7 @@ def _item_dict(item) -> dict:
         "sets": item.sets,
         "reps_low": item.reps_low,
         "reps_high": item.reps_high,
+        "reps_unit": item.reps_unit,
         "load_kg": item.load_kg,
         "load_basis": item.load_basis,
         "rir_target": item.rir_target,
@@ -603,17 +608,12 @@ def _programme_request(body: dict) -> dict[str, Any]:
         "sessions_per_week": int(body.get("sessions_per_week") or 3),
         "start_session_type": body.get("start_session_type") or None,
         "apply_selection": _truth(body.get("apply_selection")),
-        "selection_llm": _truth(body.get("selection_llm")),
         "selection_confirmed": _truth(body.get("selection_confirmed")),
     }
 
 
 def programme_payload(conn, body: dict) -> dict:
     request = _programme_request(body)
-    chooser = (
-        agent_selection.chooser(build_client(load_settings()))
-        if request["apply_selection"] and request["selection_llm"] else None
-    )
     pages = programme_feature.build_programme(
         conn,
         start=request["start"],
@@ -622,7 +622,6 @@ def programme_payload(conn, body: dict) -> dict:
         start_session_type=request["start_session_type"],
         apply_deload=True,
         apply_selection=request["apply_selection"],
-        selection_chooser=chooser,
         selection_confirmed=request["selection_confirmed"],
     )
     return {"entries": [
@@ -1039,6 +1038,28 @@ class Handler(BaseHTTPRequestHandler):
                         **_ios_clock(),
                         "capabilities": _ios_capabilities(),
                     }
+                elif path == "/api/ios/v1/intelligence/weekly-review":
+                    payload = intelligence_api.weekly_review(self.db_path, device, self.path)
+                elif path == "/api/ios/v1/intelligence/overview":
+                    payload = intelligence_api.overview(self.db_path, device, self.path)
+                elif path.startswith("/api/ios/v1/intelligence/exercises/") \
+                        and path.endswith("/progression"):
+                    exercise_id = path[
+                        len("/api/ios/v1/intelligence/exercises/"):-len("/progression")
+                    ].strip("/")
+                    payload = intelligence_api.progression(
+                        self.db_path, exercise_id, device, self.path
+                    )
+                elif path == "/api/ios/v1/intelligence/readiness":
+                    payload = intelligence_api.readiness(self.db_path, device, self.path)
+                elif path == "/api/ios/v1/intelligence/session-details":
+                    payload = intelligence_api.session_details(self.db_path, device, self.path)
+                elif path == "/api/ios/v1/intelligence/prescription":
+                    payload = intelligence_api.prescription(self.db_path, device, self.path)
+                elif path == "/api/ios/v1/intelligence/programme-summary":
+                    payload = intelligence_api.programme_summary(self.db_path, device, self.path)
+                elif path == "/api/ios/v1/intelligence/adherence":
+                    payload = intelligence_api.adherence(self.db_path, device, self.path)
                 elif path == "/api/ios/v1/today":
                     self._ios_idle_sweep(conn)
                     clock = _ios_clock()
@@ -1165,6 +1186,8 @@ class Handler(BaseHTTPRequestHandler):
                     return
                 self._json(200, payload)
         except ios_devices.AuthError as exc:
+            self._error(exc.status, exc.message)
+        except intelligence_api.RouteError as exc:
             self._error(exc.status, exc.message)
         except FieldError as exc:
             self._error(400, str(exc), exc.fields)
@@ -3042,6 +3065,12 @@ class Handler(BaseHTTPRequestHandler):
                 day = query.get("date", [datetime.date.today().isoformat()])[0]
                 nudge = self._with_conn(lambda c: nudges_feature.current(c, on_date=day))
                 self._json(200, {"on_date": day, "nudge": nudge})
+            elif path == "/api/analytics/status":
+                self._json(200, self._with_conn(
+                    lambda c: analytics_status_snapshot(
+                        c, {derived_core.CORE_SPEC.family: derived_core.spec()}
+                    )
+                ))
             elif path == "/api/observations":
                 query = parse_qs(urlparse(self.path).query)
                 weeks = int(query.get("weeks", ["8"])[0])
@@ -3085,12 +3114,9 @@ class Handler(BaseHTTPRequestHandler):
                 query = parse_qs(urlparse(self.path).query)
                 day = query.get("date", [datetime.date.today().isoformat()])[0]
                 session_type = query.get("session_type", [None])[0]
-                use_llm = query.get("llm", ["0"])[0] == "1"
                 include_different = query.get("include_different", ["0"])[0] == "1"
                 self._json(200, self._with_conn(
-                    lambda c: self._selection(
-                        c, day, session_type, use_llm, include_different
-                    )
+                    lambda c: self._selection(c, day, session_type, include_different)
                 ))
             elif path.startswith("/api/programme/jobs/"):
                 job_id = path.rsplit("/", 1)[-1]
@@ -3155,7 +3181,8 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/exercises":
                 self._json(200, [
                     {"id": key, "display": str(value.get("display") or key),
-                     "pattern": value.get("pattern")}
+                     "pattern": value.get("pattern"),
+                     "time_based": bool(value.get("time_based", False))}
                     for key, value in exercises.taxonomy().entities.items()
                 ])
             elif path == "/api/templates":
@@ -3320,6 +3347,10 @@ class Handler(BaseHTTPRequestHandler):
                 ))
             elif path == "/api/settings/llm/test":
                 self._json(200, self._test_llm())
+            elif path == "/api/intelligence/narrate":
+                self._json(200, self._with_conn(lambda c: self._narrate(c, body)))
+            elif path == "/api/intelligence/chat":
+                self._json(200, self._with_conn(lambda c: self._chat(c, body)))
             elif path == "/api/prescribe":
                 self._json(200, self._with_conn(lambda c: self._prescribe(c, body)))
             elif path == "/api/readiness/presets":
@@ -3792,6 +3823,128 @@ class Handler(BaseHTTPRequestHandler):
             )
             raise FieldError(message, {field: message}) from exc
 
+    def _chat(self, conn, body: dict) -> dict:
+        import hashlib
+
+        from strength_coach.intelligence.config import load_config
+        from strength_coach.intelligence.model import ensure_daily_budget, run_chat
+        from strength_coach.intelligence.service import IntelligenceService
+        from strength_coach.trace.run import RunTrace
+
+        messages = body.get("messages")
+        if not isinstance(messages, list) or not messages or len(messages) > 20:
+            raise FieldError("messages must be one to twenty turns", {"messages": "1-20 turns"})
+        clean = []
+        for message in messages:
+            if not isinstance(message, dict):
+                raise FieldError("each message must be an object", {"messages": "object"})
+            role = message.get("role")
+            content = message.get("content")
+            if role not in {"user", "assistant"} or not isinstance(content, str) or not content.strip():
+                raise FieldError("each message needs a user/assistant role and text", {"messages": "invalid"})
+            if len(content) > 4000:
+                raise FieldError("a message is too long", {"messages": "max 4000 characters"})
+            clean.append({"role": role, "content": content.strip()})
+        # Keep context bounded; the UI may hold 20 turns but only the recent window is sent.
+        clean = clean[-10:]
+
+        settings = load_settings()
+        if not settings.enabled:
+            raise ValueError("LLM is disabled or incomplete; configure it in Settings")
+        client = build_client(settings)
+        try:
+            ensure_daily_budget(conn, settings.daily_tokens)
+        except Exception as exc:
+            raise ValueError(str(exc)) from exc
+        service = IntelligenceService(conn, config=load_config())
+        trace = RunTrace.start(
+            conn,
+            input_hash=hashlib.sha256(json.dumps(clean, sort_keys=True).encode("utf-8")).hexdigest(),
+            llm_model=client.model,
+        )
+        trace.event("input", {"turns": len(clean)})
+        try:
+            result = run_chat(service, client, clean)
+        except Exception:
+            trace.finish(status="llm_failed")
+            conn.commit()
+            raise
+        trace.event("llm_output", {"tools": result.tools, "tokens": result.tokens})
+        trace.add_tokens(result.tokens or 0)
+        trace.finish(status="ok")
+        conn.commit()
+        return {
+            "answer": result.answer,
+            "warnings": result.warnings,
+            "tools": result.tools,
+            "suggestions": result.suggestions,
+            "tokens": result.tokens,
+            "model": client.model,
+        }
+
+    def _narrate(self, conn, body: dict) -> dict:
+        import hashlib
+
+        from strength_coach.intelligence.auth import INTERNAL_PRINCIPAL
+        from strength_coach.intelligence.config import load_config
+        from strength_coach.intelligence.model import (
+            NarrativeBudgetError,
+            NarrativeValidationError,
+            ensure_daily_budget,
+            narrate_envelope,
+            narrative_facts,
+        )
+        from strength_coach.intelligence.service import IntelligenceService
+        from strength_coach.trace.run import RunTrace
+
+        capability = str(body.get("capability") or "").strip()
+        payload = body.get("payload")
+        if payload is None:
+            payload = {}
+        if not capability:
+            raise FieldError("capability is required", {"capability": "choose one"})
+        if not isinstance(payload, dict):
+            raise FieldError("payload must be a JSON object", {"payload": "JSON object"})
+        settings = load_settings()
+        if not settings.enabled:
+            raise ValueError("LLM is disabled or incomplete; configure it in Settings")
+        client = build_client(settings)
+        service = IntelligenceService(conn, config=load_config())
+        result = service.execute(INTERNAL_PRINCIPAL, capability, payload)
+        if not result.ok:
+            error = result.error
+            raise ValueError(f"{error.code}: {error.message}")
+        envelope = result.envelope
+        try:
+            ensure_daily_budget(conn, settings.daily_tokens)
+        except NarrativeBudgetError as exc:
+            raise ValueError(str(exc)) from exc
+        trace = RunTrace.start(
+            conn,
+            input_hash=hashlib.sha256(
+                json.dumps([capability, payload], sort_keys=True).encode("utf-8")
+            ).hexdigest(),
+            llm_model=client.model,
+        )
+        trace.event("input", {"capability": capability, "payload": payload})
+        try:
+            narrative = narrate_envelope(client, envelope, trace)
+        except (LLMError, NarrativeValidationError):
+            trace.finish(status="llm_failed")
+            conn.commit()
+            raise
+        trace.finish(status="ok")
+        conn.commit()
+        return {
+            "headline": narrative.headline,
+            "observations": list(narrative.observations),
+            "limitations": list(narrative.limitations),
+            "warnings": list(narrative.warnings),
+            "raw": json.dumps(narrative_facts(envelope), indent=2, ensure_ascii=False),
+            "tokens": narrative.tokens,
+            "model": client.model,
+        }
+
     def _save_llm_settings(self, body: dict) -> dict:
         try:
             return update_llm_settings(
@@ -3802,12 +3955,13 @@ class Handler(BaseHTTPRequestHandler):
                 clear_api_key=_truth(body.get("clear_api_key")),
                 temperature=float(body.get("temperature", 0.2)),
                 max_tokens=int(body.get("max_tokens", 700)),
+                daily_tokens=int(body.get("daily_tokens", 150_000)),
                 timeout_s=float(body.get("timeout_s", 30.0)),
             )
         except LLMConfigError as exc:
             text = str(exc)
             field = next(
-                (name for name in ("model", "base_url", "temperature", "max_tokens", "timeout_s")
+                (name for name in ("model", "base_url", "temperature", "max_tokens", "daily_tokens", "timeout_s")
                  if name in text),
                 "settings",
             )
@@ -4407,7 +4561,7 @@ class Handler(BaseHTTPRequestHandler):
         readiness_score.require_ready(
             conn, for_date, allow_unknown=allow_unknown
         )
-        if _truth(body.get("apply_selection")) or _truth(body.get("selection_llm")) or (
+        if _truth(body.get("apply_selection")) or (
             _truth(body.get("selection_confirmed"))
         ):
             raise FieldError(
@@ -4537,11 +4691,6 @@ class Handler(BaseHTTPRequestHandler):
         )
         apply_selection = _truth(body.get("apply_selection"))
         selection_confirmed = _truth(body.get("selection_confirmed")) and apply_selection
-        selection_llm = _truth(body.get("selection_llm")) and apply_selection
-        chooser = (
-            agent_selection.chooser(build_client(load_settings()))
-            if selection_llm else None
-        )
         minimum_session = _truth(body.get("minimum_session"))
         minimum_include_main = _truth(body.get("minimum_include_main")) and minimum_session
         # MOD-TECH-001 is a user request, so it only runs when explicitly asked for; selected
@@ -4586,7 +4735,7 @@ class Handler(BaseHTTPRequestHandler):
                 scheduled_suggestion = scheduled
         prescription = build_prescription(
             conn, for_date=for_date, session_type=session_type,
-            apply_selection=apply_selection, selection_chooser=chooser,
+            apply_selection=apply_selection,
             selection_confirmed=selection_confirmed,
             minimum_session=minimum_session,
             minimum_target_minutes=target_minutes,
@@ -4714,11 +4863,26 @@ class Handler(BaseHTTPRequestHandler):
                     f"set {index + 1}: RIR must be 0-6",
                     {f"sets[{index}].rir": "must be 0-6"},
                 )
+        productivity = body.get("productivity")
+        if productivity in (None, ""):
+            productivity = None
+        else:
+            try:
+                productivity = int(productivity)
+            except (TypeError, ValueError) as exc:
+                raise FieldError(
+                    "productivity must be 1-5", {"productivity": "must be 1-5"}
+                ) from exc
+            if not 1 <= productivity <= 5:
+                raise FieldError(
+                    "productivity must be 1-5", {"productivity": "must be 1-5"}
+                )
         return history.edit_session(
             conn, session, sets=sets,
             forms=body.get("forms"),
             session_rpe=body.get("session_rpe"),
             duration_min=body.get("duration_min"),
+            productivity=productivity,
             notes=body.get("notes"),
             reason=body.get("reason"),
         )
@@ -4933,16 +5097,13 @@ class Handler(BaseHTTPRequestHandler):
         return self._cardio(conn, body)
 
     def _selection(self, conn, day: str, session_type: str | None,
-                   use_llm: bool, include_different: bool = False) -> dict:
-        chooser = None
-        if use_llm:
-            chooser = agent_selection.chooser(build_client(load_settings()))
+                   include_different: bool = False) -> dict:
         resolved = (
             schedule_mod.next_session_type(conn, day)
             if session_type in (None, "", "auto") else str(session_type)
         )
         rows = selection_mod.select(
-            conn, None, day, resolved, chooser=chooser,
+            conn, None, day, resolved,
             include_different=include_different,
         )
         return {

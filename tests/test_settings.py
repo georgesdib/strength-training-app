@@ -18,6 +18,7 @@ def test_save_and_load_llm_settings_round_trip(tmp_path):
         api_key="secret-key",
         temperature=0.1,
         max_tokens=500,
+        daily_tokens=1000,
         timeout_s=20,
         path=path,
     )
@@ -29,6 +30,7 @@ def test_save_and_load_llm_settings_round_trip(tmp_path):
     loaded = config.load_settings(path, env={})
     assert loaded.api_key == "secret-key"
     assert loaded.model == "local-model"
+    assert loaded.daily_tokens == 1000
 
 
 def test_blank_key_keeps_the_stored_key_but_clear_removes_it(tmp_path):

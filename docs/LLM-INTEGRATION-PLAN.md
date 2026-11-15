@@ -11,6 +11,26 @@ their shared evidence/context layer, validation, approval, privacy and evaluatio
 This document is a plan, not a claim that any described interface or capability exists. The
 current implementation remains the source of truth until a phase is implemented and tested.
 
+> **Superseded as a forward plan — 2026-11-14.** The read-only half of this plan (capability
+> boundaries, context/evidence layer, athlete analyst, programme explainer, MCP server, Apple-platform
+> integration and phases 1–3) is now specified in the portfolio
+> [Training Intelligence plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md)
+> (§16 and `ADR-INT-013`). **Do not extend this document; amend that plan instead.**
+>
+> Three things here remain in force and are retained as its requirements record:
+>
+> 1. **§8.1 outbound-data inventory** and **§9 evaluation/rollout gates** — adopted by reference by the
+>    new plan; every model path still depends on them.
+> 2. **§8.2 / Phase 1b selector retirement** (`DEC-LLM-14`) — still required before a server-side
+>    narration phase, so that only one model surface exists.
+> 3. **§7 / phases 4–5 constrained proposer** (`DEC-LLM-09`) — a **write** capability outside the
+>    read-only workstream. It is **deferred/unscheduled** by this supersession: its decision,
+>    requirements and approval gates stay recorded, and any future work needs a new decision.
+>
+> The Iteration 1/Iteration 2 analysis below is kept as the historical record of why the boundary was
+> drawn. It no longer describes the planned sequence: MCP is now INT-1, and the read-only capabilities
+> are INT-2/INT-3.
+
 ## 1. Current implementation (verified)
 
 What exists today:
@@ -135,9 +155,14 @@ The builder consumes AFC evidence and the existing
 feature payloads; it must not compute adherence, VBT, readiness or volume metrics, and there must
 not be a second evidence schema under `strength_coach/agents/`.
 
-Create one Python-owned AthleteContextBuilder (future path:
-strength_coach/agents/context.py) used by every capability. It must not call an LLM. It
-assembles facts from existing functions and stores a canonical JSON package plus a hash.
+Create one Python-owned AthleteContextBuilder used by every capability. It must not call an
+LLM. It assembles facts from existing functions and stores a canonical JSON package plus a hash.
+
+**Path superseded 2026-11-14 (`ADR-INT-002`):** the builder is now planned as a provider-neutral
+`strength_coach/intelligence/context.py` inside a capability layer, not `strength_coach/agents/context.py`,
+so that the MCP server, the REST adapter and every model path share it without importing the model
+layer. The requirements in this section are unchanged; see the
+[Training Intelligence plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md).
 
 Required top-level fields:
 
@@ -565,8 +590,16 @@ the choice. No dates are implied.
 ### 9.2 Owner-operated MCP server over Tailscale (Iteration 2 candidate)
 
 **Status:** owner intent only. The owner plans to set up a Model Context Protocol (MCP) server
-served over Tailscale; it is not implemented, is not a prerequisite for Iteration 1 and has no
-approved integration yet. Tailscale is network reachability, not application authentication.
+served over Tailscale; it is not implemented and has no approved integration yet. Tailscale is
+network reachability, not application authentication.
+
+**Update 2026-11-14:** the cross-repository
+[Training Intelligence plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md)
+now specifies a read-only MCP server as the primary AI-facing interface, with the conditions in this
+section retained as hard requirements (existing core only, read-only initially, tailnet **and**
+application authentication, audit and rate limits). It does not amend the Iteration 1/2 boundary in
+this document: no model-capability phase here depends on MCP, and MCP adoption still requires owner
+approval. Nothing is implemented.
 
 If the Iteration 1 exit gate and Phase 6 needs assessment support it, the MCP server may expose a
 small set of approved app tools to compatible MCP clients. It must not become a second
@@ -778,7 +811,7 @@ no-LLM path is tested; and the owner has not identified a blocking safety or pri
 | agents/explainer.py | prescription explanation prompt/call/validation |
 | agents/proposal.py | extend the existing structured proposal path; do not fork it |
 | agents/retrieval.py (Iteration 2 only) | curated-source retrieval, citation and evaluation; conditional on Phase 6 |
-| mcp/ (Iteration 2 only) | owner-operated MCP tools over Tailscale; read-only initially, existing core only; conditional and separately approved |
+| intelligence/ (planned, not implemented) | provider-neutral capability layer, context builder and MCP server; read-only, existing core only, separately deployable; specified in the portfolio Training Intelligence plan |
 | eval/retrieval (Iteration 2 only) | retrieval benchmark, unsupported-claim and source-freshness checks; conditional |
 | features/, prescribe/ | facts/validation reused; no agent imports; no new calculations in agents |
 | store/, trace/ | provenance and append-only records; schema changes only by separate decision |
@@ -827,7 +860,9 @@ they do not authorise implementation now.
    message; no deterministic behaviour changes and no pseudo-report is produced.
 7. **MCP server via Tailscale:** the owner intends to set up an MCP server reachable over the
    private tailnet. App integration remains an Iteration 2 candidate, not an Iteration 1
-   prerequisite; no MCP tool, authorization model or integration exists yet.
+   prerequisite; no MCP tool, authorization model or integration exists yet. *(Superseded
+   2026-11-14: the MCP server is now INT-1/INT-2 in the portfolio Training Intelligence plan; this
+   item is kept as the 2026-10-29 record. Nothing is implemented either way.)*
 
 **Remaining Iteration 2 questions (Phase 6, not blockers for Iteration 1):** the trusted source
 corpus, retrieval requirements and benchmark, whether a vector store is justified, which

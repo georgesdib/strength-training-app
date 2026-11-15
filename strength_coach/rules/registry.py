@@ -237,14 +237,16 @@ def weekly_spinal_cap(
         context.spinal_cap if context.spinal_cap is not None else params.get("cap", 3)
     )
 
-    sets = context.sets
-    if sets.empty:
-        return _unknown(["week.iso_week"], "no clean sets in the window")
-    working = sets[sets["is_working_set"]]
-    if working.empty:
-        return _unknown(["set.is_working_set"], "no working sets in the window")
-
-    per_week = weekly_spinal_costs(rule, context)
+    if context.derived_weekly is not None:
+        per_week = dict(context.derived_weekly)
+    else:
+        sets = context.sets
+        if sets.empty:
+            return _unknown(["week.iso_week"], "no clean sets in the window")
+        working = sets[sets["is_working_set"]]
+        if working.empty:
+            return _unknown(["set.is_working_set"], "no working sets in the window")
+        per_week = weekly_spinal_costs(rule, context)
 
     if not per_week:
         # Complete input, zero exposure: that is a genuine pass, not an unknown.

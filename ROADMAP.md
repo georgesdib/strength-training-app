@@ -4,7 +4,7 @@ The resume point for this project. If you are picking this up cold — human or 
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
 
-Last updated: 2026-11-14 · **v1.4.1 released; v1.5 planned** · version `1.4.1`
+Last updated: 2026-11-15 · **v1.5.0 released; v1.6 planned** · version `1.5.0`
 
 
 ---
@@ -54,10 +54,12 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v1.3 | UI closure, measurement/readiness cleanup and documentation infrastructure | **released 2026-11-06** | UI redesign P0–P3 closed; body fat moved to measurements with historical migration, readiness inputs cleaned up, measurement chart windows, readiness override beside the score, and the manifest-backed documentation archive; no prescription change |
 | v1.4 | VBT target analytics | **released 2026-11-13** | structured/frozen target metadata; Prescribe and Active Workout target visibility and feedback; completed-workout and History target comparisons; Performance longitudinal cohorts with band/RIR evidence and within-set drift; no migration, prescription change or iOS model change |
 | v1.4.1 | Patch: native-summary performance and portability test | **released 2026-11-14** | completed-workout summary reads one snapshot and skips unused ratios (native report ~13.3 s → ~7.0 s); the portability test no longer calls the retired review/calibrate CLI; no metric, schema or prescription change |
-| v1.5 | Cardio depth and calibration | **planned** | cardio data audit, reproducible cardio impulse/shadow load and comparable calibration data (§4.13a/§4.14); B1 rubric calibration review closed 2026-11-07 (loop since retired, `DEC-EVAL-09`) |
+| v1.5 | Read-only training intelligence | **released 2026-11-15** | capability layer, MCP server (ten tools, three resources), REST facade, deterministic weekly review, server narration, web/CLI narrate, server and web chat with the deterministic dossier, plan-aware tools, token budgets, selector retirement and the evaluation harness; no training-decision, prescription or schema change; the iOS client renders the same envelopes |
+| v1.6 | Cardio depth | **planned** | cardio data audit and reproducible cardio impulse/shadow load (§4.13a); the deeper labelled calibration set is retired (`DEC-EVAL-09`, §4.14) |
 | — | Training-day session fragments | **done 2026-11-01** | one local training day may contain multiple session fragments; attendance and budget use days, volume/spinal use combined sets, e1RM uses one day-level observation; no schema migration; see [`docs/TRAINING-DAY-MODEL.md`](docs/TRAINING-DAY-MODEL.md) |
 | — | Deterministic dynamic template resolver | **Steps 0–6 complete 2026-11-01/03; merged to `development` 2026-11-03; released in v1.2.0 as opt-in (`resolver.enabled` default false)** | plan and confirmed decisions at [`docs/archive/PROGRAMME-BUILDER-PLAN.md`](docs/archive/PROGRAMME-BUILDER-PLAN.md) and [`docs/DECISIONS.md`](docs/DECISIONS.md) (`DEC-RESOLVER-01`–`12`); Step 1 delivered policy/settings/provenance; Step 2 delivered and remediated the internal deterministic generator core (`generator.py`, `resolver_settings.py`, accepted pattern-flexibility mapping); remediation covers shared injury/constraint eligibility, power-slot safety, require_can_do/unrated/rotation-default semantics, fallback repair, structural availability, whole-session/duplicate-aggregated authoritative spinal scoring, completed-workout precedence, history merge, retired redundant rotation/preference weights and policy/catalogue digests; Step 3 adds the opt-in top-set/back-off structure, top-set persistence and role-aware workout logging, and the hinge maximal-week programme change; Step 4C wires the flag-on resolver path through candidate pools, bounded beam and read-only evaluator, adds pool-aware scheduler availability, rejects selection overrides, and records generated-session provenance; the 4C audit remediation enforces required patterns on final assignments, separates evaluator failure stages, fingerprints beam configuration and DataFrame schemas, and uses the same auto-candidate/slot matching in scheduling; Step 5 adds the dedicated Settings -> Resolver panel, append-only scalar settings, validated policy YAML with atomic writes and 20 timestamped backups, read-only preview with choices/alternatives/suggestions, inline suitability rating, top-set preview, regenerate/diff and a start handoff; the Step 5 remediation adds shared CLI/web readiness enforcement, atomic backup creation, shared resolver-enable confirmation, deterministic restore with a reported pre-restore snapshot, and a full-prescription preview diff; Step 6 adds generated-slot snapshot provenance for critique/exemption reads with a legacy-null fallback, top-set role-aware critique coverage, a real-database copy smoke test, flag/policy rollback verification and the rollout documentation; forecast remains fixed option (c); the flag remains off |
-| future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.5; Iteration 2 conditional** | phased workstream at §4.24; architecture, iteration gate and selector retirement in [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); no implementation in this pass |
+| v1.5 | LLM integration: read-only intelligence delivered | **released 2026-11-15; constrained proposer deferred** | phased workstream at §4.24; capability layer, MCP server, REST facade, narration and chat delivered; the constrained proposer (`DEC-LLM-09`) stays deferred and needs its own gated plan |
+| future | Derived analytics layer | **Milestones A, B and C implemented 2026-11-14; all planned consumers migrated; C-1 maintenance worker deployed 2026-11-15** | §4.35; shared versioned, rebuildable analytics (per-set, session/exercise, weekly; snapshots optional and deferred) owned by the existing analytical modules; motivated by the ODROID overview (2.7 s p50) and monitoring (49 s) measurements |
 | future | Athlete Feedback & Coaching (AFC) | **AFC-2, AFC-2i, AFC-3 and AFC-4 implemented 2026-11-13; physical iPhone acceptance owner-confirmed 2026-11-14; AFC-5 scoped (docs only); backend, web and native iOS presentation** | §4.33; canonical plan [`AFC plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md); composes the existing adherence, VBT, readiness, feedback and volume services; AFC-1 dissolved and planned-session compliance excluded by `DEC-W7-01`; Phase 5A instruments frozen; AFC-2i renders the same report contract in the iPhone app (`DEC-AFC-03`) |
 | — | Symptom attribution and injury-signal verification | **done 2026-11-01** | Phases 1–2 closed: verification hygiene and optional session/lift attribution with required onset/confidence, migration `0047`, CLI/API/web and display-only views. Phase 3 was split into a separate roadmap phase (§4.28) |
 | future | Exercise-level symptom research (Phase 3) | **planned; unscheduled** | separate pre-registered descriptive research question; mechanical exposure and regional symptoms, not athlete attribution; no model, score, suitability rule or prescription change; Today follow-up `injury_attribution_phase3`; plan §10 and §4.28 |
@@ -93,7 +95,8 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v1.2 | beta removal plus opt-in deterministic resolver | **released 2026-11-03; stable** |
 | v1.3 | UI closure, measurement/readiness cleanup and documentation infrastructure | **released 2026-11-06; stable** |
 | v1.4 | VBT target metadata, active/historical target feedback and longitudinal target analysis | **released 2026-11-13; stable** |
-| v1.5 | cardio depth, reproducible cardio impulse/shadow load and comparable calibration data | **planned; see §4.13a/§4.14** |
+| v1.5 | read-only training intelligence: capability layer, MCP server, REST facade, narration and chat | **released 2026-11-15; stable** |
+| v1.6 | cardio depth and reproducible cardio impulse/shadow load | **planned; see §4.13a** |
 | — | training-day session fragments | **done 2026-11-01** (see §4.27) |
 | — | post-workout form assessment | **done 2026-10-25** |
 | future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.5; Iteration 2 conditional (§4.24)** |
@@ -103,8 +106,9 @@ strength-only and closed with v0.3. Audit/documentation/form closeout is v0.4. v
 release for user testing; v1.1 is the monitoring beta; v1.2.0 removed the beta label and
 shipped the resolver as an opt-in feature; v1.3.0 closed the UI redesign and consolidated the
 measurement/readiness and documentation work; v1.4.0 shipped the VBT target analytics and v1.4.1
-patches the native summary performance and the portability test. Cardio depth
-and comparable calibration data move to v1.5.
+patched the native summary performance and the portability test; v1.5.0 shipped the read-only
+training intelligence workstream. Cardio depth moves to v1.6, and the deeper labelled calibration
+set is retired (`DEC-EVAL-09`).
 
 ### What works end to end today
 
@@ -719,7 +723,7 @@ load and never replaces the global readiness score; see [`docs/LIFT-READINESS.md
 define a standardised velocity check at a fixed load, collect measured e1RM tests for a better
 trend, then test prospectively whether a low per-lift score predicts a missed rep or a worse
 session. Do not change the load policy from this score until that validation exists. Not
-scheduled; it is not part of v1.5.
+scheduled; it is not part of v1.6.
 
 #### 4.9.3 Learned weights — closed
 
@@ -942,7 +946,7 @@ method; the fatigue state is displayed with inputs and time constants; a shadow 
 no prescription; constraints and injury ceilings remain vetoes; no cardio session silently
 counts as resistance volume or vice versa.
 
-### 4.13a v1.5 plan — cardio depth and calibration  (deferred from v1.2; approved 2026-10-25)
+### 4.13a v1.6 plan — cardio depth  (deferred from v1.2; approved 2026-10-25)
 
 **Goal:** make cardio a first-class, reproducible exposure; add only a shadow cardio-load
 context; and deepen calibration enough to decide whether any rubric definition should change.
@@ -1012,7 +1016,7 @@ These are planning windows, not promises; missing data pauses the dependent phas
 3. Add the A2 impulse contract and fixed test cases before any model work.
 4. Keep collecting live workouts and per-rep data for B0 in parallel.
 
-### 4.14 Labelled calibration set  (v1.5; deferred from v1.2, moved from v0.3)
+### 4.14 Labelled calibration set  (retired 2026-11-13; `DEC-EVAL-09`)
 
 No code. **Retired since 2026-11-13** (`DEC-EVAL-08` dormant loop, `DEC-EVAL-09` removal): the
 rubric no longer scores a session, the `rubric_labels` review prompt is gone, and AFC is the
@@ -1225,7 +1229,8 @@ This is explicitly future work, not a v0.3 deliverable. The existing invariants 
 reviewed sessions to evaluate whether the suggestions are better than the fixed programme.
 **Status:** idea only; no implementation. It is now developed as the two-iteration workstream
 in §4.24 and [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); this subsection is
-kept as the original idea record.
+kept as the original idea record. Its forward planning is now §4.34 and the portfolio Training
+Intelligence plan; the proposer part is deferred/unscheduled.
 
 **Next-phase design:** the final lean non-cardio fatigue-management plan is **closed**
 ([`docs/archive/NEXT-PHASE-FATIGUE-PLAN.md`](docs/archive/NEXT-PHASE-FATIGUE-PLAN.md)). It used the existing
@@ -1251,12 +1256,12 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | P2 | Step 8 effective-set accounting | **implemented and live 2026-10-27** — 0.25 map, target 68.25, landmarks unscaled, effective budget/ledger, raw UI column, `hard`/`effective` switch; rollback one profile change (VOLUME-MODULATION-PLAN §15–16) |
 | P2 | Volume modulation: weekly target + session cap | **complete/closed 2026-10-27** — steps 1, 2, 2b, 9a and 9b implemented: read-only budget, per-group accessory budget behind the off-by-default profile flag (`MOD-VOL-003`, constitution 1.17.0), opt-in main-lift `reduce`, compensation preview, and opt-in additive compensation application (`MOD-VOL-004`, executable load required, high-band guarded); **9c-1 drop engine** and **9c-2 identity/UX** implemented (labels/API/UI, startable empty technique, derived review, forecast actual types, migration 0038; `MOD-VOL-005`/constitution 1.18.0); **9c-3 confirmation/settings** implemented (Settings/API, local overlay, per-session confirmation); **7a settings registry/snapshot** implemented (deload reactive constants moved to config); **step 4 settings profile** implemented (append-only versions, budget wiring, snapshots); **7b profile-backed feature wiring** implemented (DUP, deload, volume, readiness, e1RM, plausibility); **step 5 Settings UI/guarded settings** implemented; **5b modality registry/UI** implemented (11 modules, CLI/API/UI parity); **step 6 budget-aware forecast/weekly panels**, **5c remaining modules** and **step 8 effective-set accounting** implemented and live; the plan is closed. Step 3 is a standing Today-page review follow-up, not a plan milestone. The programme forecast now supports 1–5 sessions/week; 4 uses Mon/Wed/Fri/Sun and 5 uses Mon/Tue/Thu/Fri/Sun. Design in `docs/archive/VOLUME-MODULATION-PLAN.md` |
 | v1.1 | Fatigue signals: exposure, substitution, advisories | **Phase 0 done 2026-10-28** (five decisions; `docs/FATIGUE-SIGNALS.md`, `docs/EXERCISE-DEMANDS.md`). **Phase 1 done 2026-10-28**: `config/exercises/demands.v1.yaml` populated for **28/63** reachable ids (4 in-scope dimensions at 55.6 % known, 2 `supported` claims, 4 evidence entries). **Rating path done 2026-10-28**: git-ignored `config/exercises/demands.local.yaml` overlay merged over the reviewed file, with `exercise demands report|unrated|set|clear` and automatic rollback on a rejected write (digest covers both files). **Phase 2 done 2026-10-28**: `features/exposure.py` (7/28-day ratio, coverage, gap/deload/break abstention, exposure dedup, per-group ratios), `exposure ratio` CLI, `GET /api/exposure`, Prescribe **Exposure ratio** panel and the Part D low-exposure advisory; report-only, trim not implemented. **Demand display done 2026-10-28**: Exercises rows show `rated/4` and the details dialog shows the profile with confidence, reason, catalogue digest and overlay state; the same form rates or clears a dimension (`POST /api/exercises/demands`, same `set_claim` as the CLI). **Phase 3 done 2026-10-28**: `MOD-EXP-001` (constitution 1.20.0) trims at most one non-essential accessory set per affected group (≤2/session, floor 1) when `athlete_profile.exposure_trim_enabled` is on (default off), skipping main lifts, essential items, readiness cuts and under-MEV additions; `shadow_decision` table + repository exist (append-only triggers). Shadow writes and the review report land in Phase 6 so forecast builds never write rows. **Phase 4 done 2026-10-28**: `prescribe/fatigue_selection.py` suggests at most one accessory substitution when the exposure signal is high, the candidate is A/B comparable, covers the current lift's primary muscles and is rated strictly lower on an in-scope demand dimension; `GET /api/substitution`, the Exercise-selection panel block and `select --fatigue` expose it. Suggest-only; abstains when the trim already acted or the metadata is unknown. **Phase 5 done 2026-10-28**: `features/residual.py` computes the VBT-only execution residual (observed minus prescribed velocity) from linked workout sets, lift-scoped, 84-day window, with the ≥5 signal and ≥20/8-week/two-lift evaluation gates; `residual`, `GET /api/residual` and the Prescribe panel expose it. Shadow only. **Phase 6 done 2026-10-28**: `prescribe/shadow.py` writes exposure + substitution rows only when a prescription is persisted; `features/shadow_report.py` and `shadow`/`GET /api/shadow`/Prescribe **Shadow review** expose counts, abstentions, conflicts and the four gate checks. The gate never enables anything (`activation_allowed: false`); the fatigue-signals specification is fully implemented. |
-| v1.5 | Cardio depth and shadow cardio load | planned (§4.13a, Q14) |
-| v1.5 | Deeper labelled calibration set | retired 2026-11-13 (§4.14, `DEC-EVAL-09`) |
-| future | LLM integration: analyst, explainer, constrained proposer | Iteration 1 planned; Iteration 2 conditional (§4.24; selector retirement is Phase 1b) |
+| v1.6 | Cardio depth and shadow cardio load | planned (§4.13a, Q14) |
+| — | Deeper labelled calibration set | retired 2026-11-13 (§4.14, `DEC-EVAL-09`) |
+| v1.5 | LLM integration: read-only delivered; constrained proposer deferred | §4.24; selector retirement done (Phase 1b) |
 | future | Personalised volume-response model | idea only; shadow/gated (§13, Q28) |
 | future | Athlete Feedback & Coaching (AFC) — deferred AFC-3 second cut | AFC-2, AFC-2i, AFC-3 and AFC-4 implemented 2026-11-13; physical iPhone report acceptance owner-confirmed 2026-11-14 (§4.33) |
-| done (Phases 0–3A) | Native iPhone online-first client | Phase 0 complete 2026-11-07; **Phase 1 complete 2026-11-07** (server facade + Swift client, simulator-verified and owner-confirmed on the physical iPhone); **Phase 2 complete 2026-11-07** (online readiness/prescription/workout/completion + Progress, simulator-verified and owner-confirmed on the physical iPhone); **Phase 3A closed 2026-11-08** (opt-in read-only HealthKit HRV/RHR/bodyweight readiness; physical HealthKit acceptance owner-confirmed); Apple PCC is an optional AI-only network exception (§4.29; [`iOS client plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/IOS-CLIENT-PLAN.md)) |
+| done (Phases 0–4, R1–R10, 6.0–6.7) | Native iPhone and watchOS client | Phase 0 complete 2026-11-07; Phases 1–2 complete and owner-confirmed on the physical iPhone (2026-11-07); Phase 3A closed 2026-11-08 (HealthKit readiness, physical acceptance owner-confirmed); Phase 4 closed 2026-11-08 (offline capture and replay, physical acceptance owner-confirmed); R1–R5 and R7–R10 closed (R11 dropped); Phase 6.0–6.7 complete with physical Apple Watch acceptance owner-confirmed 2026-11-14 (§4.32); the AFC-2i session report is implemented. Apple PCC remains an optional AI-only network exception (§4.29; [`iOS client plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/IOS-CLIENT-PLAN.md)) |
 
 ### 4.19.1 Deferred: web authentication and per-user data
 
@@ -1315,7 +1320,7 @@ No implementation, no automatic substitution and no load effect follows from thi
 | Parent-variant e1RM ratios | unscheduled; display-only profile/prior, not weakness | §4.20.2; `PARENT-VARIANT-WEAKNESS-EVIDENCE.md` |
 | Weakness targeting | plan only; deferred to after v1.3 / ~April 2027 | §4.20.3, `WEAKNESS-TARGETING-PLAN.md`, Q22, DEC-SELECT-05 |
 | Selection A/B boundary (pause/narrow, SSB/high-bar) | dormant policy decision; current default is conservative (A only same exercise) | Q21, docs/SELECTION-COMPARABILITY.md |
-| Cardio model | v1.5 | §4.13, Q14 |
+| Cardio model | v1.6 | §4.13, Q14 |
 | Low-bar competition squat and the weekly spinal cap | **closed 2026-10-25**: counts cost 1; cap raised 3 → 6; bench+hinge uses sumo 2.5 | `DEC-SPINE-05`, Q24, LIM-44 |
 
 ### 4.21 Live workout mode  (v0.3, CLOSED 2026-10-23)
@@ -1375,13 +1380,19 @@ Its two halves did not belong together:
 Design reference retained for history: [`docs/archive/UI-IMPROVEMENT-PLAN.md`](docs/archive/UI-IMPROVEMENT-PLAN.md).
 Canonical AFC scope: §4.33 and [`AFC plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md).
 
-### 4.24 Future LLM integration workstream  (planned; dependency-ordered after v1.5)
+### 4.24 Future LLM integration workstream  (superseded in part 2026-11-14; see §4.34)
 
-**Status: planned, not implemented, not scheduled to a date.** No prompt, source, schema, API,
-UI or training-rule change is part of this workstream yet. The detailed architecture, contracts,
-privacy rules, evaluation gates and per-phase acceptance criteria live in
-[`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); this section is the roadmap
-summary and must stay consistent with it.
+**Status: superseded in part 2026-11-14; not implemented.** The read-only half of this workstream —
+architecture and contracts, the shared context/evidence builder, the athlete analyst, the programme
+explainer, the MCP server and the Apple-platform work — is specified in §4.34 and the portfolio
+[Training Intelligence plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md).
+Rows 1–3 and the exit gate below are superseded; the MCP clause of Iteration 2 is superseded; the
+constrained proposer (rows 4–5) is **deferred/unscheduled** and needs a new decision. Phase 1b, the
+outbound-data inventory (plan §8.1) and the evaluation gates (plan §9) remain in force. No prompt,
+source, schema, API, UI or training-rule change is part of what remains; the detailed requirements,
+privacy rules and acceptance criteria live in
+[`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md), whose status banner records the same
+scope. The analysis below is kept as the historical record of the boundary.
 
 The future architecture separates three capabilities that share one deterministic evidence
 layer but have different permissions:
@@ -1416,16 +1427,18 @@ framework.
 
 | phase | scope | depends on | status |
 |---|---|---|---|
-| 1 | Architecture and contracts: capability boundaries, permissions, context/evidence schema, prompt/schema versions, privacy, iteration boundary | owner approval | **planned** |
-| 1b | **Retire the minimal LLM exercise selector** as a separate work item: remove only selector-specific chooser/CLI/API/UI/engine/tests/docs plumbing; preserve shared LLM client/config, narrative/proposal, deterministic selection, taxonomy, comparability, class-B confirmation and history; acceptance in plan §8.2 | phase 1; **independent of the proposer** | **planned** |
-| 2 | **New** shared context/evidence builder + athlete analyst: lift progression, programme status, strength/power/longevity review | phase 1; existing features/repositories/provenance; the AFC evidence contract (AFC-2/AFC-3) | **planned** |
-| 3 | Programme explainer: persisted prescription, modifiers, baseline/previous comparison, concise + detailed | phase 2; prescription provenance | **planned** |
-| 4 | Constrained proposer in shadow: structured schema, deterministic validation, Python load resolution, baseline comparison; no application | phases 1–3; existing proposal/validator path | **planned** |
-| 5 | Opt-in approval + evaluation: diff UI/CLI, explicit approval, provenance, shadow/opt-in gates; no selector work | phase 4; phase 1b; approved gates; privacy review | **planned** |
-| exit | Iteration 1 exit gate: selector retired; analyst/explainer accepted; proposer shadow/opt-in gates green; no-LLM path tested | phases 1, 1b and 2–5 | **gate** |
+| 1 | Architecture and contracts: capability boundaries, permissions, context/evidence schema, prompt/schema versions, privacy, iteration boundary | owner approval | **superseded by INT-1** (portfolio plan) |
+| 1b | **Retire the minimal LLM exercise selector** as a separate work item: remove only selector-specific chooser/CLI/API/UI/engine/tests/docs plumbing; preserve shared LLM client/config, narrative/proposal, deterministic selection, taxonomy, comparability, class-B confirmation and history; acceptance in plan §8.2 | the approved Training Intelligence contracts (INT-0/INT-1); **independent of the proposer** | **planned** |
+| 2 | **New** shared context/evidence builder + athlete analyst: lift progression, programme status, strength/power/longevity review | phase 1; existing features/repositories/provenance; the AFC evidence contract (AFC-2/AFC-3) | **superseded by INT-2/INT-3** |
+| 3 | Programme explainer: persisted prescription, modifiers, baseline/previous comparison, concise + detailed | phase 2; prescription provenance | **superseded by INT-2 (facts) + INT-5 (narration)** |
+| 4 | Constrained proposer in shadow: structured schema, deterministic validation, Python load resolution, baseline comparison; no application | phases 1–3; existing proposal/validator path | **deferred/unscheduled** (write capability; new decision required) |
+| 5 | Opt-in approval + evaluation: diff UI/CLI, explicit approval, provenance, shadow/opt-in gates; no selector work | phase 4; phase 1b; approved gates; privacy review | **deferred/unscheduled** with row 4 |
+| exit | Iteration 1 exit gate: selector retired; analyst/explainer accepted; proposer shadow/opt-in gates green; no-LLM path tested | phases 1, 1b and 2–5 | **superseded** (INT-1 to INT-8 carry their own gates) |
 
-**Dependency order:** v1.5 cardio/calibration work, then phase 1, then 2 → 3 → 4 → 5; phase 1b
-runs after phase 1, in parallel with 2/3 if useful, and must finish before the Iteration 1 exit.
+**Dependency order (superseded for the read-only work):** v1.5 cardio/calibration work, then phase 1,
+then 2 → 3 → 4 → 5; phase 1b runs after phase 1, in parallel with 2/3 if useful, and must finish
+before the Iteration 1 exit. The current read-only order is INT-1 → INT-2 → INT-3 (§4.34); phase 1b
+still precedes any server-side narration phase.
 No capability code starts before the owner approves its contracts. Phases 4–5 do not run on
 sessions already downgraded by a safety modifier (`DEC-LLM-04`); any relaxation is a new
 decision.
@@ -1447,14 +1460,15 @@ Iteration 2 begins only after the Iteration 1 exit gate. It starts with a needs 
 with technology adoption. RAG, semantic/hybrid retrieval, a vector database, advanced
 orchestration/tool use and an owner-operated MCP server over Tailscale are candidates, not
 requirements; any one may be rejected. A vector database is permitted only if the retrieval
-benchmark shows a simpler deterministic/keyword or hybrid approach is insufficient. The MCP
-server is owner intent only: Tailscale is network reachability, not application authentication,
-and no app integration is implemented or approved.
+benchmark shows a simpler deterministic/keyword or hybrid approach is insufficient. **Superseded
+in part (2026-11-14):** the MCP server is no longer an Iteration 2 candidate — it is planned as
+INT-1/INT-2 (§4.34) with application authentication, and Tailscale remains reachability only. The
+retrieval, vector-store and orchestration candidates are unchanged and remain conditional.
 
 | phase | scope | depends on | status |
 |---|---|---|---|
-| 6 | Needs assessment: recurring gaps, trusted corpus, retrieval requirements, simpler alternatives, MCP/Tailscale tool boundary and authorization, benchmark, cost/latency/privacy/maintenance case | Iteration 1 exit gate; owner authorisation | **conditional** |
-| 7 | Advanced component trial: one approved component at a time (RAG, hybrid retrieval, bounded orchestration or MCP transport), off by default, baseline comparison | phase 6 decision; privacy review | **conditional** |
+| 6 | Needs assessment: recurring gaps, trusted corpus, retrieval requirements, simpler alternatives, MCP/Tailscale tool boundary and authorization, benchmark, cost/latency/privacy/maintenance case | Iteration 1 exit gate; owner authorisation | **conditional** (MCP clause superseded by INT-1) |
+| 7 | Advanced component trial: one approved component at a time (RAG, hybrid retrieval, bounded orchestration or MCP transport), off by default, baseline comparison | phase 6 decision; privacy review | **conditional** (MCP transport clause superseded by INT-1) |
 
 **Proceed criteria for any Iteration 2 component:** documented recurring need; simpler
 alternative tested; measurable benefit on a pre-registered evaluation set; acceptable cost,
@@ -1599,7 +1613,7 @@ later use needs a separate decision and validation.
 and a separate owner decision to start. Phase 3 is independent of the closed Phase 1–2 plan
 and is not a reason to reopen it.
 
-### 4.29 Native iPhone client — online-first (Phases 0–3A closed)
+### 4.29 Native iPhone client — online-first (Phases 0–4 and the R-series closed)
 
 **Status:** Phase 0 complete (2026-11-07): an empty SwiftUI app is signed and launches on the
 owner's iPhone under a personal team, the HealthKit capability is verified, the phone reaches the
@@ -1626,8 +1640,8 @@ owner's local Python server. Durable offline capture (Phase 4) is closed; review
 imports (Phase 3B) and Apple Intelligence are later phases, not first-release dependencies. Phase 3A
 HealthKit readiness is closed. PCC may be a separately enabled Apple AI option;
 it is disabled by default, user-invoked, never an automatic fallback, and never used for HealthKit
-sync. No public cloud service is required for core use. Do not begin a later phase until it is
-approved.
+sync. No public cloud service is required for core use. Phase 3B needs a separate approval; no
+later phase starts by implication.
 
 The detailed, repository-grounded client plan is in the
 [iOS client repository](https://github.com/georgesdib/strength-app/blob/main/docs/plans/IOS-CLIENT-PLAN.md).
@@ -1636,8 +1650,9 @@ readiness scores and prescriptions. Phases 0–2, 3A and 4 are complete; Phase 3
 an `ios/` subdirectory here. The first release covers pairing, readiness entry, a server prescription,
 online workout capture/completion with session RPE, optional inline form ratings and basic
 history/progress. Opt-in read-only HRV/RHR/bodyweight readiness (Phase 3A) and durable offline capture
-(Phase 4) are complete; reviewed Apple Workout imports follow, with manual values taking precedence. Rubric review stays optional and may arrive after the first
-release. Apple Foundation Models/PCC are optional later tools, never training authorities.
+(Phase 4) are complete; reviewed Apple Workout imports follow, with manual values taking precedence.
+The rubric review was retired (`DEC-EVAL-09`); the session report is the post-workout surface.
+Apple Foundation Models/PCC are optional later tools, never training authorities.
 Third-party Health exporters are not a core dependency; XML is, at most, a later manual history
 backfill.
 
@@ -1782,7 +1797,7 @@ prescription/start, plan editing and HealthKit remain online-only. No server que
 Contract: [`https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-PHASE-4-CONTRACT.md`](https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-PHASE-4-CONTRACT.md).
 Physical offline acceptance was owner-confirmed at closure on 2026-11-08.
 
-### 4.32 Phase 6 — watchOS companion (Phase 6.2 closed 2026-11-10; 6.3+ pending)
+### 4.32 Phase 6 — watchOS companion (6.0–6.7 complete; 6.7 acceptance 2026-11-14)
 
 The phone remains the planner; the watch becomes the execution client for a plan requested with an
 explicit `execution_target` (`phone` or `watch`): fetch, start, log sets/rest/forms, finish with
@@ -1797,10 +1812,18 @@ replayed set whose plan item changed is preserved as off-plan rather than droppe
 propagate by revision, and forgotten sessions are idle-abandoned. Shared code has been extracted into
 `StrengthCore` in four staged, behaviour-preserving moves (S1–S4 complete 2026-11-10; 184 iOS tests);
 the watch target is 6.2a. Contract:
-[`IOS-WATCH-CONTRACT.md`](https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-WATCH-CONTRACT.md). Offline start (the
-pending-session shell) and the “Send to iPhone” relay are deferred. 6.0, 6.1, 6.2a, 6.2b and 6.2c
-are implemented (watch target, credential handoff, mint/list/revoke, the phone-revocation watch
-cascade, and the read-only watch Today); 6.3 and later need a separate go-ahead.
+[`IOS-WATCH-CONTRACT.md`](https://github.com/georgesdib/strength-app/blob/main/docs/contracts/IOS-WATCH-CONTRACT.md).
+
+**Completion record.** 6.0 (shared watch core), 6.1 (server watch contract), 6.2a–6.2c (watch
+target, credential/config handoff, mint/list/revoke and the read-only watch Today), 6.3 (watch
+execution lifecycle), 6.4 (offline conflicts), 6.5 (heart rate and one HealthKit workout), 6.6
+(phone mirror, plan-revision pushes and take-over) and 6.7 are complete. Physical Apple Watch
+acceptance was owner-confirmed **2026-11-14**, and the canonical status lives in the
+[iOS client plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/IOS-CLIENT-PLAN.md)
+and the watch contract, not here.
+
+**Still deferred:** offline start (the pending-session shell) and the “Send to iPhone” relay.
+Any further watch work needs a separate go-ahead.
 
 ### 4.33 Athlete Feedback & Coaching (AFC)  (AFC-2, AFC-2i, AFC-3 and AFC-4 implemented 2026-11-13)
 
@@ -1888,6 +1911,327 @@ and touches no capture surface, so it stays outside the instrument.
 **Out of scope.** Native iOS or watchOS *calculation, capture and instrumentation* — AFC-2i renders
 the report only — a watchOS report, cardio models, VBT calibration, the training engine, automatic
 adaptation, and the LLM capabilities in §4.24.
+
+### 4.34 Training Intelligence — read-only capability layer and MCP server  (INT-1 and INT-1b implemented 2026-11-14)
+
+**Status: INT-1 foundation and INT-1b MCP transport implemented 2026-11-14.** The read-only
+capability layer, the canonical envelope, typed requests, the execution service, configuration
+bounds and their tests exist in `strength_coach/intelligence/`; INT-1b adds the separately runnable
+MCP server (`strength_coach/intelligence/mcp/`, Streamable HTTP, revision 2026-07-28 with legacy
+clients), dedicated MCP client tokens with CLI provisioning, two tools (`get_training_overview`,
+`get_session_details`) and one resource (`strength://athlete/profile`). The MCP SDK is an optional
+extra and only the transport imports it. See
+[`docs/INTELLIGENCE-IMPLEMENTATION.md`](docs/INTELLIGENCE-IMPLEMENTATION.md), including the
+performance baseline — the development Mac and, separately, the deployment host (p50 3.10 s /
+p95 3.17 s at 377 sessions, 2026-11-14). That host measurement is above the ADR-INT-010
+one-second threshold, so the transport is **gated** there until the addendum is decided. There is
+still **no model provider, no migration and no change to any existing endpoint**; the INT-3
+weekly-review route is additive. INT-2 delivered the rest of the read-only catalogue on 2026-11-14
+and INT-3 delivered the weekly review, its REST route and the iOS read surface; **INT-3 is closed
+2026-11-15**. The baseline context package, evidence producers for the aggregate capabilities and
+the INT-4 native model surface remain open.
+
+**Audit remediation 2026-11-14:** immediate token revocation/rotation without restart, a
+structured metadata-only audit record per invocation, a configurable tool timeout and result-size
+cap, a dedicated systemd unit with a deployment guide (installed on the ODROID 2026-11-15), and a live HTTP
+integration test. The implementation page records the semantics and limitations.
+
+**INT-2 delivered 2026-11-14:** seven further read-only capabilities (exercise progression,
+readiness history, adherence analysis, persisted prescription, VBT analysis, programme block
+summary, period comparison) and two more resources (`strength://programme/current`,
+`strength://overview/current`), all composing existing owners. ADR-INT-010 later accepted the
+latency-aware budget and enabled the transport; INT-2 adds no caching, no new REST route and no
+model.
+
+**Phase 1b selector retirement (2026-11-15):** the minimal LLM exercise-variant chooser and its CLI/API/UI/engine plumbing are removed; deterministic selection and class-B confirmation remain.
+
+**INT-6 web chat delivered and closed (2026-11-15):** Programme Intelligence Chat posts up to 20 turns to `/api/intelligence/chat`, where the server supplies a fresh six-capability fact dossier. Session-only browser memory, only the recent ten messages, an 18k fact cap, a separate suggestions block, advisory warnings and daily budget. Four-case multi-turn matrix; model tool calling deferred.
+
+**INT-5 server narration delivered (2026-11-15):** intelligence narrate and the web Narrate view
+cover every registered capability, with a daily token budget, advisory number warnings, a
+ten-capability evaluation harness and MCP parity. Phase 1b retired the old LLM exercise chooser.
+Multi-tool orchestration is deferred by owner decision. Web access, web citations and RAG are deferred for both the web UI and iOS.
+
+**INT-5 first slice (2026-11-15):** a **Narrate** web view calls `POST /api/intelligence/narrate` for any registered capability; the CLI equivalent remains. The validated narrative, trace and no-model error are shared. Multi-tool orchestration, evaluation, budget, MCP parity and Phase 1b retirement remain; the server needs a model key.
+
+**INT-5 CLI first slice (2026-11-15):** `intelligence narrate` explains any
+registered capability through the existing Null/OpenAI-compatible provider, validates the JSON
+narrative against the envelope facts and records a run/run_event trace. Multi-tool orchestration,
+evaluation, budget, MCP parity and Phase 1b retirement remain; the server needs a model key.
+
+**INT-4e plan-aware chat delivered (2026-11-15):** a default-off plan-data
+toggle adds prescription, programme summary and adherence to on-device and DeepSeek chat. Answers
+are structured with a separate suggestion block; suggestions are proposals, not applied. The three
+backend routes are deployed. The owner confirmed both providers; on-device may abbreviate a long prescription answer though the raw facts are complete.
+
+**INT-4d DeepSeek chat delivered (2026-11-15):** a chat-only model choice,
+direct from the iPhone, key in the Keychain, OpenAI-compatible tool loop over the five capabilities,
+soft verification and no fallback. Weekly and overview explanations stay on-device. The owner
+confirmed it on the iPhone with a real key; the four-round cap and error mappings are unit-tested.
+
+**INT-4b chat delivered (2026-11-15):** a dedicated on-device Chat screen behind a separate
+default-off toggle, with suggested prompts, non-streaming answers, a sources line, session-only
+transcripts and grounding against the envelopes the tools returned. The five tools are registered
+with a 5-to-3 context fallback; session details resolve the latest completed session. The manual
+device matrix passed (five tools, refusal and transcript clearing). No UI test by owner decision.
+
+**INT-4 delivered (2026-11-15):** the on-device narrative is available on the weekly review and the
+Progress overview behind a default-off toggle, with availability reasons, detail presets, a compact
+facts projection, a structured-number grounding validator, a token budget with trimming and a
+deterministic fallback. The five native tool adapters are implemented and tested as an adapter
+surface but not registered: their schemas overflowed the 8,192-token window at the Detailed preset.
+The budget trims and retries; the grounding check accepts percentages and thousands separators and
+ignores the digit in `e1RM`. The device run passed and no UI test is required by owner decision;
+conditional tool registration remains a tuning item.
+
+**INT-4 read surface (2026-11-15):** the iOS intelligence routes for overview, exercise progression,
+readiness and session details are implemented alongside the weekly review, so the native adapter
+can cover all five capabilities.
+
+**INT-3 closed 2026-11-15:** `get_weekly_review` composes the deterministic Monday-Sunday
+sections (activity, adherence, sessions, progression, volume, readiness coverage/direction,
+programme, gated observations) from their owners, and the additive iOS read route
+`GET /api/ios/v1/intelligence/weekly-review` returns the envelope unchanged under the existing
+device bearer auth. Acceptance evidence is the golden fixture, the empty and imported-only week
+tests, and the model-free screen. The iOS `StrengthCore` envelope/adapter and the Progress → Weekly review screen
+were delivered on 2026-11-15 in the StrengthApp repository. The REST entrypoint and the MCP process
+both open SQLite read-only; raw readiness fields are rejected over MCP unless the deployment sets
+`allow_sensitive_readiness`, and the weekly review reports `week_complete`/`week_partial`. The
+intelligence branch was merged into `development` on 2026-11-15.
+
+The canonical cross-repository plan, audit, contract and decisions are in the portfolio
+repository: [plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md)
+and [contract](https://github.com/georgesdib/strength-app/blob/main/docs/contracts/TRAINING-INTELLIGENCE-CONTRACT.md).
+Owner approval of the plan's section 13 decisions remains required before the transport phase.
+
+**MCP rollout follow-ups (updated 2026-11-14).** The extended HTTP benchmark on the ODROID
+measured p95 6,201 ms (session details), 4,058 ms (overview), 3,800 ms (programme) and 1,663 ms
+(readiness). The owner accepted a latency-aware budget (T-1) and the **transport is enabled on
+the trusted LAN with the full ten-tool catalogue**. The original one-second blanket gate is
+superseded by T-1; existing benchmark numbers remain the reference until T-3 remeasurement.
+
+- **C-1 - Automatic maintenance worker (done 2026-11-15).** Installed on the home host:
+  `strength-analytics-maintenance.service` and `.timer` are enabled, the timer runs on boot +5
+  minutes and every 15 minutes, and the web unit's `ExecStartPost` triggers one reconciliation
+  after a restart. The first run (2026-11-15 08:15) exited 0 and `/api/analytics/status` reports
+  core ready/verified. There is no long-lived worker: each run invokes this checkout's current
+  code and venv, so a `git pull` plus a web restart is picked up on the next tick.
+- **T-1 - Owner latency decision (accepted 2026-11-14).** Fast capabilities target p95 ≤ 500 ms;
+  slow and very_slow target p95 ≤ 7 s and remain callable without a hard latency rejection; the
+  server tool timeout is 20 s. ADR-INT-010 now records this budget and the transport is enabled.
+- **T-2 - Full catalogue with transparent latency metadata (implemented).** All ten capabilities remain
+  discoverable and callable through `tools/list`; slow capabilities are **not hidden**. Each tool
+  description carries its measured HTTP p95 and classification (fast / slow / very_slow), plus
+  guidance to prefer fast tools, avoid repeated expensive calls, and never trade correctness for
+  latency. The metadata is one module (`strength_coach/intelligence/latency.py`) and is explicitly
+  a historical measurement, not a runtime guarantee. T-2 no longer depends on hiding slow tools;
+  transport enablement still depends on T-1.
+- **T-3 - Optimise the slow capabilities (closed 2026-11-14, first pass).** Bounded the
+  deload flare lookup, cached readiness config loading and reused one summary rule context. HTTP
+  p95: overview 4,058 -> 672 ms, programme 3,800 -> 278 ms, readiness 1,663 -> 377 ms; session
+  details 6,201 -> 5,684 ms and remains very_slow within the accepted 7 s budget. Latency metadata
+  updated from the new run. T-3 is closed as a first pass; **T-3a** (optional, not started) covers
+  further session-details work. It is not a blocker for the full catalogue.
+
+The items are compatible: T-1 sets the operational budget, T-2 is a rollout/communication change,
+C-1 keeps materialisation current, and T-3 improves latency. The LLM objective remains open until
+T-3 is measured and the transport decision is reviewed; existing benchmark numbers stay valid
+until that remeasurement.
+
+**Operational status (2026-11-15).** The MCP server runs under `strength-intelligence-mcp.service`
+(installed the same day with `deploy/install-intelligence-mcp.sh`, user `dsh`, host-specific
+paths), enabled at boot, from the production checkout's virtual environment on `10.0.0.44:8765`
+(the LAN address; loopback is no longer bound). The `allowed_hosts` list contains `10.0.0.44:*` and
+`odroid.local:*`; a mismatched Host is rejected with 421 even with a valid token. Full ten-tool
+catalogue, token file under the checkout's git-ignored config. It reads the production database
+read-only; the unit grants `ReadWritePaths` on the data directory because SQLite WAL needs
+`-shm`/`-wal` even for a read-only connection. Validated over real Streamable HTTP on 2026-11-15:
+all ten capabilities answered, `get_weekly_review` 623 ms and `get_session_details` 5.7 s.
+**Migration collision resolved:** the production database's 0060 is development's
+`0060_plank_variants.sql` (checksum 7ed6); the analytics migrations had reused 0060-0062. They are
+renumbered **0061-0063** on `development`, so the production schema applies cleanly without
+deleting the recorded row. A fresh copy was migrated and built successfully after the renumber.
+T-3 first pass is implemented and remeasured: bounded deload flare lookup, cached readiness
+config loading and one summary rule context. Overview is down to 672 ms p95, programme 278 ms,
+readiness 377 ms; session details is 5,684 ms and remains very_slow within the accepted 7 s budget.
+T-3 is closed as a first pass; T-3a is the optional session-details follow-up. The production
+cutover steps are in [`docs/PRODUCTION-DEPLOYMENT.md`](docs/PRODUCTION-DEPLOYMENT.md).
+
+**Scope.** A provider-neutral capability layer over the existing services, a separately deployable
+read-only MCP server (Streamable HTTP, authenticated, tools and resources only), an additive read-only
+iOS intelligence surface, Weekly Training Review, and optional on-device/server narration. Every
+metric is composed from its existing owner; there is no second calculation and no new evidence schema.
+
+**Backend areas.** Created in INT-1: `strength_coach/intelligence/{envelope,errors,methods,context,config,auth,registry,service}.py`,
+`strength_coach/intelligence/capabilities/`, `config/intelligence.v1.yaml` and `tests/test_intelligence_*.py`.
+Created in INT-1b: `strength_coach/intelligence/mcp/`, `intelligence/{tokens,resources}.py`, the
+`intelligence` optional extra, the `strength-intelligence-mcp` console script, `tools/intelligence_benchmark.py`
+and the MCP tests. Not created: `strength_coach/intelligence/model/` (INT-5) and a packaged deploy
+unit (systemd example); deployment is documented in the implementation page instead.
+
+**Hard constraints.** Read-only: no tool, route or capability may create, edit, void, start, complete
+or prescribe. SQLite is opened read-only in that process. No free-text notes, symptom narratives or
+unnecessary health values by default. No MCP prompt, sampling, roots or subscriptions. No beta Apple
+API. No change to workout execution, prescription/readiness/fatigue algorithms, cardio, migrations or
+existing endpoint shapes.
+
+**Relationship to §4.24 and §4.33.** This workstream **supersedes the read-only part of §4.24** and
+the Apple Intelligence/PCC items in the iOS client plan; §4.24 keeps the historical record and its
+Phase 1b selector retirement, which is still required before a server-side narration phase. The
+constrained proposer is deferred/unscheduled. §4.33 (AFC) remains the deterministic producer of the
+evidence this layer serialises. This workstream adds no model capability to Iteration 1 and does not
+reopen any completed phase.
+
+### 4.35 Derived analytics layer  (Phase 0 complete; Milestones A, B and C implemented 2026-11-14)
+
+**Status:** Phase 0 (architecture and design approval) is complete. **Milestone A (Analytics
+Infrastructure)** is implemented (`bf2775f`; audit remediation `2654ce2`, `81ca614`).
+**Milestone B (Core Materialisation and Consumer Migration)** is implemented: `derived_set`,
+`derived_session_exercise` and the `core` family are live, and `progress` and `strength_trend`
+read them when ready. **Milestone C (Rules, Outcomes, Monitoring and Production Validation)** is implemented.
+Analytical snapshots remain optional and deferred. The full proposal is
+[`docs/design/DERIVED-ANALYTICS-ARCHITECTURE.md`](docs/design/DERIVED-ANALYTICS-ARCHITECTURE.md).
+
+The audit found no persistent analytical layer: dashboards and reports rescan and re-enrich the
+whole `clean_set` history, several modules derive e1RM independently, and the deployment host
+measures about 2.7 s p50 for `get_training_overview`, 1.7 s for a deload decision, 4.9 s for the
+8-week outcomes report and 49 s for the monitoring analysis on a synthetic 377-session database.
+
+The proposal is a selective, versioned, rebuildable materialisation owned by the existing
+analytical modules: per-set derived values, session/exercise aggregates and ISO-week spinal and
+volume aggregates. Owners keep their formulas and payloads; consumers keep calling the same
+functions; a background worker backfills and resumes after interruption; reads fall back to
+on-demand until the family is ready. Snapshots are optional, excluded from Milestones A and B,
+and decided only after aggregate materialisation is measured.
+
+**Milestone A delivered (`bf2775f`).** Migration
+[`0061_analytics_phase1.sql`](strength_coach/store/migrations/0061_analytics_phase1.sql) adds the
+append-only `analytics_revision` ledger and the `analytics_build` lifecycle table. The ledger is
+written inside the source transaction by workout completion, imports (only when clean sets were
+inserted), corrections/tombstones, void/unvoid, and dependency changes; dependency rows are
+family-scoped so an unrelated configuration bump does not invalidate a family. The coordinator
+[`strength_coach/analytics/coordinator.py`](strength_coach/analytics/coordinator.py) runs bounded
+revision batches with checkpoints, resumes after interruption, records failed builds without
+publishing, and promotes a family to `ready` only inside a `BEGIN IMMEDIATE` transaction that
+re-reads the family revision and dependency fingerprint. `GET /api/analytics/status` reports the
+revision and family rows. Tests:
+[`tests/test_analytics_revision.py`](tests/test_analytics_revision.py) and
+[`tests/test_analytics_build.py`](tests/test_analytics_build.py).
+
+**Milestone A audit outcome (2026-11-14).** The independent audit traced every current
+`clean_set`/`session` writer to three call sites (`workout.end`, `importer.import_export`,
+`history.edit_session`/`void_session`) and confirmed transactional coupling, rollback, family-scoped
+batch selection, checkpoint/failure behaviour and the `BEGIN IMMEDIATE` publication check with a
+blocked concurrent writer. One diagnostic defect was fixed in `2654ce2`: `status_snapshot` now
+reports the persisted lifecycle separately from validated readiness (`verified`/`unverified`/
+`not_ready` plus a reason), so an unregistered family is never implied to be verified. Accepted
+limitations: the registry is empty; no runtime configuration-reload hook exists, so fingerprints
+protect readers and a caller must record a dependency revision to invalidate a published family
+immediately; imports append one batch revision; no exercise-remap writer exists in the tree.
+
+**Milestone B delivered (2026-11-14).** Migration
+[`0062_derived_core.sql`](strength_coach/store/migrations/0062_derived_core.sql) adds
+`derived_set` and `derived_session_exercise`; the `core` family materialises the progress e1RM
+and the strength-observation payload per leaf set, plus per-session/exercise aggregates. Initial
+backfill is the explicit `strength-coach analytics build` command (paged session backfill through
+the Milestone A coordinator). Small source mutations refresh their session inside the same
+transaction; imports above 50 sessions mark the family stale for an explicit build. The owners
+call the read-only `core.ensure` and fall back to on-demand whenever the family is not verified
+current. The fingerprint includes both taxonomy files (including UI-written overrides), so a
+taxonomy edit invalidates stored strength payloads until a rebuild. Tests in [`tests/test_analytics_core.py`](tests/test_analytics_core.py) cover parity
+before/after materialisation, corrections, void/unvoid, imports, fallback and failed-family
+behaviour.
+
+**Deployment:** pulling the code and restarting applies the migrations but does not materialise
+history; run `strength-coach --db <coach.db> analytics build` once after the upgrade (back up
+first, ideally while idle). Until then the consumed families stay on the on-demand path.
+
+ODROID benchmark (377 synthetic sessions, same method as the audit): overview p50 2,746 → 2,474 ms;
+dashboard 991 → 744 ms; one-lift strength trend 6,825 → 258 ms; full parity check passed. Backfill
+took about 8.2 s. The overview gain is limited because deload, volume and attendance remain on
+demand (Milestone C). Known limitations: initial backfill is an explicit operator command (no
+scheduler yet); large imports mark the family stale until built; the strength payload is stored as
+a versioned JSON value.
+
+**Milestone C delivered (2026-11-14).** Migration
+[`0063_derived_week.sql`](strength_coach/store/migrations/0063_derived_week.sql) adds
+`derived_week` and the source set fields that outcomes/monitoring read. Spinal exposures are
+materialised by the existing `rules.registry.spinal_exposures`; `deload` evaluates the authoritative
+rule against a minimal context built from the weekly rows, so verdicts, evidence and the complete
+cost map stay the rule's output. `outcomes` and `monitoring` read `core.set_frame` instead of
+rescanning `clean_set`, and their e1RM associations use the migrated strength trend. The core
+fingerprint now also covers the spinal-rule files.
+
+Full-dataset parity (377 synthetic sessions): deload verdict/evidence/cost map, outcomes report and
+monitoring payload all equal (monitoring compared without its database-identity fingerprint).
+ODROID before/after: deload 1,682 → 40 ms; overview 2,744 → 799 ms; outcomes 4,884 → 3,585 ms;
+monitoring 48,728 → 18,357 ms; build ~63 s. Remaining limitations: build is an explicit operator
+command; a large import marks the family stale; snapshots are not used; the INT integration review
+is still a follow-up.
+
+**Follow-up C-1 — automatic maintenance worker (done 2026-11-15).** Delivered as a systemd oneshot
+plus timer rather than an in-web background worker. `analytics build` compares the dependency
+fingerprint with the persisted build row and does nothing when the family is current; when taxonomy
+or spinal-rule files changed, the family is stale or incomplete, a large import arrived, or a build
+failed, it rebuilds (resuming through the backfill cursor) and reports through
+`/api/analytics/status`. A run that finds nothing to do exits 0 without touching the build
+timestamps. The exercise writer that edits `overrides.v1.yaml` does not enqueue a build directly;
+the next 15-minute tick reconciles it, which is the accepted trade for having no long-lived worker.
+Consumers still fall back to on-demand, so a missed tick costs latency only.
+
+**Benchmark tooling extended (2026-11-14).** `tools/intelligence_benchmark.py` now discovers every
+registered capability, generates valid arguments from the benchmark database, and supports direct
+execution, real MCP Streamable HTTP (official SDK client, bearer token from an environment
+variable) and read-only existing-database modes. It reports per-capability distributions, errors,
+envelope statuses, analytics readiness and a clearly labelled MCP-overhead difference; identifiers
+are redacted. Tests are in `tests/test_intelligence_benchmark.py`. The HTTP mode was run on the ODROID against
+a copied production database (377 sessions, 7,978 sets, core family verified ready): HTTP p95 was
+6,201 ms for session details, 4,058 ms for overview, 3,800 ms for the programme summary and 1,663 ms
+for readiness, so the one-second transport gate is **not met** for four capabilities. ADR-INT-010
+then adopted the latency-aware budget (option B) and enabled the full catalogue; these p95 values
+are guidance, not a guarantee, and T-3 remains the optimisation track.
+The run also exposed a benchmark argument-schema bug (readiness/VBT use start/end), now fixed. See
+`docs/INTELLIGENCE-DEPLOYMENT.md` §13.
+
+**Correctness contract (2026-11-14 refinement).** A source revision is a durable, monotonic
+`analytics_revision` row appended in the same transaction as each mutation (workout completion,
+import, correction/supersede/tombstone, void/unvoid, any future remap that changes rows, config or
+methodology change). `MAX(clean_set.set_id)` and `PRAGMA data_version` are only change probes:
+they miss supersessions, flags and version changes and are not durable across processes. A family
+may be published `ready` only when its rows are committed, `processed_revision` reaches the family
+revision, the dependency fingerprint matches, and a final publication transaction sees no newer
+revision. Committed batches are not a publishable family. During backfill the owner keeps the
+on-demand path; concurrent writes advance the revision and the worker catches up before publishing.
+
+**Grain.** The four identities are distinct: session fragment (`session_id`), training day
+(`occurred_on`, possibly several fragments), exercise-within-day (best eligible fragment, never
+averaged) and exercise-within-session. `derived_week` is stored at ISO week x session x exercise
+because that is what reproduces `weekly_spinal_costs` exactly: summed weighted cost plus the
+per-exercise exposure count behind the evidence text, including set-count and mean-intensity
+factors. A week-only grain would lose that count and change the deload details.
+
+**Dependencies.** e1RM, set classification, taxonomy, spinal and volume versions form a graph: an
+upstream version bump invalidates every downstream family, which is why publication is keyed on a
+fingerprint rather than a single version. `analytics_snapshot` remains optional and is excluded
+from Milestones A and B; the monitoring/outcomes snapshot decision comes only after aggregate
+materialisation is measured.
+
+**Acceptance tests** (detail in the design doc): payload and numeric equivalence, exact deload
+verdict/evidence/weekly cost map, interruption and resume, concurrent source changes during
+backfill, invalidation after correction/void/import, methodology and config bumps, no partial
+family reads, and fallback when a family is incomplete or failed.
+
+| Phase / milestone | Scope | Status |
+|---|---|---|
+| 0 | Architecture and design approval | **completed 2026-11-14** |
+| **A** | Analytics infrastructure: revision ledger, mutation coverage, build state, coordinator/recovery, fingerprints, safe publication, status | **implemented and audited 2026-11-14 (`bf2775f`, `2654ce2`)** |
+| **B** | Core materialisation and consumer migration (former phases 2–3): `derived_set`, `derived_session_exercise`, family registration, progress and strength-trend migration | **implemented 2026-11-14; parity and ODROID measurements recorded** |
+| **C** | Rules, outcomes, monitoring and production validation (former phases 4–6): `derived_week`, deload/rules, outcomes, monitoring, ODROID verification, INT gate | **implemented 2026-11-14; parity and ODROID measurements recorded** |
+| **C-1** | Automatic maintenance worker (startup/periodic reconciliation, exercise-writer hook) | not started |
+| Snapshots | Optional, deferred, not a milestone requirement | not decided |
+
+**Non-goals:** metric changes, deload policy changes, lookback truncation, a generic cache, MCP
+transport changes or client changes.
 
 ## 5. Known gaps and risks
 

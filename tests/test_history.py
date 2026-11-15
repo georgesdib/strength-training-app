@@ -50,6 +50,54 @@ def test_per_rep_velocity_can_be_backfilled_and_is_read_back():
     assert after["vbt_override_count"] == 1
 
 
+def _edit_sets(conn, session_id):
+    return [
+        {
+            "set_id": item["set_id"],
+            "exercise_id": item["exercise_id"],
+            "load_kg": item["load_kg"],
+            "reps": item["reps"],
+            "rir": item["rir"],
+        }
+        for item in history.detail(conn, session_id)["sets"]
+    ]
+
+
+def test_productivity_can_be_overridden_from_a_history_edit():
+    store = _store()
+    try:
+        conn = store.connection
+        session_id = history.list_sessions(conn)["sessions"][0]["session_id"]
+        sets = _edit_sets(conn, session_id)
+        before = conn.execute(
+            "SELECT COUNT(*) FROM session_feedback WHERE session_id = ?", (session_id,)
+        ).fetchone()[0]
+        history.edit_session(
+            conn, session_id, sets=sets, productivity=4, reason="productivity backfill"
+        )
+        after = history.detail(conn, session_id)
+        rows = conn.execute(
+            "SELECT COUNT(*) FROM session_feedback WHERE session_id = ?", (session_id,)
+        ).fetchone()[0]
+    finally:
+        store.close()
+    assert after["feedback"]["productivity"] == 4
+    assert rows == before + 1
+
+
+def test_productivity_outside_one_to_five_is_rejected():
+    store = _store()
+    try:
+        conn = store.connection
+        session_id = history.list_sessions(conn)["sessions"][0]["session_id"]
+        with pytest.raises(ValueError):
+            history.edit_session(
+                conn, session_id, sets=_edit_sets(conn, session_id), productivity=9
+            )
+    finally:
+        store.close()
+
+
 def test_sets_keep_the_order_they_were_logged():
     # An import inserts rows grouped by exercise, so set_id order is not the order the sets
     # were performed; raw_id is. The details view must show the log order.

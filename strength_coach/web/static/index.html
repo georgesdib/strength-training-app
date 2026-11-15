@@ -58,6 +58,8 @@
           <button data-view="prescribe">Prescribe</button>
           <button data-view="programme">Programme</button>
           <button data-view="review">Review</button>
+          <button data-view="narrate">Narrate</button>
+          <button data-view="chat">Chat</button>
         </div>
       </details>
       <details class="nav-group">
@@ -166,6 +168,7 @@
         <div class="history-meta">
           <label>Session RPE (1-10) <input type="number" min="1" max="10" step="0.5" id="history-edit-srpe"></label>
           <label>Duration (min) <input type="number" min="1" max="600" id="history-edit-duration"></label>
+          <label>Productivity (1-5) <input type="number" min="1" max="5" step="1" id="history-edit-productivity"></label>
           <label class="grow">Note <input type="text" id="history-edit-notes"></label>
           <label class="grow">Edit reason <input type="text" id="history-edit-reason" placeholder="e.g. typo"></label>
         </div>
@@ -487,10 +490,8 @@
         <p class="muted">Ranks the configured variants for each slot using readiness, recent
           stress, rotation and preference. Tick <strong>Apply selection</strong> above to let the
           chosen candidates replace the slot exercise; the load is then re-solved from the
-          selected lift's own history. The model option may only choose from that ranked list;
-          Python falls back deterministically.</p>
+          selected lift's own history. Selection is deterministic.</p>
         <div class="form-row">
-          <label><input type="checkbox" id="selection-llm"> use LLM</label>
           <label><input type="checkbox" id="selection-include-different"> show different lifts (C)</label>
           <button class="ghost" id="selection-run">Check selection</button>
         </div>
@@ -604,7 +605,6 @@
           </label>
           <label><input type="checkbox" id="prescribe-apply-selection"> Apply selection</label>
           <label id="prescribe-selection-confirm-wrap" hidden><input type="checkbox" id="prescribe-selection-confirm"> Confirm near-comparable (B)</label>
-          <label id="prescribe-selection-llm-wrap" hidden><input type="checkbox" id="prescribe-selection-llm"> Use LLM</label>
           <p class="muted" id="prescribe-apply-selection-note"><strong>Apply selection:</strong> reruns the per-slot ranking and substitutes only <strong>class A</strong> candidates automatically; <strong>class B</strong> requires <em>Confirm near-comparable</em>; <strong>class C</strong> is never applied. Each applied slot cites <code>MOD-SELECT-001</code> and its load is re-solved from that lift's own history. It does not change the session type, and nothing is persisted until <strong>Start workout</strong>.</p>
           <label>Top set
             <select id="prescribe-top-set">
@@ -690,7 +690,7 @@
           <form id="workout-set-form" class="form-row workout-set-form">
             <label>Exercise <select id="workout-set-exercise" required aria-describedby="workout-set-msg"></select></label>
             <label>Load kg <input type="number" inputmode="decimal" step="0.5" id="workout-set-load" placeholder="added load"></label>
-            <label>Reps / sec <input type="number" inputmode="numeric" step="1" min="0" id="workout-set-reps" required aria-describedby="workout-set-msg"></label>
+            <label><span id="workout-set-reps-label">Reps / sec</span> <input type="number" inputmode="numeric" step="1" min="0" id="workout-set-reps" required aria-describedby="workout-set-msg"></label>
             <label>RIR <input type="number" inputmode="numeric" step="1" min="0" max="6" id="workout-set-rir"></label>
             <label>Set role
               <select id="workout-set-role">
@@ -716,7 +716,7 @@
         <p class="section-help"><span>Corrects an active-workout set by appending a replacement; the original stays auditable.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md&amp;anchor=16-workout-session-workout-set-workout-event-live-workout-mode">Live workout model</a></p>
           <div class="form-row">
             <label>Load kg <input id="workout-edit-load" type="number" step="0.5" inputmode="decimal"></label>
-            <label>Reps <input id="workout-edit-reps" type="number" step="1" min="0" inputmode="numeric"></label>
+            <label><span id="workout-edit-reps-label">Reps</span> <input id="workout-edit-reps" type="number" step="1" min="0" inputmode="numeric"></label>
             <label>RIR <input id="workout-edit-rir" type="number" step="1" min="0" max="6" inputmode="numeric"></label>
             <label>Set role
               <select id="workout-edit-role">
@@ -816,11 +816,10 @@
           </label>
           <label><input type="checkbox" id="programme-apply-selection"> Apply selection</label>
           <label id="programme-selection-confirm-wrap" hidden><input type="checkbox" id="programme-selection-confirm"> Confirm near-comparable (B)</label>
-          <label id="programme-selection-llm-wrap" hidden><input type="checkbox" id="programme-selection-llm"> Use LLM</label>
           <p class="muted" id="programme-selection-note"><strong>Apply selection:</strong> reruns the per-slot ranking for every forecast session and substitutes only <strong>class A</strong> candidates automatically; <strong>class B</strong> requires <em>Confirm near-comparable</em>; <strong>class C</strong> is never applied. Each applied slot cites <code>MOD-SELECT-001</code> and its load is re-solved from that lift's own history.</p>
           <button class="primary" type="submit">Build forecast</button>
         </form>
-        <p class="muted">Rolling session-type forecast. Loads are projections, and every session is rebuilt when its day arrives. Nothing is persisted. <strong>Use LLM</strong> (available after Apply selection) lets the configured model choose only among Python-filtered exercise variants; it never supplies a load, set or RIR.</p>
+        <p class="muted">Rolling session-type forecast. Loads are projections, and every session is rebuilt when its day arrives. Nothing is persisted. Selection is deterministic; the model never chooses exercises.</p>
       </div>
       <div id="programme-result"></div>
     </section>
@@ -837,6 +836,56 @@
           the retirement have no critique and show no items.</p>
       </div>
       <div id="review-result"></div>
+    </section>
+
+    <section id="view-narrate" class="view">
+      <div class="panel">
+        <div class="panel-head"><h2>Narrate a capability</h2><span class="muted">read only</span></div>
+        <p class="section-help"><span>Explain one deterministic capability envelope with the configured model. The model never computes a number or changes an artifact.</span> <a class="doc-link" href="#docs?doc=docs/INTELLIGENCE-IMPLEMENTATION.md">Narration and chat</a></p>
+        <form id="narrate-form">
+          <div class="form-row">
+            <label class="grow">Capability
+              <select id="narrate-capability">
+                <option value="get_weekly_review">Weekly review</option>
+                <option value="get_training_overview">Training overview</option>
+                <option value="get_exercise_progression">Exercise progression</option>
+                <option value="get_readiness_history">Readiness history</option>
+                <option value="get_session_details">Session details</option>
+                <option value="get_prescription">Prescription</option>
+                <option value="get_programme_block_summary">Programme block</option>
+                <option value="get_adherence_analysis">Adherence</option>
+                <option value="compare_training_periods">Compare periods</option>
+                <option value="get_vbt_analysis">VBT analysis</option>
+              </select>
+            </label>
+          </div>
+          <p class="muted" id="narrate-help" aria-live="polite"></p>
+          <p class="muted" id="narrate-usage"></p>
+          <label>Request payload (JSON)
+            <textarea id="narrate-payload" rows="4" spellcheck="false">{}</textarea>
+          </label>
+          <div class="form-row">
+            <button class="primary" type="submit" id="narrate-submit">Narrate</button>
+            <span class="muted" id="narrate-msg"></span>
+          </div>
+        </form>
+        <p class="muted">The trace records the model and token count, not the prompt or narrative. The narrative is not saved as a training artifact.</p>
+      </div>
+      <div id="narrate-result"></div>
+    </section>
+
+    <section id="view-chat" class="view">
+      <div class="panel">
+        <div class="panel-head"><h2>Training chat</h2><span class="muted">read only · session memory</span></div>
+        <p class="section-help"><span>Answers use a fresh read-only training-data snapshot covering weekly review, training overview, adherence, programme, prescription and readiness. It never writes or computes a load.</span> <a class="doc-link" href="#docs?doc=docs/INTELLIGENCE-IMPLEMENTATION.md">Chat and dossier</a></p>
+        <div id="chat-log" class="chat-log"></div>
+        <form id="chat-form" class="form-row">
+          <label class="grow">Message <input id="chat-input" autocomplete="off" placeholder="What changed this week?"></label>
+          <button class="primary" type="submit" id="chat-send">Send</button>
+          <span class="muted" id="chat-msg"></span>
+        </form>
+        <p class="muted">Up to 20 turns per conversation; cleared when this page reloads. Suggestions are proposals, not applied; not medical advice.</p>
+      </div>
     </section>
 
     <section id="view-readiness" class="view">
@@ -1099,6 +1148,7 @@
           <div class="form-row">
             <label>Temperature <input type="number" step="0.1" min="0" max="2" id="settings-llm-temperature"></label>
             <label>Max tokens <input type="number" step="1" min="1" id="settings-llm-max-tokens"></label>
+            <label>Daily token budget <input type="number" step="1" min="0" id="settings-llm-daily-tokens"></label>
             <label>Timeout s <input type="number" step="1" min="1" id="settings-llm-timeout"></label>
           </div>
           <div class="form-row">

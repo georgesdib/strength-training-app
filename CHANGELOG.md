@@ -1,5 +1,59 @@
 # Changelog
 
+## [Unreleased]
+
+Nothing yet.
+
+## [1.5.0] — 2026-11-15
+
+Read-only training intelligence end to end: the deterministic capability layer, the standalone MCP
+server (ten tools, three resources), the additive iOS REST facade, the weekly review, server
+narration, the web/CLI narrate view and the server/web chat over the deterministic fact dossier.
+No training decision, prescription, readiness rule or schema changed; retiring the minimal selector
+leaves one model surface.
+
+### Added
+
+- **Side Plank and Chinese Plank are separate exercises** (`DEC-VARIANT-04`, pattern clause
+  corrected by `DEC-VARIANT-05`). `plank` keeps Regular and Front Plank and gains
+  `primary_muscles: [abs]`; `side_plank` is a `core_isometric` trunk hold with
+  `[abs, erectors]`; `chinese_plank` is a `hip_extension` hold with `[glutes]`. All three still
+  record seconds. Migration `0060` rewrites the identity of previously imported rows by their
+  raw logged name and records each change in `exercise_remap_log`; the raw rows are untouched.
+
+### Fixed
+
+- **Exercise overrides ported into the canonical taxonomy.** `config/exercises/overrides.v1.yaml`
+  is now empty: the rack-pull `e1rm_applicable`/`primary_compound`/muscle entries and the
+  competition-squat and conventional-deadlift muscle lists live in `taxonomy.v1.yaml`. The
+  effective catalogue is unchanged (a field-by-field comparison before and after matches, with
+  `spinal_cost` now written as an integer), and the generated programme and workout blocks were
+  regenerated.
+
+- **Adding an exercise in the web UI no longer fails silently.** A blank ID returned without
+  sending a request or showing a message; the dialog now states the required format, native
+  validation messages appear inside the dialog, and the pattern select is rebuilt from the
+  catalogue when it has not loaded yet, so a required field can no longer block a save with no
+  explanation.
+
+- **Productivity is editable from a History correction.** The correction form, the API body and
+  `history.edit_session` now accept `productivity` (1-5); it is validated, written append-only
+  to `session_feedback`, and the History detail reads the latest non-null value per field through
+  `session_feedback.merged`, so a later row that records only sRPE no longer hides an earlier
+  duration, note or productivity.
+- **Time-based exercises are labelled in seconds.** History detail and the correction form show
+  "Seconds" for sets whose `reps_unit` is `seconds` (plank, carry) instead of "Reps". The
+  stored value was already seconds (`rep_semantics: seconds`); only the label was wrong. The
+  live-workout set form and the set-edit dialog follow the selected exercise: `GET /api/exercises`
+  now returns `time_based`, and the label switches to "Seconds" for a timed movement instead of
+  the generic "Reps / sec".
+- **The bench+hinge support lift may be the trap bar** (`DEC-SPINE-09`, superseding the
+  support-lift clause of `DEC-SPINE-05`). In resolver mode `bench_hinge.hinge_support` is now a
+  two-candidate pool, sumo first (default) and trap bar second; role, sets, reps, RIR, rest, the
+  e1rm load source and the flare scope are unchanged, and the fixed template still prescribes
+  sumo. The trap bar carries the lower spinal cost (2 against 2.5), so the substitution cannot
+  raise the weekly cap.
+
 ## [1.4.1] — 2026-11-14
 
 ### Fixed

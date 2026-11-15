@@ -1,0 +1,52 @@
+# Strength Intelligence MCP server — read-only, Streamable HTTP.
+#
+# Separate from strength-coach-web.service: this process never serves the UI, never writes the
+# database, and can be stopped without affecting training capture. It refuses to start unless
+# config/intelligence.v1.yaml sets enabled: true and at least one active client token exists.
+#
+# Install as /etc/systemd/system/strength-intelligence-mcp.service. See
+# docs/INTELLIGENCE-DEPLOYMENT.md. This file has not been deployed or validated on the target host.
+
+[Unit]
+Description=Strength Intelligence MCP server (read-only)
+Documentation=file:/opt/strength-training-app/docs/INTELLIGENCE-DEPLOYMENT.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=strength-intel
+Group=strength-intel
+WorkingDirectory=/opt/strength-training-app
+Environment=HOME=/var/lib/strength-intel
+Environment=PATH=/opt/strength-training-app/.venv/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+# The training date is server-local; set the intended zone explicitly.
+Environment=TZ=Europe/London
+# --db is a global CLI option: it must precede the subcommand or argparse rejects the unit.
+ExecStart=/opt/strength-training-app/.venv/bin/strength-coach --db /var/lib/strength-coach/coach.db intelligence serve --config /etc/strength-coach/intelligence.v1.yaml --tokens /etc/strength-coach/intelligence.local.yaml
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+
+# Hardening. The service needs no write access: the database is opened mode=ro, tokens are read
+# from /etc, and logs go to the journal.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+# A read-only SQLite connection still needs to create/map the WAL -shm/-wal files beside a
+# WAL-mode database. Keep the rest of the filesystem read-only but allow this directory.
+ReadWritePaths=/var/lib/strength-coach
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

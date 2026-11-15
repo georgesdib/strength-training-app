@@ -1,0 +1,52 @@
+# Training Intelligence configuration.
+#
+# Domain reason: the intelligence capability layer is a read-only consumer of the same
+# database. Its switch, bounds, transport exposure and revision identity are stored here so a
+# deployment can disable it, cap expensive windows and keep the MCP endpoint off the network
+# without touching code. This file contains no secrets: MCP client tokens live in the
+# git-ignored config/intelligence.local.yaml as SHA-256 digests.
+
+version: 1
+
+# Off until an operator enables it. Gates execution and the MCP server; the library itself
+# stays importable and testable.
+enabled: false
+
+# Hard upper bound for any window a capability may request, in days. Prevents an unbounded
+# scan of the append-only history. 400 days is the ceiling the contract fixes.
+max_window_days: 400
+
+# Maximum rows a paginated capability may return per call.
+max_sessions_per_page: 20
+
+# --- MCP transport ---------------------------------------------------------------------
+# Loopback by default. A private-network or tailnet deployment must set bind_host explicitly
+# AND list the exact Host headers it will answer; network reachability is not authentication.
+bind_host: 127.0.0.1
+bind_port: 8765
+endpoint_path: /mcp
+
+# DNS-rebinding protection stays on. Host entries may end in :* to accept any port.
+allowed_hosts:
+  - 127.0.0.1:*
+  - localhost:*
+
+# Largest accepted request body. Intelligence requests are small JSON objects.
+max_request_body_bytes: 262144
+
+# Per-client request budget and concurrent-call ceiling. 0 disables rate limiting.
+# Hard ceiling for one capability call. The worker thread is not cancellable; see the
+# implementation page for the actual guarantee.
+tool_timeout_seconds: 20
+
+# Largest serialized envelope a tool or resource may return. Over-limit calls fail with a
+# typed error instead of a truncated or malformed envelope.
+max_tool_result_bytes: 1048576
+
+rate_limit_per_minute: 60
+max_concurrent_calls: 4
+
+# Raw readiness values (sleep, mood, stress, soreness, HRV, RHR, bodyweight) are local-only by
+# default: the MCP dispatch rejects them. Set true only for a trusted host that genuinely needs
+# them; the weekly review exposes direction and coverage only either way.
+allow_sensitive_readiness: false

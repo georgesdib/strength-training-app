@@ -34,6 +34,12 @@ def _window(on_date: str | None, weeks: int) -> tuple[dt.date, dt.date]:
 
 
 def _sets(conn, start: dt.date, end: dt.date) -> pd.DataFrame:
+    from strength_coach.analytics import core as derived_core
+
+    if derived_core.ensure(conn):
+        return derived_core.set_frame(
+            conn, start=start.isoformat(), end=end.isoformat()
+        )
     cursor = conn.execute(
         """
         SELECT occurred_on AS date, session_id, exercise_id, load_kg, reps, rir,

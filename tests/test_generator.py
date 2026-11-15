@@ -328,6 +328,37 @@ def test_hinge_main_pool_includes_sumo() -> None:
         store.close()
 
 
+def test_bench_hinge_support_pool_includes_the_trap_bar() -> None:
+    policy = resolver_policy.ResolverPolicy.load()
+    assert policy.slot_pools["bench_hinge"]["hinge_support"] == (
+        "sumo_deadlift",
+        "trap_bar_deadlift",
+    )
+
+
+def test_bench_hinge_support_can_choose_the_trap_bar() -> None:
+    store = db.Store(":memory:")
+    try:
+        _rate_defaults(store.connection, "bench_hinge")
+        _rate(store.connection, "trap_bar_deadlift")
+        # The sumo stays the default, but it is no longer the only support lift (DEC-SPINE-09).
+        _rate(
+            store.connection, "sumo_deadlift", can_do=False, rated_on="2026-10-31"
+        )
+        session = generator.generate(
+            store.connection,
+            for_date="2026-11-01",
+            session_type="bench_hinge",
+            settings=_settings(**{"resolver.rotation.main": 1.0}),
+        )
+        support = next(
+            slot for slot in session.slots if slot.slot_id == "hinge_support"
+        )
+        assert support.exercise_id == "trap_bar_deadlift"
+    finally:
+        store.close()
+
+
 def test_pattern_flexibility_can_change_a_core_slot() -> None:
     raw = yaml.safe_load(paths.template_resolver_yaml().read_text(encoding="utf-8"))
     raw["slot_pools"] = {

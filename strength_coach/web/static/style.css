@@ -682,3 +682,13 @@ body.menu-open { overflow: hidden; }
 .performance-chart circle.chart-series-1-point,
 .performance-chart circle.chart-series-median-point,
 .performance-chart circle.chart-series-hard-point { fill: var(--accent-2); }
+
+
+/* INT-6 training chat */
+.chat-log { display: flex; flex-direction: column; gap: 8px; max-height: 52vh; overflow-y: auto; padding: 4px 0 10px; }
+.chat-bubble { max-width: 88%; padding: 8px 10px; border-radius: 10px; white-space: normal; }
+.chat-bubble.user { align-self: flex-end; background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.chat-bubble.assistant { align-self: flex-start; background: color-mix(in srgb, currentColor 8%, transparent); }
+
+.suggestion-box { margin-top: 8px; padding: 8px 10px; border-left: 3px solid #b7791f; background: color-mix(in srgb, #b7791f 10%, transparent); }
+.suggestion-box ul { margin: 4px 0 0 16px; }

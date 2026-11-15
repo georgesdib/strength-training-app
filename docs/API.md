@@ -23,7 +23,7 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/monitoring-analysis?as_of=` | read-only dose, lagged associations, coverage and calibration transparency; no path disclosure |
 | `GET /api/settings/monitoring` | read-only monitoring/config inventory, canonical/local/default/code provenance, Phase 5A period and lock, complete effective-inventory revision; no paths or athlete data |
 | `POST /api/import` | `{training: {name, text}, readiness: {name, text}}` -> import report |
-| `POST /api/prescribe` | `{date, session_type?, apply_selection?, selection_confirmed?, selection_llm?, minimum_session?, target_minutes?, minimum_include_main?, allow_unknown_readiness?}` -> prescription; `session_type=auto` uses the rolling rule; unknown readiness requires the explicit flag |
+| `POST /api/prescribe` | `{date, session_type?, apply_selection?, selection_confirmed?, minimum_session?, target_minutes?, minimum_include_main?, allow_unknown_readiness?}` -> prescription; `session_type=auto` uses the rolling rule; unknown readiness requires the explicit flag |
 | `POST /api/workout/start` | `{date, plan, readiness, readiness_ack?, note?}` -> live workout; a score-ready assessment or explicit acknowledgement is required; partial readiness stays partial |
 | `GET /api/workout/active` | active workout, or `{workout: null}` |
 | `GET /api/workout/<id>` | workout detail |
@@ -40,7 +40,7 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/history/days?limit=&offset=&start=&end=` | paginated training days with their fragments |
 | `GET /api/exercise-history?exercise_id=&limit=&offset=&on_or_before=` | read-only completed-session history for one exercise, grouped by session; limit counts sessions and defaults to 5 |
 | `GET /api/history/<id>` | current session sets, feedback and completed-workout prescription adherence |
-| `POST /api/history/<id>/edit` | append-only correction of sets and session metadata |
+| `POST /api/history/<id>/edit` | append-only correction of sets and session metadata; accepts `session_rpe`, `duration_min`, `productivity` (1-5), `notes` and `reason`, and returns the corrected session with merged feedback |
 | `POST /api/history/<id>/vbt` | set/rep VBT overrides (also accepted inside `/edit`) |
 | `POST /api/history/<id>/void` | void or unvoid a whole session |
 | `GET /api/rep-velocity?session=<id>` | descriptive per-rep report after completion |
@@ -55,11 +55,11 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/logs?limit=N` | recent in-memory application/HTTP log records (max 500; cleared on restart) |
 | `GET /api/state` | profile, constraints, suitability, e1RM, symptoms, attributed symptoms, injury signal |
 | `GET /api/symptoms/attribution-options?onset=&timing=` | completed sessions and performed lifts available for an attributed symptom |
-| `GET /api/exercises` | canonical exercise catalogue for the pickers |
+| `GET /api/exercises` | canonical exercise catalogue for the pickers: `id`, `display`, `pattern` and `time_based` (the client labels a time-based movement in seconds rather than reps) |
 | `POST /api/programme/key` | request body -> `{cache_key}` covering version, request, resolved profile, database revision and relevant config hashes |
 | `POST /api/programme/jobs` | starts a background build; returns `202` with `job_id` and status |
 | `GET /api/programme/jobs/<id>` | `running` / `done` with entries / `error`; has a one-hour in-memory TTL and is capped at 20 jobs |
-| `POST /api/programme` | synchronous compatibility endpoint -> date entries; Apply selection mirrors `/api/prescribe`, and `selection_llm` lets the model choose only among filtered variants |
+| `POST /api/programme` | synchronous compatibility endpoint -> date entries; Apply selection mirrors `/api/prescribe` and is deterministic |
 | `GET /api/cardio?weeks=N` | cardio summary for the window |
 | `POST /api/cardio` | `{date, modality, minutes, avg_hr, max_hr, distance_km, srpe, note}` -> summary |
 | `GET /api/fatigue?date=N` | strength fitness-fatigue diagnostic (per-lift state and status; not a predictor) |
@@ -92,6 +92,8 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/modalities` | module list with class, enabled source, dependencies, citations and factors |
 | `GET/POST /api/modalities/<id>` | module state or enabled/factor update; guarded modules need guard_confirmed and reason |
 | `POST /api/settings/llm/test` | call the configured model with a tiny connectivity prompt |
+| `POST /api/intelligence/chat` | `{messages: [{role, content}]}` -> read-only multi-turn answer from a fresh six-capability fact dossier, `answer`, `suggestions`, source capability names, advisory warnings, tokens; max 20 turns; writes a run trace |
+| `POST /api/intelligence/narrate` | `{capability, payload}` -> run one read-only capability and return its narrative (headline, observations, limitations, warnings, raw facts, model, tokens); unverified numbers are warnings, not errors; writes a run trace; 400 when the LLM is disabled |
 | `GET /api/exposures?date=N` | recent high-intensity exposures and recovery guard |
 | `POST /api/exposures` | log a manual max/competition/unplanned exposure; tests use the test endpoint |
 | `POST /api/continuity/settings` | `{allow_relax_fixed}` -> update the calibration policy |
@@ -236,6 +238,11 @@ nudge sources.
 
 ### VBT target metadata
 
+Plan items carry `reps_unit` (`reps` or `seconds`) so a time-based hold is displayed
+and logged in seconds. Swapping an exercise re-solves the replacement's load, warm-up ramps and
+VBT target from that exercise's own history/calibration; an unavailable load keeps an explicit
+`unknown_load_reason`.
+
 An issued VBT target now carries an optional `vbt` object on each plan item:
 
 ```json
@@ -360,12 +367,20 @@ in the StrengthApp repository.
 | route | auth | payload |
 |---|---|---|
 | `POST /api/ios/v1/pair` | none | `{code, label?}` -> `{api_version, device, token, server_date, server_time, utc_offset_minutes, server_timezone}`; the token is shown once |
-| `GET /api/ios/v1/bootstrap` | bearer | `{api_version, server_date, server_time, utc_offset_minutes, server_timezone, capabilities}`; Phase 2 adds `readiness_write`, `prescription` and `workout_write`; Phase 3A adds `healthkit_readiness` (false when mutations are disabled) |
+| `GET /api/ios/v1/bootstrap` | bearer | `{api_version, server_date, server_time, utc_offset_minutes, server_timezone, capabilities}`; Phase 2 adds `readiness_write`, `prescription` and `workout_write`; Phase 3A adds `healthkit_readiness` (false when mutations are disabled); INT-3 adds `intelligence_read` |
 | `GET /api/ios/v1/today` | bearer | `{date, readiness, readiness_score, active_workout}`; `readiness` is the existing `/api/readiness/<date>` payload and `active_workout` is null or the live workout detail |
 | `GET /api/ios/v1/history?limit=&offset=&start=&end=` | bearer | exactly `history.list_sessions`; limit 1-100, default 50; offset >= 0, default 0 |
 | `GET /api/ios/v1/history/<id>` | bearer | exactly `history.detail`; session outline, measured/manual duration, sets and feedback; unknown id 404 |
 | `GET /api/ios/v1/workouts/<id>/summary` | bearer | `{"summary": ...}` — the same completed-workout summary payload as the web route (adherence, VBT, feedback, quality flags and evidence); `ratios` is always an empty list here because relative-strength ratios walk the whole lift history and the native report does not render them, so the mobile request stays inside its timeout; unknown id 404, in-progress 409 |
 | `GET /api/ios/v1/progress?weeks=&date=` | bearer | exactly `progress_feature.dashboard`; weeks 1-52, default 8 |
+| `GET /api/ios/v1/intelligence/weekly-review?week_end=YYYY-MM-DD` | bearer | exactly the `get_weekly_review` envelope (Monday-Sunday week containing `week_end`; default the most recently completed week); unknown query parameter 400, disabled capability 503, malformed envelope never returned |
+| `GET /api/ios/v1/intelligence/overview?as_of=&window_weeks=` | bearer | exactly the `get_training_overview` envelope; window 1-52, default 4 |
+| `GET /api/ios/v1/intelligence/exercises/<id>/progression?as_of=&window_days=&include_sessions=&limit_sessions=` | bearer | exactly the `get_exercise_progression` envelope; window 28-365, default 84; unknown exercise 404 |
+| `GET /api/ios/v1/intelligence/readiness?from=&to=&fields=` | bearer | exactly the `get_readiness_history` envelope; `fields` is a comma-separated list, default `score`; the paired app may name raw fields |
+| `GET /api/ios/v1/intelligence/session-details?workout_id=&session_id=&include_ratios=` | bearer | exactly the `get_session_details` envelope; exactly one identifier required |
+| `GET /api/ios/v1/intelligence/prescription?prescription_id=&for_date=&include_provenance=` | bearer | exactly the `get_prescription` envelope; at most one of `prescription_id` or `for_date`; no identifier returns the current persisted prescription |
+| `GET /api/ios/v1/intelligence/programme-summary?as_of=&block_weeks=` | bearer | exactly the `get_programme_block_summary` envelope; `block_weeks` is 4, 6 or 8 |
+| `GET /api/ios/v1/intelligence/adherence?as_of=&weeks=&from=&to=&group_by=&exercise_id=&session_type=` | bearer | exactly the `get_adherence_analysis` envelope; `from` and `to` travel together |
 | `POST /api/ios/v1/readiness` | bearer + Idempotency-Key | `{values, note?}` -> the existing readiness payload; values use the accepted manual field set; unknown/empty/zero-placeholder fields are rejected |
 | `POST /api/ios/v1/healthkit/readiness` | bearer + Idempotency-Key | `{date, samples:[{field, value, sample_id, sample_at, source_name, source_bundle_id?, source_class, source_model?, source_manufacturer?}]}` -> the canonical readiness payload plus `healthkit` provenance; one to three samples (HRV, RHR, bodyweight), server-local today for the import, sample identity deduplicated; see Phase 3A contract |
 | `POST /api/ios/v1/prescriptions` | bearer + Idempotency-Key | `{readiness_ack?, confirmations?: {deload?, drop?}, settings?: {session_type?, minimum_session?, minimum_target_minutes?, top_set?}}` -> `202 {issued_plan_id, status, for_date, request_expires_at, plan_expires_at, retry_after_ms, settings}`; the request is built in the background (R7) |

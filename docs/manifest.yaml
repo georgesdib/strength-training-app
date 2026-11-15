@@ -97,12 +97,36 @@ documents:
   status: canonical
   audience: public
   nav: true
+- id: production-deployment
+  path: docs/PRODUCTION-DEPLOYMENT.md
+  title: PRODUCTION DEPLOYMENT — DERIVED ANALYTICS AND MCP CUTOVER
+  description: 'Step-by-step production cutover: backup, branch choice, migrations 0061-0063, first analytics build, C-1 timer, MCP service, verification and rollback; not yet executed on the host'
+  category: architecture
+  status: development
+  audience: public
+  nav: true
 - id: releasing
   path: docs/RELEASING.md
   title: RELEASING AND CI
   description: CI checks, pinned dependencies, release tagging, artifact generation and branch-protection requirements
   category: architecture
   status: canonical
+  audience: public
+  nav: true
+- id: intelligence-implementation
+  path: docs/INTELLIGENCE-IMPLEMENTATION.md
+  title: TRAINING INTELLIGENCE — BACKEND IMPLEMENTATION
+  description: 'INT-1 foundation, INT-1b MCP transport, audit remediation, the INT-2 read-only catalogue and INT-3 weekly review: envelopes, validation, authentication, read-only execution, ten tools, three resources, five additive iOS read routes, limits and tests; no model provider'
+  category: architecture
+  status: development
+  audience: public
+  nav: true
+- id: intelligence-deployment
+  path: docs/INTELLIGENCE-DEPLOYMENT.md
+  title: TRAINING INTELLIGENCE — MCP DEPLOYMENT GUIDE
+  description: 'systemd unit, service user, configuration, token provisioning and revocation, logging, tailnet exposure and limitations for the read-only MCP server; installation plan, not yet validated on the target host'
+  category: architecture
+  status: development
   audience: public
   nav: true
 - id: core-training
@@ -597,9 +621,9 @@ documents:
 - id: llm-integration-plan
   path: docs/LLM-INTEGRATION-PLAN.md
   title: LLM INTEGRATION — FUTURE ARCHITECTURE AND PHASED PLAN
-  description: 'future LLM analyst/explainer/constrained-proposer architecture: Iteration 1 (practical capabilities, selector
-    retirement), conditional Iteration 2 (retrieval/RAG/advanced orchestration), shared context/evidence contracts, approval,
-    privacy and evaluation gates; plan only'
+  description: 'superseded as a forward plan 2026-11-14 by the portfolio Training Intelligence plan; retained for the
+    outbound-data inventory, evaluation gates, selector retirement and the deferred constrained proposer; historical
+    record of the Iteration 1/Iteration 2 boundary; plan only'
   category: plans
   status: plan
   audience: public
@@ -887,6 +911,14 @@ documents:
   status: archived
   audience: public
   nav: true
+- id: design-derived-analytics-architecture
+  path: docs/design/DERIVED-ANALYTICS-ARCHITECTURE.md
+  title: Derived analytics layer — audit and architecture
+  description: 'Design proposal: audit of repeated full-history analytics, a versioned rebuildable derived layer (per-set, session/exercise, weekly, selected snapshots), ownership and invalidation rules, background backfill, alternatives and a phased roadmap; no runtime change'
+  category: design
+  status: design
+  audience: maintainer
+  nav: false
 - id: design-ios-phase-1-contract
   path: docs/design/IOS-PHASE-1-CONTRACT.md
   title: iOS Phase 1 native foundation contract

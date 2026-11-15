@@ -22,6 +22,8 @@ for current status and next actions. [`AGENTS.md`](../AGENTS.md) holds the engin
 ## Architecture and data
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — layers, data flow, where the LLM sits
+- [INTELLIGENCE-IMPLEMENTATION.md](INTELLIGENCE-IMPLEMENTATION.md) — Training Intelligence implementation: capability layer, envelope, authentication, configuration, read-only execution, MCP transport, audit and limits
+- [INTELLIGENCE-DEPLOYMENT.md](INTELLIGENCE-DEPLOYMENT.md) — MCP deployment guide: service user, configuration, tokens, systemd unit, logs, revocation, tailnet exposure and limitations (not yet validated on the target host)
 - [DATA-MODEL.md](DATA-MODEL.md) — canonical tables, append-only records
 - [DATA-QUALITY.md](DATA-QUALITY.md) — DQ decision ledger and sentinel questions
 - [PRIVACY.md](PRIVACY.md) — public/private boundary and external-LLM payload rules
@@ -72,7 +74,7 @@ for current status and next actions. [`AGENTS.md`](../AGENTS.md) holds the engin
 - [AFC.md](AFC.md) — compatibility pointer; canonical plan in the [portfolio docs/plans](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md) (AFC-2, AFC-2i, AFC-3 first cut and AFC-4 implemented 2026-11-13)
 - [HIGH-INTENSITY-EXPOSURE-PLAN.md](HIGH-INTENSITY-EXPOSURE-PLAN.md) (Phase 3 pending)
 - [INJURY-ATTRIBUTION-PLAN.md](INJURY-ATTRIBUTION-PLAN.md) (Phase 3 open)
-- [LLM-INTEGRATION-PLAN.md](LLM-INTEGRATION-PLAN.md)
+- [LLM-INTEGRATION-PLAN.md](LLM-INTEGRATION-PLAN.md) — **superseded as a forward plan** 2026-11-14 by the portfolio [Training Intelligence plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md); retained for the outbound-data inventory, the evaluation gates, the selector retirement and the deferred proposer
 - [WEAKNESS-TARGETING-PLAN.md](WEAKNESS-TARGETING-PLAN.md) (gated)
 
 ## Client documentation

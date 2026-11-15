@@ -237,6 +237,8 @@ session_types:
           # DEC-SPINE-05/DEC-SPINE-07: sumo is a low-rep strength support lift, aligned with
           # the competition squat on bench+squat: essential, not an accessory. It is a
           # high-fatigue hinge (cost 2.5) and stays off the maximal scheme.
+          # DEC-SPINE-09: the resolver may choose the trap-bar deadlift for this slot (cost 2);
+          # this fixed template keeps sumo as the default.
           exercise: sumo_deadlift
           sets: 3
           reps: {low: 3, high: 5}

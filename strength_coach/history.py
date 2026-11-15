@@ -14,7 +14,10 @@ import uuid
 from typing import Any
 
 from strength_coach import adherence, workout
+from strength_coach.analytics import core as derived_core
+from strength_coach.analytics import revision as analytics_revision
 from strength_coach.domain import load as load_mod
+from strength_coach.features import session_feedback as session_feedback_feature
 from strength_coach.features import training_day, vbt_analysis
 from strength_coach.store import db, queries, repositories, symptom_attribution
 from strength_coach.utils import exercises
@@ -177,7 +180,9 @@ def detail(conn, session_id: str) -> dict:
     data["vbt_override_count"] = sum(
         1 for value in vbt.values() if value["mean"] is not None or value["reps"]
     )
-    data["feedback"] = queries.session_feedback(conn, session_id)
+    # Latest non-null value per field: a later row that records only sRPE must not hide an
+    # earlier duration, note or productivity.
+    data["feedback"] = session_feedback_feature.merged(conn, session_id)
     data["forms"] = _current_forms(conn, session_id)
     data["attributed_symptoms"] = symptom_attribution.events_for_session(
         conn, session_id
@@ -360,6 +365,7 @@ def _edit_session_impl(conn, session_id: str, *, sets: list[dict],
                        forms: list[dict] | None = None,
                        session_rpe: float | None = None,
                        duration_min: float | None = None,
+                       productivity: int | None = None,
                        notes: str | None = None,
                        reason: str | None = None) -> dict:
     session = detail(conn, session_id)
@@ -367,7 +373,9 @@ def _edit_session_impl(conn, session_id: str, *, sets: list[dict],
         raise ValueError("unvoid the session before editing it")
     before = {"sets": session["sets"], "forms": session.get("forms") or [],
               "session_rpe": session.get("session_rpe"),
-              "duration_min": session.get("duration_min"), "notes": (session.get("feedback") or {}).get("note")}
+              "duration_min": session.get("duration_min"),
+              "productivity": (session.get("feedback") or {}).get("productivity"),
+              "notes": (session.get("feedback") or {}).get("note")}
     existing = {int(item["set_id"]): item for item in session["sets"]}
     form_writes = _validated_forms(session, forms)
     incoming = []
@@ -453,10 +461,15 @@ def _edit_session_impl(conn, session_id: str, *, sets: list[dict],
                  int(old["form_id"]) if old else None),
             )
     _refresh_session(conn, session_id)
-    if session_rpe is not None or duration_min is not None or notes:
+    if (
+        session_rpe is not None
+        or duration_min is not None
+        or productivity is not None
+        or notes
+    ):
         repositories.append_session_feedback(
             conn, session_id=session_id, srpe=session_rpe,
-            duration_min=duration_min, note=notes,
+            duration_min=duration_min, productivity=productivity, note=notes,
         )
         conn.execute(
             "UPDATE session SET session_rpe = COALESCE(?, session_rpe), "
@@ -475,6 +488,7 @@ def _edit_session_impl(conn, session_id: str, *, sets: list[dict],
         "forms": forms,
         "session_rpe": session_rpe,
         "duration_min": duration_min,
+        "productivity": productivity,
         "notes": notes,
     }
     conn.execute(
@@ -482,6 +496,14 @@ def _edit_session_impl(conn, session_id: str, *, sets: list[dict],
         "VALUES (?, ?, ?, ?, ?)",
         (edit_id, session_id, reason, json.dumps(before, separators=(",", ":")),
          json.dumps(after, separators=(",", ":"))),
+    )
+    derived_was_ready = derived_core.is_ready(conn, derived_core.spec())
+    analytics_revision.record_mutation(
+        conn, "correction", session_id=str(session_id),
+        detail={"sets": len(incoming)},
+    )
+    derived_core.refresh_sessions(
+        conn, [str(session_id)], was_ready=derived_was_ready
     )
     # The critique used to be rebuilt here. It is a retired diagnostic (DEC-EVAL-09), so an
     # audited correction no longer re-scores anything; the historical rows stay untouched.
@@ -492,13 +514,18 @@ def edit_session(conn, session_id: str, *, sets: list[dict],
                  forms: list[dict] | None = None,
                  session_rpe: float | None = None,
                  duration_min: float | None = None,
+                 productivity: int | None = None,
                  notes: str | None = None,
                  reason: str | None = None) -> dict:
     """Apply a complete correction atomically; any failure rolls the whole edit back."""
+    if productivity is not None and not 1 <= int(productivity) <= 5:
+        raise ValueError("productivity must be 1-5")
     with db.transaction(conn):
         return _edit_session_impl(
             conn, session_id, sets=sets, forms=forms, session_rpe=session_rpe,
-            duration_min=duration_min, notes=notes, reason=reason,
+            duration_min=duration_min,
+            productivity=None if productivity is None else int(productivity),
+            notes=notes, reason=reason,
         )
 
 
@@ -507,15 +534,23 @@ def void_session(conn, session_id: str, *, reason: str | None = None,
     """Mark a session excluded from metrics/calibration; never delete its rows."""
     detail(conn, session_id)
     action = "unvoid" if unvoid else "void"
-    conn.execute(
-        "INSERT INTO session_void (session_id, action, reason) VALUES (?, ?, ?)",
-        (session_id, action, reason),
-    )
-    conn.execute(
-        "UPDATE session SET voided = ?, voided_at = ?, void_reason = ?, "
-        "updated_at = ? WHERE session_id = ?",
-        (0 if unvoid else 1, _now(), None if unvoid else reason, _now(), session_id),
-    )
+    with db.transaction(conn):
+        conn.execute(
+            "INSERT INTO session_void (session_id, action, reason) VALUES (?, ?, ?)",
+            (session_id, action, reason),
+        )
+        conn.execute(
+            "UPDATE session SET voided = ?, voided_at = ?, void_reason = ?, "
+            "updated_at = ? WHERE session_id = ?",
+            (0 if unvoid else 1, _now(), None if unvoid else reason, _now(), session_id),
+        )
+        derived_was_ready = derived_core.is_ready(conn, derived_core.spec())
+        analytics_revision.record_mutation(
+            conn, action, session_id=str(session_id), detail={"reason": reason},
+        )
+        derived_core.refresh_sessions(
+            conn, [str(session_id)], was_ready=derived_was_ready
+        )
     return detail(conn, session_id)
 
 def _latest_vbt(conn, set_id: int, rep_index: int | None) -> dict | None:

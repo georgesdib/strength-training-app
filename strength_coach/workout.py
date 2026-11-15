@@ -19,6 +19,8 @@ from typing import Any
 import pandas as pd
 
 from strength_coach import adherence
+from strength_coach.analytics import core as derived_core
+from strength_coach.analytics import revision as analytics_revision
 from strength_coach.domain import load as load_mod
 from strength_coach.domain.plan_identity import item_identity as _item_identity
 from strength_coach.domain.plan_identity import row_plan_identity
@@ -299,6 +301,7 @@ def _summary_load_bases(
     entities: Mapping[str, Any],
     *,
     for_date: str,
+    context: RuleContext,
 ) -> tuple[dict[str, float], dict[str, dict[str, Any]]]:
     """Plan provenance first; strict pre-session recomputation only when it is absent."""
     values: dict[str, float] = {}
@@ -328,7 +331,7 @@ def _summary_load_bases(
     if not missing:
         return values, info
 
-    context = RuleContext.from_store(conn, end=for_date).prior_to(for_date)
+    context = context.prior_to(for_date)
     thresholds = prescribe_config.Thresholds.load()
     factors = e1rm_calibration_feature.factors(
         conn, for_date, window_days=thresholds.e1rm_window_days
@@ -514,9 +517,10 @@ def _summary_special(
     entities: Mapping[str, Any],
     config,
     linked_exposures: list[dict[str, Any]],
+    *,
+    context: RuleContext,
 ) -> dict[str, Any]:
     for_date = str(workout["for_date"])
-    context = RuleContext.from_store(conn, end=for_date)
     rule = load_document().rule("PRG-SPINE-001")
     costs = registry.weekly_spinal_costs(rule, context)
     week = registry.iso_week(for_date)
@@ -872,8 +876,10 @@ def _summary_payload(
     ordinary = _summary_ordinary_sets(
         frame, excluded_set_kinds=excluded_set_kinds, entities=entities, config=config
     )
+    # One rule context serves both the load-base fallback and the spinal summary.
+    context = RuleContext.from_store(conn, end=for_date)
     load_values, load_info = _summary_load_bases(
-        conn, data, frame, entities, for_date=for_date
+        conn, data, frame, entities, for_date=for_date, context=context
     )
     relative = monitoring.relative_intensity_distribution(
         frame,
@@ -915,7 +921,8 @@ def _summary_payload(
         conn, session_id, for_date, frame, entities, excluded_set_kinds, config
     )
     special = _summary_special(
-        conn, data, session_id, frame, entities, config, linked_exposures
+        conn, data, session_id, frame, entities, config, linked_exposures,
+        context=context,
     )
     comparison = comparisons_feature.comparable_sessions(
         conn,
@@ -1487,25 +1494,68 @@ def swap_exercise(conn, workout_id: str, item_index: int, exercise_id: str) -> d
                 "ambiguous_sets": ambiguous,
             },
         )
+    # Re-solve the replacement through the same engine as a normal prescription. The slot
+    # keeps the old sets/reps/RIR shape; load, warm-ups and VBT target come from the new
+    # exercise's own history and calibration. Never carry the old lift's load across.
+    from strength_coach.prescribe import engine as prescribe_engine
+
+    old_item = items[int(item_index)]
+    solved, warnings, _ = prescribe_engine.resolve_replacement(
+        conn,
+        for_date=str(workout["for_date"]),
+        session_type=str(workout["session_type"]),
+        exercise_id=new_id,
+        sets=int(old_item.get("sets") or 1),
+        reps_low=int(old_item.get("reps_low") or 1),
+        reps_high=int(old_item.get("reps_high") or old_item.get("reps_low") or 1),
+        rir_target=old_item.get("rir_target"),
+        rest_s=old_item.get("rest_s"),
+        essential=bool(old_item.get("essential")),
+        order_index=int(item_index),
+    )
+    solved_row = {
+        "order_index": solved.order_index,
+        "exercise_id": solved.exercise_id,
+        "sets": solved.sets,
+        "reps_low": solved.reps_low,
+        "reps_high": solved.reps_high,
+        "reps_unit": solved.reps_unit,
+        "load_kg": solved.load_kg,
+        "load_basis": solved.load_basis,
+        "rounding_increment_kg": solved.rounding_increment_kg,
+        "rir_target": solved.rir_target,
+        "effort_model": solved.effort_model,
+        "quality_stop": solved.quality_stop,
+        "rest_s": solved.rest_s,
+        "essential": solved.essential,
+        "refs": list(solved.rationale_refs),
+        "time_cap_s": solved.time_cap_s,
+        "velocity_target": solved.velocity_target,
+        "vbt_basis": solved.vbt_basis,
+        "vbt": solved.vbt.as_dict() if solved.vbt is not None else None,
+        "unknown_load_reason": solved.unknown_load_reason,
+        "e1rm_source_sets": solved.e1rm_source_sets,
+        "e1rm_kg": solved.e1rm_kg,
+        "e1rm_ref": solved.e1rm_ref,
+        "e1rm_quality": solved.e1rm_quality,
+        "e1rm_age_days": solved.e1rm_age_days,
+        "warmup": [
+            {"percent": w.percent, "reps": w.reps, "load_kg": w.load_kg}
+            for w in solved.warmup
+        ],
+    }
     items[int(item_index)] = {
-        **items[int(item_index)],
+        **old_item,
+        **solved_row,
         "exercise_id": new_id,
         "substitution_for": old,
-        # The old load belongs to the old lift; do not silently carry it across.
-        "load_kg": None,
-        "unknown_load_reason": "swapped during workout; load not re-solved",
-        # The old VBT target belongs to the old lift's velocity profile; carrying it across
-        # would be a fabricated target for the replacement exercise.
-        "velocity_target": None,
-        "vbt_basis": None,
-        "vbt": None,
-        # The old top-set/back-off structure belongs to the old lift; discard it rather
-        # than carry a stale load or role onto the replacement.
+        # The old top-set/back-off structure belongs to the old lift.
         "set_groups": [],
     }
     plan = {**(workout.get("plan") or {}), "items": items}
     return _write_plan(conn, workout_id, plan, "swap_exercise",
-                       {"item_index": int(item_index), "from": old, "to": new_id})
+                       {"item_index": int(item_index), "from": old, "to": new_id,
+                        "warnings": list(warnings)})
 
 
 def add_exercise(
@@ -2285,6 +2335,14 @@ def end(
             """,
             (ended, measured_seconds, duration, source, rpe,
              0 if not_recorded else 1, notes, workout_id),
+        )
+        derived_was_ready = derived_core.is_ready(conn, derived_core.spec())
+        analytics_revision.record_mutation(
+            conn, "workout_end", session_id=workout_id,
+            detail={"workout_id": workout_id},
+        )
+        derived_core.refresh_sessions(
+            conn, [workout_id], was_ready=derived_was_ready
         )
         _event(conn, workout_id, "end", {"duration_min": duration,
                                           "session_rpe": rpe,

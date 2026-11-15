@@ -547,6 +547,9 @@ Migration `0014` canonicalised synthetic `pattern:*` identities in `clean_set` t
 variant entities. `clean_set` is normally append-only; the migration temporarily drops its
 update trigger, records every change here, then recreates the trigger. Raw rows are untouched.
 
+`0015` split Close Grip Pulldown from `lat_pulldown`, and `0060` split Side Plank and Chinese
+Plank from the generic `plank` (`DEC-VARIANT-04`). Each records every rewritten row here.
+
 | column | notes |
 |---|---|
 | raw_id | source raw row |
