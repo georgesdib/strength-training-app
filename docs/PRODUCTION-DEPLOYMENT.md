@@ -1,7 +1,8 @@
 # PRODUCTION DEPLOYMENT — DERIVED ANALYTICS AND MCP CUTOVER
 
-Status: deployment plan, not yet executed on the production host. Covers the release containing
-Derived Analytics Milestones A-C, the renumbered migrations, the MCP catalogue and the C-1 units.
+Status: executed on the home host on 2026-11-15 for Derived Analytics Milestones A-C, the
+renumbered migrations and the C-1 units. The MCP service runs from the same checkout and has been
+validated over Streamable HTTP, but its systemd unit is not installed yet (§8).
 
 ## 1. Scope and decisions
 
@@ -160,5 +161,7 @@ programme 278 ms, readiness 377 ms, session details 5,684 ms; fast tools 45-189 
 is the only very_slow tool and is optional follow-up T-3a. These are 2026-11-14 measurements, not
 guarantees; re-run the HTTP benchmark after deployment.
 
-C-1 and the MCP unit have not been executed on this host; deployment is not complete until the
-checklist passes.
+C-1 is installed and active: the timer last ran successfully on 2026-11-15 08:15 and the web unit
+carries the `ExecStartPost` hook. The MCP service has been validated from the same checkout (all
+ten capabilities over Streamable HTTP) but its systemd unit is not installed, so it does not
+survive a reboot until §8 is completed with host-adapted paths.

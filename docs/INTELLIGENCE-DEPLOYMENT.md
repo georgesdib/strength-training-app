@@ -1,8 +1,10 @@
 # TRAINING INTELLIGENCE — MCP DEPLOYMENT GUIDE
 
-**Status:** written 2026-11-14 for the INT-1b service. The unit and this procedure have **not** been
-deployed or validated on the target ODROID host. Treat them as an installation plan until the
-acceptance steps at the end have actually been run there.
+**Status:** written 2026-11-14 for the INT-1b service; validated manually on the home host on
+2026-11-15 (all ten tools over Streamable HTTP, `get_weekly_review` included). The **systemd unit
+is not installed**: it targets `/opt/strength-training-app` and user `strength-intel`, while this
+host runs from `/home/dsh/strength-training-app` as `dsh`. The service therefore runs as a manual
+process and does not survive a reboot until §6 is completed with host-adapted paths.
 
 Architecture, tool schemas and the performance baseline are in
 [INTELLIGENCE-IMPLEMENTATION.md](INTELLIGENCE-IMPLEMENTATION.md). The canonical contract is the

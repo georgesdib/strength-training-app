@@ -58,7 +58,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | — | Training-day session fragments | **done 2026-11-01** | one local training day may contain multiple session fragments; attendance and budget use days, volume/spinal use combined sets, e1RM uses one day-level observation; no schema migration; see [`docs/TRAINING-DAY-MODEL.md`](docs/TRAINING-DAY-MODEL.md) |
 | — | Deterministic dynamic template resolver | **Steps 0–6 complete 2026-11-01/03; merged to `development` 2026-11-03; released in v1.2.0 as opt-in (`resolver.enabled` default false)** | plan and confirmed decisions at [`docs/archive/PROGRAMME-BUILDER-PLAN.md`](docs/archive/PROGRAMME-BUILDER-PLAN.md) and [`docs/DECISIONS.md`](docs/DECISIONS.md) (`DEC-RESOLVER-01`–`12`); Step 1 delivered policy/settings/provenance; Step 2 delivered and remediated the internal deterministic generator core (`generator.py`, `resolver_settings.py`, accepted pattern-flexibility mapping); remediation covers shared injury/constraint eligibility, power-slot safety, require_can_do/unrated/rotation-default semantics, fallback repair, structural availability, whole-session/duplicate-aggregated authoritative spinal scoring, completed-workout precedence, history merge, retired redundant rotation/preference weights and policy/catalogue digests; Step 3 adds the opt-in top-set/back-off structure, top-set persistence and role-aware workout logging, and the hinge maximal-week programme change; Step 4C wires the flag-on resolver path through candidate pools, bounded beam and read-only evaluator, adds pool-aware scheduler availability, rejects selection overrides, and records generated-session provenance; the 4C audit remediation enforces required patterns on final assignments, separates evaluator failure stages, fingerprints beam configuration and DataFrame schemas, and uses the same auto-candidate/slot matching in scheduling; Step 5 adds the dedicated Settings -> Resolver panel, append-only scalar settings, validated policy YAML with atomic writes and 20 timestamped backups, read-only preview with choices/alternatives/suggestions, inline suitability rating, top-set preview, regenerate/diff and a start handoff; the Step 5 remediation adds shared CLI/web readiness enforcement, atomic backup creation, shared resolver-enable confirmation, deterministic restore with a reported pre-restore snapshot, and a full-prescription preview diff; Step 6 adds generated-slot snapshot provenance for critique/exemption reads with a legacy-null fallback, top-set role-aware critique coverage, a real-database copy smoke test, flag/policy rollback verification and the rollout documentation; forecast remains fixed option (c); the flag remains off |
 | future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.5; Iteration 2 conditional** | phased workstream at §4.24; architecture, iteration gate and selector retirement in [`docs/LLM-INTEGRATION-PLAN.md`](docs/LLM-INTEGRATION-PLAN.md); no implementation in this pass |
-| future | Derived analytics layer | **Milestones A, B and C implemented 2026-11-14; all planned consumers migrated** | §4.35; shared versioned, rebuildable analytics (per-set, session/exercise, weekly; snapshots optional and deferred) owned by the existing analytical modules; motivated by the ODROID overview (2.7 s p50) and monitoring (49 s) measurements |
+| future | Derived analytics layer | **Milestones A, B and C implemented 2026-11-14; all planned consumers migrated; C-1 maintenance worker deployed 2026-11-15** | §4.35; shared versioned, rebuildable analytics (per-set, session/exercise, weekly; snapshots optional and deferred) owned by the existing analytical modules; motivated by the ODROID overview (2.7 s p50) and monitoring (49 s) measurements |
 | future | Athlete Feedback & Coaching (AFC) | **AFC-2, AFC-2i, AFC-3 and AFC-4 implemented 2026-11-13; physical iPhone acceptance owner-confirmed 2026-11-14; AFC-5 scoped (docs only); backend, web and native iOS presentation** | §4.33; canonical plan [`AFC plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md); composes the existing adherence, VBT, readiness, feedback and volume services; AFC-1 dissolved and planned-session compliance excluded by `DEC-W7-01`; Phase 5A instruments frozen; AFC-2i renders the same report contract in the iPhone app (`DEC-AFC-03`) |
 | — | Symptom attribution and injury-signal verification | **done 2026-11-01** | Phases 1–2 closed: verification hygiene and optional session/lift attribution with required onset/confidence, migration `0047`, CLI/API/web and display-only views. Phase 3 was split into a separate roadmap phase (§4.28) |
 | future | Exercise-level symptom research (Phase 3) | **planned; unscheduled** | separate pre-registered descriptive research question; mechanical exposure and regional symptoms, not athlete attribution; no model, score, suitability rule or prescription change; Today follow-up `injury_attribution_phase3`; plan §10 and §4.28 |
@@ -1959,18 +1959,19 @@ Owner approval of the plan's section 13 decisions remains required before the tr
 **MCP rollout follow-ups (updated 2026-11-14).** The extended HTTP benchmark on the ODROID
 measured p95 6,201 ms (session details), 4,058 ms (overview), 3,800 ms (programme) and 1,663 ms
 (readiness). The owner accepted a latency-aware budget (T-1) and the **transport is enabled on
-the trusted LAN with the full nine-tool catalogue**. The original one-second blanket gate is
+the trusted LAN with the full ten-tool catalogue**. The original one-second blanket gate is
 superseded by T-1; existing benchmark numbers remain the reference until T-3 remeasurement.
 
-- **C-1 - Automatic maintenance worker (parked until the next production release).** Deployment
-  units exist (`deploy/strength-analytics-maintenance.service` and `.timer`) and are tested, but
-  they are **not installed** and the production checkout is still on the older code; installing
-  them now would fail with an unknown `analytics` command. They go in with the release that
-  contains Milestones A-C.
+- **C-1 - Automatic maintenance worker (done 2026-11-15).** Installed on the home host:
+  `strength-analytics-maintenance.service` and `.timer` are enabled, the timer runs on boot +5
+  minutes and every 15 minutes, and the web unit's `ExecStartPost` triggers one reconciliation
+  after a restart. The first run (2026-11-15 08:15) exited 0 and `/api/analytics/status` reports
+  core ready/verified. There is no long-lived worker: each run invokes this checkout's current
+  code and venv, so a `git pull` plus a web restart is picked up on the next tick.
 - **T-1 - Owner latency decision (accepted 2026-11-14).** Fast capabilities target p95 ≤ 500 ms;
   slow and very_slow target p95 ≤ 7 s and remain callable without a hard latency rejection; the
   server tool timeout is 20 s. ADR-INT-010 now records this budget and the transport is enabled.
-- **T-2 - Full catalogue with transparent latency metadata (implemented).** All nine capabilities remain
+- **T-2 - Full catalogue with transparent latency metadata (implemented).** All ten capabilities remain
   discoverable and callable through `tools/list`; slow capabilities are **not hidden**. Each tool
   description carries its measured HTTP p95 and classification (fast / slow / very_slow), plus
   guidance to prefer fast tools, avoid repeated expensive calls, and never trade correctness for
@@ -1989,11 +1990,12 @@ C-1 keeps materialisation current, and T-3 improves latency. The LLM objective r
 T-3 is measured and the transport decision is reviewed; existing benchmark numbers stay valid
 until that remeasurement.
 
-**Operational status (2026-11-14).** The MCP server is running as a user-level process (no sudo on
-the host, so the systemd unit is not installed) on `127.0.0.1:8765`, full nine-tool catalogue, token
-file under the production checkout's git-ignored config. It reads the production database
-read-only. **Migration collision resolved:** the production database's 0060 is development's
-`0060_plank_variants.sql` (checksum 7ed6); the analytics migrations had reused 0060-0062. They are
+**Operational status (2026-11-15).** The MCP server runs as a user-level process from the production
+checkout's virtual environment (the systemd unit is still not installed) on `127.0.0.1:8765`, full
+ten-tool catalogue, token file under the checkout's git-ignored config. It reads the production
+database read-only. Validated over real Streamable HTTP on 2026-11-15: all ten capabilities
+answered, `get_weekly_review` 623 ms and `get_session_details` 5.7 s. **Migration collision
+resolved:** the production database's 0060 is development's `0060_plank_variants.sql` (checksum 7ed6); the analytics migrations had reused 0060-0062. They are
 renumbered **0061-0063** on `llm-integration`, so the production schema applies cleanly without
 deleting the recorded row. A fresh copy was migrated and built successfully after the renumber.
 T-3 first pass is implemented and remeasured: bounded deload flare lookup, cached readiness
@@ -2114,14 +2116,15 @@ monitoring 48,728 → 18,357 ms; build ~63 s. Remaining limitations: build is an
 command; a large import marks the family stale; snapshots are not used; the INT integration review
 is still a follow-up.
 
-**Follow-up C-1 — automatic maintenance worker (not started).** Replace the manual build trigger
-with a background worker in the web process: on startup and periodically it compares the current
-dependency fingerprint with the persisted build row and rebuilds when taxonomy/spinal-rule files
-changed, the family is stale or incomplete, a large import arrived, or a build failed; the exercise
-writer that edits `overrides.v1.yaml` also enqueues reconciliation. It uses a writable maintenance
-connection, resumes through the existing backfill cursor, never runs on read-only request paths,
-and reports progress through `/api/analytics/status`. Until then, forgetting the command costs
-performance only; consumers fall back to on-demand.
+**Follow-up C-1 — automatic maintenance worker (done 2026-11-15).** Delivered as a systemd oneshot
+plus timer rather than an in-web background worker. `analytics build` compares the dependency
+fingerprint with the persisted build row and does nothing when the family is current; when taxonomy
+or spinal-rule files changed, the family is stale or incomplete, a large import arrived, or a build
+failed, it rebuilds (resuming through the backfill cursor) and reports through
+`/api/analytics/status`. A run that finds nothing to do exits 0 without touching the build
+timestamps. The exercise writer that edits `overrides.v1.yaml` does not enqueue a build directly;
+the next 15-minute tick reconciles it, which is the accepted trade for having no long-lived worker.
+Consumers still fall back to on-demand, so a missed tick costs latency only.
 
 **Benchmark tooling extended (2026-11-14).** `tools/intelligence_benchmark.py` now discovers every
 registered capability, generates valid arguments from the benchmark database, and supports direct
