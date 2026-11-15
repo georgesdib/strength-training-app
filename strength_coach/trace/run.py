@@ -35,6 +35,7 @@ class RunTrace:
         window_start: str | None = None,
         window_end: str | None = None,
         code_version: str | None = None,
+        llm_model: str | None = None,
     ) -> RunTrace:
         run = repo.start_run(
             conn,
@@ -43,6 +44,7 @@ class RunTrace:
             config_hash=config_hash,
             window_start=window_start,
             window_end=window_end,
+            llm_model=llm_model,
         )
         return cls(conn=conn, run_id=run.run_id)
 

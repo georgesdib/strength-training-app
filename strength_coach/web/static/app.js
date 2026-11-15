@@ -3748,3 +3748,61 @@ async function loadKpis(progress) {
     target.innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
 }
+
+/* --- Narrate (INT-5) --------------------------------------------------- */
+const NARRATE_PRESETS = {
+  get_exercise_progression: { exercise_id: "trap_bar_deadlift" },
+};
+function syncNarratePayload() {
+  const capability = $("#narrate-capability")?.value;
+  const preset = NARRATE_PRESETS[capability] || {};
+  const payload = $("#narrate-payload");
+  if (payload) payload.value = JSON.stringify(preset, null, 2);
+}
+$("#narrate-capability")?.addEventListener("change", syncNarratePayload);
+if ($("#narrate-capability") && !$("#narrate-payload").value.trim()) syncNarratePayload();
+
+$("#narrate-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = $("#narrate-submit");
+  const message = $("#narrate-msg");
+  const target = $("#narrate-result");
+  const capability = $("#narrate-capability").value;
+  message.textContent = "Narrating…";
+  message.setAttribute("role", "status");
+  button.disabled = true;
+  target.innerHTML = "";
+  try {
+    let payload;
+    try {
+      payload = JSON.parse($("#narrate-payload").value || "{}");
+    } catch (error) {
+      throw new Error("Request payload is not valid JSON: " + error.message);
+    }
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      throw new Error("Request payload must be a JSON object.");
+    }
+    const data = await api("/api/intelligence/narrate", {
+      method: "POST",
+      body: JSON.stringify({ capability, payload }),
+    });
+    const observations = (data.observations || [])
+      .map((item) => "<li>" + esc(item) + "</li>").join("");
+    const limitations = (data.limitations || [])
+      .map((item) => "<li>" + esc(item) + "</li>").join("");
+    target.innerHTML = '<div class="panel">' +
+      '<div class="panel-head"><h2>' + esc(data.headline || "Narrative") +
+      '</h2><span class="muted">' + esc(data.model || "model") +
+      (data.tokens == null ? "" : " · " + esc(data.tokens) + " tokens") + "</span></div>" +
+      (observations ? "<ul>" + observations + "</ul>" : "") +
+      (limitations ? "<p class=\"muted\"><strong>Limitations</strong></p><ul>" + limitations + "</ul>" : "") +
+      '<p class="muted">Read-only narrative. The envelope is unchanged; only the model and token count are traced.</p>' +
+      "</div>";
+    message.textContent = "";
+  } catch (error) {
+    message.textContent = error.message || "Narration failed.";
+    message.setAttribute("role", "alert");
+  } finally {
+    button.disabled = false;
+  }
+});

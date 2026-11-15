@@ -954,7 +954,7 @@ model prose when a card is present.
 
 ## 29. INT-5 — server narration, first slice (2026-11-15)
 
-**Delivered.** `strength-coach intelligence narrate --capability <name> [--payload JSON] [--json]`
+**Delivered.** A **Narrate** web view (Programme Intelligence) with a capability dropdown and JSON payload, posting to `POST /api/intelligence/narrate`, plus `strength-coach intelligence narrate --capability <name> [--payload JSON] [--json]`.
 executes any registered read-only capability in-process and asks the configured model for a small
 JSON narrative (headline, observations, limitations). The model uses the existing
 `agents/config.py` provider settings: `NullLLM` when unconfigured, otherwise the OpenAI-compatible

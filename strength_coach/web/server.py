@@ -3357,6 +3357,8 @@ class Handler(BaseHTTPRequestHandler):
                 ))
             elif path == "/api/settings/llm/test":
                 self._json(200, self._test_llm())
+            elif path == "/api/intelligence/narrate":
+                self._json(200, self._with_conn(lambda c: self._narrate(c, body)))
             elif path == "/api/prescribe":
                 self._json(200, self._with_conn(lambda c: self._prescribe(c, body)))
             elif path == "/api/readiness/presets":
@@ -3828,6 +3830,57 @@ class Handler(BaseHTTPRequestHandler):
                 "settings",
             )
             raise FieldError(message, {field: message}) from exc
+
+    def _narrate(self, conn, body: dict) -> dict:
+        import hashlib
+
+        from strength_coach.intelligence.auth import INTERNAL_PRINCIPAL
+        from strength_coach.intelligence.config import load_config
+        from strength_coach.intelligence.model import NarrativeValidationError, narrate_envelope
+        from strength_coach.intelligence.service import IntelligenceService
+        from strength_coach.trace.run import RunTrace
+
+        capability = str(body.get("capability") or "").strip()
+        payload = body.get("payload")
+        if payload is None:
+            payload = {}
+        if not capability:
+            raise FieldError("capability is required", {"capability": "choose one"})
+        if not isinstance(payload, dict):
+            raise FieldError("payload must be a JSON object", {"payload": "JSON object"})
+        settings = load_settings()
+        if not settings.enabled:
+            raise ValueError("LLM is disabled or incomplete; configure it in Settings")
+        client = build_client(settings)
+        service = IntelligenceService(conn, config=load_config())
+        result = service.execute(INTERNAL_PRINCIPAL, capability, payload)
+        if not result.ok:
+            error = result.error
+            raise ValueError(f"{error.code}: {error.message}")
+        envelope = result.envelope
+        trace = RunTrace.start(
+            conn,
+            input_hash=hashlib.sha256(
+                json.dumps([capability, payload], sort_keys=True).encode("utf-8")
+            ).hexdigest(),
+            llm_model=client.model,
+        )
+        trace.event("input", {"capability": capability, "payload": payload})
+        try:
+            narrative = narrate_envelope(client, envelope, trace)
+        except (LLMError, NarrativeValidationError):
+            trace.finish(status="llm_failed")
+            conn.commit()
+            raise
+        trace.finish(status="ok")
+        conn.commit()
+        return {
+            "headline": narrative.headline,
+            "observations": list(narrative.observations),
+            "limitations": list(narrative.limitations),
+            "tokens": narrative.tokens,
+            "model": client.model,
+        }
 
     def _save_llm_settings(self, body: dict) -> dict:
         try:

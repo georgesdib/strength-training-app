@@ -58,6 +58,7 @@
           <button data-view="prescribe">Prescribe</button>
           <button data-view="programme">Programme</button>
           <button data-view="review">Review</button>
+          <button data-view="narrate">Narrate</button>
         </div>
       </details>
       <details class="nav-group">
@@ -838,6 +839,40 @@
           the retirement have no critique and show no items.</p>
       </div>
       <div id="review-result"></div>
+    </section>
+
+    <section id="view-narrate" class="view">
+      <div class="panel">
+        <div class="panel-head"><h2>Narrate a capability</h2><span class="muted">read only</span></div>
+        <p class="section-help"><span>Explain one deterministic capability envelope with the configured model. The model never computes a number or changes an artifact.</span> <a class="doc-link" href="#settings" data-view-link="settings">Model settings</a></p>
+        <form id="narrate-form">
+          <div class="form-row">
+            <label class="grow">Capability
+              <select id="narrate-capability">
+                <option value="get_weekly_review">Weekly review</option>
+                <option value="get_training_overview">Training overview</option>
+                <option value="get_exercise_progression">Exercise progression</option>
+                <option value="get_readiness_history">Readiness history</option>
+                <option value="get_session_details">Session details</option>
+                <option value="get_prescription">Prescription</option>
+                <option value="get_programme_block_summary">Programme block</option>
+                <option value="get_adherence_analysis">Adherence</option>
+                <option value="compare_training_periods">Compare periods</option>
+                <option value="get_vbt_analysis">VBT analysis</option>
+              </select>
+            </label>
+          </div>
+          <label>Request payload (JSON)
+            <textarea id="narrate-payload" rows="4" spellcheck="false">{}</textarea>
+          </label>
+          <div class="form-row">
+            <button class="primary" type="submit" id="narrate-submit">Narrate</button>
+            <span class="muted" id="narrate-msg"></span>
+          </div>
+        </form>
+        <p class="muted">The trace records the model and token count, not the prompt or narrative. The narrative is not saved as a training artifact.</p>
+      </div>
+      <div id="narrate-result"></div>
     </section>
 
     <section id="view-readiness" class="view">
