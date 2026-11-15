@@ -2,7 +2,7 @@
 
 **Status:** INT-1 foundation, INT-1b MCP transport, the audit remediation, INT-2 catalogue, INT-3
 weekly review (closed 2026-11-15), INT-4 native model surface, INT-5 server narration and INT-6
-server/web chat are implemented. Read-only, provider-neutral, independently runnable. Evidence
+server/web chat (closed 2026-11-15) are implemented. Read-only, provider-neutral, independently runnable. Evidence
 producers for the aggregate capabilities remain deferred; INT-6 model tool calling and streaming are
 deferred by owner decision.
 **Scope owner:** the canonical plan is the portfolio
@@ -45,7 +45,7 @@ them: delivered work is marked delivered, and later phases are not advanced by t
 | Evidence producers for the aggregate capabilities | **deferred** — owners do not emit evidence items for these aggregates; `get_session_details` returns the real evidence |
 | Native model surface (five capabilities, `Tool` adapters) | implemented — INT-4 |
 | Model providers and narration | implemented — INT-4 on-device and INT-5 server |
-| Server/web chat and dossier (INT-6) | implemented 2026-11-15; tool calling and streaming deferred |
+| Server/web chat and dossier (INT-6) | implemented and closed 2026-11-15; tool calling and streaming deferred |
 
 The plan's INT-1 originally bundled the MCP skeleton and two tools. The approved implementation
 prompt narrowed INT-1 to the foundation and deferred the transport, so that scope moved to
@@ -991,13 +991,13 @@ access and RAG are deferred for both the web UI and iOS: there is no browsing, U
 or vector retrieval; the model sees structured capability facts only. The server also
 needs `config/llm.local.toml` with a provider key before `narrate` can call a model.
 
-## 30. INT-6 — server/web chat first slice (2026-11-15)
+## 30. INT-6 — server/web chat (closed 2026-11-15)
 
 **Delivered.** `POST /api/intelligence/chat` and a Programme Intelligence **Chat** view. The
 client sends up to 20 user/assistant turns; the server executes a fresh six-capability fact dossier
 (weekly review, overview, adherence, programme, prescription, readiness) and asks the configured
 model for one answer. The answer carries advisory number warnings, the
-source capability names and tokens; the run trace records the input and tool/token result without storing prose.
+source capability names and tokens; the run trace records the input and token result without storing prose.
 
 **Policy.** Session-only browser memory, no transcript persistence, no write. The model may suggest
 changes; the server splits a `Suggestions (not applied)` section into its own UI block. The prompt
@@ -1008,6 +1008,6 @@ blocks first. The daily token budget applies.
 `tests/test_intelligence_chat_eval.py` runs a four-case multi-turn matrix (one turn, multi-turn,
 long thread, injection). No real model call in CI.
 
-**Closed/deferred.** Model-driven tool orchestration is closed for the first slice; the provider
-stalled on tool calls, and the deterministic dossier covers the six core capabilities. Streaming
-remains deferred; transcript policy is session-only.
+**Closed/deferred.** Model-driven tool orchestration is closed; the provider stalled on tool calls,
+and the deterministic dossier covers the six core capabilities. Streaming remains deferred;
+transcript policy is session-only. Chat tokens are persisted and count against the daily budget.

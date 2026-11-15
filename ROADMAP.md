@@ -1942,12 +1942,12 @@ model.
 
 **Phase 1b selector retirement (2026-11-15):** the minimal LLM exercise-variant chooser and its CLI/API/UI/engine plumbing are removed; deterministic selection and class-B confirmation remain.
 
-**INT-6 web chat first slice (2026-11-15):** Programme Intelligence Chat posts up to 20 turns to `/api/intelligence/chat`, where the server supplies a fresh six-capability fact dossier. Session-only browser memory, only the recent ten messages, an 18k fact cap, a separate suggestions block, advisory warnings and daily budget. Four-case multi-turn matrix; model tool calling deferred.
+**INT-6 web chat delivered and closed (2026-11-15):** Programme Intelligence Chat posts up to 20 turns to `/api/intelligence/chat`, where the server supplies a fresh six-capability fact dossier. Session-only browser memory, only the recent ten messages, an 18k fact cap, a separate suggestions block, advisory warnings and daily budget. Four-case multi-turn matrix; model tool calling deferred.
 
 **INT-5 server narration delivered (2026-11-15):** intelligence narrate and the web Narrate view
 cover every registered capability, with a daily token budget, advisory number warnings, a
 ten-capability evaluation harness and MCP parity. Phase 1b retired the old LLM exercise chooser.
-Multi-tool orchestration moves to INT-6. Web access, web citations and RAG are deferred for both the web UI and iOS.
+Multi-tool orchestration is deferred by owner decision. Web access, web citations and RAG are deferred for both the web UI and iOS.
 
 **INT-5 first slice (2026-11-15):** a **Narrate** web view calls `POST /api/intelligence/narrate` for any registered capability; the CLI equivalent remains. The validated narrative, trace and no-model error are shared. Multi-tool orchestration, evaluation, budget, MCP parity and Phase 1b retirement remain; the server needs a model key.
 
