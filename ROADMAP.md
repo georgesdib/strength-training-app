@@ -1946,19 +1946,14 @@ transcripts and grounding against the envelopes the tools returned. The five too
 with a 5-to-3 context fallback; session details resolve the latest completed session. The manual
 device matrix passed (five tools, refusal and transcript clearing). No UI test by owner decision.
 
-**INT-4 delivered (2026-11-15, stub UI test open):** the on-device narrative is available on the
-weekly review and the Progress overview behind a default-off toggle, with availability reasons,
-detail presets, a compact facts projection, a structured-number grounding validator, a token budget
-with trimming and a deterministic fallback. The five native tool adapters are implemented and tested
-as an adapter surface but not registered yet: their schemas overflowed the 8,192-token window at the
-Detailed preset. The budget trims and retries; the grounding check now accepts percentages and
-thousands separators and ignores the digit in `e1RM`. The owner confirmed the narrative manually and
-found those two issues; a re-run is pending, and the stub UI test remains open.
-** the on-device narrative is available on the
-weekly review and the Progress overview behind a default-off toggle, with availability reasons,
-detail presets, a compact facts projection, a structured-number grounding validator, a token budget
-with trimming and a deterministic fallback. The five native tool adapters are implemented over the
-REST provider. The owner confirmed the device acceptance manually; the stub UI test remains open.
+**INT-4 delivered (2026-11-15):** the on-device narrative is available on the weekly review and the
+Progress overview behind a default-off toggle, with availability reasons, detail presets, a compact
+facts projection, a structured-number grounding validator, a token budget with trimming and a
+deterministic fallback. The five native tool adapters are implemented and tested as an adapter
+surface but not registered: their schemas overflowed the 8,192-token window at the Detailed preset.
+The budget trims and retries; the grounding check accepts percentages and thousands separators and
+ignores the digit in `e1RM`. The device run passed and no UI test is required by owner decision;
+conditional tool registration remains a tuning item.
 
 **INT-4 read surface (2026-11-15):** the iOS intelligence routes for overview, exercise progression,
 readiness and session details are implemented alongside the weekly review, so the native adapter

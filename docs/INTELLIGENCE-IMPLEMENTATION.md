@@ -817,10 +817,8 @@ issues on the Detailed preset: a context overflow caused by registering the five
 over-strict grounding check that rejected percentages, thousands separators and the digit in
 `e1RM`. Both are fixed (tools are not registered; the validator uses a structured allow-list with
 percent/thousands variants and a digit-boundary regex, and the message names the offending number).
-A device re-run is pending.
-
-**Open in INT-4.** The stub UI test (the panel state is unit-tested, not driven through the UI) and a
-fresh device run after the tool/budget changes remain open.
+The device run passed. No UI test is required by owner decision; conditional tool registration
+remains a tuning item.
 
 ## 25. INT-4b — on-device training chat (delivered 2026-11-15)
 
