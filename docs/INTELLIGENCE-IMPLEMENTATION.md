@@ -914,12 +914,22 @@ the existing soft verification.
 and accepts an ISO date or a prescription id; this avoids treating a relative word as an id.
 
 **Tool use.** A plan question on either provider does **not** call a plan tool: the app fetches the
-matching compact facts first, injects them into the prompt and answers without tool calling. This
+matching compact facts first and, only on success or partial success, injects them into the prompt. This
 avoids the context overflow, the endless required-tool loop and the model's own date arithmetic.
 Prescription answers use a 900-token output budget and may exceed 150 words to list every item.
 A context overflow retries with empty history. The prompt carries a "Today: YYYY-MM-DD" line so
 "yesterday" is resolved against today, not against the latest prescription. The Chat header shows
 whether plan data is on.
+
+**Failure handling.** Plan retrieval returns a typed result: success, partial or failure. If every
+requested capability fails, generation stops with a deterministic auth/transport/not-found message;
+no raw error text is injected as facts. Partial results carry an explicit “unavailable sections”
+label and the model is told not to make claims about them.
+
+**Projections and unknowns.** Plan projections include the envelope status, missing reasons and
+limitations. A no-data prescription says status=no_data and the missing reason instead of
+date=unknown; absent adherence numbers and attendance percentages render as n/a, never zero; a
+truncated prescription is labelled with the returned/total item count.
 
 **Plan card and raw data.** A prescription answer carries a deterministic card built from the
 fetched envelope: the exact date, session type and every item (exercise, sets × reps, load, RIR).
@@ -935,9 +945,8 @@ exercises, and a programme summary.
 **Capacity.** The physical-device probe reported 8,192 tokens, tool calling and guided generation;
 eight tools with four history messages and 60 fact lines passed.
 
-**Tests.** 50 chat-related tests pass, including plan-fact injection, date/week extraction, the plan
-card, raw outputs, every-prescription-item projection, structured DeepSeek answers and suggestion
-carrying. The three backend routes and unknown-query rejection are covered (12 tests).
+**Tests.** 54 chat-related tests pass, including typed plan failures, no-data projections, natural-
+language plan intent, plan-fact injection, the plan card, raw outputs and suggestion carrying. The three backend routes and unknown-query rejection are covered (12 tests).
 
 **Status.** Complete (2026-11-15). The owner confirmed both providers on the iPhone. The deterministic prescription card now shows the full list and exact date, so model prose
 abbreviation or a confused date no longer hides the prescription. Optional follow-up: shorten the
