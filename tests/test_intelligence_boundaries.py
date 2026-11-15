@@ -34,10 +34,17 @@ def test_capability_package_imports_no_web_model_or_transport_layer():
     files = sorted(package.rglob("*.py"))
     assert files, "the package should contain modules"
     for path in files:
-        if "mcp" in path.relative_to(package).parts:
+        parts = path.relative_to(package).parts
+        if "mcp" in parts:
             continue
+        # ADR-INT-002 keeps the model layer above the agents layer: `intelligence/model/` may use
+        # `agents.client` (its LLM client and error types), while the capability and context layers
+        # may not. Everything below still forbids the web layer and the MCP transport everywhere.
+        allowed = {"strength_coach.agents"} if parts and parts[0] == "model" else set()
         imported = _imports(path)
         for forbidden in (*FORBIDDEN_IMPORTS, *TRANSPORT_FORBIDDEN):
+            if forbidden in allowed:
+                continue
             offenders = [
                 name
                 for name in imported

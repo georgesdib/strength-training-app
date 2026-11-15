@@ -10,12 +10,19 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
-from strength_coach.agents.client import LLMClient
 from strength_coach.intelligence.auth import INTERNAL_PRINCIPAL
 from strength_coach.intelligence.model.narrative import narrative_facts, number_warnings
 from strength_coach.intelligence.service import IntelligenceService
+
+
+class ChatClient(Protocol):
+    """The one model call this module needs. Injected by the caller so the intelligence package
+    does not import the agents/model layer (ADR-INT-002's boundary)."""
+
+    def complete(self, prompt: str, **kwargs: Any) -> Any: ...
+
 
 SYSTEM_PROMPT = (
     "You are a training assistant. Answer only from the supplied training facts. Never invent a "
@@ -58,7 +65,7 @@ class ChatResult:
 
 def run_chat(
     service: IntelligenceService,
-    client: LLMClient,
+    client: ChatClient,
     messages: list[dict[str, Any]],
     *,
     max_rounds: int = 4,

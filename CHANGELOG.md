@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [1.5.0] — 2026-11-15
+
+Read-only training intelligence end to end: the deterministic capability layer, the standalone MCP
+server (ten tools, three resources), the additive iOS REST facade, the weekly review, server
+narration, the web/CLI narrate view and the server/web chat over the deterministic fact dossier.
+No training decision, prescription, readiness rule or schema changed; retiring the minimal selector
+leaves one model surface.
+
 ### Added
 
 - **Side Plank and Chinese Plank are separate exercises** (`DEC-VARIANT-04`, pattern clause

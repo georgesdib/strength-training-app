@@ -10,8 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from strength_coach.agents.client import LLMClient
 from strength_coach.intelligence.auth import INTERNAL_PRINCIPAL
+from strength_coach.intelligence.model.chat import ChatClient
 from strength_coach.intelligence.model.narrative import narrate_envelope
 from strength_coach.intelligence.service import IntelligenceService
 
@@ -57,7 +57,7 @@ CASES: tuple[EvalCase, ...] = (
 )
 
 
-def run_eval(service: IntelligenceService, client: LLMClient) -> list[EvalResult]:
+def run_eval(service: IntelligenceService, client: ChatClient) -> list[EvalResult]:
     results: list[EvalResult] = []
     for case in CASES:
         result = service.execute(INTERNAL_PRINCIPAL, case.capability, case.payload)

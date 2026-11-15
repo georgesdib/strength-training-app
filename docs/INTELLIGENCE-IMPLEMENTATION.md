@@ -1013,3 +1013,11 @@ calls, so the model receives the fixed dossier above; answers cannot query a cap
 
 **Closed/deferred.** Streaming is not planned; transcript policy is session-only. Chat tokens are
 persisted and count against the daily budget.
+
+## Related
+
+- **Architecture:** [ARCHITECTURE.md](ARCHITECTURE.md)
+- **API:** [API.md](API.md)
+- **Decisions:** [DECISIONS.md](DECISIONS.md)
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md)
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md)

@@ -21,7 +21,7 @@ LLM call fails entirely.
 
 ## Status
 
-**v1.4.1 is released; v1.5 is planned.** The full slice runs:
+**v1.5.0 is released; v1.6 is planned.** The full slice runs:
 import → readiness → prescribe a day → run it → read the session report. Days
 are prescribable through rolling session types (squat, hinge, bench+squat, bench+hinge); athlete
 state, constraints, suitability, e1RM overrides, symptoms and the exercise catalogue are editable
@@ -38,11 +38,13 @@ workable app and guided Workflow UI for user testing. **v1.1 beta** adds the raw
 view, configured relative-strength ratios, read-only monitoring analysis and the Phase 5A
 review follow-up. **v1.2.0** removed the beta label and shipped the deterministic template resolver as an
 opt-in feature behind `resolver.enabled` (default false). **v1.3.0** closed the UI redesign,
-measurement/readiness cleanup and documentation infrastructure. **v1.4.1 is the current stable
-release** (a patch on v1.4.0): structured VBT target metadata, active-workout target feedback, completed-workout and
-History target comparisons, and the longitudinal Performance VBT dashboard. The cardio capture
-audit, a reproducible cardio impulse/shadow load and comparable calibration depth are deferred to
-v1.5 (ROADMAP §4.13a/§4.14). Prospective validation
+measurement/readiness cleanup and documentation infrastructure. **v1.5.0 is the current stable
+release**: the read-only training intelligence workstream — capability layer, MCP server, REST
+facade, deterministic weekly review, server narration, web/CLI narrate and chat with the
+deterministic dossier — plus the selector retirement and the evaluation harness. It changes no
+training decision, prescription or schema. The cardio capture audit and a reproducible cardio
+impulse/shadow load are deferred to v1.6 (ROADMAP §4.13a); the deeper labelled calibration set is
+retired (`DEC-EVAL-09`, §4.14). Prospective validation
 remains a future gate, not an active candidate; review follow-ups are in ROADMAP §4.20.
 See [ROADMAP.md](ROADMAP.md).
 

@@ -6,8 +6,10 @@ host-adapted installer (§8) and is enabled.
 
 ## 1. Scope and decisions
 
-- Release branch: `development`. llm-integration was merged into it on 2026-11-15 and the feature
-  branch was retired; do not change the branch on the host without recording that decision.
+- Release branch: `development` for the derived-analytics cutover. llm-integration was merged into
+  it on 2026-11-15 and the feature branch was retired; do not change the branch on the host without
+  recording that decision. **From v1.5.0 the host checkout follows `main`** (the released tag), as
+  recorded in §9.
 - The production database already has migration 0060 (development's plank variants). Analytics are
   0061-0063; do not delete the 0060 row.
 - MCP remains read-only. The maintenance worker writes only derived tables and build state.
@@ -166,3 +168,30 @@ C-1 is installed and active: the timer last ran successfully on 2026-11-15 08:15
 carries the `ExecStartPost` hook. The MCP service is installed, enabled and active from the same
 checkout (all ten capabilities over Streamable HTTP); `deploy/install-intelligence-mcp.sh` renders
 the host-adapted unit and is the repeatable path for this host.
+
+## 9. v1.5.0 release cutover (2026-11-15)
+
+The intelligence workstream ships as v1.5.0 from `main`. The host checkout moves from
+`development` to `main` for the first time; that branch decision is recorded here.
+
+    cd /home/dsh/strength-training-app
+    mkdir -p backups
+    .venv/bin/python - <<'PY'
+    import sqlite3
+    src = sqlite3.connect("file:data/coach.db?mode=ro", uri=True)
+    dst = sqlite3.connect("backups/coach-before-v1.5-20261115.db")
+    src.backup(dst); dst.close(); src.close()
+    PY
+    git fetch --prune
+    git switch main
+    git pull --ff-only
+    .venv/bin/python -m pip install -e ".[intelligence]"
+    git describe --tags --exact-match   # must print v1.5.0
+
+    sudo systemctl restart strength-coach-web.service strength-intelligence-mcp.service
+    systemctl is-active strength-coach-web.service strength-intelligence-mcp.service
+    curl -s http://127.0.0.1:8000/api/analytics/status | python3 -m json.tool | head
+
+No migration is expected: the production database is already at 0063, the release adds none.
+Rollback: `git switch development` (or check out `d267a77`), reinstall, restart the same two
+services; the database is untouched, and the backup above is the safety copy.
