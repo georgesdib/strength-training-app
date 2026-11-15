@@ -859,3 +859,27 @@ never silently replaced by another session.
 **Status.** Complete (2026-11-15). The manual device matrix passed: weekly review, overview,
 progression, session details without an id, readiness, refusal of plan/medical prompts, and
 transcript clearing. No UI test by owner decision. The single-shot explanation path is unchanged.
+
+## 26. INT-4d — DeepSeek chat via API key (implemented 2026-11-15; device test pending)
+
+**Delivered.** A Chat-only model choice: On-device (default) or DeepSeek. When DeepSeek is selected,
+the iPhone calls `https://api.deepseek.com` directly with `deepseek-chat` and the OpenAI-compatible
+`/chat/completions` API. The adapter runs a tool loop over the same five read-only capabilities
+(maximum four rounds), keeps the sources line and the soft number verification. Weekly and overview
+explanations remain on-device.
+
+**Key handling.** The key is entered in Settings, stored in the iOS Keychain with
+`AfterFirstUnlockThisDeviceOnly`, and never written to UserDefaults, logs or the repository. Save,
+Test (a `GET /models` validation) and Remove are available. A missing key makes the DeepSeek chat
+unavailable with a clear message; there is no silent fallback.
+
+**Errors.** 401/403 invalid key, 429 rate limit, 5xx server, transport failure and malformed JSON
+have distinct short messages. Tool failures reuse the same classification and messages as the
+on-device tools.
+
+**Tests.** `DeepSeekChatTests`: bearer header and request path, tool-call parsing, tool round-trip
+then grounded answer, ungrounded retry then warning, missing key, 401 and 429, malformed JSON. The
+chat-related suite is 38 tests, all passing.
+
+**Open.** A device test with the owner's key; then a small live check of the four-round cap and a
+real 429 if one occurs.
