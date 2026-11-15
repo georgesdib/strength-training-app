@@ -913,6 +913,9 @@ the existing soft verification.
 **Dates.** The prescription tool resolves today and yesterday on the phone before calling the route,
 and accepts an ISO date or a prescription id; this avoids treating a relative word as an id.
 
+**Tool use.** A plan question (prescription, programme, adherence) requires a tool call on-device,
+so the model cannot answer from history alone. The Chat header shows whether plan data is on.
+
 **Projections.** Plan tools use compact, capability-specific projections instead of the generic
 envelope projection. The generic 6,000-character projection truncated a 7.9 KB prescription to its
 first item and a 42 KB adherence payload to a fragment; the compact forms keep every prescription
@@ -922,8 +925,8 @@ exercises, and a programme summary.
 **Capacity.** The physical-device probe reported 8,192 tokens, tool calling and guided generation;
 eight tools with four history messages and 60 fact lines passed.
 
-**Tests.** 44 chat-related tests pass, including plan-tool gating, date resolution, every-prescription-
-item projection, structured DeepSeek answers and suggestion carrying. The three backend routes and unknown-query rejection are covered (12 tests).
+**Tests.** 45 chat-related tests pass, including plan-tool gating, date resolution, every-prescription-
+item projection, plan-intent tooling, structured DeepSeek answers and suggestion carrying. The three backend routes and unknown-query rejection are covered (12 tests).
 
 **Open.** Device acceptance on both models; a visible “plan data omitted” note on the context
 fallback.
