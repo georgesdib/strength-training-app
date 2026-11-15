@@ -73,6 +73,92 @@ def run(
     return result.envelope.as_dict()
 
 
+def _int_query(query: dict[str, str], key: str) -> int:
+    try:
+        return int(query[key])
+    except ValueError:
+        raise RouteError(400, f"query parameter {key!r} must be an integer") from None
+
+
+def _bool_query(query: dict[str, str], key: str) -> bool:
+    value = query[key].lower()
+    if value in ("true", "1"):
+        return True
+    if value in ("false", "0"):
+        return False
+    raise RouteError(400, f"query parameter {key!r} must be true or false")
+
+
+def overview(
+    db_path: str | Path, device: dict[str, Any], raw_path: str, *, config=None, clock=None
+) -> dict[str, Any]:
+    query = _query(raw_path, {"as_of", "window_weeks"})
+    payload: dict[str, Any] = {}
+    if "as_of" in query:
+        payload["as_of"] = query["as_of"]
+    if "window_weeks" in query:
+        payload["window_weeks"] = _int_query(query, "window_weeks")
+    with readonly_connection(db_path) as conn:
+        return run(conn, device, "get_training_overview", payload, config=config, clock=clock)
+
+
+def progression(
+    db_path: str | Path,
+    exercise_id: str,
+    device: dict[str, Any],
+    raw_path: str,
+    *,
+    config=None,
+    clock=None,
+) -> dict[str, Any]:
+    query = _query(
+        raw_path, {"as_of", "window_days", "include_sessions", "limit_sessions"}
+    )
+    payload: dict[str, Any] = {"exercise_id": exercise_id}
+    if "as_of" in query:
+        payload["as_of"] = query["as_of"]
+    if "window_days" in query:
+        payload["window_days"] = _int_query(query, "window_days")
+    if "include_sessions" in query:
+        payload["include_sessions"] = _bool_query(query, "include_sessions")
+    if "limit_sessions" in query:
+        payload["limit_sessions"] = _int_query(query, "limit_sessions")
+    with readonly_connection(db_path) as conn:
+        return run(conn, device, "get_exercise_progression", payload, config=config, clock=clock)
+
+
+def readiness(
+    db_path: str | Path, device: dict[str, Any], raw_path: str, *, config=None, clock=None
+) -> dict[str, Any]:
+    query = _query(raw_path, {"from", "to", "fields"})
+    payload: dict[str, Any] = {}
+    if "from" in query:
+        payload["from"] = query["from"]
+    if "to" in query:
+        payload["to"] = query["to"]
+    if "fields" in query:
+        fields = [item.strip() for item in query["fields"].split(",") if item.strip()]
+        if not fields:
+            raise RouteError(400, "query parameter 'fields' must name at least one field")
+        payload["fields"] = fields
+    with readonly_connection(db_path) as conn:
+        return run(conn, device, "get_readiness_history", payload, config=config, clock=clock)
+
+
+def session_details(
+    db_path: str | Path, device: dict[str, Any], raw_path: str, *, config=None, clock=None
+) -> dict[str, Any]:
+    query = _query(raw_path, {"workout_id", "session_id", "include_ratios"})
+    payload: dict[str, Any] = {}
+    for key in ("workout_id", "session_id"):
+        if key in query:
+            payload[key] = query[key]
+    if "include_ratios" in query:
+        payload["include_ratios"] = _bool_query(query, "include_ratios")
+    with readonly_connection(db_path) as conn:
+        return run(conn, device, "get_session_details", payload, config=config, clock=clock)
+
+
 def weekly_review(
     db_path: str | Path,
     device: dict[str, Any],

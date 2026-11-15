@@ -1047,6 +1047,20 @@ class Handler(BaseHTTPRequestHandler):
                     }
                 elif path == "/api/ios/v1/intelligence/weekly-review":
                     payload = intelligence_api.weekly_review(self.db_path, device, self.path)
+                elif path == "/api/ios/v1/intelligence/overview":
+                    payload = intelligence_api.overview(self.db_path, device, self.path)
+                elif path.startswith("/api/ios/v1/intelligence/exercises/") \
+                        and path.endswith("/progression"):
+                    exercise_id = path[
+                        len("/api/ios/v1/intelligence/exercises/"):-len("/progression")
+                    ].strip("/")
+                    payload = intelligence_api.progression(
+                        self.db_path, exercise_id, device, self.path
+                    )
+                elif path == "/api/ios/v1/intelligence/readiness":
+                    payload = intelligence_api.readiness(self.db_path, device, self.path)
+                elif path == "/api/ios/v1/intelligence/session-details":
+                    payload = intelligence_api.session_details(self.db_path, device, self.path)
                 elif path == "/api/ios/v1/today":
                     self._ios_idle_sweep(conn)
                     clock = _ios_clock()

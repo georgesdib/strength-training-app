@@ -716,7 +716,9 @@ break weeks, so the landmarks and coverage are the engine's own. It is not a sin
 labelled as a window.
 
 **REST.** `GET /api/ios/v1/intelligence/weekly-review?week_end=YYYY-MM-DD` returns the envelope
-unchanged, under the existing device bearer auth. Validation failures are 400, an unknown resource
+unchanged, under the existing device bearer auth. The INT-4 read surface adds `overview`,
+`exercises/{id}/progression`, `readiness` and `session-details` on the same pattern; the paired app
+may name raw readiness fields, while the MCP dispatch keeps its separate gate. Validation failures are 400, an unknown resource
 404, a disabled capability 503; the route never returns a partial or re-shaped payload.
 `bootstrap.capabilities` gains `intelligence_read`.
 
