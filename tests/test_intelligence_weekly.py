@@ -288,3 +288,55 @@ def test_weekly_review_via_mcp_matches_the_service(tmp_path):
     assert _normalise(result.structured_content["facts"]) == _normalise(
         direct.envelope.as_dict()["facts"]
     )
+
+
+class _FakeAssessment:
+    def __init__(self, score, category_scores):
+        self._payload = {
+            "score": score,
+            "category_scores": category_scores,
+            "status": "ready",
+            "basis": "test",
+        }
+
+    def as_dict(self):
+        return self._payload
+
+
+def _direction_with(conn, monkeypatch, scores):
+    from strength_coach.features import readiness_score
+
+    mapping = {
+        day: _FakeAssessment(score, {"a": mirror, "b": mirror})
+        for day, (score, mirror) in scores.items()
+    }
+    monkeypatch.setattr(
+        readiness_score, "compute", lambda _conn, day: mapping[day]
+    )
+    result = _run(conn, week_end=WEEK_END)
+    assert result.ok, result.error
+    return result.envelope.facts["readiness"]
+
+
+def test_readiness_direction_uses_the_canonical_score(conn, monkeypatch):
+    # The category mean rises (0.4 -> 0.7) while the canonical score falls (0.8 -> 0.6).
+    fact = _direction_with(conn, monkeypatch, {
+        "2026-11-02": (0.80, 0.4),
+        "2026-11-04": (0.75, 0.5),
+        "2026-11-06": (0.70, 0.6),
+        "2026-11-08": (0.60, 0.7),
+    })
+    assert fact.value["direction"] == "down"
+    assert fact.value["observed_days"] == 4
+    assert set(fact.value) == {"observed_days", "direction", "first_date", "last_date"}
+
+
+def test_readiness_direction_has_no_invented_threshold(conn, monkeypatch):
+    # A small canonical change still has a direction; the old 0.05 rule would say "flat".
+    fact = _direction_with(conn, monkeypatch, {
+        "2026-11-02": (0.700, 0.70),
+        "2026-11-04": (0.700, 0.70),
+        "2026-11-06": (0.700, 0.70),
+        "2026-11-08": (0.705, 0.70),
+    })
+    assert fact.value["direction"] == "up"

@@ -699,7 +699,7 @@ the plan §8.2 from their owners and adds no calculation beyond presentation lab
 | sessions | `history.list_sessions` |
 | progression | `strength_trend.observations` + `summarize` over 84 days for main lifts |
 | volume | `volume.compute` (per-pattern target and status) |
-| readiness | `queries.readiness_series` + `readiness_score.compute` (coverage and direction only) |
+| readiness | `queries.readiness_series` + `readiness_score.compute` (coverage and direction only; the direction is the sign of the canonical composite change, never a category average or an invented threshold) |
 | programme | `deload.decision`, `regime_change.detect`, `breaks.active_on` |
 | observations | `observations.analyse(..., persist=False)`, at most two |
 
@@ -713,8 +713,9 @@ unchanged, under the existing device bearer auth. Validation failures are 400, a
 
 **Tests.** `tests/test_intelligence_weekly.py`: golden fixture
 (`tests/fixtures/intelligence/weekly_review.ok.json`), Monday/Sunday boundary, default week, empty
-week, imported-only quality flags, observation opt-out, read-only counts, MCP/service parity, and the
-live route (200, 401, 400, capability advertisement).
+week, imported-only quality flags, observation opt-out, read-only counts, MCP/service parity, the
+canonical-score direction (category mean diverging from the composite, no magnitude threshold), and
+the live route (200, 401, 400, capability advertisement).
 
 **iOS (2026-11-15).** `StrengthCore/Intelligence/IntelligenceEnvelope.swift` decodes the envelope
 with unknown-field tolerance and fails on a missing required field;

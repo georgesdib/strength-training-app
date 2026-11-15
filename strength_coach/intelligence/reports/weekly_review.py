@@ -86,14 +86,17 @@ def _readiness_section(conn, start: str, end: str) -> tuple[Section, dict]:
     scores = []
     for point in observed:
         payload = readiness_score.compute(conn, point["date"]).as_dict()
-        values = [value for value in (payload.get("category_scores") or {}).values()
-                  if value is not None]
-        if values:
-            scores.append({"date": point["date"], "score": round(sum(values) / len(values), 3)})
+        # The canonical composite is the owner's answer. Averaging category scores here would
+        # re-derive the metric and diverge whenever category overrides make them uneven.
+        score = payload.get("score")
+        if score is not None:
+            scores.append({"date": point["date"], "score": float(score)})
     direction = "unknown"
     if len(scores) >= 2:
-        change = scores[-1]["score"] - scores[0]["score"]
-        direction = "up" if change > 0.05 else "down" if change < -0.05 else "flat"
+        # Presentation rule: the sign of the canonical score change across the week. No
+        # invented magnitude threshold; the values themselves are never returned.
+        first, last = scores[0]["score"], scores[-1]["score"]
+        direction = "up" if last > first else "down" if last < first else "flat"
     value = {
         "observed_days": len(scores),
         "direction": direction,
