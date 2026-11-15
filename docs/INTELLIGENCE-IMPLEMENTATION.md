@@ -985,5 +985,7 @@ strength_coach/intelligence/model/eval.py runs through the real capability layer
 with a fake client; normal tests make no model call. MCP parity is covered by the existing
 cross-transport test comparing MCP structured content with the in-process envelope.
 
-**Scope.** Multi-tool orchestration is deferred to INT-6; INT-5 stays one capability per call. The server also
+**Scope.** Multi-tool orchestration is deferred to INT-6; INT-5 stays one capability per call. Web
+access and RAG are deferred for both the web UI and iOS: there is no browsing, URL fetch, web tool
+or vector retrieval; the model sees structured capability facts only. The server also
 needs `config/llm.local.toml` with a provider key before `narrate` can call a model.

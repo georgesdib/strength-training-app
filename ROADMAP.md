@@ -1945,7 +1945,7 @@ model.
 **INT-5 server narration delivered (2026-11-15):** intelligence narrate and the web Narrate view
 cover every registered capability, with a daily token budget, advisory number warnings, a
 ten-capability evaluation harness and MCP parity. Phase 1b retired the old LLM exercise chooser.
-Multi-tool orchestration moves to INT-6.
+Multi-tool orchestration moves to INT-6. Web access, web citations and RAG are deferred for both the web UI and iOS.
 
 **INT-5 first slice (2026-11-15):** a **Narrate** web view calls `POST /api/intelligence/narrate` for any registered capability; the CLI equivalent remains. The validated narrative, trace and no-model error are shared. Multi-tool orchestration, evaluation, budget, MCP parity and Phase 1b retirement remain; the server needs a model key.
 
