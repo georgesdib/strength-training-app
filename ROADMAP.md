@@ -1940,6 +1940,11 @@ summary, period comparison) and two more resources (`strength://programme/curren
 latency-aware budget and enabled the transport; INT-2 adds no caching, no new REST route and no
 model.
 
+**INT-5 server narration first slice (2026-11-15):** `intelligence narrate` explains any
+registered capability through the existing Null/OpenAI-compatible provider, validates the JSON
+narrative against the envelope facts and records a run/run_event trace. Multi-tool orchestration,
+evaluation, budget, MCP parity and Phase 1b retirement remain; the server needs a model key.
+
 **INT-4e plan-aware chat delivered (2026-11-15):** a default-off plan-data
 toggle adds prescription, programme summary and adherence to on-device and DeepSeek chat. Answers
 are structured with a separate suggestion block; suggestions are proposals, not applied. The three

@@ -951,3 +951,25 @@ language plan intent, plan-fact injection, the plan card, raw outputs and sugges
 **Status.** Complete (2026-11-15). The owner confirmed both providers on the iPhone. The deterministic prescription card now shows the full list and exact date, so model prose
 abbreviation or a confused date no longer hides the prescription. Optional follow-up: shorten the
 model prose when a card is present.
+
+## 29. INT-5 — server narration, first slice (2026-11-15)
+
+**Delivered.** `strength-coach intelligence narrate --capability <name> [--payload JSON] [--json]`
+executes any registered read-only capability in-process and asks the configured model for a small
+JSON narrative (headline, observations, limitations). The model uses the existing
+`agents/config.py` provider settings: `NullLLM` when unconfigured, otherwise the OpenAI-compatible
+client (DeepSeek by default). There is no new REST endpoint.
+
+**Validation.** The narrative is parsed as JSON, field and length checked, and every digit must
+appear in the envelope facts. An invented number, malformed JSON, unknown field or oversized fact
+pack is rejected; the deterministic envelope is never changed.
+
+**Trace.** Unless `--no-trace`, a `run` row and an `input` plus `llm_output` event are written; the
+prompt and narrative text are not stored, only the model, token count and status.
+
+**Tests.** `tests/test_intelligence_narrative_model.py`: grounded acceptance, invented digits, non-JSON,
+unknown fields, NullLLM and prompt content (5 tests).
+
+**Not yet delivered.** Multi-tool orchestration (one capability per call), the evaluation harness,
+the daily token/cost budget, MCP-client parity and Phase 1b selector retirement. The server also
+needs `config/llm.local.toml` with a provider key before `narrate` can call a model.

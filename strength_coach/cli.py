@@ -564,6 +564,17 @@ def main(argv: list[str] | None = None) -> int:
     intelligence_serve.add_argument("--tokens", default=None, help="client token file path")
     intelligence_serve.add_argument("--host", default=None, help="bind address override")
     intelligence_serve.add_argument("--port", type=int, default=None, help="bind port override")
+    intelligence_narrate = intelligence_sub.add_parser(
+        "narrate", help="explain one capability envelope with the configured model"
+    )
+    intelligence_narrate.add_argument("--capability", required=True, help="capability name")
+    intelligence_narrate.add_argument(
+        "--payload", default="{}", help="capability request JSON (default: {})"
+    )
+    intelligence_narrate.add_argument("--json", action="store_true", help="emit JSON")
+    intelligence_narrate.add_argument(
+        "--no-trace", action="store_true", help="do not write a run/run_event trace"
+    )
     intelligence_token = intelligence_sub.add_parser(
         "token", help="create, list, rotate or revoke MCP client tokens"
     )
@@ -1368,6 +1379,9 @@ def _cmd_intelligence(args) -> int:
             port=args.port,
         )
 
+    if args.intelligence_command == "narrate":
+        return _cmd_intelligence_narrate(args)
+
     path = Path(args.tokens) if args.tokens else local_config_path()
     try:
         store = TokenStore.load(path)
@@ -1402,6 +1416,94 @@ def _cmd_intelligence(args) -> int:
         return 2
     print("unknown intelligence token command")
     return 2
+
+
+def _cmd_intelligence_narrate(args) -> int:
+    """Run one read-only capability and explain its envelope.
+
+    The deterministic envelope is the artifact; the model only writes prose. Trace rows are
+    append-only and are skipped with --no-trace.
+    """
+    import hashlib
+
+    from strength_coach.agents.client import LLMError, LLMUnavailable
+    from strength_coach.agents.config import build_client
+    from strength_coach.intelligence.auth import INTERNAL_PRINCIPAL
+    from strength_coach.intelligence.config import load_config
+    from strength_coach.intelligence.model import (
+        NarrativeValidationError,
+        narrate_envelope,
+    )
+    from strength_coach.intelligence.service import IntelligenceService
+    from strength_coach.store import db
+    from strength_coach.trace.run import RunTrace
+
+    try:
+        payload = json.loads(args.payload)
+    except json.JSONDecodeError as exc:
+        print(f"narrate: --payload is not JSON: {exc}")
+        return 2
+    if not isinstance(payload, dict):
+        print("narrate: --payload must be a JSON object")
+        return 2
+
+    client = build_client()
+    if not client.available:
+        print("narrate: no model is configured (set config/llm.local.toml)")
+        return 2
+
+    store = db.Store(args.db)
+    trace = None
+    try:
+        service = IntelligenceService(store.connection, config=load_config())
+        result = service.execute(INTERNAL_PRINCIPAL, args.capability, payload)
+        if not result.ok:
+            error = result.error
+            print(f"narrate: {error.code}: {error.message}")
+            return 2
+        envelope = result.envelope
+        if not args.no_trace:
+            trace = RunTrace.start(
+                store.connection,
+                input_hash=hashlib.sha256(
+                    json.dumps([args.capability, payload], sort_keys=True).encode("utf-8")
+                ).hexdigest(),
+                llm_model=client.model,
+            )
+            trace.event(
+                "input", {"capability": args.capability, "payload": payload}
+            )
+        narrative = narrate_envelope(client, envelope, trace)
+        if trace is not None:
+            trace.finish(status="ok")
+            store.connection.commit()
+        if args.json:
+            print(
+                json.dumps(
+                    {
+                        "headline": narrative.headline,
+                        "observations": list(narrative.observations),
+                        "limitations": list(narrative.limitations),
+                        "tokens": narrative.tokens,
+                    },
+                    indent=2,
+                )
+            )
+        else:
+            print(narrative.headline)
+            for observation in narrative.observations:
+                print(f"- {observation}")
+            for limitation in narrative.limitations:
+                print(f"limitation: {limitation}")
+        return 0
+    except (LLMUnavailable, LLMError, NarrativeValidationError) as exc:
+        if trace is not None:
+            trace.finish(status="llm_failed")
+            store.connection.commit()
+        print(f"narrate: {exc}")
+        return 1
+    finally:
+        store.close()
 
 
 def _cmd_analytics(args) -> int:
