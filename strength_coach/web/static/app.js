@@ -3799,6 +3799,7 @@ $("#narrate-form")?.addEventListener("submit", async (event) => {
       (observations ? "<ul>" + observations + "</ul>" : "") +
       (warnings ? "<div class=\"warnbox\"><strong>Unverified numbers</strong><ul>" + warnings + "</ul></div>" : "") +
       (limitations ? "<p class=\"muted\"><strong>Limitations</strong></p><ul>" + limitations + "</ul>" : "") +
+      (data.raw ? "<details class=\"raw-output\"><summary>Show raw output</summary><pre>" + esc(data.raw) + "</pre></details>" : "") +
       '<p class="muted">Read-only narrative. The envelope is unchanged; only the model and token count are traced.</p>' +
       "</div>";
     message.textContent = "";

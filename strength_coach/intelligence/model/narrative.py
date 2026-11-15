@@ -67,9 +67,10 @@ def narrate_envelope(client: LLMClient, envelope: Envelope, trace=None) -> Narra
     )
 
 
-def _prompt(envelope: Envelope) -> str:
+def narrative_facts(envelope: Envelope) -> dict[str, Any]:
+    """The exact facts object handed to the model and shown as raw output."""
     payload = envelope.as_dict()
-    facts = {
+    return {
         "capability": payload.get("capability"),
         "status": payload.get("status"),
         "period": payload.get("period"),
@@ -80,7 +81,10 @@ def _prompt(envelope: Envelope) -> str:
             item.get("id") for item in payload.get("evidence", []) if item.get("id")
         ],
     }
-    encoded = json.dumps(facts, ensure_ascii=False, sort_keys=True)
+
+
+def _prompt(envelope: Envelope) -> str:
+    encoded = json.dumps(narrative_facts(envelope), ensure_ascii=False, sort_keys=True)
     if len(encoded) > MAX_FACTS_CHARS:
         raise NarrativeValidationError("the capability facts are too large to narrate safely")
     return (
@@ -109,23 +113,21 @@ def _parse(text: str, envelope: Envelope) -> Narrative:
     limitations = data.get("limitations")
     if not isinstance(headline, str) or not headline.strip():
         raise NarrativeValidationError("headline must be a non-empty string")
-    if len(headline) > MAX_HEADLINE:
-        raise NarrativeValidationError("headline is too long")
-    if not isinstance(observations, list) or not 1 <= len(observations) <= 4:
-        raise NarrativeValidationError("observations must be one to four strings")
-    if not isinstance(limitations, list) or len(limitations) > 2:
-        raise NarrativeValidationError("limitations must be zero to two strings")
+    if not isinstance(observations, list) or not observations:
+        raise NarrativeValidationError("observations must be a non-empty list")
+    if not isinstance(limitations, list):
+        raise NarrativeValidationError("limitations must be a list")
     for item in observations:
-        if not isinstance(item, str) or not item.strip() or len(item) > MAX_OBSERVATION:
-            raise NarrativeValidationError("each observation must be a short non-empty string")
+        if not isinstance(item, str) or not item.strip():
+            raise NarrativeValidationError("each observation must be a non-empty string")
     for item in limitations:
-        if not isinstance(item, str) or not item.strip() or len(item) > MAX_LIMITATION:
-            raise NarrativeValidationError("each limitation must be a short non-empty string")
+        if not isinstance(item, str) or not item.strip():
+            raise NarrativeValidationError("each limitation must be a non-empty string")
 
     narrative = Narrative(
-        headline.strip(),
-        tuple(o.strip() for o in observations),
-        tuple(item.strip() for item in limitations),
+        headline.strip()[:MAX_HEADLINE],
+        tuple(o.strip()[:MAX_OBSERVATION] for o in observations),
+        tuple(item.strip()[:MAX_LIMITATION] for item in limitations),
     )
     warnings = _number_warnings(narrative, envelope)
     return Narrative(

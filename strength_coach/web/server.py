@@ -3836,7 +3836,11 @@ class Handler(BaseHTTPRequestHandler):
 
         from strength_coach.intelligence.auth import INTERNAL_PRINCIPAL
         from strength_coach.intelligence.config import load_config
-        from strength_coach.intelligence.model import NarrativeValidationError, narrate_envelope
+        from strength_coach.intelligence.model import (
+            NarrativeValidationError,
+            narrate_envelope,
+            narrative_facts,
+        )
         from strength_coach.intelligence.service import IntelligenceService
         from strength_coach.trace.run import RunTrace
 
@@ -3879,6 +3883,7 @@ class Handler(BaseHTTPRequestHandler):
             "observations": list(narrative.observations),
             "limitations": list(narrative.limitations),
             "warnings": list(narrative.warnings),
+            "raw": json.dumps(narrative_facts(envelope), indent=2, ensure_ascii=False),
             "tokens": narrative.tokens,
             "model": client.model,
         }

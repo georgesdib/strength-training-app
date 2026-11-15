@@ -1433,6 +1433,7 @@ def _cmd_intelligence_narrate(args) -> int:
     from strength_coach.intelligence.model import (
         NarrativeValidationError,
         narrate_envelope,
+        narrative_facts,
     )
     from strength_coach.intelligence.service import IntelligenceService
     from strength_coach.store import db
@@ -1485,6 +1486,7 @@ def _cmd_intelligence_narrate(args) -> int:
                         "observations": list(narrative.observations),
                         "limitations": list(narrative.limitations),
                         "warnings": list(narrative.warnings),
+                        "raw": narrative_facts(envelope),
                         "tokens": narrative.tokens,
                     },
                     indent=2,

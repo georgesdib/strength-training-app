@@ -75,6 +75,21 @@ def test_signed_fact_grounds_the_unsigned_number():
     assert narrative.headline == "The trend was 5.3 kg."
 
 
+def test_many_limitations_are_accepted():
+    envelope = FakeEnvelope({"activity": {"value": {"completed_sessions": 2}}})
+    client = FakeClient(
+        json.dumps(
+            {
+                "headline": "Two sessions",
+                "observations": ["Two sessions."],
+                "limitations": ["One.", "Two.", "Three.", "Four."],
+            }
+        )
+    )
+    narrative = narrate_envelope(client, envelope)
+    assert len(narrative.limitations) == 4
+
+
 def test_non_json_is_rejected():
     client = FakeClient("I think you did well.")
     with pytest.raises(NarrativeValidationError, match="not JSON"):

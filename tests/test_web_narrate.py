@@ -79,6 +79,7 @@ def test_narrate_route_returns_narrative_and_traces(web):
     assert status == 200, body
     assert body["headline"] == "No training data"
     assert body["model"] == "fake-model"
+    assert "raw" in body
     store = db.Store(path)
     try:
         row = store.connection.execute("SELECT COUNT(*) AS n FROM run").fetchone()

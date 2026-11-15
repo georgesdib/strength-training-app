@@ -960,7 +960,7 @@ JSON narrative (headline, observations, limitations). The model uses the existin
 `agents/config.py` provider settings: `NullLLM` when unconfigured, otherwise the OpenAI-compatible
 client (DeepSeek by default). There is no new REST endpoint.
 
-**Validation.** The narrative is parsed as JSON and field/length checked. Numbers are **advisory**:
+**Validation.** The narrative is parsed as JSON and structurally checked. Observations and limitations accept any count; overlong strings are truncated, not rejected. Numbers are **advisory**:
 a digit absent from the envelope produces an `Unverified numbers` warning in the CLI and web UI,
 not a failure. Signed facts ground either sign. Malformed JSON, unknown fields and oversized fact
 packs are still rejected; the deterministic envelope is never changed.

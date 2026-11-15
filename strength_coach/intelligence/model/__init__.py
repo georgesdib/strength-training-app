@@ -8,6 +8,7 @@ from strength_coach.intelligence.model.narrative import (
     Narrative,
     NarrativeValidationError,
     narrate_envelope,
+    narrative_facts,
 )
 
-__all__ = ["Narrative", "NarrativeValidationError", "narrate_envelope"]
+__all__ = ["Narrative", "NarrativeValidationError", "narrate_envelope", "narrative_facts"]
