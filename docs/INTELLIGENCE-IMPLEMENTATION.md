@@ -832,7 +832,8 @@ tools are registered for chat; a context overflow retries with three tools befor
 **Grounding.** `ChatToolbox` records every envelope a tool returns; after each answer the numbers
 are checked against the structured allow-list built from those envelopes, and an ungrounded number
 is rejected with the number named. No tool call plus a number in the answer therefore fails closed.
-Conversation history is capped at 2,400 characters and answers at 2,500.
+Conversation history is capped at 2,400 characters and answers at 2,500. Session details resolve
+the most recently completed session when the model has no workout id.
 
 **Tests.** `StrengthAppTests/TrainingChatTests.swift`: send appends question and reply with sources,
 an unavailable model does not send, failures are shown and reset clears, the prompt keeps only
