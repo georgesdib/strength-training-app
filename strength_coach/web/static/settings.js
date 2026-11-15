@@ -4,7 +4,7 @@ function syncLlmFields() {
   const on = $("#settings-llm-enabled").checked;
   ["#settings-llm-model", "#settings-llm-base-url", "#settings-llm-api-key",
    "#settings-llm-clear-key", "#settings-llm-temperature", "#settings-llm-max-tokens",
-   "#settings-llm-timeout", "#settings-llm-test"]
+   "#settings-llm-daily-tokens", "#settings-llm-timeout", "#settings-llm-test"]
     .forEach((selector) => { const node = $(selector); if (node) node.disabled = !on; });
 }
 
@@ -77,6 +77,7 @@ function renderSettings(data) {
   $("#settings-llm-base-url").value = llm.base_url || "";
   $("#settings-llm-temperature").value = llm.temperature ?? 0.2;
   $("#settings-llm-max-tokens").value = llm.max_tokens ?? 700;
+  $("#settings-llm-daily-tokens").value = llm.daily_tokens ?? 150000;
   $("#settings-llm-timeout").value = llm.timeout_s ?? 30;
   $("#settings-llm-api-key").value = "";
   $("#settings-llm-api-key").placeholder = llm.api_key
@@ -1342,6 +1343,7 @@ function llmPayload() {
     clear_api_key: $("#settings-llm-clear-key").checked,
     temperature: Number($("#settings-llm-temperature").value || 0.2),
     max_tokens: Number($("#settings-llm-max-tokens").value || 700),
+    daily_tokens: Number($("#settings-llm-daily-tokens").value || 150000),
     timeout_s: Number($("#settings-llm-timeout").value || 30),
   };
 }
@@ -1362,6 +1364,7 @@ $("#settings-llm-form").addEventListener("submit", async (event) => {
       base_url: "#settings-llm-base-url",
       temperature: "#settings-llm-temperature",
       max_tokens: "#settings-llm-max-tokens",
+      daily_tokens: "#settings-llm-daily-tokens",
       timeout_s: "#settings-llm-timeout",
       settings: "#settings-llm-enabled",
     });

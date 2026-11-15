@@ -971,6 +971,10 @@ prompt and narrative text are not stored, only the model, token count and status
 **Tests.** `tests/test_intelligence_narrative_model.py`: grounded acceptance, invented digits, non-JSON,
 unknown fields, NullLLM and prompt content (5 tests).
 
-**Not yet delivered.** Multi-tool orchestration (one capability per call), the evaluation harness,
-the daily token/cost budget, MCP-client parity and Phase 1b selector retirement. The server also
+**Daily budget.** `config/llm.local.toml` and the Settings form now carry `daily_tokens` (default
+150,000; 0 disables the cap). Before a narrative, the sum of today's `run.llm_tokens` is checked and
+the call is refused with a clear message once the cap is reached.
+
+**Not yet delivered.** Multi-tool orchestration (one capability per call, deferred to INT-6), the
+evaluation harness, MCP-client parity and Phase 1b selector retirement. The server also
 needs `config/llm.local.toml` with a provider key before `narrate` can call a model.

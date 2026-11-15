@@ -28,6 +28,10 @@ MAX_OBSERVATION = 320
 MAX_LIMITATION = 240
 
 
+class NarrativeBudgetError(RuntimeError):
+    """The daily narrative token budget is exhausted."""
+
+
 class NarrativeValidationError(ValueError):
     """The model answered, but the answer is not safely grounded."""
 
@@ -39,6 +43,25 @@ class Narrative:
     limitations: tuple[str, ...]
     warnings: tuple[str, ...] = ()
     tokens: int | None = None
+
+
+def daily_tokens_used(conn) -> int:
+    row = conn.execute(
+        "SELECT COALESCE(SUM(llm_tokens), 0) AS used FROM run "
+        "WHERE llm_tokens IS NOT NULL "
+        "AND date(started_at, 'localtime') = date('now', 'localtime')"
+    ).fetchone()
+    return int(row["used"] if row is not None else 0)
+
+
+def ensure_daily_budget(conn, limit: int) -> None:
+    if limit <= 0:
+        return
+    used = daily_tokens_used(conn)
+    if used >= limit:
+        raise NarrativeBudgetError(
+            f"daily narrative budget reached ({used} of {limit} tokens); try again tomorrow"
+        )
 
 
 def narrate_envelope(client: LLMClient, envelope: Envelope, trace=None) -> Narrative:

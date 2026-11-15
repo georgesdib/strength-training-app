@@ -43,7 +43,7 @@ class FakeClient:
 def web(tmp_path: Path, monkeypatch):
     path = tmp_path / "coach.db"
     db.Store(path).close()
-    monkeypatch.setattr(server, "load_settings", lambda: SimpleNamespace(enabled=True))
+    monkeypatch.setattr(server, "load_settings", lambda: SimpleNamespace(enabled=True, daily_tokens=150_000))
     monkeypatch.setattr(server, "build_client", lambda settings=None: FakeClient())
     monkeypatch.setattr(
         intelligence_config, "load_config", lambda path=None: enabled_config()

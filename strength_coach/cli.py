@@ -1431,7 +1431,9 @@ def _cmd_intelligence_narrate(args) -> int:
     from strength_coach.intelligence.auth import INTERNAL_PRINCIPAL
     from strength_coach.intelligence.config import load_config
     from strength_coach.intelligence.model import (
+        NarrativeBudgetError,
         NarrativeValidationError,
+        ensure_daily_budget,
         narrate_envelope,
         narrative_facts,
     )
@@ -1448,7 +1450,10 @@ def _cmd_intelligence_narrate(args) -> int:
         print("narrate: --payload must be a JSON object")
         return 2
 
-    client = build_client()
+    from strength_coach.agents.config import load_settings
+
+    settings = load_settings()
+    client = build_client(settings)
     if not client.available:
         print("narrate: no model is configured (set config/llm.local.toml)")
         return 2
@@ -1463,6 +1468,7 @@ def _cmd_intelligence_narrate(args) -> int:
             print(f"narrate: {error.code}: {error.message}")
             return 2
         envelope = result.envelope
+        ensure_daily_budget(store.connection, settings.daily_tokens)
         if not args.no_trace:
             trace = RunTrace.start(
                 store.connection,
@@ -1499,7 +1505,7 @@ def _cmd_intelligence_narrate(args) -> int:
             for limitation in narrative.limitations:
                 print(f"limitation: {limitation}")
         return 0
-    except (LLMUnavailable, LLMError, NarrativeValidationError) as exc:
+    except (LLMUnavailable, LLMError, NarrativeBudgetError, NarrativeValidationError) as exc:
         if trace is not None:
             trace.finish(status="llm_failed")
             store.connection.commit()

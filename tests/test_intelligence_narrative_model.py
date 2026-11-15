@@ -7,7 +7,12 @@ import json
 import pytest
 
 from strength_coach.agents.client import LLMResponse
-from strength_coach.intelligence.model import NarrativeValidationError, narrate_envelope
+from strength_coach.intelligence.model import (
+    NarrativeBudgetError,
+    NarrativeValidationError,
+    ensure_daily_budget,
+    narrate_envelope,
+)
 
 
 class FakeEnvelope:
@@ -124,3 +129,19 @@ def test_null_client_is_unavailable():
 
     with pytest.raises(Exception, match="no model"):
         narrate_envelope(Null(), FakeEnvelope({"activity": {"value": 2}}))
+
+
+
+def test_daily_budget_stops_further_calls():
+    import sqlite3
+
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    conn.execute("CREATE TABLE run (started_at TEXT, llm_tokens INTEGER)")
+    conn.execute(
+        "INSERT INTO run VALUES (datetime('now','localtime'), 150)"
+    )
+    with pytest.raises(NarrativeBudgetError, match="daily narrative budget"):
+        ensure_daily_budget(conn, 150)
+    ensure_daily_budget(conn, 0)
+    conn.close()

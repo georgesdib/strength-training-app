@@ -6,9 +6,20 @@ number and never writes an artifact; the CLI records the result as a run event.
 
 from strength_coach.intelligence.model.narrative import (
     Narrative,
+    NarrativeBudgetError,
     NarrativeValidationError,
+    daily_tokens_used,
+    ensure_daily_budget,
     narrate_envelope,
     narrative_facts,
 )
 
-__all__ = ["Narrative", "NarrativeValidationError", "narrate_envelope", "narrative_facts"]
+__all__ = [
+    "Narrative",
+    "NarrativeBudgetError",
+    "NarrativeValidationError",
+    "daily_tokens_used",
+    "ensure_daily_budget",
+    "narrate_envelope",
+    "narrative_facts",
+]

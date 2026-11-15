@@ -3837,7 +3837,9 @@ class Handler(BaseHTTPRequestHandler):
         from strength_coach.intelligence.auth import INTERNAL_PRINCIPAL
         from strength_coach.intelligence.config import load_config
         from strength_coach.intelligence.model import (
+            NarrativeBudgetError,
             NarrativeValidationError,
+            ensure_daily_budget,
             narrate_envelope,
             narrative_facts,
         )
@@ -3862,6 +3864,10 @@ class Handler(BaseHTTPRequestHandler):
             error = result.error
             raise ValueError(f"{error.code}: {error.message}")
         envelope = result.envelope
+        try:
+            ensure_daily_budget(conn, settings.daily_tokens)
+        except NarrativeBudgetError as exc:
+            raise ValueError(str(exc)) from exc
         trace = RunTrace.start(
             conn,
             input_hash=hashlib.sha256(
@@ -3898,12 +3904,13 @@ class Handler(BaseHTTPRequestHandler):
                 clear_api_key=_truth(body.get("clear_api_key")),
                 temperature=float(body.get("temperature", 0.2)),
                 max_tokens=int(body.get("max_tokens", 700)),
+                daily_tokens=int(body.get("daily_tokens", 150_000)),
                 timeout_s=float(body.get("timeout_s", 30.0)),
             )
         except LLMConfigError as exc:
             text = str(exc)
             field = next(
-                (name for name in ("model", "base_url", "temperature", "max_tokens", "timeout_s")
+                (name for name in ("model", "base_url", "temperature", "max_tokens", "daily_tokens", "timeout_s")
                  if name in text),
                 "settings",
             )
