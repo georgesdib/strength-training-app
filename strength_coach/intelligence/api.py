@@ -174,3 +174,48 @@ def weekly_review(
         payload["week_end"] = query["week_end"]
     with readonly_connection(db_path) as conn:
         return run(conn, device, "get_weekly_review", payload, config=config, clock=clock)
+
+
+def prescription(
+    db_path: str | Path, device: dict[str, Any], raw_path: str, *, config=None, clock=None
+) -> dict[str, Any]:
+    query = _query(raw_path, {"prescription_id", "for_date", "include_provenance"})
+    payload: dict[str, Any] = {}
+    for key in ("prescription_id", "for_date"):
+        if key in query:
+            payload[key] = query[key]
+    if "include_provenance" in query:
+        payload["include_provenance"] = _bool_query(query, "include_provenance")
+    with readonly_connection(db_path) as conn:
+        return run(conn, device, "get_prescription", payload, config=config, clock=clock)
+
+
+def programme_summary(
+    db_path: str | Path, device: dict[str, Any], raw_path: str, *, config=None, clock=None
+) -> dict[str, Any]:
+    query = _query(raw_path, {"as_of", "block_weeks"})
+    payload: dict[str, Any] = {}
+    if "as_of" in query:
+        payload["as_of"] = query["as_of"]
+    if "block_weeks" in query:
+        payload["block_weeks"] = _int_query(query, "block_weeks")
+    with readonly_connection(db_path) as conn:
+        return run(
+            conn, device, "get_programme_block_summary", payload, config=config, clock=clock
+        )
+
+
+def adherence(
+    db_path: str | Path, device: dict[str, Any], raw_path: str, *, config=None, clock=None
+) -> dict[str, Any]:
+    query = _query(
+        raw_path, {"as_of", "weeks", "from", "to", "group_by", "exercise_id", "session_type"}
+    )
+    payload: dict[str, Any] = {}
+    for key in ("as_of", "from", "to", "group_by", "exercise_id", "session_type"):
+        if key in query:
+            payload[key] = query[key]
+    if "weeks" in query:
+        payload["weeks"] = _int_query(query, "weeks")
+    with readonly_connection(db_path) as conn:
+        return run(conn, device, "get_adherence_analysis", payload, config=config, clock=clock)

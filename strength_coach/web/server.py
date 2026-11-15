@@ -1061,6 +1061,12 @@ class Handler(BaseHTTPRequestHandler):
                     payload = intelligence_api.readiness(self.db_path, device, self.path)
                 elif path == "/api/ios/v1/intelligence/session-details":
                     payload = intelligence_api.session_details(self.db_path, device, self.path)
+                elif path == "/api/ios/v1/intelligence/prescription":
+                    payload = intelligence_api.prescription(self.db_path, device, self.path)
+                elif path == "/api/ios/v1/intelligence/programme-summary":
+                    payload = intelligence_api.programme_summary(self.db_path, device, self.path)
+                elif path == "/api/ios/v1/intelligence/adherence":
+                    payload = intelligence_api.adherence(self.db_path, device, self.path)
                 elif path == "/api/ios/v1/today":
                     self._ios_idle_sweep(conn)
                     clock = _ios_clock()

@@ -175,3 +175,33 @@ def test_routes_are_read_only(ios):
     finally:
         store.close()
     assert after == before
+
+
+def test_prescription_route(ios):
+    status, body = _get(
+        ios, "/api/ios/v1/intelligence/prescription?for_date=2026-11-04"
+    )
+    assert status == 200, body
+    assert body["capability"] == "get_prescription"
+    assert body["status"] in ("ok", "no_data")
+
+
+def test_programme_summary_route(ios):
+    status, body = _get(
+        ios, "/api/ios/v1/intelligence/programme-summary?as_of=2026-11-08&block_weeks=4"
+    )
+    assert status == 200, body
+    assert body["capability"] == "get_programme_block_summary"
+
+
+def test_adherence_route(ios):
+    status, body = _get(ios, "/api/ios/v1/intelligence/adherence?weeks=4&group_by=week")
+    assert status == 200, body
+    assert body["capability"] == "get_adherence_analysis"
+
+
+def test_prescription_route_rejects_unknown_query(ios):
+    status, body = _get(
+        ios, "/api/ios/v1/intelligence/prescription?for_date=2026-11-04&window=1"
+    )
+    assert status == 400, body

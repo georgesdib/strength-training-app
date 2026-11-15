@@ -884,3 +884,16 @@ chat-related suite is 38 tests, all passing.
 **Status.** Complete (2026-11-15). The owner confirmed DeepSeek chat on the iPhone with a real key.
 A real 429 and a live four-round cap were not exercised; the cap and the error mappings are covered
 by unit tests.
+
+## 27. INT-4e prerequisite — plan-data REST routes (2026-11-15)
+
+Three additive iOS intelligence routes expose the plan capabilities that were MCP-only:
+
+- `GET /api/ios/v1/intelligence/prescription` — `prescription_id` or `for_date` (at most one),
+  optional `include_provenance`; no identifier is the current persisted prescription.
+- `GET /api/ios/v1/intelligence/programme-summary` — `as_of`, `block_weeks` (4, 6 or 8).
+- `GET /api/ios/v1/intelligence/adherence` — `as_of`, `weeks`, or `from`/`to`; `group_by`,
+  `exercise_id`, `session_type`.
+
+The adapters open SQLite read-only and return the unchanged envelope; unknown query parameters
+are 400. Tests cover all three routes and the unknown-query rejection (12 route tests).
