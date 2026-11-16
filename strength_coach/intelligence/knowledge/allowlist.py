@@ -23,6 +23,7 @@ class SourceRule:
     root: Path
     include: tuple[re.Pattern[str], ...]
     exclude: tuple[re.Pattern[str], ...]
+    markers: tuple[str, ...] = ()
 
     def allows(self, relative: str) -> tuple[bool, str]:
         if not any(pattern.match(relative) for pattern in self.include):
@@ -87,6 +88,7 @@ def load_config(path: str | Path | None = None) -> KnowledgeConfig:
                 root=_root(item.get("root"), f"source {item['name']} root"),
                 include=_compile(item.get("include"), f"source {item['name']} include"),
                 exclude=_compile(item.get("exclude"), f"source {item['name']} exclude"),
+                markers=tuple(str(value) for value in (item.get("markers") or [])),
             )
         )
     if not sources:
@@ -148,6 +150,8 @@ def scan(config: KnowledgeConfig) -> ScanResult:
     excluded: list[Candidate] = []
     for source in config.sources:
         if not source.root.is_dir():
+            continue
+        if source.markers and not any((source.root / marker).exists() for marker in source.markers):
             continue
         for current, dirnames, filenames in os.walk(source.root):
             current_path = Path(current)

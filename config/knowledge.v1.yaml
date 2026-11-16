@@ -29,6 +29,7 @@ sources:
 
   - name: portfolio
     root: ..
+    markers: ['docs']
     include:
       - '^docs/.*\.md$'
       - '^README\.md$'
@@ -42,6 +43,7 @@ sources:
 
   - name: ios
     root: ../StrengthApp
+    markers: ['StrengthCore']
     include:
       - '^StrengthCore/Sources/.*\.swift$'
       - '^StrengthApp/.*\.swift$'
