@@ -26,6 +26,7 @@ sources:
     exclude:
       - '^tests/fixtures/'
       - '^tests/.*/fixtures/'
+      - '^strength_coach/intelligence/knowledge/'
       - '^private/eval/'
       - '^private/marks-backup\.json$'
       - '^private/docs/MONITORING-HISTORICAL-AUDIT\.json$'
