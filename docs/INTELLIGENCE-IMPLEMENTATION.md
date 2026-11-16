@@ -1018,8 +1018,10 @@ persisted and count against the daily budget.
 ## 31. Planned, not implemented (2026-11-16)
 
 **INT-11 — Explain the System.** Accepted plan-only: a local incremental FTS5 index over an explicit
-docs/source/private allowlist, with an explanation endpoint, web and iOS tabs, and best-effort
-path:line citations. No index, endpoint or prompt exists yet.
+docs/source/private allowlist, selected test source files, with fixtures/snapshots/test data excluded;
+an explanation endpoint, web and iOS tabs, and best-effort path:line citations with a minimal
+path/line/snippet existence check. Test expectations are labelled separately from implementation
+facts. No index, endpoint or prompt exists yet.
 
 **INT-12 — Web search and RAG.** Deferred: opt-in fixed-provider web search with URL citations and
 SSRF/privacy controls; embeddings only if the INT-11 keyword baseline is measured insufficient. The
