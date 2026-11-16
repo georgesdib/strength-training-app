@@ -136,7 +136,11 @@ def build(config: KnowledgeConfig, *, dry_run: bool = False) -> BuildStats:
 
     conn = _connect(config.index_path)
     indexed_at = datetime.now(UTC).isoformat()
-    states = {source.name: git_state(source.root) for source in config.sources}
+    states = {
+        source.name: git_state(source.root)
+        for source in config.sources
+        if source.root.is_dir()
+    }
     existing = {
         (row["source"], row["path"]): row
         for row in conn.execute("SELECT * FROM files")
@@ -187,6 +191,8 @@ def build(config: KnowledgeConfig, *, dry_run: bool = False) -> BuildStats:
             removed += 1
 
     for source in config.sources:
+        if source.name not in states:
+            continue
         state = states[source.name]
         conn.execute("INSERT OR REPLACE INTO meta VALUES (?, ?)",
                      (f"commit:{source.name}", state.commit))
