@@ -1914,7 +1914,7 @@ adaptation, and the LLM capabilities in §4.24.
 
 ### 4.34 Training Intelligence — read-only capability layer and MCP server  (INT-1 and INT-1b implemented 2026-11-14)
 
-**Status: INT-1 to INT-6 backend work and INT-11 delivered; INT-12 planned, not implemented.** The read-only
+**Status: INT-1 to INT-6 backend work and INT-11 delivered; INT-12 deferred; INT-13 is iOS-only.** The read-only
 capability layer, the canonical envelope, typed requests, the execution service, configuration
 bounds and their tests exist in `strength_coach/intelligence/`; INT-1b adds the separately runnable
 MCP server (`strength_coach/intelligence/mcp/`, Streamable HTTP, revision 2026-07-28 with legacy
