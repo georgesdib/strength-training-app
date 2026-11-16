@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from strength_coach.agents.client import LLMClient
@@ -19,6 +20,8 @@ class ExplainResult:
     tokens: int | None
     chunks: tuple[RetrievedChunk, ...]
 
+
+UNGROUNDED_LABEL = re.compile(r"answer is\s+\**ungrounded|ungrounded answer|from general knowledge", re.IGNORECASE)
 
 SYSTEM = (
     "You explain how this training system works. Use the PROJECT SOURCES below when they answer "
@@ -66,7 +69,11 @@ def run_explain(
         answer=response.text,
         citations=citations,
         warnings=tuple(dict.fromkeys(warnings)),
-        grounded=bool(chunks and any(c.verified for c in citations)),
+        grounded=bool(
+            chunks
+            and any(c.verified for c in citations)
+            and UNGROUNDED_LABEL.search(response.text) is None
+        ),
         tokens=response.tokens,
         chunks=chunks,
     )
