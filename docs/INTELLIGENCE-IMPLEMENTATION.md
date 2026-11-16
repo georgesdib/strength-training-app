@@ -1018,8 +1018,8 @@ persisted and count against the daily budget.
 ## 31. Planned, not implemented (2026-11-16)
 
 **INT-11 — Explain the System.** Accepted plan-only: a local incremental FTS5 index over an explicit
-docs/source/private allowlist, test source included unless matched by a separate test exclusion list,
-with fixtures/snapshots/test data excluded;
+docs/source/private allowlist, including non-secret personal notes/data, test source unless matched
+by a separate test exclusion list, with public fixtures/snapshots/test data excluded;
 an explanation endpoint, web and iOS tabs, and best-effort path:line citations with a minimal
 path/line/snippet existence check. Test expectations are labelled separately from implementation
 facts. No index, endpoint or prompt exists yet.
