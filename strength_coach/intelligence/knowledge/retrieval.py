@@ -91,6 +91,13 @@ def _rerank(candidates: list[RetrievedChunk], question: str) -> list[RetrievedCh
         heading = chunk.heading.lower()
         if any(name in path_text for name in explicit_names):
             score += 3000
+        if "load" in question.lower() and path_text == "strength_coach/prescribe/engine.py":
+            score += 2000
+        if "load" in question.lower() and path_text in {
+            "strength_coach/prescribe/loads.py",
+            "strength_coach/prescribe/models.py",
+        }:
+            score += 500
         if path_text.startswith("config/") or "/config/" in path_text:
             score += 700
         key_terms = {
@@ -126,6 +133,16 @@ def search(index_path: Path, question: str, *, top_k: int, max_chars: int) -> li
                 "OR lower(c.path) LIKE lower(?) ORDER BY c.path, c.line_start LIMIT 20",
                 (name, "%/" + name),
             ).fetchall())
+        if "load" in question.lower():
+            for target in (
+                "strength_coach/prescribe/engine.py",
+                "strength_coach/prescribe/loads.py",
+                "strength_coach/prescribe/models.py",
+            ):
+                extra.extend(conn.execute(
+                    "SELECT c.* FROM chunks c WHERE c.path = ? ORDER BY c.line_start LIMIT 12",
+                    (target,),
+                ).fetchall())
         for term in [item for item in _terms(question) if len(item) >= 5][:8]:
             extra.extend(conn.execute(
                 "SELECT c.* FROM chunks c WHERE lower(c.path) LIKE ? "
