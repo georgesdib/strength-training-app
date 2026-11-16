@@ -570,6 +570,23 @@ def main(argv: list[str] | None = None) -> int:
     intelligence_narrate.add_argument(
         "--no-trace", action="store_true", help="do not write a run/run_event trace"
     )
+    intelligence_knowledge = intelligence_sub.add_parser(
+        "knowledge", help="build or inspect the local Explain knowledge index"
+    )
+    knowledge_sub = intelligence_knowledge.add_subparsers(
+        dest="knowledge_command", required=True
+    )
+    knowledge_build = knowledge_sub.add_parser("build", help="incrementally build the index")
+    knowledge_build.add_argument("--config", default=None, help="knowledge config path")
+    knowledge_build.add_argument("--dry-run", action="store_true", help="list only, no write")
+    knowledge_build.add_argument("--json", action="store_true")
+    knowledge_list = knowledge_sub.add_parser("list", help="show included and excluded files")
+    knowledge_list.add_argument("--config", default=None, help="knowledge config path")
+    knowledge_list.add_argument("--json", action="store_true")
+    knowledge_list.add_argument("--excluded", action="store_true", help="show exclusions too")
+    knowledge_status = knowledge_sub.add_parser("status", help="show index counts and commits")
+    knowledge_status.add_argument("--config", default=None, help="knowledge config path")
+    knowledge_status.add_argument("--json", action="store_true")
     intelligence_token = intelligence_sub.add_parser(
         "token", help="create, list, rotate or revoke MCP client tokens"
     )
@@ -1340,6 +1357,66 @@ def _cmd_ios(args) -> int:
         store.close()
 
 
+def _cmd_intelligence_knowledge(args) -> int:
+    """Build or inspect the local knowledge index; no server or model call."""
+    import json as json_mod
+
+    from strength_coach.intelligence.knowledge.allowlist import (
+        KnowledgeConfigError,
+        load_config,
+    )
+    from strength_coach.intelligence.knowledge.index import (
+        build,
+        list_candidates,
+        status,
+    )
+
+    try:
+        config = load_config(args.config)
+    except (KnowledgeConfigError, ValueError) as exc:
+        print(f"knowledge config: {exc}")
+        return 2
+    if args.knowledge_command == "build":
+        try:
+            result = build(config, dry_run=args.dry_run)
+        except Exception as exc:
+            print(f"knowledge index: {exc}")
+            return 2
+        if args.json:
+            print(json_mod.dumps(result.__dict__, default=str, sort_keys=True))
+        else:
+            print(f"index: {result.index_path}")
+            print(f"included: {result.included_files} files, {result.chunks} chunks")
+            print(f"skipped: {result.skipped}; removed: {result.removed}; "
+                  f"secret-skipped: {result.secret_skipped}; unreadable: {result.unreadable}; "
+                  f"excluded: {result.excluded}")
+        return 0
+    if args.knowledge_command == "list":
+        listing = list_candidates(config)
+        if args.json:
+            print(json_mod.dumps(listing, sort_keys=True))
+            return 0
+        for item in listing["included"]:
+            print(f"include {item['source']}:{item['path']}")
+        if args.excluded:
+            for item in listing["excluded"]:
+                print(f"exclude {item['source']}:{item['path']} ({item['reason']})")
+        return 0
+    result = status(config.index_path)
+    if args.json:
+        print(json_mod.dumps(result, default=str, sort_keys=True))
+        return 0
+    if not result.get("exists"):
+        print(f"index: {config.index_path} (missing)")
+        return 1
+    print(f"index: {result['index_path']}")
+    print(f"files: {result['files']}; chunks: {result['chunks']}")
+    meta = result.get("meta") or {}
+    for key in sorted(meta):
+        print(f"{key}: {meta[key]}")
+    return 0
+
+
 def _cmd_intelligence(args) -> int:
     """Run the read-only MCP server or manage its client tokens.
 
@@ -1362,6 +1439,9 @@ def _cmd_intelligence(args) -> int:
 
     if args.intelligence_command == "narrate":
         return _cmd_intelligence_narrate(args)
+
+    if args.intelligence_command == "knowledge":
+        return _cmd_intelligence_knowledge(args)
 
     path = Path(args.tokens) if args.tokens else local_config_path()
     try:

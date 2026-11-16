@@ -1029,6 +1029,26 @@ SSRF/privacy controls; embeddings only if the INT-11 keyword baseline is measure
 existing MCP server is transport and facts-only; it is not a search engine and does not provide web
 access. Exposing either capability over MCP needs a new ADR and contract revision.
 
+## 32. INT-11 first slice — local knowledge index and CLI (2026-11-16)
+
+**Implemented.** The first INT-11 slice is the local index foundation, with no explain endpoint,
+retrieval answer, web tab, iOS tab or server-start hook yet.
+
+- `config/knowledge.v1.yaml`: named regex allowlist, test exclusion list, always-denied paths,
+  high-confidence secret-token patterns and a local FTS5 index path.
+- `strength_coach/intelligence/knowledge/`: allowlist scanning, markdown/Python/Swift chunking,
+  repository commit metadata and an incremental SQLite FTS5 index.
+- `strength-coach intelligence knowledge build|list|status`: dry-run listing, incremental build and
+  status output. The build records per-source commit and dirty state and skips secret-looking files.
+
+The index is derived, stored at `data/knowledge-index.sqlite` with mode `0600`, and never committed.
+Selected test source is included; test fixtures/snapshots/test data and known duplicate private
+backups are excluded. Non-secret personal private notes and data are included by owner decision.
+
+**Tests.** `tests/test_intelligence_knowledge.py` covers allowlist inclusion/exclusion, traversal,
+private personal inclusion, secret skipping, chunk line ranges, FTS5 search, incremental update and
+removal.
+
 ## Related
 
 - **Architecture:** [ARCHITECTURE.md](ARCHITECTURE.md)

@@ -18,6 +18,7 @@ data/*.db*
 *.sqlite3
 # The local web server writes its stdout log here; it is machine state, not source.
 data/*.log
+data/knowledge-index.sqlite*
 # Resolver policy backups are local machine state; the policy file itself is tracked.
 data/resolver-policy-backups/
 
