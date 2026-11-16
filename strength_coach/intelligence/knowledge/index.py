@@ -140,6 +140,7 @@ def build(config: KnowledgeConfig, *, dry_run: bool = False) -> BuildStats:
         source.name: git_state(source.root)
         for source in config.sources
         if source.root.is_dir()
+        and (not source.markers or any((source.root / marker).exists() for marker in source.markers))
     }
     existing = {
         (row["source"], row["path"]): row
