@@ -1087,9 +1087,12 @@ ungrounded-answer detection.
 
 **Second pass.** Readiness, test expectation, readiness code path, personal state, VBT, volume, sRPE,
 AGENTS.md and the citation-sensitive question found their expected sources. The no-source question
-is reported ungrounded. Remaining gaps: the injury-deload question finds the injury signal but not a
-named injury-deload rule; the deload-trigger answer had two invalid citations; prescription rules are
-only partially covered.
+is reported ungrounded. The deload question retrieves `config/deload.v1.yaml` and now cites it cleanly;
+the injury-deload answer correctly separates the reactive trigger (two consecutive flares) from the
+absence of direct evidence for a specific injury-deload threshold; prescription rules retrieve
+`config/rules/programme.v1.yaml`, the template resolver and `strength_coach/prescribe/engine.py`.
+Remaining limitation: the programme-block answer still includes archive/contract context, and the
+injury answer notes that no outcome evidence is cited for the reactive trigger counts.
 
 ## Related
 
