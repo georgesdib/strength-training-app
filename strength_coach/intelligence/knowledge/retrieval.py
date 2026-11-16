@@ -12,8 +12,8 @@ EXPLICIT_FILE = re.compile(r"([A-Za-z0-9_.-]+\.(?:md|py|swift|ya?ml))", re.IGNOR
 EXPANSIONS = {
     "readiness": ("readiness", "score", "composite"),
     "calculated": ("calculate", "formula", "composite"),
-    "deload": ("deload", "back-off", "backoff", "injury"),
-    "injury": ("injury", "symptom", "deload"),
+    "deload": ("deload", "reactive", "flare", "flares", "back-off", "backoff", "injury"),
+    "injury": ("injury", "symptom", "flare", "flares", "deload"),
     "evidence": ("evidence", "rationale", "research"),
 }
 
@@ -91,6 +91,8 @@ def _rerank(candidates: list[RetrievedChunk], question: str) -> list[RetrievedCh
         heading = chunk.heading.lower()
         if any(name in path_text for name in explicit_names):
             score += 3000
+        if path_text.startswith("config/") or "/config/" in path_text:
+            score += 700
         key_terms = {
             "injury", "deload", "volume", "performance", "readiness", "agents",
             "srpe", "vbt", "calibration", "prescription", "programme", "block",
