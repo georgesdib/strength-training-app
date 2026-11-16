@@ -49,6 +49,7 @@ const VIEW_LOADERS = {
     loadTestCadence();
   },
   settings: () => loadSettings(),
+  explain: () => loadExplainStatus(),
   history: () => loadHistory(),
   progress: () => loadProgressOverview(),
   outcomes: () => loadOutcomes(),
@@ -3896,5 +3897,54 @@ $("#chat-form")?.addEventListener("submit", async (event) => {
   } finally {
     button.disabled = false;
     renderChat();
+  }
+});
+
+/* --- Explain the system -------------------------------------------------- */
+async function loadExplainStatus() {
+  const target = $("#explain-status");
+  if (!target) return;
+  try {
+    const data = await api("/api/intelligence/knowledge/status");
+    if (!data.exists) target.textContent = "Knowledge index not built yet.";
+    else target.textContent = "Index: " + data.files + " files, " + data.chunks +
+      " chunks · backend " + ((data.meta || {})["commit:backend"] || "unknown").slice(0, 7) +
+      " · " + ((data.meta || {}).state || "ready");
+  } catch (error) {
+    target.textContent = "Index status unavailable: " + error.message;
+  }
+}
+$("#explain-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const question = $("#explain-question").value.trim();
+  const message = $("#explain-msg");
+  const target = $("#explain-result");
+  const button = $("#explain-submit");
+  if (!question) return;
+  message.textContent = "Searching project sources…";
+  button.disabled = true;
+  target.innerHTML = "";
+  try {
+    const data = await api("/api/intelligence/explain", {
+      method: "POST", body: JSON.stringify({ question }),
+    });
+    const citations = (data.citations || []).map((citation) => {
+      const label = esc(citation.path) + ":" + citation.line_start +
+        (citation.line_end !== citation.line_start ? "-" + citation.line_end : "");
+      const link = citation.url ? '<a href="' + esc(citation.url) + '" target="_blank" rel="noopener">' + label + "</a>" : label;
+      return "<li>" + link + (citation.verified ? "" : " <span class='muted'>(unverified: " + esc(citation.warning || "citation check failed") + ")</span>") + "</li>";
+    }).join("");
+    const warnings = (data.warnings || []).map((warning) => "<li>" + esc(warning) + "</li>").join("");
+    target.innerHTML = '<div class="panel"><div class="panel-head"><h2>Answer</h2><span class="muted">' +
+      (data.grounded ? "grounded" : "ungrounded") + "</span></div>" +
+      "<p>" + esc(data.answer).replaceAll("\n", "<br>") + "</p>" +
+      (citations ? "<h3>Sources</h3><ul>" + citations + "</ul>" : "") +
+      (warnings ? '<div class="warnbox"><strong>Checks</strong><ul>' + warnings + "</ul></div>" : "") +
+      '<p class="muted">' + data.sources.length + " source chunks · " + (data.tokens || 0) + " tokens</p></div>";
+    message.textContent = "";
+  } catch (error) {
+    message.textContent = error.message || "Explain failed.";
+  } finally {
+    button.disabled = false;
   }
 });

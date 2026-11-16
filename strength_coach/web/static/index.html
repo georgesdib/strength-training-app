@@ -60,6 +60,7 @@
           <button data-view="review">Review</button>
           <button data-view="narrate">Narrate</button>
           <button data-view="chat">Chat</button>
+          <button data-view="explain">Explain</button>
         </div>
       </details>
       <details class="nav-group">
@@ -886,6 +887,22 @@
         </form>
         <p class="muted">Up to 20 turns per conversation; cleared when this page reloads. Suggestions are proposals, not applied; not medical advice.</p>
       </div>
+    </section>
+
+    <section id="view-explain" class="view">
+      <div class="panel">
+        <div class="panel-head"><h2>Explain the system</h2><span class="muted">local sources · read only</span></div>
+        <p class="section-help"><span>Ask how the system works. Answers use the local docs, code, selected tests and private notes; when no source matches, the answer is marked ungrounded.</span> <a class="doc-link" href="#settings" data-view-link="settings">Model settings</a></p>
+        <form id="explain-form">
+          <label class="grow">Question <input id="explain-question" autocomplete="off" placeholder="How is readiness calculated?"></label>
+          <div class="form-row">
+            <button class="primary" type="submit" id="explain-submit">Explain</button>
+            <span class="muted" id="explain-msg"></span>
+          </div>
+        </form>
+        <p class="muted" id="explain-status">Index status unavailable.</p>
+      </div>
+      <div id="explain-result"></div>
     </section>
 
     <section id="view-readiness" class="view">

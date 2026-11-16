@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import sqlite3
+import threading
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -249,3 +250,32 @@ def list_candidates(config: KnowledgeConfig) -> dict[str, list[dict[str, str]]]:
             for item in result.excluded
         ],
     }
+
+
+def _set_state(conn: sqlite3.Connection, value: str) -> None:
+    conn.execute("INSERT OR REPLACE INTO meta VALUES ('state', ?)", (value,))
+    conn.commit()
+
+
+def start_background_index(config: KnowledgeConfig) -> threading.Thread:
+    """Refresh the index on server start without blocking the web listener."""
+    def run() -> None:
+        try:
+            if config.index_path.is_file():
+                conn = _connect(config.index_path)
+                _set_state(conn, "indexing")
+                conn.close()
+            build(config)
+            conn = _connect(config.index_path)
+            _set_state(conn, "ready")
+            conn.close()
+        except Exception:
+            try:
+                conn = _connect(config.index_path)
+                _set_state(conn, "error")
+                conn.close()
+            except Exception:
+                pass
+    thread = threading.Thread(target=run, name="knowledge-index", daemon=True)
+    thread.start()
+    return thread

@@ -5674,6 +5674,12 @@ def create_server(db_path: str | Path | None = None, host: str = "127.0.0.1",
 def serve(db_path: str | Path | None = None, host: str = "0.0.0.0", port: int = 8000,
           open_browser: bool = False) -> None:
     server = create_server(db_path, host=host, port=port)
+    try:
+        from strength_coach.intelligence.knowledge.allowlist import load_config as load_knowledge
+        from strength_coach.intelligence.knowledge.index import start_background_index
+        start_background_index(load_knowledge())
+    except Exception:
+        LOGGER.exception("knowledge index did not start")
     port = server.server_address[1]
     display_host = "127.0.0.1" if host in {"0.0.0.0", "::"} else host
     url = f"http://{display_host}:{port}/"

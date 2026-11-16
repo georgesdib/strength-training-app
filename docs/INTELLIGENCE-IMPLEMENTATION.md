@@ -1051,9 +1051,9 @@ removal.
 
 ## 33. INT-11 retrieval and Explain endpoint (2026-11-16)
 
-**Implemented.** The server now has FTS5 retrieval, structural citation checking, the `POST
-/api/intelligence/explain` endpoint and `GET /api/intelligence/knowledge/status`. No web tab or iOS
-tab exists yet.
+**Implemented.** The server has FTS5 retrieval, structural citation checking, the `POST
+/api/intelligence/explain` endpoint and `GET /api/intelligence/knowledge/status`. The web Explain tab
+and iOS Explain tab are implemented; index refresh now starts in the background with the web server.
 
 - retrieval expands readiness/deload/injury/evidence terms and returns the configured top chunks;
 - answers are prompted from project sources; if nothing matches, the model answers from general
@@ -1067,7 +1067,8 @@ tab exists yet.
 - retrieval bounds and answer word limit are in `config/knowledge.v1.yaml`.
 
 **Tests.** `tests/test_intelligence_explain.py` covers retrieval, citation validation, grounded and
-ungrounded answers, and the HTTP endpoint.
+ungrounded answers, and the HTTP endpoint. The web page test covers the Explain tab; the iOS scheme
+builds with the Explain view.
 
 ## Related
 
