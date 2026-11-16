@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import sqlite3
 import threading
 from dataclasses import dataclass
@@ -65,10 +66,25 @@ CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 
 def _connect(path: Path) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path)
-    conn.row_factory = sqlite3.Row
-    conn.executescript(SCHEMA)
+    path.touch(exist_ok=True)
+    path.chmod(0o600)
+    previous = os.umask(0o077)
+    try:
+        conn = sqlite3.connect(path)
+        conn.row_factory = sqlite3.Row
+        conn.executescript(SCHEMA)
+    finally:
+        os.umask(previous)
+    path.chmod(0o600)
+    _protect_sidecars(path)
     return conn
+
+
+def _protect_sidecars(path: Path) -> None:
+    for suffix in ("-wal", "-shm", "-journal"):
+        sidecar = Path(str(path) + suffix)
+        if sidecar.exists():
+            sidecar.chmod(0o600)
 
 
 def _digest(data: bytes) -> str:
@@ -151,7 +167,6 @@ def build(config: KnowledgeConfig, *, dry_run: bool = False) -> BuildStats:
     included = skipped = chunks = secret_skipped = unreadable = 0
     for candidate in candidates.included:
         key = (candidate.source, candidate.relative)
-        seen.add(key)
         try:
             if candidate.path.stat().st_size > config.max_file_bytes:
                 unreadable += 1
@@ -176,6 +191,7 @@ def build(config: KnowledgeConfig, *, dry_run: bool = False) -> BuildStats:
                 "SELECT COUNT(*) AS n FROM chunks WHERE source = ? AND path = ?", key
             ).fetchone()["n"]
             if count:
+                seen.add(key)
                 skipped += 1
                 continue
         _drop_file(conn, *key)
@@ -183,6 +199,7 @@ def build(config: KnowledgeConfig, *, dry_run: bool = False) -> BuildStats:
             conn, candidate.source, candidate.relative, candidate.path,
             data, state.commit, state.dirty, indexed_at,
         )
+        seen.add(key)
         included += 1
 
     removed = 0
@@ -206,6 +223,7 @@ def build(config: KnowledgeConfig, *, dry_run: bool = False) -> BuildStats:
     conn.commit()
     conn.close()
     config.index_path.chmod(0o600)
+    _protect_sidecars(config.index_path)
     return BuildStats(
         included_files=included,
         chunks=chunks,
@@ -218,7 +236,7 @@ def build(config: KnowledgeConfig, *, dry_run: bool = False) -> BuildStats:
     )
 
 
-def status(index_path: Path) -> dict[str, object]:
+def status(index_path: Path, config: KnowledgeConfig | None = None) -> dict[str, object]:
     if not index_path.is_file():
         return {"exists": False, "index_path": str(index_path)}
     conn = sqlite3.connect(index_path)
@@ -229,13 +247,16 @@ def status(index_path: Path) -> dict[str, object]:
         meta = {row["key"]: row["value"] for row in conn.execute("SELECT * FROM meta")}
     finally:
         conn.close()
-    return {
+    result: dict[str, object] = {
         "exists": True,
         "index_path": str(index_path),
         "files": files,
         "chunks": chunks,
         "meta": meta,
     }
+    if config is not None:
+        result["sources"] = source_health(config)
+    return result
 
 
 def list_candidates(config: KnowledgeConfig) -> dict[str, list[dict[str, str]]]:
@@ -279,3 +300,21 @@ def start_background_index(config: KnowledgeConfig) -> threading.Thread:
     thread = threading.Thread(target=run, name="knowledge-index", daemon=True)
     thread.start()
     return thread
+
+
+def source_health(config: KnowledgeConfig) -> list[dict[str, object]]:
+    """Report every configured source, including missing/ignored roots."""
+    health = []
+    for source in config.sources:
+        present = source.root.is_dir() and (
+            not source.markers or any((source.root / marker).exists() for marker in source.markers)
+        )
+        state = git_state(source.root) if present else None
+        health.append({
+            "name": source.name,
+            "root": str(source.root),
+            "present": present,
+            "commit": state.commit if state else None,
+            "dirty": state.dirty if state else None,
+        })
+    return health

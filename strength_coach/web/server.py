@@ -3198,7 +3198,8 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/intelligence/knowledge/status":
                 from strength_coach.intelligence.knowledge.allowlist import load_config as load_knowledge
                 from strength_coach.intelligence.knowledge.index import status as knowledge_status
-                self._json(200, knowledge_status(load_knowledge().index_path))
+                config = load_knowledge()
+                self._json(200, knowledge_status(config.index_path, config))
             elif path == "/api/docs":
                 self._json(200, _docs())
             elif path.startswith("/api/docs/"):
@@ -3856,12 +3857,13 @@ class Handler(BaseHTTPRequestHandler):
             ensure_daily_budget(conn, settings.daily_tokens)
         except NarrativeBudgetError as exc:
             raise ValueError(str(exc)) from exc
+        question_hash = hashlib.sha256(question.encode("utf-8")).hexdigest()
         trace = RunTrace.start(
             conn,
-            input_hash=hashlib.sha256(question.encode("utf-8")).hexdigest(),
+            input_hash=question_hash,
             llm_model=client.model,
         )
-        trace.event("input", {"question": question})
+        trace.event("input", {"question_sha256": question_hash, "chars": len(question)})
         try:
             result = run_explain(knowledge, client, question)
         except Exception:

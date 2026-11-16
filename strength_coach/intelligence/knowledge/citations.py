@@ -15,7 +15,10 @@ GITHUB = {
     "ios": "https://github.com/georgesdib/StrengthApp/blob",
     "portfolio": "https://github.com/georgesdib/strength-app/blob",
 }
-CITATION = re.compile(r"(?<![\w./-])([A-Za-z0-9_./-]+\.(?:py|md|swift|ya?ml|json|sh)):(\d+)(?:-(\d+))?")
+CITATION = re.compile(
+    r"(?<![\w./-])(?:(backend|portfolio|ios):)?"
+    r"([A-Za-z0-9_./-]+\.(?:py|md|swift|ya?ml|json|sh)):(\d+)(?:-(\d+))?"
+)
 QUOTE = re.compile(chr(96) + r"([^" + chr(96) + r"]{3,160})" + chr(96))
 
 
@@ -44,25 +47,36 @@ def _source_for(
     return None
 
 
-def _index_meta(index_path: Path, path: str) -> tuple[str, str] | None:
+def _index_meta(
+    index_path: Path, path: str, source_name: str | None = None,
+) -> tuple[str, str, bool] | None:
     if not index_path.is_file():
         return None
     conn = sqlite3.connect(index_path)
     try:
-        row = conn.execute(
-            "SELECT source, repo_commit FROM chunks WHERE path = ? LIMIT 1", (path,)
-        ).fetchone()
+        if source_name is None:
+            rows = conn.execute(
+                "SELECT source, repo_commit FROM chunks WHERE path = ? LIMIT 2", (path,)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT source, repo_commit FROM chunks WHERE path = ? AND source = ? LIMIT 1",
+                (path, source_name),
+            ).fetchall()
     except sqlite3.OperationalError:
-        row = None
+        rows = []
     finally:
         conn.close()
-    return (str(row[0]), str(row[1])) if row else None
+    if not rows:
+        return None
+    sources = {str(row[0]) for row in rows}
+    return (str(rows[0][0]), str(rows[0][1]), len(sources) > 1)
 
 
 def _url(source: str, commit: str, path: str, start: int, end: int) -> str | None:
     if path.startswith("private/"):
         return None
-    if path.startswith("docs/"):
+    if source == "backend" and path.startswith("docs/"):
         return "#docs?doc=" + quote(path)
     base = GITHUB.get(source)
     if base is None or commit in {"", "unknown"}:
@@ -89,15 +103,16 @@ def extract(answer: str, config: KnowledgeConfig, index_path: Path) -> list[Cita
     citations: list[Citation] = []
     seen: set[tuple[str, int, int]] = set()
     for match in CITATION.finditer(answer):
-        path = match.group(1)
-        start = int(match.group(2))
-        end = int(match.group(3) or start)
+        source_hint = match.group(1)
+        path = match.group(2)
+        start = int(match.group(3))
+        end = int(match.group(4) or start)
         key = (path, start, end)
         if key in seen:
             continue
         seen.add(key)
-        meta = _index_meta(index_path, path)
-        found = _source_for(config, path, meta[0] if meta else None)
+        meta = _index_meta(index_path, path, source_hint)
+        found = _source_for(config, path, meta[0] if meta else source_hint)
         if found is None or meta is None:
             citations.append(Citation(path, start, end, meta[0] if meta else "unknown", None, False, "path is not in the index"))
             continue
@@ -110,7 +125,7 @@ def extract(answer: str, config: KnowledgeConfig, index_path: Path) -> list[Cita
         if start < 1 or end < start or end > len(lines):
             citations.append(Citation(path, start, end, source, None, False, "line range is outside the file"))
             continue
-        warning = None
+        warning = "source namespace is missing and the path exists in multiple repositories" if meta[2] else None
         quoted = _quote_near(answer, match.start(), match.end())
         if quoted is not None:
             source_text = "\n".join(lines[start - 1:end]).lower()

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 EXPLICIT_FILE = re.compile(r"([A-Za-z0-9_.-]+\.(?:md|py|swift|ya?ml))", re.IGNORECASE)
@@ -174,8 +174,13 @@ def search(index_path: Path, question: str, *, top_k: int, max_chars: int) -> li
     for chunk in ranked:
         if path_counts.get(chunk.path, 0) >= 3:
             continue
-        if found and size + len(chunk.text) > max_chars:
-            continue
+        remaining = max_chars - size
+        if remaining <= 0:
+            break
+        if len(chunk.text) > remaining:
+            if found:
+                continue
+            chunk = replace(chunk, text=chunk.text[:remaining])
         found.append(chunk)
         path_counts[chunk.path] = path_counts.get(chunk.path, 0) + 1
         size += len(chunk.text)

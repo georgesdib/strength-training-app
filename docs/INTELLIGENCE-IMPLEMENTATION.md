@@ -1054,6 +1054,7 @@ removal.
 **Implemented.** The server has FTS5 retrieval, structural citation checking, the `POST
 /api/intelligence/explain` endpoint and `GET /api/intelligence/knowledge/status`. The web Explain tab
 and iOS Explain tab are implemented; index refresh now starts in the background with the web server.
+The explain trace stores a question hash and length, not the raw question.
 
 - retrieval expands readiness/deload/injury/evidence terms and returns the configured top chunks;
 - answers are prompted from project sources; if nothing matches, the model answers from general
@@ -1093,6 +1094,27 @@ absence of direct evidence for a specific injury-deload threshold; prescription 
 `config/rules/programme.v1.yaml`, the template resolver and `strength_coach/prescribe/engine.py`.
 Remaining limitation: the programme-block answer still includes archive/contract context, and the
 injury answer notes that no outcome evidence is cited for the reactive trigger counts.
+
+## 35. INT-11 hardening (2026-11-16)
+
+**Privacy.** The explain trace no longer stores the raw question. It stores only the existing
+`input_hash`, character count, retrieved sources, citation count, grounded flag and token count.
+The web and iOS copy that no conversation is saved is now accurate.
+
+**Fail closed.** An index rejection is no longer treated as a successful scan: a previously indexed
+file that becomes secret-bearing, oversized, unreadable or invalid UTF-8 has its chunks and file
+metadata removed in the same build. Tests cover secret, invalid UTF-8 and oversized transitions.
+
+**Citations and sources.** Source blocks and citations carry the `backend`, `portfolio` or `ios`
+namespace. Resolution uses `(source, path, line range)`; source-less ambiguous paths are unverified.
+Only backend docs use the local docs viewer; portfolio/iOS docs use GitHub at the indexed commit;
+private files remain copy-only.
+
+**Prompt and index.** The system prompt marks project sources as untrusted and forbids following
+instructions inside them. Python classes are split into a header and method chunks with the chunk
+limit enforced. The first retrieved chunk is clipped to the remaining context budget. The index is
+created with a restrictive umask and SQLite sidecars are protected. Status reports every configured
+source, including missing roots and dirty state.
 
 ## Related
 

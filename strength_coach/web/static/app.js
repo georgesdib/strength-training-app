@@ -3907,9 +3907,7 @@ async function loadExplainStatus() {
   try {
     const data = await api("/api/intelligence/knowledge/status");
     if (!data.exists) target.textContent = "Knowledge index not built yet.";
-    else target.textContent = "Index: " + data.files + " files, " + data.chunks +
-      " chunks · backend " + ((data.meta || {})["commit:backend"] || "unknown").slice(0, 7) +
-      " · " + ((data.meta || {}).state || "ready");
+    else target.textContent = "Index: " + data.files + " files, " + data.chunks + " chunks · " + ((data.sources || []).map((source) => source.name + ":" + (source.present ? (source.commit || "unknown").slice(0, 7) + (source.dirty ? "*" : "") : "missing")).join(" · ")) + " · " + ((data.meta || {}).state || "ready");
   } catch (error) {
     target.textContent = "Index status unavailable: " + error.message;
   }
@@ -3929,7 +3927,7 @@ $("#explain-form")?.addEventListener("submit", async (event) => {
       method: "POST", body: JSON.stringify({ question }),
     });
     const citations = (data.citations || []).map((citation) => {
-      const label = esc(citation.path) + ":" + citation.line_start +
+      const label = esc(citation.source) + ":" + esc(citation.path) + ":" + citation.line_start +
         (citation.line_end !== citation.line_start ? "-" + citation.line_end : "");
       const link = citation.url ? '<a href="' + esc(citation.url) + '" target="_blank" rel="noopener">' + label + "</a>" : label;
       return "<li>" + link + (citation.verified ? "" : " <span class='muted'>(unverified: " + esc(citation.warning || "citation check failed") + ")</span>") + "</li>";

@@ -72,14 +72,44 @@ def _python(text: str, lines: list[str]) -> list[Chunk]:
             tree = ast.parse(text)
     except SyntaxError:
         return []
+
+    def add(start: int, end: int, heading: str, body: str) -> None:
+        body = body.strip()
+        if not body:
+            return
+        if len(body) > MAX_CHUNK_CHARS:
+            for piece in _split_long(body, start):
+                if piece.text.strip():
+                    chunks.append(Chunk(piece.line_start, piece.line_end, heading, piece.text))
+        else:
+            chunks.append(Chunk(start, end, heading, body))
+
     chunks: list[Chunk] = []
     for node in tree.body:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             start = node.lineno
             end = getattr(node, "end_lineno", None) or start
-            chunk_text = "".join(lines[start - 1:end]).strip()
-            if chunk_text:
-                chunks.append(Chunk(start, end, getattr(node, "name", ""), chunk_text))
+            add(start, end, getattr(node, "name", ""), "".join(lines[start - 1:end]))
+        elif isinstance(node, ast.ClassDef):
+            methods = [
+                item for item in node.body
+                if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
+            ]
+            if not methods:
+                start = node.lineno
+                end = getattr(node, "end_lineno", None) or start
+                add(start, end, node.name, "".join(lines[start - 1:end]))
+                continue
+            first = methods[0].lineno
+            header_end = max(node.lineno, first - 1)
+            add(node.lineno, header_end, node.name, "".join(lines[node.lineno - 1:header_end]))
+            for method in methods:
+                start = method.lineno
+                end = getattr(method, "end_lineno", None) or start
+                add(
+                    start, end, node.name + "." + method.name,
+                    "".join(lines[start - 1:end]),
+                )
     if not chunks:
         return []
     first = min(chunk.line_start for chunk in chunks)
@@ -87,7 +117,6 @@ def _python(text: str, lines: list[str]) -> list[Chunk]:
     if preamble:
         chunks.insert(0, Chunk(1, first - 1, "module", preamble))
     return chunks
-
 
 def _swift(lines: list[str]) -> list[Chunk]:
     pattern = re.compile(

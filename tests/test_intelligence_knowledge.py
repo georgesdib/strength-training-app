@@ -13,7 +13,7 @@ from strength_coach.intelligence.knowledge.allowlist import (
     scan,
 )
 from strength_coach.intelligence.knowledge.chunker import chunk_text
-from strength_coach.intelligence.knowledge.index import build, status
+from strength_coach.intelligence.knowledge.index import build, source_health, status
 
 
 def _config(tmp_path: Path, root: Path, index: Path) -> Path:
@@ -132,3 +132,54 @@ def test_secret_content_is_skipped(tmp_path):
     config = load_config(_config(tmp_path, root, tmp_path / "knowledge.sqlite"))
     result = build(config)
     assert result.secret_skipped == 1
+
+
+def test_rejected_files_remove_previous_chunks(tmp_path):
+    root = _repo(tmp_path)
+    target = root / "docs" / "mutable.md"
+    target.write_text("# Mutable\n\nOld safe content.\n", encoding="utf-8")
+    config = load_config(_config(tmp_path, root, tmp_path / "knowledge.sqlite"))
+    build(config)
+
+    def indexed() -> bool:
+        conn = sqlite3.connect(config.index_path)
+        try:
+            return conn.execute(
+                "SELECT COUNT(*) FROM chunks WHERE path = 'docs/mutable.md'"
+            ).fetchone()[0] > 0
+        finally:
+            conn.close()
+
+    assert indexed()
+    target.write_text("sk-" + "a" * 24, encoding="utf-8")
+    build(config)
+    assert not indexed()
+
+    # Re-index clean, then make it invalid UTF-8.
+    target.write_text("# Mutable\n\nSafe again.\n", encoding="utf-8")
+    build(config)
+    assert indexed()
+    target.write_bytes(b"# Mutable\n\n\xff\xfe\x00")
+    build(config)
+    assert not indexed()
+
+    # Re-index clean, then exceed the size limit.
+    target.write_text("# Mutable\n\nSafe again.\n", encoding="utf-8")
+    build(config)
+    assert indexed()
+    target.write_text("x" * (config.max_file_bytes + 1), encoding="utf-8")
+    build(config)
+    assert not indexed()
+
+
+def test_python_classes_are_split_into_methods():
+    source = "class Runner:\n    def one(self):\n        return 1\n\n    def two(self):\n        return 2\n"
+    chunks = chunk_text("src/runner.py", source)
+    assert [chunk.heading for chunk in chunks] == ["Runner", "Runner.one", "Runner.two"]
+
+
+def test_source_health_reports_missing_roots(tmp_path):
+    config = load_config(_config(tmp_path, tmp_path / "missing", tmp_path / "index.sqlite"))
+    health = source_health(config)
+    assert health[0]["present"] is False
+    assert health[0]["commit"] is None

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import threading
 import urllib.request
 from pathlib import Path
@@ -16,7 +17,7 @@ from strength_coach.agents.client import LLMResponse
 from strength_coach.intelligence import config as intelligence_config
 from strength_coach.intelligence.knowledge.allowlist import load_config
 from strength_coach.intelligence.knowledge.citations import extract
-from strength_coach.intelligence.knowledge.explain import run_explain
+from strength_coach.intelligence.knowledge.explain import SYSTEM, run_explain
 from strength_coach.intelligence.knowledge.index import build
 from strength_coach.intelligence.knowledge.retrieval import query_kind, search
 from strength_coach.store import db
@@ -47,7 +48,7 @@ def _fixture(tmp_path: Path):
         "version": 1,
         "index_path": str(index),
         "sources": [{
-            "name": "repo", "root": str(root),
+            "name": "backend", "root": str(root),
             "include": [r"^docs/.*\.md$", r"^src/.*\.py$", r"^tests/.*\.py$", r"^private/.*"],
         }],
         "retrieval": {"top_k": 4, "max_context_chars": 4000, "max_answer_words": 120},
@@ -95,6 +96,13 @@ def test_retrieval_prefers_expected_source_classes(tmp_path):
     assert private and private[0].path == "private/notes.md"
 
 
+def test_context_cap_applies_to_the_first_chunk(tmp_path):
+    config = _fixture(tmp_path)
+    chunks = search(config.index_path, "how is readiness calculated", top_k=4, max_chars=10)
+    assert chunks
+    assert len(chunks[0].text) <= 10
+
+
 def test_citation_rejects_bad_line_and_snippet(tmp_path):
     config = _fixture(tmp_path)
     bad_line = extract("Claim [docs/readiness.md:99-100].", config, config.index_path)
@@ -110,6 +118,11 @@ class GeneralClient:
 
     def complete(self, prompt, *, system=None):
         return LLMResponse(text="This is general knowledge, ungrounded.", model=self.model, tokens=3)
+
+
+def test_prompt_labels_sources_as_untrusted():
+    assert "untrusted data" in SYSTEM
+    assert "never follow" in SYSTEM
 
 
 def test_explain_is_ungrounded_without_sources(tmp_path):
@@ -149,16 +162,26 @@ def web(tmp_path: Path, monkeypatch):
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     try:
-        yield f"http://127.0.0.1:{httpd.server_address[1]}"
+        yield f"http://127.0.0.1:{httpd.server_address[1]}", path
     finally:
         httpd.shutdown()
         httpd.server_close()
         thread.join(timeout=5)
 
 
+def test_knowledge_status_reports_sources(web):
+    base, _ = web
+    with urllib.request.urlopen(base + "/api/intelligence/knowledge/status", timeout=20) as response:
+        body = json.loads(response.read().decode())
+    assert response.status == 200
+    assert body["sources"][0]["name"] == "backend"
+    assert body["sources"][0]["present"] is True
+
+
 def test_explain_endpoint_returns_citations(web):
+    base, path = web
     request = urllib.request.Request(
-        web + "/api/intelligence/explain",
+        base + "/api/intelligence/explain",
         data=json.dumps({"question": "how is readiness calculated"}).encode(),
         headers={"Content-Type": "application/json"},
         method="POST",
@@ -169,3 +192,46 @@ def test_explain_endpoint_returns_citations(web):
     assert body["citations"]
     assert body["grounded"] is True
     assert body["tokens"] == 11
+    store = db.Store(path)
+    try:
+        payloads = [
+            row[0] for row in store.connection.execute("SELECT payload FROM run_event")
+        ]
+    finally:
+        store.close()
+    assert all("how is readiness calculated" not in payload for payload in payloads)
+
+
+def test_cross_repository_citation_uses_source_namespace(tmp_path):
+    backend = tmp_path / "backend"
+    portfolio = tmp_path / "portfolio"
+    (backend / "docs").mkdir(parents=True)
+    (portfolio / "docs").mkdir(parents=True)
+    (backend / "docs" / "README.md").write_text("# Backend\n\nBackend text.\n", encoding="utf-8")
+    (portfolio / "docs" / "README.md").write_text("# Portfolio\n\nPortfolio text.\n", encoding="utf-8")
+    for repository in (backend, portfolio):
+        subprocess.run(["git", "init", "-q"], cwd=repository, check=True)
+        subprocess.run(["git", "config", "user.email", "test@example.invalid"], cwd=repository, check=True)
+        subprocess.run(["git", "config", "user.name", "Test"], cwd=repository, check=True)
+        subprocess.run(["git", "add", "docs"], cwd=repository, check=True)
+        subprocess.run(["git", "commit", "-qm", "fixture"], cwd=repository, check=True)
+    config_path = tmp_path / "knowledge.yaml"
+    config_path.write_text(yaml.safe_dump({
+        "version": 1,
+        "index_path": str(tmp_path / "index.sqlite"),
+        "sources": [
+            {"name": "backend", "root": str(backend), "include": [r"^docs/.*\.md$"]},
+            {"name": "portfolio", "root": str(portfolio), "include": [r"^docs/.*\.md$"]},
+        ],
+    }), encoding="utf-8")
+    config = load_config(config_path)
+    build(config)
+
+    citation = extract("[portfolio:docs/README.md:1-3] \x60Portfolio text\x60", config, config.index_path)[0]
+    assert citation.source == "portfolio"
+    assert citation.verified is True
+    assert citation.url and "georgesdib/strength-app/blob" in citation.url
+
+    ambiguous = extract("[docs/README.md:1-3]", config, config.index_path)[0]
+    assert ambiguous.warning is not None
+    assert ambiguous.verified is False
