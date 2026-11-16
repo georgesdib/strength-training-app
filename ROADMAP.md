@@ -1928,7 +1928,7 @@ one-second threshold, so the transport is **gated** there until the addendum is 
 delivered the rest of the read-only catalogue on 2026-11-14 and INT-3 delivered the weekly review, its
 REST route and the iOS read surface; **INT-3 is closed 2026-11-15**. INT-5 delivered the server model
 provider, narration and its routes; INT-6 delivered server/web chat. Aggregate evidence producers for
-the aggregate capabilities remain deferred. INT-11 (local docs/code Explain) has its index, retrieval, Explain endpoint, background startup refresh and web/iOS tabs implemented;
+the aggregate capabilities remain deferred. INT-11 (local docs/code Explain) has its index, retrieval, Explain endpoint, background startup refresh, web/iOS tabs and a 15-question evaluation; injury-deload/prescription coverage and iOS device acceptance remain;
 INT-12 (web search/RAG) is deferred. No INT-11/12 backend code exists.
 
 **Audit remediation 2026-11-14:** immediate token revocation/rotation without restart, a

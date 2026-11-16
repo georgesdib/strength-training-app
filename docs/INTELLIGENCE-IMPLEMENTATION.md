@@ -1070,6 +1070,27 @@ and iOS Explain tab are implemented; index refresh now starts in the background 
 ungrounded answers, and the HTTP endpoint. The web page test covers the Explain tab; the iOS scheme
 builds with the Explain view.
 
+## 34. INT-11 evaluation (2026-11-16)
+
+**Scope.** Fifteen live questions covering readiness, injury/deload, programme rules, personal state,
+code paths, test expectations, VBT, volume, sRPE, AGENTS.md, a citation-sensitive question and a
+no-source question.
+
+**First pass.** All 15 returned HTTP 200 and 72/76 citations were structurally valid, but 7 answers
+were poor: readiness missed its score document, injury/deload surfaced generic or self-referential
+code, test expectations missed the test source, volume missed the private report and AGENTS.md was
+not retrieved. The knowledge implementation itself was being cited.
+
+**Fixes.** Source-intent priors (docs, code, test, private), explicit filename lookup, path/heading
+boosts, per-file diversity, exclusion of `strength_coach/intelligence/knowledge/` and explicit
+ungrounded-answer detection.
+
+**Second pass.** Readiness, test expectation, readiness code path, personal state, VBT, volume, sRPE,
+AGENTS.md and the citation-sensitive question found their expected sources. The no-source question
+is reported ungrounded. Remaining gaps: the injury-deload question finds the injury signal but not a
+named injury-deload rule; the deload-trigger answer had two invalid citations; prescription rules are
+only partially covered.
+
 ## Related
 
 - **Architecture:** [ARCHITECTURE.md](ARCHITECTURE.md)
