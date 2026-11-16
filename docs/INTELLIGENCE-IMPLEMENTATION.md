@@ -2,9 +2,10 @@
 
 **Status:** INT-1 foundation, INT-1b MCP transport, the audit remediation, INT-2 catalogue, INT-3
 weekly review (closed 2026-11-15), INT-4 native model surface, INT-5 server narration and INT-6
-server/web chat (closed 2026-11-15) are implemented. Read-only, provider-neutral, independently runnable. Evidence
-producers for the aggregate capabilities remain deferred; INT-6 model tool calling and streaming are
-deferred by owner decision.
+server/web chat (closed 2026-11-15) are implemented. Read-only, provider-neutral, independently
+runnable. Evidence producers for the aggregate capabilities remain deferred; INT-6 model tool calling
+and streaming are deferred by owner decision. INT-11 (local docs/code Explain) is accepted plan-only;
+INT-12 (web search/RAG) is deferred. No INT-11/12 backend code exists.
 **Scope owner:** the canonical plan is the portfolio
 [Training Intelligence plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md);
 the payload contract is the
@@ -1013,6 +1014,17 @@ calls, so the model receives the fixed dossier above; answers cannot query a cap
 
 **Closed/deferred.** Streaming is not planned; transcript policy is session-only. Chat tokens are
 persisted and count against the daily budget.
+
+## 31. Planned, not implemented (2026-11-16)
+
+**INT-11 — Explain the System.** Accepted plan-only: a local incremental FTS5 index over an explicit
+docs/source/private allowlist, with an explanation endpoint, web and iOS tabs, and best-effort
+path:line citations. No index, endpoint or prompt exists yet.
+
+**INT-12 — Web search and RAG.** Deferred: opt-in fixed-provider web search with URL citations and
+SSRF/privacy controls; embeddings only if the INT-11 keyword baseline is measured insufficient. The
+existing MCP server is transport and facts-only; it is not a search engine and does not provide web
+access. Exposing either capability over MCP needs a new ADR and contract revision.
 
 ## Related
 
