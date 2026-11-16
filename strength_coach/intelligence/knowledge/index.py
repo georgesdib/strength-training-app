@@ -192,6 +192,8 @@ def build(config: KnowledgeConfig, *, dry_run: bool = False) -> BuildStats:
 
     for source in config.sources:
         if source.name not in states:
+            conn.execute("DELETE FROM meta WHERE key = ?", (f"commit:{source.name}",))
+            conn.execute("DELETE FROM meta WHERE key = ?", (f"dirty:{source.name}",))
             continue
         state = states[source.name]
         conn.execute("INSERT OR REPLACE INTO meta VALUES (?, ?)",
