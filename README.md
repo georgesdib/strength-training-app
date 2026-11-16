@@ -156,9 +156,13 @@ and it is deliberately conservative. Anything the fill cannot prove safe aborts 
 target is touched. The archive contains personal health data and is not encrypted, so
 transfer it over SSH or an encrypted disk.
 
-`tools/backup_app.py` is the full-app backup. Its default archive includes non-secret local
-config overlays but always excludes local secrets such as `config/llm.local.toml` and `.env`;
-`--source-only` excludes the database, raw exports, private data and all local overlays.
+The whole-project backup lives in the portfolio repository:
+[`scripts/backup_app.py`](https://github.com/georgesdib/strength-app/blob/main/scripts/backup_app.py).
+It archives the portfolio, this repository and the iOS client together, adds a consistent
+`data/coach.db` snapshot, includes non-secret local config overlays and always excludes local
+secrets such as `config/llm.local.toml` and `.env`; `--source-only` excludes databases, raw
+exports, private data and all local overlays. Run it from the portfolio checkout root:
+`python3 scripts/backup_app.py`. This repository no longer carries a copy of the tool.
 
 ## CI and releases
 
