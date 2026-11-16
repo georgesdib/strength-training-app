@@ -71,6 +71,20 @@ def _url(source: str, commit: str, path: str, start: int, end: int) -> str | Non
     return f"{base}/{commit}/{quote(path)}" + anchor
 
 
+def _quote_near(answer: str, start: int, end: int):
+    """Return a backtick quote immediately before or after a citation, if any."""
+    window_start = max(0, start - 90)
+    window_end = min(len(answer), end + 90)
+    before = [item for item in QUOTE.finditer(answer, window_start, end)]
+    after = [item for item in QUOTE.finditer(answer, end, window_end)]
+    choices = []
+    if before:
+        choices.append((start - before[-1].end(), before[-1]))
+    if after:
+        choices.append((after[0].start() - end, after[0]))
+    return min(choices, key=lambda item: item[0])[1] if choices else None
+
+
 def extract(answer: str, config: KnowledgeConfig, index_path: Path) -> list[Citation]:
     citations: list[Citation] = []
     seen: set[tuple[str, int, int]] = set()
@@ -97,7 +111,7 @@ def extract(answer: str, config: KnowledgeConfig, index_path: Path) -> list[Cita
             citations.append(Citation(path, start, end, source, None, False, "line range is outside the file"))
             continue
         warning = None
-        quoted = QUOTE.search(answer, match.end(), match.end() + 220)
+        quoted = _quote_near(answer, match.start(), match.end())
         if quoted is not None:
             source_text = "\n".join(lines[start - 1:end]).lower()
             words = re.findall(r"[a-z0-9_]{4,}", quoted.group(1).lower())

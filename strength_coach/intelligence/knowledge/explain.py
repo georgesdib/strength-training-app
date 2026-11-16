@@ -66,7 +66,7 @@ def run_explain(
         answer=response.text,
         citations=citations,
         warnings=tuple(dict.fromkeys(warnings)),
-        grounded=bool(chunks and citations and all(c.verified for c in citations)),
+        grounded=bool(chunks and any(c.verified for c in citations)),
         tokens=response.tokens,
         chunks=chunks,
     )
