@@ -7,6 +7,10 @@
 version: 1
 index_path: data/knowledge-index.sqlite
 max_file_bytes: 1048576
+retrieval:
+  top_k: 8
+  max_context_chars: 24000
+  max_answer_words: 320
 
 sources:
   - name: backend

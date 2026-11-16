@@ -1049,6 +1049,26 @@ backups are excluded. Non-secret personal private notes and data are included by
 private personal inclusion, secret skipping, chunk line ranges, FTS5 search, incremental update and
 removal.
 
+## 33. INT-11 retrieval and Explain endpoint (2026-11-16)
+
+**Implemented.** The server now has FTS5 retrieval, structural citation checking, the `POST
+/api/intelligence/explain` endpoint and `GET /api/intelligence/knowledge/status`. No web tab or iOS
+tab exists yet.
+
+- retrieval expands readiness/deload/injury/evidence terms and returns the configured top chunks;
+- answers are prompted from project sources; if nothing matches, the model answers from general
+  knowledge and the response is marked `grounded: false`;
+- citations verify allowlisted path, line range and any quoted-snippet overlap; invalid citations
+  are surfaced as warnings and `grounded` becomes false;
+- public docs use the existing viewer hash, code uses GitHub blob links at the indexed commit, and
+  private files are copy-only;
+- the endpoint uses the existing model settings, daily token budget and run trace; no transcript is
+  stored;
+- retrieval bounds and answer word limit are in `config/knowledge.v1.yaml`.
+
+**Tests.** `tests/test_intelligence_explain.py` covers retrieval, citation validation, grounded and
+ungrounded answers, and the HTTP endpoint.
+
 ## Related
 
 - **Architecture:** [ARCHITECTURE.md](ARCHITECTURE.md)

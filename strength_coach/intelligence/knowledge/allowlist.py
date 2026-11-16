@@ -38,6 +38,9 @@ class KnowledgeConfig:
     path: Path
     index_path: Path
     max_file_bytes: int
+    top_k: int
+    max_context_chars: int
+    max_answer_words: int
     sources: tuple[SourceRule, ...]
     deny_always: tuple[re.Pattern[str], ...]
     deny_test_data: tuple[re.Pattern[str], ...]
@@ -97,10 +100,21 @@ def load_config(path: str | Path | None = None) -> KnowledgeConfig:
     max_file_bytes = int(raw.get("max_file_bytes", 1_048_576))
     if max_file_bytes < 1:
         raise KnowledgeConfigError("max_file_bytes must be positive")
+    retrieval = raw.get("retrieval") or {}
+    if not isinstance(retrieval, dict):
+        raise KnowledgeConfigError("retrieval must be a mapping")
+    top_k = int(retrieval.get("top_k", 8))
+    max_context_chars = int(retrieval.get("max_context_chars", 24_000))
+    max_answer_words = int(retrieval.get("max_answer_words", 320))
+    if not 1 <= top_k <= 20 or max_context_chars < 1 or max_answer_words < 32:
+        raise KnowledgeConfigError("retrieval bounds are out of range")
     return KnowledgeConfig(
         path=target.resolve(),
         index_path=index_path,
         max_file_bytes=max_file_bytes,
+        top_k=top_k,
+        max_context_chars=max_context_chars,
+        max_answer_words=max_answer_words,
         sources=tuple(sources),
         deny_always=_compile(raw.get("deny_always"), "deny_always"),
         deny_test_data=_compile(raw.get("deny_test_data"), "deny_test_data"),

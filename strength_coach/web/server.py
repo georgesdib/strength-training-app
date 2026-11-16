@@ -3195,6 +3195,10 @@ class Handler(BaseHTTPRequestHandler):
                     "docs": "docs/SESSION-TEMPLATES.md",
                     "summary_stale": current != programme_summary.render(),
                 })
+            elif path == "/api/intelligence/knowledge/status":
+                from strength_coach.intelligence.knowledge.allowlist import load_config as load_knowledge
+                from strength_coach.intelligence.knowledge.index import status as knowledge_status
+                self._json(200, knowledge_status(load_knowledge().index_path))
             elif path == "/api/docs":
                 self._json(200, _docs())
             elif path.startswith("/api/docs/"):
@@ -3351,6 +3355,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._narrate(c, body)))
             elif path == "/api/intelligence/chat":
                 self._json(200, self._with_conn(lambda c: self._chat(c, body)))
+            elif path == "/api/intelligence/explain":
+                self._json(200, self._with_conn(lambda c: self._explain(c, body)))
             elif path == "/api/prescribe":
                 self._json(200, self._with_conn(lambda c: self._prescribe(c, body)))
             elif path == "/api/readiness/presets":
@@ -3822,6 +3828,64 @@ class Handler(BaseHTTPRequestHandler):
                 "settings",
             )
             raise FieldError(message, {field: message}) from exc
+
+    def _explain(self, conn, body: dict) -> dict:
+        import dataclasses
+        import hashlib
+
+        from strength_coach.intelligence.knowledge.allowlist import load_config as load_knowledge
+        from strength_coach.intelligence.knowledge.explain import run_explain
+        from strength_coach.intelligence.knowledge.index import status as knowledge_status
+        from strength_coach.intelligence.model import NarrativeBudgetError, ensure_daily_budget
+        from strength_coach.trace.run import RunTrace
+
+        question = str(body.get("question") or "").strip()
+        if not question:
+            raise FieldError("question is required", {"question": "ask a system question"})
+        if len(question) > 2000:
+            raise FieldError("question is too long", {"question": "max 2000 characters"})
+        knowledge = load_knowledge()
+        state = knowledge_status(knowledge.index_path)
+        if not state.get("exists") or not state.get("chunks"):
+            raise RequestError(503, "knowledge index is not ready")
+        settings = load_settings()
+        if not settings.enabled:
+            raise ValueError("LLM is disabled or incomplete; configure it in Settings")
+        client = build_client(settings)
+        try:
+            ensure_daily_budget(conn, settings.daily_tokens)
+        except NarrativeBudgetError as exc:
+            raise ValueError(str(exc)) from exc
+        trace = RunTrace.start(
+            conn,
+            input_hash=hashlib.sha256(question.encode("utf-8")).hexdigest(),
+            llm_model=client.model,
+        )
+        trace.event("input", {"question": question})
+        try:
+            result = run_explain(knowledge, client, question)
+        except Exception:
+            trace.finish(status="llm_failed")
+            conn.commit()
+            raise
+        trace.event("feature", {
+            "sources": [chunk.path for chunk in result.chunks],
+            "citations": len(result.citations),
+            "grounded": result.grounded,
+        })
+        trace.add_tokens(result.tokens or 0)
+        trace.finish(status="ok")
+        conn.commit()
+        return {
+            "answer": result.answer,
+            "citations": [dataclasses.asdict(citation) for citation in result.citations],
+            "warnings": list(result.warnings),
+            "grounded": result.grounded,
+            "sources": [chunk.path for chunk in result.chunks],
+            "tokens": result.tokens,
+            "model": client.model,
+            "index_commit": (state.get("meta") or {}).get("commit:backend"),
+        }
 
     def _chat(self, conn, body: dict) -> dict:
         import hashlib

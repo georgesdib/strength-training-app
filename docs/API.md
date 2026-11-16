@@ -92,6 +92,8 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/modalities` | module list with class, enabled source, dependencies, citations and factors |
 | `GET/POST /api/modalities/<id>` | module state or enabled/factor update; guarded modules need guard_confirmed and reason |
 | `POST /api/settings/llm/test` | call the configured model with a tiny connectivity prompt |
+| `POST /api/intelligence/explain` | `{question}` -> project-grounded explanation, citations, warnings, `grounded`, sources and tokens; no transcript |
+| `GET /api/intelligence/knowledge/status` | index readiness, file/chunk counts and per-source commit metadata |
 | `POST /api/intelligence/chat` | `{messages: [{role, content}]}` -> read-only multi-turn answer from a fresh six-capability fact dossier, `answer`, `suggestions`, source capability names, advisory warnings, tokens; max 20 turns; writes a run trace |
 | `POST /api/intelligence/narrate` | `{capability, payload}` -> run one read-only capability and return its narrative (headline, observations, limitations, warnings, raw facts, model, tokens); unverified numbers are warnings, not errors; writes a run trace; 400 when the LLM is disabled |
 | `GET /api/exposures?date=N` | recent high-intensity exposures and recovery guard |
