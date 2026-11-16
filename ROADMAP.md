@@ -1914,7 +1914,7 @@ adaptation, and the LLM capabilities in §4.24.
 
 ### 4.34 Training Intelligence — read-only capability layer and MCP server  (INT-1 and INT-1b implemented 2026-11-14)
 
-**Status: INT-1 to INT-6 backend work delivered; INT-11/12 planned, not implemented.** The read-only
+**Status: INT-1 to INT-6 backend work and INT-11 delivered; INT-12 planned, not implemented.** The read-only
 capability layer, the canonical envelope, typed requests, the execution service, configuration
 bounds and their tests exist in `strength_coach/intelligence/`; INT-1b adds the separately runnable
 MCP server (`strength_coach/intelligence/mcp/`, Streamable HTTP, revision 2026-07-28 with legacy
@@ -1928,8 +1928,7 @@ one-second threshold, so the transport is **gated** there until the addendum is 
 delivered the rest of the read-only catalogue on 2026-11-14 and INT-3 delivered the weekly review, its
 REST route and the iOS read surface; **INT-3 is closed 2026-11-15**. INT-5 delivered the server model
 provider, narration and its routes; INT-6 delivered server/web chat. Aggregate evidence producers for
-the aggregate capabilities remain deferred. INT-11 (local docs/code Explain) has its index, retrieval, Explain endpoint, background startup refresh, web/iOS tabs and a 15-question evaluation; injury-deload/prescription source coverage is improved; programme-block archive noise and iOS device acceptance remain;
-INT-12 (web search/RAG) is deferred. No INT-11/12 backend code exists.
+the aggregate capabilities remain deferred. INT-11 (local docs/code Explain) is implemented and closed with documented limitations: index, retrieval, explain endpoint, background startup refresh, web/iOS tabs and a 15-question evaluation; programme-block archive noise and iOS physical acceptance remain. INT-12 (web search/RAG) is deferred and has no backend code.
 
 **Audit remediation 2026-11-14:** immediate token revocation/rotation without restart, a
 structured metadata-only audit record per invocation, a configurable tool timeout and result-size
@@ -2068,7 +2067,7 @@ Created in INT-1b: `strength_coach/intelligence/mcp/`, `intelligence/{tokens,res
 `intelligence` optional extra, the `strength-intelligence-mcp` console script, `tools/intelligence_benchmark.py`
 and the MCP tests. Created in INT-5: `strength_coach/intelligence/model/` (narrative, chat, evaluation harness).
 Not created: a packaged deploy unit (systemd example); deployment is documented in the implementation
-page instead. Planned only: the INT-11 local knowledge index and the INT-12 web-search/RAG layer.
+page instead. Implemented: the INT-11 local knowledge index, retrieval and explain surfaces. Planned only: INT-12 web-search/RAG.
 
 **Hard constraints.** Read-only: no tool, route or capability may create, edit, void, start, complete
 or prescribe. SQLite is opened read-only in that process. No free-text notes, symptom narratives or

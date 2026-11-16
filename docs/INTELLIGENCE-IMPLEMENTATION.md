@@ -4,8 +4,9 @@
 weekly review (closed 2026-11-15), INT-4 native model surface, INT-5 server narration and INT-6
 server/web chat (closed 2026-11-15) are implemented. Read-only, provider-neutral, independently
 runnable. Evidence producers for the aggregate capabilities remain deferred; INT-6 model tool calling
-and streaming are deferred by owner decision. INT-11 (local docs/code Explain) is accepted plan-only;
-INT-12 (web search/RAG) is deferred. No INT-11/12 backend code exists.
+and streaming are deferred by owner decision. INT-11 (local docs/code Explain) is implemented and
+closed with documented limitations; INT-12 (web search/RAG) is deferred. Programme-block archive
+context, missing outcome evidence for reactive trigger counts and iOS physical acceptance remain.
 **Scope owner:** the canonical plan is the portfolio
 [Training Intelligence plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md);
 the payload contract is the
@@ -1017,12 +1018,11 @@ persisted and count against the daily budget.
 
 ## 31. Planned, not implemented (2026-11-16)
 
-**INT-11 — Explain the System.** Accepted plan-only: a local incremental FTS5 index over an explicit
-docs/source/private allowlist, including non-secret personal notes/data, test source unless matched
-by a separate test exclusion list, with public fixtures/snapshots/test data excluded;
-an explanation endpoint, web and iOS tabs, and best-effort path:line citations with a minimal
-path/line/snippet existence check. Test expectations are labelled separately from implementation
-facts. No index, endpoint or prompt exists yet.
+**INT-11 — Explain the System.** Implemented and closed 2026-11-16 with documented limitations. The
+local incremental FTS5 index, retrieval, citation check, explain/status endpoints, background startup
+refresh and web/iOS Explain tabs exist. Known gaps: programme-block archive/contract context, no
+outcome evidence cited for reactive trigger counts, and no iOS physical-device acceptance. INT-12 web
+search/RAG is deferred.
 
 **INT-12 — Web search and RAG.** Deferred: opt-in fixed-provider web search with URL citations and
 SSRF/privacy controls; embeddings only if the INT-11 keyword baseline is measured insufficient. The
@@ -1085,7 +1085,7 @@ not retrieved. The knowledge implementation itself was being cited.
 boosts, per-file diversity, exclusion of `strength_coach/intelligence/knowledge/` and explicit
 ungrounded-answer detection.
 
-**Second pass.** Readiness, test expectation, readiness code path, personal state, VBT, volume, sRPE,
+**Second pass and closure.** Readiness, test expectation, readiness code path, personal state, VBT, volume, sRPE,
 AGENTS.md and the citation-sensitive question found their expected sources. The no-source question
 is reported ungrounded. The deload question retrieves `config/deload.v1.yaml` and now cites it cleanly;
 the injury-deload answer correctly separates the reactive trigger (two consecutive flares) from the
