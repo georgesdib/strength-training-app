@@ -93,6 +93,20 @@ def test_resistance_share_is_reported_separately(conn):
     assert year["vigorous_minutes"] == 60
 
 
+def test_activity_summary_is_weekly_and_cheap(conn):
+    _workout(conn, "2026-01-05T08:00:00+00:00", 30, mets=4.0)
+    _workout(conn, "2026-01-06T08:00:00+00:00", 40, mets=9.0)
+    summary = metrics.activity_summary(conn, weeks=4)
+    assert len(summary["weeks"]) == 1
+    week = summary["weeks"][0]
+    assert week["iso_week"] == "2026-W02"
+    assert week["moderate_minutes"] == 30
+    assert week["vigorous_minutes"] == 40
+    assert week["equivalent_minutes"] == 110
+    assert summary["years"]["2026"]["total_minutes"] == 70
+    assert summary["rolling"]["7d"]["equivalent_minutes"] == 110
+
+
 def test_continuity_admits_dense_series_and_rejects_sparse(conn):
     dense = _workout(conn, "2026-01-11T08:00:00+00:00", 10, mets=9.0)
     sparse = _workout(conn, "2026-01-12T08:00:00+00:00", 120, mets=4.0)

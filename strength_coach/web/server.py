@@ -60,6 +60,7 @@ from strength_coach.domain import athlete_state
 from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.features import (
     adherence_analytics,
+    cardio_metrics,
     config_inventory,
     continuity_calibration,
     heavy_spinal,
@@ -2936,6 +2937,12 @@ class Handler(BaseHTTPRequestHandler):
                 on_date = query.get("date", [None])[0]
                 self._json(200, self._with_conn(
                     lambda c: self._cardio(c, {"weeks": weeks, "date": on_date})
+                ))
+            elif path == "/api/cardio/summary":
+                query = parse_qs(urlparse(self.path).query)
+                weeks = int(query.get("weeks", ["12"])[0])
+                self._json(200, self._with_conn(
+                    lambda c: cardio_metrics.activity_summary(c, weeks=weeks)
                 ))
             elif path == "/api/breaks":
                 self._json(200, self._with_conn(self._breaks))

@@ -115,6 +115,88 @@ def _hr_values(conn) -> dict[str, list[tuple[float, float]]]:
     return values
 
 
+def activity_summary(conn, *, weeks: int = 12) -> dict[str, Any]:
+    """Weekly activity, rolling windows and coverage -- without touching the heart-rate series.
+
+    Time-in-zone needs the sample series and is a separate, slower path; the dashboard's headline
+    numbers do not, so this stays cheap enough to serve on every page load.
+    """
+    workouts = [
+        dict(row)
+        for row in conn.execute("SELECT * FROM external_workout ORDER BY started_at")
+    ]
+    averaged = {
+        row["external_workout_id"]: row["avg_hr"]
+        for row in conn.execute(
+            "SELECT external_workout_id, AVG(value) AS avg_hr FROM health_sample "
+            "WHERE kind = 'heart_rate' AND external_workout_id IS NOT NULL "
+            "GROUP BY external_workout_id"
+        )
+    }
+
+    week_totals: dict[str, Counter] = defaultdict(Counter)
+    year_totals: dict[str, Counter] = defaultdict(Counter)
+    for workout in workouts:
+        started = dt.datetime.fromisoformat(workout["started_at"])
+        minutes = round(int(workout["duration_s"]) / 60.0, 1)
+        average_hr = workout["avg_heart_rate"]
+        if average_hr is None:
+            average_hr = averaged.get(workout["external_workout_id"])
+        zone, tier = classify(workout, average_hr)
+        iso = started.isocalendar()
+        week_key = f"{iso[0]}-W{iso[1]:02d}"
+        for bucket in (week_totals[week_key], year_totals[str(started.year)]):
+            bucket["workouts"] += 1
+            bucket["total_min"] += minutes
+            bucket[f"{zone or 'unclassified'}_min"] += minutes
+            bucket[f"tier_{tier or 'none'}"] += minutes
+            if workout["activity_type"] in RESISTANCE_TYPES:
+                bucket["resistance_min"] += minutes
+                if zone is not None:
+                    bucket["resistance_classified_min"] += minutes
+
+    ordered = sorted(week_totals)
+    rolling: dict[str, Any] = {}
+    if workouts:
+        latest = max(dt.datetime.fromisoformat(w["ended_at"]) for w in workouts)
+        for label, days in (("7d", 7), ("28d", 28)):
+            cutoff = latest - dt.timedelta(days=days)
+            totals: Counter = Counter()
+            for workout in workouts:
+                ended = dt.datetime.fromisoformat(workout["ended_at"])
+                if ended < cutoff:
+                    continue
+                average_hr = workout["avg_heart_rate"]
+                if average_hr is None:
+                    average_hr = averaged.get(workout["external_workout_id"])
+                zone, _tier = classify(workout, average_hr)
+                minutes = round(int(workout["duration_s"]) / 60.0, 1)
+                totals[zone or "unclassified"] += minutes
+                totals["total_min"] += minutes
+            rolling[label] = {
+                "total_minutes": round(totals["total_min"], 1),
+                "moderate_minutes": round(totals["moderate"], 1),
+                "vigorous_minutes": round(totals["vigorous"], 1),
+                "equivalent_minutes": round(totals["moderate"] + 2 * totals["vigorous"], 1),
+                "unclassified_minutes": round(totals["unclassified"], 1),
+            }
+
+    return {
+        "policy": {
+            "max_hr_bpm": MAX_HR_BPM,
+            "met_bands": list(MET_BANDS),
+            "hr_bands_share": list(HR_BANDS),
+            "equivalent_rule": "moderate + 2 * vigorous",
+        },
+        "weeks": [{"iso_week": week, **_share(week_totals[week])} for week in ordered[-weeks:]],
+        "years": {year: _share(counter) for year, counter in sorted(year_totals.items())},
+        "rolling": rolling,
+        "latest_workout_at": max(
+            (w["ended_at"] for w in workouts), default=None
+        ),
+    }
+
+
 def report(conn, *, since: str | None = None, weeks_limit: int = 104) -> dict[str, Any]:
     workouts = [
         dict(row)

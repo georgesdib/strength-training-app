@@ -781,6 +781,19 @@ def test_readiness_settings_and_shadow_endpoints(server):
     assert "SHADOW BASELINE" in json.loads(body)["text"]
 
 
+def test_cardio_summary_endpoint_is_served(server):
+    status, body = get(server, "/api/cardio/summary?weeks=4")
+    assert status == 200
+    payload = json.loads(body)
+    assert payload["policy"]["equivalent_rule"] == "moderate + 2 * vigorous"
+    assert payload["weeks"] == []
+    assert payload["years"] == {}
+
+    status, body = get(server, "/api/cardio/summary")
+    assert status == 200
+    assert json.loads(body)["weeks"] == []
+
+
 def test_cardio_round_trip_and_overview(server):
     today = date.today().isoformat()
     data = post(server, "/api/cardio", {
