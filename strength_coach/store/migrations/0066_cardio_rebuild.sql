@@ -25,11 +25,13 @@ DROP TRIGGER workout_link_no_delete;
 DROP TRIGGER external_status_event_no_update;
 DROP TRIGGER external_status_event_no_delete;
 
+-- Order matters: the classification cache and the link events reference the workouts they
+-- describe, so children go first.
+DELETE FROM cardio_classification;
 DELETE FROM workout_link;
 DELETE FROM external_status_event;
 DELETE FROM health_sample;
 DELETE FROM external_workout;
-DELETE FROM cardio_classification;
 DELETE FROM cardio_cache_state;
 DELETE FROM cardio_sync_state;
 
