@@ -1433,6 +1433,9 @@ class Handler(BaseHTTPRequestHandler):
             payload["fields"] = exc.fields
         if exc.details:
             payload["details"] = exc.details
+        LOGGER.warning(
+            "HTTP %s %s: %s (%s)", exc.status, urlparse(self.path).path, exc.message, exc.code
+        )
         self._json(exc.status, payload)
 
     def _ios_idle_sweep(self, conn) -> int:
