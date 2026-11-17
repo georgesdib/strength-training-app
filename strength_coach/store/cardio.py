@@ -282,6 +282,9 @@ def record_sample(
         raise CardioIngestError("association and external_workout_id must agree")
     if kind == "heart_rate" and not 20 <= float(value) <= 260:
         raise CardioIngestError(f"impossible heart rate {value!r}")
+    # Normalise before comparing: the client sends "...Z", the stored form is "+00:00", and a raw
+    # comparison would report a conflict for a sample that is byte-for-byte the same instant.
+    when = utc_iso(sampled_at, field="sampled_at")
     if isinstance(sample_key, str):
         sample_key = sample_key.encode("utf-8")
 
@@ -291,7 +294,7 @@ def record_sample(
     if row is not None:
         existing = dict(row)
         changed = [f for f in _SAMPLE_IMMUTABLE if existing[f] != {
-            "kind": kind, "sampled_at": sampled_at, "value": float(value),
+            "kind": kind, "sampled_at": when, "value": float(value),
             "unit": unit, "source_name": source_name,
         }[f]]
         if changed:
@@ -311,7 +314,7 @@ def record_sample(
             sample_key,
             external_workout_id,
             kind,
-            utc_iso(sampled_at, field="sampled_at"),
+            when,
             float(value),
             unit,
             association,
