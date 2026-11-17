@@ -3266,6 +3266,65 @@ async function loadCardio(weeks = null) {
   } catch (error) {
     $("#cardio-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
+  loadRecordedActivity(weeks || cardioWeeks());
+}
+
+/**
+ * Recorded activity is imported, not logged: it is classified by the backend cascade and shown
+ * read-only. Unclassified minutes are printed as their own number so a missing MET or heart rate
+ * never reads as a zero-activity day.
+ */
+async function loadRecordedActivity(weeks) {
+  const target = $("#cardio-hk-result");
+  if (!target) return;
+  try {
+    const data = await api("/api/cardio/summary?weeks=" + encodeURIComponent(weeks));
+    const policy = data.policy || {};
+    const rolling = data.rolling || {};
+    const week28 = rolling["28d"] || {};
+    const week7 = rolling["7d"] || {};
+    const pct = (share) => (share == null ? "unknown" : Math.round(share * 100) + "%");
+    const resistanceShare = week28.equivalent_minutes
+      ? Math.round(((data.years?.[new Date().getFullYear()]?.resistance_classified_minutes ?? 0) /
+          (data.years?.[new Date().getFullYear()]?.equivalent_minutes || 1)) * 100) + "%"
+      : "unknown";
+
+    const weekRows = (data.weeks || []).slice().reverse().map((week) =>
+      "<tr><td>" + esc(week.iso_week) + "</td>" +
+      "<td>" + Math.round(week.equivalent_minutes) + "</td>" +
+      "<td>" + Math.round(week.moderate_minutes) + "</td>" +
+      "<td>" + Math.round(week.vigorous_minutes) + "</td>" +
+      "<td>" + Math.round(week.resistance_minutes) + "</td>" +
+      "<td>" + Math.round(week.unclassified_minutes) + "</td></tr>").join("");
+
+    const yearRows = Object.entries(data.years || {}).map(([year, value]) =>
+      "<tr><td>" + esc(year) + "</td>" +
+      "<td>" + Math.round(value.equivalent_minutes) + "</td>" +
+      "<td>" + Math.round(value.resistance_minutes) + "</td>" +
+      "<td>" + pct(value.classified_share) + "</td>" +
+      "<td>" + Math.round(value.unclassified_minutes) + "</td></tr>").join("");
+
+    target.innerHTML =
+      "<div class='cards'>" +
+      "<div class='card'><div class='label'>Last 7 days</div><div class='value'>" +
+        Math.round(week7.equivalent_minutes || 0) + " min</div><div class='sub'>WHO-equivalent</div></div>" +
+      "<div class='card'><div class='label'>Last 28 days</div><div class='value'>" +
+        Math.round(week28.equivalent_minutes || 0) + " min</div><div class='sub'>WHO-equivalent</div></div>" +
+      "<div class='card'><div class='label'>Resistance share</div><div class='value'>" +
+        resistanceShare + "</div><div class='sub'>this calendar year</div></div>" +
+      "</div>" +
+      "<h3>Weeks</h3><table class='table'><thead><tr><th>Week</th><th>Equiv</th><th>Mod</th>" +
+      "<th>Vig</th><th>Resist</th><th>Unclassified</th></tr></thead><tbody>" +
+      (weekRows || "<tr><td colspan='6' class='muted'>no weeks</td></tr>") + "</tbody></table>" +
+      "<h3>Years</h3><table class='table'><thead><tr><th>Year</th><th>Equiv</th><th>Resist</th>" +
+      "<th>Classified</th><th>Unclassified</th></tr></thead><tbody>" +
+      (yearRows || "<tr><td colspan='5' class='muted'>no years</td></tr>") + "</tbody></table>" +
+      "<p class='muted'>Max HR " + esc(policy.max_hr_bpm) + " bpm · MET bands " +
+      esc((policy.met_bands || []).join("–")) + " · " + esc(policy.equivalent_rule || "") +
+      ". Unclassified minutes are not zero: they mean the workout had neither a MET value nor a heart rate.</p>";
+  } catch (error) {
+    target.innerHTML = "<p class='warnbox'>" + esc(error.message) + "</p>";
+  }
 }
 
 $("#cardio-weeks").addEventListener("change", () => loadCardio());
