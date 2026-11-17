@@ -133,7 +133,28 @@ def test_continuity_admits_dense_series_and_rejects_sparse(conn):
             external_workout_id=sparse["external_workout_id"],
             association="workout",
         )
+    clustered = _workout(conn, "2026-01-13T18:00:00+00:00", 60, mets=4.9, activity=STRENGTH)
+    cluster_start = dt.datetime.fromisoformat("2026-01-13T18:00:00+00:00")
+    for offset in (0, 5, 10, 15, 3600):
+        cardio.record_sample(
+            conn,
+            sample_key=cardio.sample_content_key(
+                kind="heart_rate",
+                sampled_at=(cluster_start + dt.timedelta(seconds=offset)).isoformat(),
+                value=130.0, unit="count/min", source_bundle_id="Watch",
+            ),
+            kind="heart_rate",
+            sampled_at=(cluster_start + dt.timedelta(seconds=offset)).isoformat(),
+            value=130.0,
+            unit="count/min",
+            source_name="Watch",
+            imported_at="2026-11-17T18:00:00+00:00",
+            external_workout_id=clustered["external_workout_id"],
+            association="workout",
+        )
+
     payload = metrics.report(conn)
+    # dense + sparse rejected; the clustered series has a small median gap but a one-hour hole.
     assert payload["time_in_zone"]["eligible_workouts"] == 1
     assert payload["time_in_zone"]["eligible_by_year"] == {"2026": 1}
     assert payload["time_in_zone"]["minutes_by_year"]["2026"]["moderate"] == 10

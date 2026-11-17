@@ -27,6 +27,7 @@ RESISTANCE_TYPES = (
     "HKWorkoutActivityTypeFunctionalStrengthTraining",
 )
 CONTINUITY_MAX_GAP_S = 30.0
+CONTINUITY_MAX_INTERNAL_GAP_S = 120.0
 CONTINUITY_MIN_COVERAGE = 0.5
 
 
@@ -65,12 +66,14 @@ def continuity(epochs: list[float], duration_s: int) -> tuple[bool, float]:
     gaps = sorted(b - a for a, b in zip(epochs, epochs[1:], strict=False))
     median = gaps[len(gaps) // 2]
     covered = epochs[-1] - epochs[0]
-    # Both conditions, not either. A sparse series that happens to span the workout (three samples
-    # across two hours) satisfies coverage alone while saying almost nothing about intensity; the
-    # median gap is what distinguishes recording density from coincidence.
+    # Three conditions, because each one alone lies. Coverage alone admits three samples across two
+    # hours; the median alone admits a cluster of samples at the start and one hours later, which is
+    # what a strength session looks like (median gap small, one long tail). The widest gap is what
+    # distinguishes a recording from an accident.
     dense = median <= CONTINUITY_MAX_GAP_S
+    unbroken = gaps[-1] <= CONTINUITY_MAX_INTERNAL_GAP_S
     spans = covered >= CONTINUITY_MIN_COVERAGE * duration_s
-    return (dense and spans), median
+    return (dense and unbroken and spans), median
 
 
 def _share(counter: Counter) -> dict[str, Any]:
@@ -196,7 +199,8 @@ def report(conn, *, since: str | None = None, weeks_limit: int = 104) -> dict[st
             "hr_bands_share": list(HR_BANDS),
             "zones": list(ZONES),
             "continuity": {
-                "max_gap_s": CONTINUITY_MAX_GAP_S,
+                "max_median_gap_s": CONTINUITY_MAX_GAP_S,
+                "max_internal_gap_s": CONTINUITY_MAX_INTERNAL_GAP_S,
                 "min_coverage": CONTINUITY_MIN_COVERAGE,
             },
         },
