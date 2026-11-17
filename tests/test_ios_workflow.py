@@ -2394,3 +2394,39 @@ def test_healthkit_activity_requires_pairing(ios):
         key=uuid.uuid4().hex,
     )
     assert status == 401
+
+
+def test_healthkit_activity_carries_effort_and_vo2max(ios):
+    token, _ = _paired(ios)
+    workout_key = uuid.uuid4().hex
+    payload = _workout_payload(workout_key)
+    payload["srpe"] = 7
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/workouts", method="POST",
+        payload={"workouts": [payload]}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, body
+    assert float(_scalar(ios["path"], "SELECT srpe FROM external_workout")) == 7.0
+
+    metric_key = uuid.uuid4().hex
+    metrics = [{
+        "key": metric_key, "kind": "vo2max", "measured_at": "2026-11-18T07:00:00+00:00",
+        "value": 51.4, "method": "Apple Watch",
+    }]
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/samples", method="POST",
+        payload={"samples": [], "metrics": metrics}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, body
+    assert body["metrics"] == 1
+    assert float(_scalar(ios["path"],
+        "SELECT value FROM measurement WHERE metric_key='vo2max'")) == 51.4
+
+    # Re-sending the same metric is a no-op: identity is the HealthKit UUID.
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/samples", method="POST",
+        payload={"samples": [], "metrics": metrics}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, body
+    assert int(_scalar(ios["path"],
+        "SELECT COUNT(*) FROM measurement WHERE metric_key='vo2max'")) == 1

@@ -179,6 +179,7 @@ def record_workout(
     active_energy_kj: float | None = None,
     distance_m: float | None = None,
     avg_mets: float | None = None,
+    srpe: float | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], bool]:
     """Insert one workout; return (row, created).
@@ -198,6 +199,8 @@ def record_workout(
         raise CardioIngestError("duration_s must be positive")
     if avg_heart_rate is not None and max_heart_rate is not None and avg_heart_rate > max_heart_rate:
         raise CardioIngestError("avg_heart_rate cannot exceed max_heart_rate")
+    if srpe is not None and not 1 <= float(srpe) <= 10:
+        raise CardioIngestError("srpe must be between 1 and 10")
 
     payload = json.dumps(metadata or {}, sort_keys=True, separators=(",", ":"))
     values = {
@@ -226,8 +229,8 @@ def record_workout(
             external_workout_id, external_key, origin, activity_type, started_at, ended_at,
             timezone, duration_s, source_name, source_bundle_id, source_version, device,
             avg_heart_rate, max_heart_rate, active_energy_kj, distance_m, avg_mets,
-            imported_at, metadata_json
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            srpe, imported_at, metadata_json
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """,
         (
             workout_id,
@@ -247,6 +250,7 @@ def record_workout(
             active_energy_kj,
             distance_m,
             avg_mets,
+            float(srpe) if srpe is not None else None,
             utc_iso(imported_at, field="imported_at"),
             payload,
         ),

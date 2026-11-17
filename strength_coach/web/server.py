@@ -1677,6 +1677,7 @@ class Handler(BaseHTTPRequestHandler):
                 active_energy_kj=item.get("active_energy_kj"),
                 distance_m=item.get("distance_m"),
                 avg_mets=item.get("avg_mets"),
+                srpe=item.get("srpe"),
                 imported_at=datetime.datetime.now(datetime.UTC).isoformat(),
             )
             created += int(new)
@@ -1684,8 +1685,18 @@ class Handler(BaseHTTPRequestHandler):
         return {"workouts": len(items), "created": created, "existing": existing}
 
     def _ios_healthkit_samples(self, conn, device: dict, body: dict) -> dict:
+        """Samples and standalone metrics travel together: one call per sync.
+
+        They land in different tables -- samples beside their workout, metrics as periodic
+        measurements -- but the phone should not have to know that.
+        """
+        metrics = body.get("metrics")
+        if metrics is not None:
+            self._ios_healthkit_metrics(conn, metrics)
         items = body.get("samples")
         if not isinstance(items, list) or not items:
+            if metrics:
+                return {"samples": 0, "created": 0, "existing": 0, "metrics": len(metrics)}
             raise FieldError("samples must be a non-empty list")
         if len(items) > self.IOS_ACTIVITY_MAX_SAMPLES:
             raise FieldError(f"at most {self.IOS_ACTIVITY_MAX_SAMPLES} samples per request")
@@ -1713,6 +1724,26 @@ class Handler(BaseHTTPRequestHandler):
             created += int(new)
             existing += int(not new)
         return {"samples": len(items), "created": created, "existing": existing}
+
+    IOS_ACTIVITY_MAX_METRICS = 2000
+
+    def _ios_healthkit_metrics(self, conn, metrics: list) -> None:
+        if not isinstance(metrics, list) or len(metrics) > self.IOS_ACTIVITY_MAX_METRICS:
+            raise FieldError(f"at most {self.IOS_ACTIVITY_MAX_METRICS} metrics per request")
+        for item in metrics:
+            if not isinstance(item, dict):
+                raise FieldError("each metric must be an object")
+            kind = str(item.get("kind") or "")
+            if kind != "vo2max":
+                raise FieldError(f"unsupported metric kind {kind!r}")
+            cardio.record_vo2max(
+                conn,
+                external_id=self._ios_activity_key(item.get("key")).hex(),
+                measured_at=item.get("measured_at"),
+                value=float(item.get("value")),
+                method=str(item.get("method") or "HealthKit"),
+                noted_at=datetime.datetime.now(datetime.UTC).isoformat(),
+            )
 
     @staticmethod
     def _ios_activity_key(value) -> bytes:
