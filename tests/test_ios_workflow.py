@@ -2309,6 +2309,20 @@ def test_healthkit_activity_uploads_workouts_then_samples(ios):
     assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM health_sample")) == 2
 
 
+def test_healthkit_activity_accepts_a_16_byte_uuid_key(ios):
+    """The phone sends HealthKit UUIDs (16 bytes), not the export's 32-byte digests."""
+    token, _ = _paired(ios)
+    workout_key = uuid.uuid4().hex
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/workouts", method="POST",
+        payload={"workouts": [_workout_payload(workout_key)]}, token=token,
+        key=uuid.uuid4().hex,
+    )
+    assert status == 200, body
+    assert body["created"] == 1
+    assert int(_scalar(ios["path"], "SELECT length(external_key) FROM external_workout")) == 16
+
+
 def test_healthkit_samples_require_their_workout_first(ios):
     token, _ = _paired(ios)
     status, body = _request(

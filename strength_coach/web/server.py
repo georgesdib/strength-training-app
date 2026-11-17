@@ -1721,8 +1721,10 @@ class Handler(BaseHTTPRequestHandler):
             key = bytes.fromhex(text)
         except ValueError as exc:
             raise FieldError("key must be hex") from exc
-        if len(key) != 32:
-            raise FieldError("key must be a 32-byte digest or UUID")
+        # 16 bytes is a HealthKit UUID (what the phone sends); 32 is a content digest (the export
+        # path). Both identify a workout or sample; the length says which regime produced it.
+        if len(key) not in (16, 32):
+            raise FieldError("key must be a 16-byte UUID or a 32-byte digest")
         return key
 
     def _ios_healthkit_readiness(self, conn, device: dict, body: dict) -> dict:
