@@ -18,6 +18,8 @@ import datetime as dt
 from collections import Counter, defaultdict
 from typing import Any
 
+from strength_coach.store import db
+
 MAX_HR_BPM = 200  # observed maximum in this store; reported with every result
 MET_BANDS = (3.0, 6.0)  # WHO: moderate 3-6 METs, vigorous above 6
 HR_BANDS = (0.64, 0.76)  # share of HRmax: light / moderate / vigorous
@@ -115,16 +117,8 @@ def _hr_values(conn) -> dict[str, list[tuple[float, float]]]:
     return values
 
 
-def activity_summary(conn, *, weeks: int = 12) -> dict[str, Any]:
-    """Weekly activity, rolling windows and coverage -- without touching the heart-rate series.
-
-    Time-in-zone needs the sample series and is a separate, slower path; the dashboard's headline
-    numbers do not, so this stays cheap enough to serve on every page load.
-    """
-    workouts = [
-        dict(row)
-        for row in conn.execute("SELECT * FROM external_workout ORDER BY started_at")
-    ]
+def classification_rows(conn) -> list[dict[str, Any]]:
+    """Classify every workout once, using the series mean only where Apple supplied no average."""
     averaged = {
         row["external_workout_id"]: row["avg_hr"]
         for row in conn.execute(
@@ -133,46 +127,104 @@ def activity_summary(conn, *, weeks: int = 12) -> dict[str, Any]:
             "GROUP BY external_workout_id"
         )
     }
-
-    week_totals: dict[str, Counter] = defaultdict(Counter)
-    year_totals: dict[str, Counter] = defaultdict(Counter)
-    for workout in workouts:
-        started = dt.datetime.fromisoformat(workout["started_at"])
-        minutes = round(int(workout["duration_s"]) / 60.0, 1)
+    rows = []
+    for workout in conn.execute("SELECT * FROM external_workout ORDER BY started_at"):
         average_hr = workout["avg_heart_rate"]
         if average_hr is None:
             average_hr = averaged.get(workout["external_workout_id"])
-        zone, tier = classify(workout, average_hr)
+        zone, tier = classify(dict(workout), average_hr)
+        rows.append(
+            {
+                "external_workout_id": workout["external_workout_id"],
+                "zone": zone,
+                "tier": tier,
+                "is_resistance": 1 if workout["activity_type"] in RESISTANCE_TYPES else 0,
+                "minutes": round(int(workout["duration_s"]) / 60.0, 1),
+                "started_at": workout["started_at"],
+                "ended_at": workout["ended_at"],
+            }
+        )
+    return rows
+
+
+def rebuild_classification(conn) -> int:
+    """Replace the cache from source. Idempotent; safe to run on every import."""
+    rows = classification_rows(conn)
+    now = dt.datetime.now(dt.UTC).isoformat()
+    with db.transaction(conn):
+        conn.execute("DELETE FROM cardio_classification")
+        conn.executemany(
+            """
+            INSERT INTO cardio_classification (
+                external_workout_id, zone, tier, is_resistance, minutes, started_at,
+                ended_at, built_at
+            ) VALUES (?,?,?,?,?,?,?,?)
+            """,
+            [
+                (
+                    row["external_workout_id"], row["zone"], row["tier"], row["is_resistance"],
+                    row["minutes"], row["started_at"], row["ended_at"], now,
+                )
+                for row in rows
+            ],
+        )
+        conn.execute(
+            """
+            INSERT INTO cardio_cache_state (name, value, updated_at) VALUES ('classification', ?, ?)
+            ON CONFLICT(name) DO UPDATE SET value = excluded.value,
+                                           updated_at = excluded.updated_at
+            """,
+            (str(len(rows)), now),
+        )
+    return len(rows)
+
+
+def cache_is_stale(conn) -> bool:
+    """True when the corpus has grown since the cache was built."""
+    cached = conn.execute("SELECT COUNT(*) FROM cardio_classification").fetchone()[0]
+    live = conn.execute("SELECT COUNT(*) FROM external_workout").fetchone()[0]
+    return cached != live
+
+
+def activity_summary(conn, *, weeks: int = 12) -> dict[str, Any]:
+    """Weekly activity, rolling windows and coverage, read from the classification cache.
+
+    The cache is rebuilt here when the corpus has grown, so a page load is only ever slow once --
+    on the first request after an import. Time-in-zone still needs the sample series and remains a
+    separate, slower path.
+    """
+    if cache_is_stale(conn):
+        rebuild_classification(conn)
+    rows = [dict(row) for row in conn.execute("SELECT * FROM cardio_classification")]
+
+    week_totals: dict[str, Counter] = defaultdict(Counter)
+    year_totals: dict[str, Counter] = defaultdict(Counter)
+    for row in rows:
+        started = dt.datetime.fromisoformat(row["started_at"])
         iso = started.isocalendar()
         week_key = f"{iso[0]}-W{iso[1]:02d}"
         for bucket in (week_totals[week_key], year_totals[str(started.year)]):
             bucket["workouts"] += 1
-            bucket["total_min"] += minutes
-            bucket[f"{zone or 'unclassified'}_min"] += minutes
-            bucket[f"tier_{tier or 'none'}"] += minutes
-            if workout["activity_type"] in RESISTANCE_TYPES:
-                bucket["resistance_min"] += minutes
-                if zone is not None:
-                    bucket["resistance_classified_min"] += minutes
+            bucket["total_min"] += row["minutes"]
+            bucket[f"{row['zone'] or 'unclassified'}_min"] += row["minutes"]
+            bucket[f"tier_{row['tier'] or 'none'}"] += row["minutes"]
+            if row["is_resistance"]:
+                bucket["resistance_min"] += row["minutes"]
+                if row["zone"] is not None:
+                    bucket["resistance_classified_min"] += row["minutes"]
 
     ordered = sorted(week_totals)
     rolling: dict[str, Any] = {}
-    if workouts:
-        latest = max(dt.datetime.fromisoformat(w["ended_at"]) for w in workouts)
+    if rows:
+        latest = max(dt.datetime.fromisoformat(row["ended_at"]) for row in rows)
         for label, days in (("7d", 7), ("28d", 28)):
             cutoff = latest - dt.timedelta(days=days)
             totals: Counter = Counter()
-            for workout in workouts:
-                ended = dt.datetime.fromisoformat(workout["ended_at"])
-                if ended < cutoff:
+            for row in rows:
+                if dt.datetime.fromisoformat(row["ended_at"]) < cutoff:
                     continue
-                average_hr = workout["avg_heart_rate"]
-                if average_hr is None:
-                    average_hr = averaged.get(workout["external_workout_id"])
-                zone, _tier = classify(workout, average_hr)
-                minutes = round(int(workout["duration_s"]) / 60.0, 1)
-                totals[zone or "unclassified"] += minutes
-                totals["total_min"] += minutes
+                totals[row["zone"] or "unclassified"] += row["minutes"]
+                totals["total_min"] += row["minutes"]
             rolling[label] = {
                 "total_minutes": round(totals["total_min"], 1),
                 "moderate_minutes": round(totals["moderate"], 1),
@@ -191,9 +243,11 @@ def activity_summary(conn, *, weeks: int = 12) -> dict[str, Any]:
         "weeks": [{"iso_week": week, **_share(week_totals[week])} for week in ordered[-weeks:]],
         "years": {year: _share(counter) for year, counter in sorted(year_totals.items())},
         "rolling": rolling,
-        "latest_workout_at": max(
-            (w["ended_at"] for w in workouts), default=None
-        ),
+        "latest_workout_at": max((row["ended_at"] for row in rows), default=None),
+        "cache": {
+            "rows": len(rows),
+            "source_rows": conn.execute("SELECT COUNT(*) FROM external_workout").fetchone()[0],
+        },
     }
 
 
