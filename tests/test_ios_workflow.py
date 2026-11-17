@@ -2237,3 +2237,93 @@ def test_ios_plan_move_reorders_and_guards_a_stale_index(ios):
         "AND event_type = 'move_exercise'",
         (workout["workout_id"],),
     ) == 1
+
+
+def _activity_key(seed: str) -> str:
+    import hashlib
+
+    return hashlib.sha256(seed.encode()).hexdigest()
+
+
+def _workout_payload(key: str, day: str = "2026-11-18") -> dict:
+    return {
+        "key": key,
+        "activity_type": "HKWorkoutActivityTypeTraditionalStrengthTraining",
+        "started_at": f"{day}T18:00:00+00:00",
+        "ended_at": f"{day}T19:00:00+00:00",
+        "duration_s": 3600,
+        "source_name": "Apple Watch",
+        "avg_heart_rate": 128,
+        "max_heart_rate": 165,
+    }
+
+
+def _sample_payload(workout_key: str, index: int, day: str = "2026-11-18") -> dict:
+    return {
+        "key": _activity_key(f"sample-{index}"),
+        "workout_key": workout_key,
+        "kind": "heart_rate",
+        "sampled_at": f"{day}T18:{index:02d}:00+00:00",
+        "value": 120.0 + index,
+        "unit": "count/min",
+        "association": "workout",
+        "source_name": "Apple Watch",
+    }
+
+
+def test_healthkit_activity_uploads_workouts_then_samples(ios):
+    token, _ = _paired(ios)
+    workout_key = _activity_key("workout-1")
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/workouts", method="POST",
+        payload={"workouts": [_workout_payload(workout_key)]}, token=token,
+        key=uuid.uuid4().hex,
+    )
+    assert status == 200, body
+    assert body["created"] == 1 and body["existing"] == 0
+    assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM external_workout")) == 1
+
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/samples", method="POST",
+        payload={"samples": [_sample_payload(workout_key, 0), _sample_payload(workout_key, 1)]},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, body
+    assert body["created"] == 2
+    assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM health_sample")) == 2
+    assert _scalar(ios["path"], "SELECT association FROM health_sample LIMIT 1") == "workout"
+
+    # Repeating both uploads is a no-op: the phone retries, the corpus does not grow.
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/workouts", method="POST",
+        payload={"workouts": [_workout_payload(workout_key)]}, token=token,
+        key=uuid.uuid4().hex,
+    )
+    assert status == 200 and body["existing"] == 1, body
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/samples", method="POST",
+        payload={"samples": [_sample_payload(workout_key, 0)]}, token=token,
+        key=uuid.uuid4().hex,
+    )
+    assert status == 200 and body["existing"] == 1, body
+    assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM health_sample")) == 2
+
+
+def test_healthkit_samples_require_their_workout_first(ios):
+    token, _ = _paired(ios)
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/samples", method="POST",
+        payload={"samples": [_sample_payload(_activity_key("missing"), 0)]}, token=token,
+        key=uuid.uuid4().hex,
+    )
+    assert status == 400
+    assert "upload the workout" in json.dumps(body)
+
+
+def test_healthkit_activity_requires_pairing(ios):
+    status, _body = _request(
+        ios["base"], "/api/ios/v1/healthkit/workouts", method="POST",
+        payload={"workouts": [_workout_payload(_activity_key("x"))]}, token="nope",
+        key=uuid.uuid4().hex,
+    )
+    assert status == 401

@@ -125,6 +125,7 @@ from strength_coach.prescribe.config import Thresholds
 from strength_coach.prescribe.evaluator import EvaluationInputs
 from strength_coach.rules import RuleContext
 from strength_coach.store import (
+    cardio,
     db,
     exercise_admin,
     healthkit_readiness,
@@ -159,6 +160,7 @@ IOS_BASE_CAPABILITIES = {
     "workout_write": False,
     "healthkit": False,
     "healthkit_readiness": False,
+    "healthkit_activity": False,
     "offline": False,
 }
 IOS_HISTORY_DEFAULT_LIMIT = 50
@@ -254,6 +256,7 @@ def _ios_capabilities() -> dict[str, bool]:
     capabilities["prescription"] = enabled
     capabilities["workout_write"] = enabled
     capabilities["healthkit_readiness"] = enabled
+    capabilities["healthkit_activity"] = enabled
     # Additive read route; advertised only because the route exists, per the contract.
     capabilities["intelligence_read"] = True
     return capabilities
@@ -1298,6 +1301,20 @@ class Handler(BaseHTTPRequestHandler):
                         conn, device, path, body, config,
                         self._ios_healthkit_readiness,
                     )
+                elif path == "/api/ios/v1/healthkit/workouts":
+                    config = self._ios_require_mutations()
+                    body = self._body()
+                    self._ios_mutation(
+                        conn, device, path, body, config,
+                        self._ios_healthkit_workouts,
+                    )
+                elif path == "/api/ios/v1/healthkit/samples":
+                    config = self._ios_require_mutations()
+                    body = self._body()
+                    self._ios_mutation(
+                        conn, device, path, body, config,
+                        self._ios_healthkit_samples,
+                    )
                 elif path == "/api/ios/v1/prescriptions":
                     config = self._ios_require_mutations()
                     body = self._body()
@@ -1619,6 +1636,94 @@ class Handler(BaseHTTPRequestHandler):
                 fields={f"samples[{index}].{key}": f"at most {limit} characters"},
             )
         return text
+
+
+    # --- HealthKit activity (C2) ------------------------------------------------------------
+    #
+    # Two routes, not one: a sample cannot be attached before its workout exists, and keeping them
+    # separate means each is idempotent on its own key even when the phone retries only the second
+    # half. Identity is the HealthKit UUID; the export path uses a content key instead, and the two
+    # never meet because nothing before history_cutoff is uploaded here.
+
+    IOS_ACTIVITY_MAX_WORKOUTS = 200
+    IOS_ACTIVITY_MAX_SAMPLES = 5000
+
+    def _ios_healthkit_workouts(self, conn, device: dict, body: dict) -> dict:
+        items = body.get("workouts")
+        if not isinstance(items, list) or not items:
+            raise FieldError("workouts must be a non-empty list")
+        if len(items) > self.IOS_ACTIVITY_MAX_WORKOUTS:
+            raise FieldError(
+                f"at most {self.IOS_ACTIVITY_MAX_WORKOUTS} workouts per request"
+            )
+        created = existing = 0
+        for item in items:
+            if not isinstance(item, dict):
+                raise FieldError("each workout must be an object")
+            key = self._ios_activity_key(item.get("key"))
+            _row, new = cardio.record_workout(
+                conn,
+                external_key=key,
+                origin="healthkit",
+                activity_type=str(item.get("activity_type") or ""),
+                started_at=item.get("started_at"),
+                ended_at=item.get("ended_at"),
+                duration_s=int(item.get("duration_s") or 0),
+                source_name=str(item.get("source_name") or "HealthKit"),
+                source_bundle_id=item.get("source_bundle_id"),
+                timezone=item.get("timezone"),
+                avg_heart_rate=item.get("avg_heart_rate"),
+                max_heart_rate=item.get("max_heart_rate"),
+                active_energy_kj=item.get("active_energy_kj"),
+                distance_m=item.get("distance_m"),
+                avg_mets=item.get("avg_mets"),
+                imported_at=datetime.datetime.now(datetime.UTC).isoformat(),
+            )
+            created += int(new)
+            existing += int(not new)
+        return {"workouts": len(items), "created": created, "existing": existing}
+
+    def _ios_healthkit_samples(self, conn, device: dict, body: dict) -> dict:
+        items = body.get("samples")
+        if not isinstance(items, list) or not items:
+            raise FieldError("samples must be a non-empty list")
+        if len(items) > self.IOS_ACTIVITY_MAX_SAMPLES:
+            raise FieldError(f"at most {self.IOS_ACTIVITY_MAX_SAMPLES} samples per request")
+        created = existing = 0
+        for item in items:
+            if not isinstance(item, dict):
+                raise FieldError("each sample must be an object")
+            workout_key = self._ios_activity_key(item.get("workout_key"))
+            workout = cardio.get_workout(conn, workout_key)
+            if workout is None:
+                raise FieldError("upload the workout before its samples")
+            _row, new = cardio.record_sample(
+                conn,
+                sample_key=self._ios_activity_key(item.get("key")),
+                kind=str(item.get("kind") or ""),
+                sampled_at=item.get("sampled_at"),
+                value=float(item.get("value")),
+                unit=str(item.get("unit") or ""),
+                source_name=str(item.get("source_name") or "HealthKit"),
+                source_bundle_id=item.get("source_bundle_id"),
+                imported_at=datetime.datetime.now(datetime.UTC).isoformat(),
+                external_workout_id=workout["external_workout_id"],
+                association=str(item.get("association") or "workout"),
+            )
+            created += int(new)
+            existing += int(not new)
+        return {"samples": len(items), "created": created, "existing": existing}
+
+    @staticmethod
+    def _ios_activity_key(value) -> bytes:
+        text = str(value or "").strip()
+        try:
+            key = bytes.fromhex(text)
+        except ValueError as exc:
+            raise FieldError("key must be hex") from exc
+        if len(key) != 32:
+            raise FieldError("key must be a 32-byte digest or UUID")
+        return key
 
     def _ios_healthkit_readiness(self, conn, device: dict, body: dict) -> dict:
         self._ios_closed_fields(body, {"date", "samples"})
