@@ -841,7 +841,12 @@ schema only.
 
 **Identity.** One column, two sources: the HealthKit object UUID for rows from the app, a `sha256`
 content key for rows promoted from an export (which carries no sample UUIDs). The timeline is split
-at `history_cutoff`, so the two regimes never need to reconcile.
+at `history_cutoff`, so the two regimes never need to reconcile. Keys are stored as the 32-byte
+digest (BLOB), not as hex text: hex doubles the key in the row and again in every index over it,
+which measured ~41 MB on the first real corpus for no benefit. Hex appears in logs and messages only.
+
+`measurement.external_id` stays TEXT because it sits in an existing text-keyed table; the import
+writes that one as hex.
 
 **Units.** Seconds, metres, kilojoules, beats per minute. `timezone` retains `HKTimeZone` where
 present so local-day attribution does not silently use the server's zone.

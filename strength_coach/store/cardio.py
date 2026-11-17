@@ -82,6 +82,13 @@ def utc_iso(value: str, *, field: str) -> str:
     return parsed.astimezone(dt.UTC).isoformat()
 
 
+def _text(value: str | bytes | None) -> str:
+    """Render a key for a message; keys are stored as digests, so log them as hex."""
+    if isinstance(value, bytes):
+        return value.hex()
+    return str(value)
+
+
 def content_key(
     *,
     activity_type: str,
@@ -89,12 +96,15 @@ def content_key(
     ended_at: str,
     duration_s: int,
     source_bundle_id: str | None = None,
-) -> str:
+) -> bytes:
     """Deterministic identity for a row that has no HealthKit UUID.
 
     Export records carry no sample UUIDs, so the key is built from the fields that make a workout
     the same workout. Changing the composition changes identity for every row, which is why it is
     one function rather than a format string at the call site.
+
+    Returns the 32-byte digest: hex is a display concern and belongs in logging, not in the row
+    and its indexes.
     """
     payload = "|".join(
         [
@@ -105,7 +115,7 @@ def content_key(
             str(source_bundle_id or ""),
         ]
     )
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    return hashlib.sha256(payload.encode("utf-8")).digest()
 
 
 def sample_content_key(
@@ -115,7 +125,7 @@ def sample_content_key(
     value: float,
     unit: str,
     source_bundle_id: str | None = None,
-) -> str:
+) -> bytes:
     """Identity for a sample that has no HealthKit UUID.
 
     The value and unit are part of the key on purpose: two devices can record a sample in the
@@ -125,10 +135,10 @@ def sample_content_key(
     payload = "|".join(
         [str(kind), str(sampled_at), f"{float(value):.6f}", str(unit), str(source_bundle_id or "")]
     )
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    return hashlib.sha256(payload.encode("utf-8")).digest()
 
 
-def get_workout(conn: sqlite3.Connection, external_key: str) -> dict[str, Any] | None:
+def get_workout(conn: sqlite3.Connection, external_key: bytes | str) -> dict[str, Any] | None:
     """Look up by identity key, which is what a re-import supplies."""
     row = conn.execute(
         "SELECT * FROM external_workout WHERE external_key = ?", (external_key,)
@@ -147,7 +157,7 @@ def get_workout_by_id(conn: sqlite3.Connection, external_workout_id: str) -> dic
 def record_workout(
     conn: sqlite3.Connection,
     *,
-    external_key: str,
+    external_key: bytes | str,
     origin: str,
     activity_type: str,
     started_at: str,
@@ -193,12 +203,14 @@ def record_workout(
         "duration_s": int(duration_s),
         "source_name": source_name,
     }
+    if isinstance(external_key, str):
+        external_key = external_key.encode("utf-8")
     existing = get_workout(conn, external_key)
     if existing is not None:
         changed = [field for field in _WORKOUT_IMMUTABLE if existing[field] != values[field]]
         if changed:
             raise CardioConflict(
-                f"workout {external_key} already exists with different {', '.join(changed)}"
+                f"workout {_text(external_key)} already exists with different {', '.join(changed)}"
             )
         return existing, False
 
@@ -261,6 +273,8 @@ def record_sample(
         raise CardioIngestError("association and external_workout_id must agree")
     if kind == "heart_rate" and not 20 <= float(value) <= 260:
         raise CardioIngestError(f"impossible heart rate {value!r}")
+    if isinstance(sample_key, str):
+        sample_key = sample_key.encode("utf-8")
 
     row = conn.execute(
         "SELECT * FROM health_sample WHERE sample_key = ?", (sample_key,)
@@ -272,7 +286,9 @@ def record_sample(
             "unit": unit, "source_name": source_name,
         }[f]]
         if changed:
-            raise CardioConflict(f"sample {sample_key} already exists with different {', '.join(changed)}")
+            raise CardioConflict(
+                f"sample {_text(sample_key)} already exists with different {', '.join(changed)}"
+            )
         return existing, False
 
     conn.execute(

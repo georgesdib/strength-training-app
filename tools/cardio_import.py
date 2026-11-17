@@ -298,13 +298,14 @@ def promote(
                 created_vo2max += int(
                     cardio.record_vo2max(
                         conn,
+                        # measurement.external_id is TEXT: hex here, unlike the corpus columns.
                         external_id=cardio.content_key(
                             activity_type=VO2MAX,
                             started_at=at,
                             ended_at=_iso(attrs.get("endDate", attrs["startDate"])),
                             duration_s=1,
                             source_bundle_id=attrs.get("sourceName"),
-                        ),
+                        ).hex(),
                         measured_at=at,
                         value=value,
                         method=attrs.get("sourceName", "unknown"),

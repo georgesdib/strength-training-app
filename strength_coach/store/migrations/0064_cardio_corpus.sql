@@ -10,6 +10,10 @@
 -- HealthKit object UUID. The timeline is split at history_cutoff (DEC-CARDIO-18), so the two
 -- never have to reconcile.
 --
+-- Keys are BLOB, not hex text. The digest is 32 bytes; storing it as 64 hex characters doubles the
+-- key in the row and again in every index over it, which measured ~43 MB of the 263 MB corpus for
+-- no benefit. Hex is a display concern, so it is produced when logging, not when storing.
+--
 -- Deletion is an event (DEC-CARDIO-04): a workout absent from a later query is a status row, never
 -- a delete. Nothing here is device-scoped: the same workout re-uploaded from a re-paired phone must
 -- collapse onto one key.
@@ -18,7 +22,7 @@ BEGIN IMMEDIATE;
 
 CREATE TABLE external_workout (
     external_workout_id TEXT PRIMARY KEY,              -- uuid4 hex
-    external_key        TEXT NOT NULL UNIQUE,          -- HK UUID, or sha256 over activity|start|end|bundle|duration
+    external_key        BLOB NOT NULL UNIQUE,          -- HK UUID bytes, or the sha256 digest over activity|start|end|bundle|duration
     origin              TEXT NOT NULL CHECK (origin IN ('export', 'healthkit')),
     activity_type       TEXT NOT NULL,                 -- raw HKWorkoutActivityType, retained verbatim
     started_at          TEXT NOT NULL,                 -- UTC ISO-8601
@@ -39,7 +43,7 @@ CREATE TABLE external_workout (
     metadata_json       TEXT NOT NULL DEFAULT '{}',
     CHECK (started_at < ended_at),
     CHECK (avg_heart_rate IS NULL OR max_heart_rate IS NULL OR avg_heart_rate <= max_heart_rate),
-    CHECK (length(external_key) BETWEEN 16 AND 128),
+    CHECK (length(external_key) BETWEEN 16 AND 64),
     CHECK (length(metadata_json) <= 65536)
 );
 
@@ -47,7 +51,7 @@ CREATE INDEX idx_external_workout_started ON external_workout(started_at);
 CREATE INDEX idx_external_workout_activity ON external_workout(activity_type, started_at);
 
 CREATE TABLE health_sample (
-    sample_key          TEXT PRIMARY KEY,              -- HK UUID, or sha256 over kind|sampled_at|value|bundle
+    sample_key          BLOB PRIMARY KEY,              -- HK UUID bytes, or the sha256 digest over kind|sampled_at|value|unit|bundle
     external_workout_id TEXT REFERENCES external_workout(external_workout_id),
     kind                TEXT NOT NULL CHECK (kind IN ('heart_rate', 'cycling_power', 'running_power')),
     sampled_at          TEXT NOT NULL,                 -- UTC ISO-8601

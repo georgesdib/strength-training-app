@@ -28,7 +28,7 @@ def conn(tmp_path):
 
 def _workout(conn, **overrides):
     kwargs = dict(
-        external_key="k-0123456789abcdef",
+        external_key=b"k" * 16,
         origin="export",
         activity_type="HKWorkoutActivityTypeRunning",
         started_at=START,
@@ -49,7 +49,8 @@ def test_content_key_is_deterministic_and_sensitive():
         duration_s=1800,
     )
     assert cardio.content_key(**base) == cardio.content_key(**base)
-    assert len(cardio.content_key(**base)) == 64
+    key = cardio.content_key(**base)
+    assert isinstance(key, bytes) and len(key) == 32  # digest, not hex
     assert cardio.content_key(**{**base, "duration_s": 1801}) != cardio.content_key(**base)
 
 

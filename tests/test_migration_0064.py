@@ -32,7 +32,7 @@ def _connection(tmp_path):
     return conn
 
 
-def _workout(conn, key="k-0123456789abcdef", activity="HKWorkoutActivityTypeRunning"):
+def _workout(conn, key=b"k" * 16, activity="HKWorkoutActivityTypeRunning"):
     conn.execute(
         "INSERT INTO external_workout (external_workout_id, external_key, origin, activity_type, "
         "started_at, ended_at, duration_s, source_name, imported_at) "
