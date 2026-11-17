@@ -4,7 +4,7 @@ The resume point for this project. If you are picking this up cold — human or 
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
 
-Last updated: 2026-11-15 · **v1.5.0 released; v1.6 planned** · version `1.5.0`
+Last updated: 2026-11-17 · **v1.5.0 released; v1.6 planned** · version `1.5.0`
 
 
 ---
@@ -1914,7 +1914,7 @@ adaptation, and the LLM capabilities in §4.24.
 
 ### 4.34 Training Intelligence — read-only capability layer and MCP server  (INT-1 and INT-1b implemented 2026-11-14)
 
-**Status: INT-1 to INT-6 backend work and INT-11 delivered; INT-12 deferred; INT-13 is iOS-only and owner-closed 2026-11-17.** The read-only
+**Status: INT-1 to INT-8 and INT-11 closed or delivered (INT-4c parked); INT-10 implemented with physical-device acceptance outstanding; INT-9 and INT-12 deferred; INT-13 is iOS-only and owner-closed 2026-11-17.** The read-only
 capability layer, the canonical envelope, typed requests, the execution service, configuration
 bounds and their tests exist in `strength_coach/intelligence/`; INT-1b adds the separately runnable
 MCP server (`strength_coach/intelligence/mcp/`, Streamable HTTP, revision 2026-07-28 with legacy
@@ -1923,12 +1923,15 @@ clients), dedicated MCP client tokens with CLI provisioning, two tools (`get_tra
 extra and only the transport imports it. See
 [`docs/INTELLIGENCE-IMPLEMENTATION.md`](docs/INTELLIGENCE-IMPLEMENTATION.md), including the
 performance baseline — the development Mac and, separately, the deployment host (p50 3.10 s /
-p95 3.17 s at 377 sessions, 2026-11-14). That host measurement is above the ADR-INT-010
-one-second threshold, so the transport is **gated** there until the addendum is decided. INT-2
+p95 3.17 s at 377 sessions, 2026-11-14). That host measurement exceeded the original
+ADR-INT-010 one-second threshold; the owner's latency-aware budget (T-1, 2026-11-14) superseded
+that gate and the transport is enabled on the trusted LAN. INT-2
 delivered the rest of the read-only catalogue on 2026-11-14 and INT-3 delivered the weekly review, its
 REST route and the iOS read surface; **INT-3 is closed 2026-11-15**. INT-5 delivered the server model
 provider, narration and its routes; INT-6 delivered server/web chat. Aggregate evidence producers for
 the aggregate capabilities remain deferred. INT-11 (local docs/code Explain) is implemented and closed with documented limitations: index, retrieval, explain endpoint, background startup refresh, web/iOS tabs and a 15-question evaluation; programme-block archive noise remains; the owner closed the iOS device-acceptance and release-tag items on 2026-11-17. INT-12 (web search/RAG) is deferred and has no backend code.
+
+The iOS-side phases are tracked in the canonical [Training Intelligence plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md): INT-7/7b/7c (Siri, Shortcuts, HomeKit, Action button) and INT-8 (plan review) are closed; INT-9 waits for iOS 27.3; INT-10 is implemented with physical-device acceptance outstanding; INT-4c is parked on the PCC entitlement.
 
 **Audit remediation 2026-11-14:** immediate token revocation/rotation without restart, a
 structured metadata-only audit record per invocation, a configurable tool timeout and result-size
