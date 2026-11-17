@@ -955,6 +955,14 @@ counts as resistance volume or vice versa.
 context; and deepen calibration enough to decide whether any rubric definition should change.
 No automatic cardio load effect and no parent-variant/weakness implementation in this phase.
 
+**Status 2026-11-17 — the A0/A1 evidence is scoped elsewhere; A2/A3 stay here.** The audit and capture
+work needed to reach A0 and A1 is planned in the portfolio cardio stage plan
+([CARDIO-STAGE.md](https://github.com/georgesdib/strength-app/blob/main/docs/plans/CARDIO-STAGE.md)):
+HealthKit history import, canonical backend cardio data, strength reconciliation and monitoring only.
+That stage does **not** deliver the impulse or the shadow load, so A2 and A3 remain this section's v1.6
+deliverables and v1.6 stays open; A4 and A5 are unchanged. Nothing in the stage changes a prescription,
+and no general cardio impulse is implemented until A2 is taken here.
+
 **Principles**
 
 1. Capture and data quality before modelling.
