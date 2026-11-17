@@ -196,3 +196,25 @@ def test_sync_state_roundtrip_and_upsert(conn):
     assert cardio.get_sync_state(conn, "history_cutoff") == END
     with pytest.raises(cardio.CardioIngestError):
         cardio.set_sync_state(conn, "history_cutoff", END, updated_at="2026-11-17T18:00:00")
+
+
+def test_hiding_a_workout_removes_it_from_metrics_but_keeps_the_row(conn):
+    from strength_coach.features import cardio_metrics
+
+    workout, _ = _workout(conn, external_key=b"h" * 16, started_at="2026-02-02T18:00:00+00:00",
+                          ended_at="2026-02-02T19:00:00+00:00", duration_s=3600, avg_mets=5.0)
+    cardio_metrics.rebuild_classification(conn)
+    assert cardio_metrics.activity_summary(conn)["years"]["2026"]["total_minutes"] == 60.0
+
+    cardio.set_visibility(conn, external_workout_id=workout["external_workout_id"], hidden=True,
+                          reason="wrong workout")
+    assert cardio.hidden_workout_ids(conn) == {workout["external_workout_id"]}
+    assert cardio_metrics.activity_summary(conn)["years"] == {}
+    # The row is still there: hiding filters, it does not delete.
+    assert cardio.get_workout(conn, b"h" * 16) is not None
+
+    cardio.set_visibility(conn, external_workout_id=workout["external_workout_id"], hidden=False)
+    assert cardio.hidden_workout_ids(conn) == set()
+    assert cardio_metrics.activity_summary(conn)["years"]["2026"]["total_minutes"] == 60.0
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute("DELETE FROM cardio_exclusion")

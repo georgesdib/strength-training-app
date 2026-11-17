@@ -3304,6 +3304,17 @@ async function loadRecordedActivity(weeks) {
       "<td>" + pct(value.classified_share) + "</td>" +
       "<td>" + Math.round(value.unclassified_minutes) + "</td></tr>").join("");
 
+    const workouts = await api("/api/cardio/workouts?limit=25");
+    const workoutRows = (workouts.workouts || []).map((workout) =>
+      "<tr" + (workout.hidden ? " class='muted'" : "") + "><td>" + esc(workout.started_at.slice(0, 10)) +
+      "</td><td>" + esc(workout.activity) + "</td><td>" + workout.minutes + " min</td><td>" +
+      esc(workout.source || "") + "</td><td>" +
+      (workout.session_id ? "linked" : "&mdash;") + "</td><td>" +
+      (workout.hidden ? "hidden" : "") + "</td><td>" +
+      "<button class='link' data-workout='" + esc(workout.id) + "' data-hidden='" +
+      (workout.hidden ? "false" : "true") + "'>" +
+      (workout.hidden ? "Show" : "Hide") + "</button></td></tr>").join("");
+
     target.innerHTML =
       "<div class='cards'>" +
       "<div class='card'><div class='label'>Last 7 days</div><div class='value'>" +
@@ -3321,7 +3332,32 @@ async function loadRecordedActivity(weeks) {
       (yearRows || "<tr><td colspan='5' class='muted'>no years</td></tr>") + "</tbody></table>" +
       "<p class='muted'>Max HR " + esc(policy.max_hr_bpm) + " bpm · MET bands " +
       esc((policy.met_bands || []).join("–")) + " · " + esc(policy.equivalent_rule || "") +
-      ". Unclassified minutes are not zero: they mean the workout had neither a MET value nor a heart rate.</p>";
+      ". Unclassified minutes are not zero: they mean the workout had neither a MET value nor a heart rate.</p>" +
+      "<h3>Recent workouts</h3><p class='muted'>Hiding removes a workout from every metric without " +
+      "deleting it; the record stays and Show restores it.</p>" +
+      "<table><thead><tr><th>Date</th><th>Activity</th><th>Duration</th><th>Source</th>" +
+      "<th>Session</th><th></th><th></th></tr></thead><tbody>" +
+      (workoutRows || "<tr><td colspan='7' class='muted'>no workouts</td></tr>") +
+      "</tbody></table>";
+
+    target.querySelectorAll("button[data-workout]").forEach(function (button) {
+      button.addEventListener("click", async function () {
+        button.disabled = true;
+        try {
+          await api("/api/cardio/visibility", {
+            method: "POST",
+            body: {
+              workout_id: button.dataset.workout,
+              hidden: button.dataset.hidden === "true",
+            },
+          });
+          await loadRecordedActivity(weeks);
+        } catch (error) {
+          button.disabled = false;
+          button.textContent = "error";
+        }
+      });
+    });
   } catch (error) {
     target.innerHTML = "<p class='warnbox'>" + esc(error.message) + "</p>";
   }

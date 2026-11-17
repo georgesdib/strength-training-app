@@ -3105,6 +3105,12 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(
                     lambda c: self._cardio(c, {"weeks": weeks, "date": on_date})
                 ))
+            elif path == "/api/cardio/workouts":
+                query = parse_qs(urlparse(self.path).query)
+                limit = min(int(query.get("limit", ["50"])[0]), 200)
+                self._json(200, self._with_conn(
+                    lambda c: self._recorded_workouts(c, limit)
+                ))
             elif path == "/api/cardio/summary":
                 query = parse_qs(urlparse(self.path).query)
                 weeks = int(query.get("weeks", ["12"])[0])
@@ -3627,6 +3633,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._programme(c, body)))
             elif path == "/api/cardio":
                 self._json(200, self._with_conn(lambda c: self._save_cardio(c, body)))
+            elif path == "/api/cardio/visibility":
+                self._json(200, self._with_conn(
+                    lambda c: self._set_workout_visibility(c, body)
+                ))
             elif path == "/api/measurements":
                 self._json(200, self._with_conn(
                     lambda c: self._save_measurement(c, body)
@@ -5329,6 +5339,56 @@ class Handler(BaseHTTPRequestHandler):
             # Canonical choices for the athlete forms. The browser must not own these lists.
             "options": options_mod.canonical_options(),
         }
+
+    def _recorded_workouts(self, conn, limit: int) -> dict:
+        """Imported activity for the web panel, with its visibility state."""
+        hidden = cardio.hidden_workout_ids(conn)
+        rows = conn.execute(
+            """
+            SELECT w.external_workout_id, w.activity_type, w.started_at, w.duration_s,
+                   w.source_name, w.avg_mets, w.srpe,
+                   (SELECT l.session_id FROM workout_link l
+                     WHERE l.external_workout_id = w.external_workout_id AND l.action = 'link'
+                       AND NOT EXISTS (SELECT 1 FROM workout_link u WHERE u.action = 'unlink'
+                                       AND u.supersedes_id = l.link_id)
+                     ORDER BY l.rowid DESC LIMIT 1) AS session_id
+            FROM external_workout w
+            ORDER BY w.started_at DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+        return {
+            "workouts": [
+                {
+                    "id": row["external_workout_id"],
+                    "activity": (row["activity_type"] or "").replace(
+                        "HKWorkoutActivityType", ""
+                    ),
+                    "started_at": row["started_at"],
+                    "minutes": round(int(row["duration_s"]) / 60),
+                    "source": row["source_name"],
+                    "avg_mets": row["avg_mets"],
+                    "srpe": row["srpe"],
+                    "session_id": row["session_id"],
+                    "hidden": row["external_workout_id"] in hidden,
+                }
+                for row in rows
+            ]
+        }
+
+    def _set_workout_visibility(self, conn, body: dict) -> dict:
+        workout_id = str(body.get("workout_id") or "")
+        hidden = body.get("hidden")
+        if not isinstance(hidden, bool):
+            raise FieldError("hidden must be true or false")
+        cardio.set_visibility(
+            conn,
+            external_workout_id=workout_id,
+            hidden=hidden,
+            reason=body.get("reason"),
+        )
+        return {"workout_id": workout_id, "hidden": hidden}
 
     def _cardio(self, conn, body: dict | None = None) -> dict:
         body = body or {}

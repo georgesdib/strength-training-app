@@ -121,7 +121,7 @@ def evaluate(conn) -> tuple[list[Candidate], list[Deferred]]:
             continue
         sessions_by_date.setdefault(str(session["occurred_on"]), []).append(session["session_id"])
 
-    linked = _linked_workouts(conn)
+    linked = _linked_workouts(conn) | cardio.hidden_workout_ids(conn)
     used_sessions = set()
     candidates: list[Candidate] = []
     deferred: list[Deferred] = []

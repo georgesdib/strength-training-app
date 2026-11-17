@@ -19,6 +19,7 @@ from collections import Counter, defaultdict
 from typing import Any
 
 from strength_coach.store import db
+from strength_coach.store.cardio import hidden_workout_ids
 
 MAX_HR_BPM = 200  # observed maximum in this store; reported with every result
 MET_BANDS = (3.0, 6.0)  # WHO: moderate 3-6 METs, vigorous above 6
@@ -195,7 +196,12 @@ def activity_summary(conn, *, weeks: int = 12) -> dict[str, Any]:
     """
     if cache_is_stale(conn):
         rebuild_classification(conn)
-    rows = [dict(row) for row in conn.execute("SELECT * FROM cardio_classification")]
+    hidden = hidden_workout_ids(conn)
+    rows = [
+        dict(row)
+        for row in conn.execute("SELECT * FROM cardio_classification")
+        if row["external_workout_id"] not in hidden
+    ]
 
     week_totals: dict[str, Counter] = defaultdict(Counter)
     year_totals: dict[str, Counter] = defaultdict(Counter)

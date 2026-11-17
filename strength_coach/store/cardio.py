@@ -530,3 +530,38 @@ def record_vo2max(
         (uuid.uuid4().hex, when[:10], float(value), method, external_id, when),
     )
     return cursor.rowcount == 1
+
+
+def set_visibility(
+    conn: sqlite3.Connection,
+    *,
+    external_workout_id: str,
+    hidden: bool,
+    reason: str | None = None,
+) -> str:
+    """Hide or show a workout by appending an event; the latest event wins."""
+    if get_workout_by_id(conn, external_workout_id) is None:
+        raise CardioIngestError(f"unknown workout {external_workout_id!r}")
+    exclusion_id = uuid.uuid4().hex
+    conn.execute(
+        "INSERT INTO cardio_exclusion (exclusion_id, external_workout_id, action, reason) "
+        "VALUES (?,?,?,?)",
+        (exclusion_id, external_workout_id, "hide" if hidden else "show", reason),
+    )
+    return exclusion_id
+
+
+def hidden_workout_ids(conn: sqlite3.Connection) -> set[str]:
+    """Workouts whose latest visibility event is 'hide'."""
+    rows = conn.execute(
+        """
+        SELECT e.external_workout_id, e.action
+        FROM cardio_exclusion e
+        JOIN (
+            SELECT external_workout_id, MAX(rowid) AS latest
+            FROM cardio_exclusion GROUP BY external_workout_id
+        ) m ON m.latest = e.rowid
+        WHERE e.action = 'hide'
+        """
+    ).fetchall()
+    return {row["external_workout_id"] for row in rows}
