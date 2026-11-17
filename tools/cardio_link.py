@@ -223,7 +223,7 @@ def evaluate(conn) -> tuple[list[Candidate], list[Deferred]]:
     return candidates, deferred
 
 
-def _write(conn, candidates: list[Candidate]) -> int:
+def write_links(conn, candidates: list[Candidate]) -> int:
     written = 0
     with db.transaction(conn):
         for candidate in candidates:
@@ -316,7 +316,7 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(payload, indent=2, sort_keys=True))
             return 0
         if args.apply:
-            written = _write(conn, candidates)
+            written = write_links(conn, candidates)
             payload = _report(conn, candidates, deferred)
             payload["linked_now"] = written
             print(json.dumps(payload, indent=2, sort_keys=True))

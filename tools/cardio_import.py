@@ -236,6 +236,7 @@ def promote(
     export_path: Path,
     conn,
     dry_run: bool = False,
+    link_after: bool = True,
     report: dict | None = None,
 ) -> dict:
     report = report if report is not None else {}
@@ -349,6 +350,14 @@ def promote(
         cutoff or imported_at,
         updated_at=imported_at,
     )
+    if link_after:
+        # Linking belongs to the end of an import, not to a separate chore: a promoted workout that
+        # nobody links enriches nothing, and the pass is idempotent.
+        from tools.cardio_link import evaluate, write_links
+
+        candidates, deferred = evaluate(conn)
+        report["links_written"] = write_links(conn, candidates)
+        report["link_queue"] = len(deferred)
     report.update(
         {
             "samples_workout": samples["workout"],

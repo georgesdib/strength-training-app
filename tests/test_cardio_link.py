@@ -64,7 +64,7 @@ def test_interval_tier_links_a_measured_session(conn):
     assert candidates[0].session_id == "s-1"
     assert candidates[0].overlap and candidates[0].overlap > 0.9
     assert deferred == []
-    assert cardio_link._write(conn, candidates) == 1
+    assert cardio_link.write_links(conn, candidates) == 1
     link = cardio.active_link(conn, workout["external_workout_id"])
     assert link["method"] == "interval_overlap"
     assert link["band_version"] == "link_v1"
@@ -112,7 +112,7 @@ def test_apply_is_idempotent_and_never_relinks(conn):
     _session(conn, "s-1", "2026-11-11")
     _workout(conn, "k1", "2026-11-11T18:00:00+00:00", "2026-11-11T18:55:00+00:00", duration=3300)
     candidates, _ = cardio_link.evaluate(conn)
-    assert cardio_link._write(conn, candidates) == 1
+    assert cardio_link.write_links(conn, candidates) == 1
     again, deferred = cardio_link.evaluate(conn)
     assert again == [] and deferred == []
     assert conn.execute("SELECT COUNT(*) FROM workout_link").fetchone()[0] == 1
