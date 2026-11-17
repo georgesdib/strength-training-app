@@ -14,13 +14,13 @@ Wants=network-online.target
 Type=oneshot
 User=dsh
 Group=dsh
-WorkingDirectory=/home/dsh/strength-training-app
+WorkingDirectory=/home/dsh/strength-app/strength-training-app
 Environment=HOME=/home/dsh
-Environment=PATH=/home/dsh/strength-training-app/.venv/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PATH=/home/dsh/strength-app/strength-training-app/.venv/bin:/usr/local/bin:/usr/bin:/bin
 Environment=PYTHONUNBUFFERED=1
 Environment=TZ=Europe/London
 Nice=10
 IOSchedulingClass=idle
 TimeoutStartSec=300
-ExecStart=/home/dsh/strength-training-app/.venv/bin/python tools/cardio_link.py --db data/coach.db --apply
+ExecStart=/home/dsh/strength-app/strength-training-app/.venv/bin/python tools/cardio_link.py --db data/coach.db --apply
 SuccessExitStatus=1
