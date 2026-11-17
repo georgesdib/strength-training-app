@@ -108,6 +108,26 @@ def content_key(
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def sample_content_key(
+    *,
+    kind: str,
+    sampled_at: str,
+    value: float,
+    unit: str,
+    source_bundle_id: str | None = None,
+) -> str:
+    """Identity for a sample that has no HealthKit UUID.
+
+    The value and unit are part of the key on purpose: two devices can record a sample in the
+    same second, and a key without them collapses those into a "conflict" that is really two
+    different measurements.
+    """
+    payload = "|".join(
+        [str(kind), str(sampled_at), f"{float(value):.6f}", str(unit), str(source_bundle_id or "")]
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def get_workout(conn: sqlite3.Connection, external_key: str) -> dict[str, Any] | None:
     """Look up by identity key, which is what a re-import supplies."""
     row = conn.execute(
@@ -416,3 +436,59 @@ def set_sync_state(conn: sqlite3.Connection, name: str, value: str, *, updated_a
 def get_sync_state(conn: sqlite3.Connection, name: str) -> str | None:
     row = conn.execute("SELECT value FROM cardio_sync_state WHERE name = ?", (name,)).fetchone()
     return str(row["value"]) if row is not None else None
+
+
+# VO2max is a periodic outcome, not daily state, so it lives in `measurement` beside body-fat and
+# steps (#0064 added external_id/measured_at for exactly this). The declaration matches the
+# existing config metric so a machine that already has it is left alone.
+VO2MAX_METRIC = {
+    "metric_key": "vo2max",
+    "label": "VO2max estimate",
+    "higher_is_better": 1,
+    "aggregation": "last",
+    "scale_min": 10.0,
+    "scale_max": 90.0,
+    "unit": "ml/kg/min",
+}
+
+
+def record_vo2max(
+    conn: sqlite3.Connection,
+    *,
+    external_id: str,
+    measured_at: str,
+    value: float,
+    method: str,
+    noted_at: str,
+) -> bool:
+    """Record one VO2max estimate; return True when it is new.
+
+    Idempotency is `measurement.external_id`, because `measurement_id` is a fresh uuid per insert
+    and a re-run would otherwise duplicate the whole series. `method` carries the source ("Apple
+    Watch", "Athlytic") so two algorithms never merge into one trend.
+    """
+    if not 0 < float(value) < 100:
+        raise CardioIngestError(f"implausible VO2max {value!r}")
+    when = utc_iso(measured_at, field="measured_at")
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO metric_definition (
+            metric_key, label, scale_min, scale_max, higher_is_better, aggregation, unit, source
+        ) VALUES (:metric_key, :label, :scale_min, :scale_max, :higher_is_better,
+                  :aggregation, :unit, 'config')
+        """,
+        VO2MAX_METRIC,
+    )
+    # INSERT OR IGNORE, not ON CONFLICT: the uniqueness this relies on is a *partial* index, and
+    # SQLite only accepts a partial-index conflict target with its predicate spelled out. The only
+    # other unique constraint is the random primary key, so ignoring is unambiguous here.
+    cursor = conn.execute(
+        """
+        INSERT OR IGNORE INTO measurement (
+            measurement_id, metric_key, measured_on, value, method, source, external_id,
+            measured_at
+        ) VALUES (?, 'vo2max', ?, ?, ?, 'device', ?, ?)
+        """,
+        (uuid.uuid4().hex, when[:10], float(value), method, external_id, when),
+    )
+    return cursor.rowcount == 1
