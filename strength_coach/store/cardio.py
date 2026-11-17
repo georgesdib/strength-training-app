@@ -79,7 +79,7 @@ def utc_iso(value: str, *, field: str) -> str:
         raise CardioIngestError(f"{field} is not ISO-8601: {text!r}") from exc
     if parsed.tzinfo is None:
         raise CardioIngestError(f"{field} must carry a UTC offset: {text!r}")
-    return parsed.astimezone(dt.timezone.utc).isoformat()
+    return parsed.astimezone(dt.UTC).isoformat()
 
 
 def content_key(
