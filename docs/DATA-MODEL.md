@@ -823,6 +823,38 @@ A device cannot see another device's plan or receipt. The client keeps its opera
 only in memory; a lost response cannot be replayed after app termination until a durable
 pending-mutation journal is added (ROADMAP §4.30 R1).
 
+## 21. Cardio corpus — `external_workout`, `health_sample`, `workout_link`, `external_status_event`
+
+Machine-observed activity from Apple Health and HealthKit. Deliberately separate from both
+`session` (what was trained) and `cardio_log` (a manual note that cardio happened): a HealthKit
+workout is an external source record, not a training session. The design decisions behind this
+domain are recorded in the portfolio plan, `docs/plans/CARDIO-STAGE.md`; this section documents the
+schema only.
+
+| Table | Holds | Notes |
+|---|---|---|
+| `external_workout` | One imported workout: activity type, interval, summary statistics, provenance | Append-only. Identity is `external_key`, never device-scoped |
+| `health_sample` | Heart-rate and power samples associated with a workout or its 10-minute recovery tail | Append-only. `association` and `external_workout_id` must agree |
+| `workout_link` | Append-only link/unlink events between a workout and a session | Current state is the latest event per pair; `unlink` names what it retires |
+| `external_status_event` | Absence, unavailability, confirmed deletion, reappearance | Deletion is an event, never a delete |
+| `cardio_sync_state` | Ingestion checkpoints: `history_cutoff` and anchor state | The only mutable row set in this domain |
+
+**Identity.** One column, two sources: the HealthKit object UUID for rows from the app, a `sha256`
+content key for rows promoted from an export (which carries no sample UUIDs). The timeline is split
+at `history_cutoff`, so the two regimes never need to reconcile.
+
+**Units.** Seconds, metres, kilojoules, beats per minute. `timezone` retains `HKTimeZone` where
+present so local-day attribution does not silently use the server's zone.
+
+**Statistics, not duplicate sets.** The summary columns (average/max heart rate, active energy,
+distance, `avg_mets`) are what the metrics read; the raw series lives in `health_sample`. Nothing
+here creates, edits or voids a `session`.
+
+**Measurement columns.** VO₂max is a periodic outcome, not daily state, so it belongs in
+`measurement` beside body-fat and steps rather than in a cardio table.
+`measurement.external_id` (with a partial unique index) makes a re-import idempotent, and
+`measured_at` keeps the sample timestamp that `measured_on` cannot express.
+
 ## Related
 
 - **UI surface:** [UI-MAP.md](UI-MAP.md)
