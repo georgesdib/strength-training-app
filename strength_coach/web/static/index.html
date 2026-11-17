@@ -901,6 +901,15 @@
           </div>
         </form>
         <p class="muted" id="explain-status">Index status unavailable.</p>
+        <form id="explain-settings-form">
+          <div class="form-row">
+            <label>Top chunks <input type="number" min="1" max="20" step="1" id="explain-top-k"></label>
+            <label>Max context chars <input type="number" min="1000" max="100000" step="1000" id="explain-max-context"></label>
+            <label>Max answer words <input type="number" min="32" max="1000" step="1" id="explain-max-words"></label>
+            <button class="ghost" type="submit" id="explain-settings-save">Save retrieval settings</button>
+            <span class="muted" id="explain-settings-msg"></span>
+          </div>
+        </form>
       </div>
       <div id="explain-result"></div>
     </section>

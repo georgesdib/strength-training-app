@@ -194,6 +194,7 @@ ratio inherits its precision limits.
   path.
 - **Prescribe → Regime change** — read-only 8-week check for a main lift disappearing while a
   same-category substitute rises; a review question, never an action.
+- **Explain** — project docs/code/private retrieval with grounded citations and a form for top chunks, context budget and answer word limit.
 - **Chat** — read-only multi-turn conversation over the same capability catalogue, with a 20-turn cap, only the recent ten messages sent, session-only browser memory, a separate “Suggestion — not applied” block, source capabilities and unverified-number warnings. It never writes or applies a suggestion.
 - **Narrate** — under Programme Intelligence: choose any registered read-only capability, edit its JSON payload, and ask the configured model for a validated narrative. The model and token count are shown; numbers absent from the envelope appear as an **Unverified numbers** warning rather than a failure. Selecting a capability shows its description, required/optional payload fields and a working example; **Show raw output** exposes the exact facts passed to the model. The envelope is unchanged and the prompt/narrative are not stored. A missing model is a clear error, not a fallback.
 - **Settings** — appearance (System / Light / Dark), optional LLM configuration (enable/disable, model, endpoint, write-only key,

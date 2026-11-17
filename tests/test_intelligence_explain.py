@@ -15,7 +15,7 @@ from intelligence_support import enabled_config
 
 from strength_coach.agents.client import LLMResponse
 from strength_coach.intelligence import config as intelligence_config
-from strength_coach.intelligence.knowledge.allowlist import load_config
+from strength_coach.intelligence.knowledge.allowlist import load_config, save_retrieval_settings
 from strength_coach.intelligence.knowledge.citations import extract
 from strength_coach.intelligence.knowledge.explain import SYSTEM, run_explain
 from strength_coach.intelligence.knowledge.index import build
@@ -235,3 +235,22 @@ def test_cross_repository_citation_uses_source_namespace(tmp_path):
     ambiguous = extract("[docs/README.md:1-3]", config, config.index_path)[0]
     assert ambiguous.warning is not None
     assert ambiguous.verified is False
+
+
+def test_retrieval_settings_round_trip_in_local_overlay(tmp_path):
+    config = _fixture(tmp_path)
+    updated = save_retrieval_settings(3, 5000, 100, config.path)
+    assert (updated.top_k, updated.max_context_chars, updated.max_answer_words) == (3, 5000, 100)
+    reloaded = load_config(config.path)
+    assert (reloaded.top_k, reloaded.max_context_chars, reloaded.max_answer_words) == (3, 5000, 100)
+    assert (config.path.with_name("knowledge.local.yaml")).stat().st_mode & 0o777 == 0o600
+
+
+def test_retrieval_settings_reject_out_of_range(tmp_path):
+    config = _fixture(tmp_path)
+    with pytest.raises(ValueError):
+        save_retrieval_settings(0, 5000, 100, config.path)
+    with pytest.raises(ValueError):
+        save_retrieval_settings(3, 500, 100, config.path)
+    with pytest.raises(ValueError):
+        save_retrieval_settings(3, 5000, 10, config.path)

@@ -1097,6 +1097,8 @@ injury answer notes that no outcome evidence is cited for the reactive trigger c
 
 ## 35. INT-11 hardening (2026-11-16)
 
+**Settings.** The web Explain tab exposes `top_k`, `max_context_chars` and `max_answer_words`. Saving writes the git-ignored `config/knowledge.local.yaml`; the tracked config remains the default. The LLM model/key/token settings remain in Settings.
+
 **Privacy.** The explain trace no longer stores the raw question. It stores only the existing
 `input_hash`, character count, retrieved sources, citation count, grounded flag and token count.
 The web and iOS copy that no conversation is saved is now accurate.

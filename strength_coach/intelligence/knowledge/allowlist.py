@@ -11,6 +11,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_CONFIG = ROOT / "config" / "knowledge.v1.yaml"
+LOCAL_CONFIG_NAME = "knowledge.local.yaml"
 
 
 class KnowledgeConfigError(ValueError):
@@ -77,6 +78,14 @@ def load_config(path: str | Path | None = None) -> KnowledgeConfig:
         raise KnowledgeConfigError(f"knowledge config not found: {target}")
     try:
         raw = yaml.safe_load(target.read_text(encoding="utf-8")) or {}
+        overlay = target.with_name(LOCAL_CONFIG_NAME)
+        if overlay.is_file():
+            local = yaml.safe_load(overlay.read_text(encoding="utf-8")) or {}
+            if isinstance(local, dict) and isinstance(local.get("retrieval"), dict):
+                raw["retrieval"] = {
+                    **(raw.get("retrieval") or {}),
+                    **local["retrieval"],
+                }
     except yaml.YAMLError as exc:
         raise KnowledgeConfigError(f"invalid knowledge config: {exc}") from exc
     if not isinstance(raw, dict) or raw.get("version") != 1:
@@ -192,3 +201,31 @@ def scan(config: KnowledgeConfig) -> ScanResult:
 
 def contains_secret(config: KnowledgeConfig, text: str) -> bool:
     return any(pattern.search(text) for pattern in config.secret_patterns)
+
+
+def save_retrieval_settings(
+    top_k: int,
+    max_context_chars: int,
+    max_answer_words: int,
+    path: str | Path | None = None,
+) -> KnowledgeConfig:
+    """Persist Explain retrieval bounds in the git-ignored local overlay."""
+    if not 1 <= int(top_k) <= 20:
+        raise KnowledgeConfigError("top_k must be between 1 and 20")
+    if not 1000 <= int(max_context_chars) <= 100_000:
+        raise KnowledgeConfigError("max_context_chars must be between 1000 and 100000")
+    if not 32 <= int(max_answer_words) <= 1000:
+        raise KnowledgeConfigError("max_answer_words must be between 32 and 1000")
+    target = Path(path) if path else DEFAULT_CONFIG
+    overlay = target.with_name(LOCAL_CONFIG_NAME)
+    data = {
+        "version": 1,
+        "retrieval": {
+            "top_k": int(top_k),
+            "max_context_chars": int(max_context_chars),
+            "max_answer_words": int(max_answer_words),
+        },
+    }
+    overlay.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    overlay.chmod(0o600)
+    return load_config(target)

@@ -58,3 +58,6 @@ backups/
 
 # macOS Finder metadata
 .DS_Store
+
+# Local Explain retrieval overrides (owner settings; not secrets but host-local)
+config/knowledge.local.yaml

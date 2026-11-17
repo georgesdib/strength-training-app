@@ -49,7 +49,7 @@ const VIEW_LOADERS = {
     loadTestCadence();
   },
   settings: () => loadSettings(),
-  explain: () => loadExplainStatus(),
+  explain: () => { loadExplainStatus(); loadExplainSettings(); },
   history: () => loadHistory(),
   progress: () => loadProgressOverview(),
   outcomes: () => loadOutcomes(),
@@ -3901,6 +3901,36 @@ $("#chat-form")?.addEventListener("submit", async (event) => {
 });
 
 /* --- Explain the system -------------------------------------------------- */
+async function loadExplainSettings() {
+  try {
+    const data = await api("/api/intelligence/knowledge/settings");
+    $("#explain-top-k").value = data.top_k;
+    $("#explain-max-context").value = data.max_context_chars;
+    $("#explain-max-words").value = data.max_answer_words;
+  } catch (error) {
+    $("#explain-settings-msg").textContent = error.message;
+  }
+}
+$("#explain-settings-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const message = $("#explain-settings-msg");
+  message.textContent = "Saving…";
+  try {
+    const data = await api("/api/intelligence/knowledge/settings", {
+      method: "POST",
+      body: JSON.stringify({
+        top_k: Number($("#explain-top-k").value),
+        max_context_chars: Number($("#explain-max-context").value),
+        max_answer_words: Number($("#explain-max-words").value),
+      }),
+    });
+    message.textContent = "Saved: " + data.top_k + " chunks, " + data.max_context_chars +
+      " chars, " + data.max_answer_words + " words.";
+  } catch (error) {
+    message.textContent = error.message;
+  }
+});
+
 async function loadExplainStatus() {
   const target = $("#explain-status");
   if (!target) return;

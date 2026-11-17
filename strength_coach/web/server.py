@@ -3200,6 +3200,10 @@ class Handler(BaseHTTPRequestHandler):
                 from strength_coach.intelligence.knowledge.index import status as knowledge_status
                 config = load_knowledge()
                 self._json(200, knowledge_status(config.index_path, config))
+            elif path == "/api/intelligence/knowledge/settings":
+                from strength_coach.intelligence.knowledge.allowlist import load_config as load_knowledge
+                config = load_knowledge()
+                self._json(200, self._retrieval_settings(config))
             elif path == "/api/docs":
                 self._json(200, _docs())
             elif path.startswith("/api/docs/"):
@@ -3358,6 +3362,20 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._chat(c, body)))
             elif path == "/api/intelligence/explain":
                 self._json(200, self._with_conn(lambda c: self._explain(c, body)))
+            elif path == "/api/intelligence/knowledge/settings":
+                from strength_coach.intelligence.knowledge.allowlist import (
+                    KnowledgeConfigError,
+                    save_retrieval_settings,
+                )
+                try:
+                    config = save_retrieval_settings(
+                        body.get("top_k"),
+                        body.get("max_context_chars"),
+                        body.get("max_answer_words"),
+                    )
+                except (TypeError, ValueError, KnowledgeConfigError) as exc:
+                    raise FieldError(str(exc), {"settings": str(exc)}) from exc
+                self._json(200, self._retrieval_settings(config))
             elif path == "/api/prescribe":
                 self._json(200, self._with_conn(lambda c: self._prescribe(c, body)))
             elif path == "/api/readiness/presets":
@@ -3946,6 +3964,14 @@ class Handler(BaseHTTPRequestHandler):
             "suggestions": result.suggestions,
             "tokens": result.tokens,
             "model": client.model,
+        }
+
+    @staticmethod
+    def _retrieval_settings(config) -> dict:
+        return {
+            "top_k": config.top_k,
+            "max_context_chars": config.max_context_chars,
+            "max_answer_words": config.max_answer_words,
         }
 
     def _narrate(self, conn, body: dict) -> dict:
