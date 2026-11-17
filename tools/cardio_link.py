@@ -112,8 +112,12 @@ def evaluate(conn) -> tuple[list[Candidate], list[Deferred]]:
     # A session with a measured interval is decided by tier A only: using its date as well would let
     # day containment claim a workout that the interval says is a different session.
     sessions_by_date: dict[str, list[str]] = {}
+    measured_by_date: dict[str, list[str]] = {}
     for session in sessions:
         if session["session_id"] in intervals:
+            measured_by_date.setdefault(str(session["occurred_on"]), []).append(
+                session["session_id"]
+            )
             continue
         sessions_by_date.setdefault(str(session["occurred_on"]), []).append(session["session_id"])
 
@@ -160,13 +164,24 @@ def evaluate(conn) -> tuple[list[Candidate], list[Deferred]]:
         # here rather than being rejected: the workout may still be the only one on that day.
         day = _local_date(workout["started_at"])
         same_day_sessions = sessions_by_date.get(day, [])
-        if best is not None and not same_day_sessions:
+        measured_today = measured_by_date.get(day, [])
+        if best is not None and best[0] > 0 and not same_day_sessions:
             deferred.append(
                 Deferred(
                     workout["external_workout_id"],
                     key,
                     f"closest interval overlap {best[0]:.2f} is below {QUEUE_OVERLAP}",
                     best[1],
+                )
+            )
+            continue
+        if measured_today and not same_day_sessions:
+            deferred.append(
+                Deferred(
+                    workout["external_workout_id"],
+                    key,
+                    f"{day} holds only a measured session with no overlap",
+                    measured_today[0],
                 )
             )
             continue
