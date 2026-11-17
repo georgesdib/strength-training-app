@@ -2418,7 +2418,7 @@ def test_healthkit_activity_carries_effort_and_vo2max(ios):
         payload={"samples": [], "metrics": metrics}, token=token, key=uuid.uuid4().hex,
     )
     assert status == 200, body
-    assert body["metrics"] == 1
+    assert body["metrics"]["written"] == 1
     assert float(_scalar(ios["path"],
         "SELECT value FROM measurement WHERE metric_key='vo2max'")) == 51.4
 
