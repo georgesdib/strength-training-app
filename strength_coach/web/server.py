@@ -960,7 +960,13 @@ class Handler(BaseHTTPRequestHandler):
         # A 4xx is a client contract violation, and the phone cannot show us its request. Logging
         # the message is what makes a rejected sync diagnosable from the server side.
         if status >= 400:
-            LOGGER.warning("HTTP %s %s: %s", status, urlparse(self.path).path, message)
+            # Straight to stderr: the root logger has an in-memory buffer handler for the UI and no
+            # stream handler, so LOGGER.warning never reaches the journal. Request lines are printed
+            # by log_message for the same reason.
+            print(
+                f"HTTP {status} {urlparse(self.path).path}: {message}",
+                file=sys.stderr, flush=True,
+            )
         payload: dict[str, Any] = {"error": message}
         if fields:
             payload["fields"] = fields
@@ -1433,8 +1439,9 @@ class Handler(BaseHTTPRequestHandler):
             payload["fields"] = exc.fields
         if exc.details:
             payload["details"] = exc.details
-        LOGGER.warning(
-            "HTTP %s %s: %s (%s)", exc.status, urlparse(self.path).path, exc.message, exc.code
+        print(
+            f"HTTP {exc.status} {urlparse(self.path).path}: {exc.message} ({exc.code})",
+            file=sys.stderr, flush=True,
         )
         self._json(exc.status, payload)
 
