@@ -1335,6 +1335,7 @@ class Handler(BaseHTTPRequestHandler):
                             "swap": self._ios_workout_plan_swap,
                             "remove": self._ios_workout_plan_remove,
                             "sets": self._ios_workout_plan_sets,
+                            "move": self._ios_workout_plan_move,
                         }
                         handler = handlers.get(parts[8])
                         if handler is None:
@@ -2640,8 +2641,39 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError as exc:
             raise ios_workflow.IOSWorkflowError(400, "validation_failed", str(exc)) from exc
 
+    def _ios_workout_plan_move(self, conn, workout_id: str, item_index: int,
+                               body: dict) -> dict:
+        self._ios_closed_fields(body, {"to_index", "expected_exercise_id"})
+        data, _ = self._ios_plan_item(conn, workout_id, item_index, body)
+        try:
+            to_index = _integer(body.get("to_index"))
+        except (TypeError, ValueError) as exc:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", str(exc)
+            ) from exc
+        if to_index is None:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "to_index is required",
+                fields={"to_index": "required"},
+            )
+        items = (data.get("plan") or {}).get("items") or []
+        if not 0 <= to_index < len(items):
+            raise ios_workflow.IOSWorkflowError(
+                409, "plan_changed",
+                "the plan changed; refresh before moving this item",
+                details={"workout": data},
+            )
+        try:
+            return workout.move_exercise(conn, workout_id, item_index, to_index)
+        except workout.PlanEditConflict as exc:
+            self._ios_plan_conflict(exc, data)
+        except ValueError as exc:
+            raise ios_workflow.IOSWorkflowError(400, "validation_failed", str(exc)) from exc
+
     def _ios_workout_plan_add(self, conn, workout_id: str, body: dict) -> dict:
-        self._ios_closed_fields(body, {"exercise_id"})
+        self._ios_closed_fields(
+            body, {"exercise_id", "sets", "reps_low", "reps_high", "rir_target"}
+        )
         data = self._ios_workout(conn, workout_id)
         exercise_id = body.get("exercise_id")
         if not isinstance(exercise_id, str) or not exercise_id.strip():
@@ -2650,8 +2682,21 @@ class Handler(BaseHTTPRequestHandler):
                 fields={"exercise_id": "required"},
             )
         try:
+            sets = _integer(body.get("sets"))
+            reps_low = _integer(body.get("reps_low"))
+            reps_high = _integer(body.get("reps_high"))
+            rir_target = _integer(body.get("rir_target"))
+        except (TypeError, ValueError) as exc:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", str(exc)
+            ) from exc
+        try:
             return workout.add_exercise(
-                conn, workout_id, exercise_id=exercise_id.strip()
+                conn, workout_id, exercise_id=exercise_id.strip(),
+                sets=3 if sets is None else sets,
+                reps_low=8 if reps_low is None else reps_low,
+                reps_high=12 if reps_high is None else reps_high,
+                rir_target=2 if rir_target is None else rir_target,
             )
         except workout.PlanEditConflict as exc:
             self._ios_plan_conflict(exc, data)

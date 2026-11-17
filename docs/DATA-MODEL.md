@@ -316,7 +316,7 @@ document version.
 |---|---|
 | item_id PK | |
 | prescription_id FK | |
-| order_index | stable plan-item identity within a prescription/workout; live R8 edits preserve it and add assigns the next value |
+| order_index | stable plan-item identity within a prescription/workout; live R8 edits preserve it (move changes only the list position) and add assigns the next value |
 | exercise_id | |
 | sets, reps_low, reps_high | |
 | load_kg, load_basis, rounding_increment | |

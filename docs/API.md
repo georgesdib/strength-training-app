@@ -268,8 +268,9 @@ An issued VBT target now carries an optional `vbt` object on each plan item:
 
 The legacy `velocity_target` and `vbt_basis` fields remain. The structured object is frozen
 into `workout_session.plan_json` at workout start, so a later recalibration cannot rewrite the
-target a workout was issued with. A swap clears the old target, an added exercise has no target,
-and a set-count change preserves a still-applicable target. Plans created before this field
+target a workout was issued with. A swap re-solves the replacement's own target and never borrows
+the old lift's; an added exercise is solved the same way and carries a target only when its own
+history supports one; a set-count change preserves a still-applicable target. Plans created before this field
 existed have no `vbt` object and are treated as legacy; the server does not reconstruct target
 bands from the current calibration.
 
@@ -395,10 +396,11 @@ in the StrengthApp repository.
 | `GET /api/ios/v1/exercises` | bearer | `{exercises:[{id, display, pattern}]}`; canonical catalogue for the R8 picker and exercise library |
 | `GET /api/ios/v1/exercises/<id>` | bearer | read-only exercise detail: `{exercise:{id,display,pattern,source}, properties:{...}, e1rm_applicable, e1rm, e1rm_reason}`; `e1rm` is the existing 365-day eligible/degraded series, or `null` when not e1RM-applicable; applicability uses the shared derived structural default when the taxonomy has no explicit flag; unknown id 404 |
 | `GET /api/ios/v1/exercises/<id>/history?limit=&offset=` | bearer | exactly `exercise_history_feature.history`; completed sessions with current working sets, 20 default page, equivalents reported; unknown id 404 |
-| `POST /api/ios/v1/workouts/<id>/plan/items/<index>/swap` | bearer + Idempotency-Key | `{exercise_id, expected_exercise_id}` -> workout detail; `409 sets_already_logged` after a set, `409 exercise_already_present`, `409 plan_changed` |
+| `POST /api/ios/v1/workouts/<id>/plan/items/<index>/swap` | bearer + Idempotency-Key | `{exercise_id, expected_exercise_id}` -> workout detail; the replacement is re-solved from its own history (its own load, warm-ups and VBT target); `409 sets_already_logged` after a set, `409 exercise_already_present`, `409 plan_changed` |
 | `POST /api/ios/v1/workouts/<id>/plan/items/<index>/remove` | bearer + Idempotency-Key | `{expected_exercise_id}` -> workout detail; logged sets are kept; `409 last_plan_item`, `409 plan_changed` |
 | `POST /api/ios/v1/workouts/<id>/plan/items/<index>/sets` | bearer + Idempotency-Key | `{delta, expected_exercise_id}` -> workout detail; `409 sets_below_logged`, `409 plan_changed` |
-| `POST /api/ios/v1/workouts/<id>/plan/exercises` | bearer + Idempotency-Key | `{exercise_id}` -> workout detail; server defaults 3 sets, 8–12 reps, RIR 2, no load; duplicate is `409 exercise_already_present` |
+| `POST /api/ios/v1/workouts/<id>/plan/items/<index>/move` | bearer + Idempotency-Key | `{to_index, expected_exercise_id}` -> workout detail; `to_index` is the final position after removal, identities and logged-set attribution are preserved, a same-position move is a no-op, out-of-range is `409 plan_changed` |
+| `POST /api/ios/v1/workouts/<id>/plan/exercises` | bearer + Idempotency-Key | `{exercise_id, sets?, reps_low?, reps_high?, rir_target?}` -> workout detail; defaults 3 sets, 8–12 reps, RIR 2; the added slot is solved from its own history (load, warm-ups, VBT) and stays `load_kg: null` with `unknown_load_reason` when it cannot be solved; `load_kg` is `400 unknown_field`; duplicate is `409 exercise_already_present` |
 | `POST /api/ios/v1/workouts/<id>/complete` | bearer + Idempotency-Key | `{session_rpe? or not_recorded: true, duration_min?, notes?, ended_at?, productivity?}` -> completed workout detail; RPE and not-recorded are mutually exclusive; `ended_at` preserves the local finish time and measured duration; `productivity` is 1-5 when present |
 | `POST /api/ios/v1/workouts/<id>/abandon` | bearer + Idempotency-Key | `{}` -> abandoned workout detail |
 | `POST /api/ios/v1/workouts/<id>/execution-events` | bearer + Idempotency-Key | `{events:[{event_id, event_type, occurred_at, plan_item_index?, set_id?, local_set_id?, payload?}]}` -> `{workout_id, accepted, duplicates, received_at}`; 1-100 events, all-or-nothing, idempotent by event_id; unknown fields, bad timestamps, wrong ownership/status and conflicting event IDs are 400/404/409 |

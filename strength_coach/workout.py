@@ -1468,6 +1468,80 @@ def _logged_sets_for_item(workout: dict, item_index: int, exercise_id: str) -> t
     return attributed, ambiguous
 
 
+def _solved_plan_item(solved) -> dict:
+    """The plan-item fields the prescription solver owns (swap and add share them)."""
+    return {
+        "order_index": solved.order_index,
+        "exercise_id": solved.exercise_id,
+        "sets": solved.sets,
+        "reps_low": solved.reps_low,
+        "reps_high": solved.reps_high,
+        "reps_unit": solved.reps_unit,
+        "load_kg": solved.load_kg,
+        "load_basis": solved.load_basis,
+        "rounding_increment_kg": solved.rounding_increment_kg,
+        "rir_target": solved.rir_target,
+        "effort_model": solved.effort_model,
+        "quality_stop": solved.quality_stop,
+        "rest_s": solved.rest_s,
+        "essential": solved.essential,
+        "refs": list(solved.rationale_refs),
+        "time_cap_s": solved.time_cap_s,
+        "velocity_target": solved.velocity_target,
+        "vbt_basis": solved.vbt_basis,
+        "vbt": solved.vbt.as_dict() if solved.vbt is not None else None,
+        "unknown_load_reason": solved.unknown_load_reason,
+        "e1rm_source_sets": solved.e1rm_source_sets,
+        "e1rm_kg": solved.e1rm_kg,
+        "e1rm_ref": solved.e1rm_ref,
+        "e1rm_quality": solved.e1rm_quality,
+        "e1rm_age_days": solved.e1rm_age_days,
+        "warmup": [
+            {"percent": w.percent, "reps": w.reps, "load_kg": w.load_kg}
+            for w in solved.warmup
+        ],
+    }
+
+
+def _solve_added_item(
+    conn,
+    *,
+    workout: Mapping[str, Any],
+    exercise_id: str,
+    sets: int,
+    reps_low: int,
+    reps_high: int,
+    rir_target: int | None,
+    order_index: int,
+) -> dict | None:
+    """Solve one mid-workout addition as its own slot (DEC-IOS-08).
+
+    The added exercise keeps the requested sets/reps/RIR shape and gets a load, warm-up
+    ramp and VBT target from its own history and calibration. Nothing is carried from
+    another lift and the athlete never supplies a prescription load. A solve that cannot
+    answer must not block the edit, so the caller falls back to an explicit unsolved item.
+    """
+    from strength_coach.prescribe import engine as prescribe_engine
+
+    try:
+        solved, _warnings, _vbt_note = prescribe_engine.resolve_replacement(
+            conn,
+            for_date=str(workout["for_date"]),
+            session_type=str(workout["session_type"]),
+            exercise_id=exercise_id,
+            sets=int(sets),
+            reps_low=int(reps_low),
+            reps_high=int(reps_high),
+            rir_target=rir_target,
+            rest_s=None,
+            essential=False,
+            order_index=int(order_index),
+        )
+    except Exception:  # noqa: BLE001 - an unsolved add is still a valid edit
+        return None
+    return _solved_plan_item(solved)
+
+
 def swap_exercise(conn, workout_id: str, item_index: int, exercise_id: str) -> dict:
     workout = get(conn, workout_id)
     if workout is None:
@@ -1513,37 +1587,7 @@ def swap_exercise(conn, workout_id: str, item_index: int, exercise_id: str) -> d
         essential=bool(old_item.get("essential")),
         order_index=int(item_index),
     )
-    solved_row = {
-        "order_index": solved.order_index,
-        "exercise_id": solved.exercise_id,
-        "sets": solved.sets,
-        "reps_low": solved.reps_low,
-        "reps_high": solved.reps_high,
-        "reps_unit": solved.reps_unit,
-        "load_kg": solved.load_kg,
-        "load_basis": solved.load_basis,
-        "rounding_increment_kg": solved.rounding_increment_kg,
-        "rir_target": solved.rir_target,
-        "effort_model": solved.effort_model,
-        "quality_stop": solved.quality_stop,
-        "rest_s": solved.rest_s,
-        "essential": solved.essential,
-        "refs": list(solved.rationale_refs),
-        "time_cap_s": solved.time_cap_s,
-        "velocity_target": solved.velocity_target,
-        "vbt_basis": solved.vbt_basis,
-        "vbt": solved.vbt.as_dict() if solved.vbt is not None else None,
-        "unknown_load_reason": solved.unknown_load_reason,
-        "e1rm_source_sets": solved.e1rm_source_sets,
-        "e1rm_kg": solved.e1rm_kg,
-        "e1rm_ref": solved.e1rm_ref,
-        "e1rm_quality": solved.e1rm_quality,
-        "e1rm_age_days": solved.e1rm_age_days,
-        "warmup": [
-            {"percent": w.percent, "reps": w.reps, "load_kg": w.load_kg}
-            for w in solved.warmup
-        ],
-    }
+    solved_row = _solved_plan_item(solved)
     items[int(item_index)] = {
         **old_item,
         **solved_row,
@@ -1592,22 +1636,42 @@ def add_exercise(
         for position, item in enumerate(collection)
     ]
     next_index = max(identities, default=-1) + 1
-    item = {
-        "order_index": next_index,
-        "exercise_id": new_id,
-        "sets": sets,
-        "reps_low": low,
-        "reps_high": high,
-        "load_kg": load_kg,
-        "rir_target": rir_target,
-        "essential": False,
-        "added_during_workout": True,
-        # A workout-time addition has no issued calibration target; keep the shape explicit
-        # rather than making consumers guess from an absent key.
-        "velocity_target": None,
-        "vbt_basis": None,
-        "vbt": None,
-    }
+    # An addition is solved the same way a replacement is (DEC-IOS-08): load, warm-ups and
+    # VBT target come from the exercise's own history and calibration, never from the
+    # athlete. The phone sends no load; the explicit argument stays for the web form.
+    item = None
+    if load_kg is None:
+        item = _solve_added_item(
+            conn,
+            workout=workout,
+            exercise_id=new_id,
+            sets=sets,
+            reps_low=low,
+            reps_high=high,
+            rir_target=rir_target,
+            order_index=next_index,
+        )
+    if item is None:
+        item = {
+            "order_index": next_index,
+            "exercise_id": new_id,
+            "sets": sets,
+            "reps_low": low,
+            "reps_high": high,
+            "load_kg": load_kg,
+            "rir_target": rir_target,
+            "essential": False,
+            "added_during_workout": True,
+            # A workout-time addition has no issued calibration target; keep the shape explicit
+            # rather than making consumers guess from an absent key.
+            "velocity_target": None,
+            "vbt_basis": None,
+            "vbt": None,
+        }
+        if load_kg is None:
+            item["unknown_load_reason"] = "added during workout; load not solved"
+    else:
+        item["added_during_workout"] = True
     plan = {**(workout.get("plan") or {}), "items": items + [item]}
     return _write_plan(conn, workout_id, plan, "add_exercise", item)
 
@@ -1630,6 +1694,34 @@ def remove_exercise(conn, workout_id: str, item_index: int) -> dict:
     plan = {**(workout.get("plan") or {}), "items": items}
     return _write_plan(conn, workout_id, plan, "remove_exercise",
                        {"item_index": index, "removed": removed})
+
+
+def move_exercise(conn, workout_id: str, item_index: int, to_index: int) -> dict:
+    """Move one plan item to a new display position (DEC-IOS-09).
+
+    `to_index` is the item's final position after it is lifted out of the list, so moving
+    the first item to the end of a three-item plan sends 2. Identities, `set_groups` and
+    logged sets travel with the item; nothing is renumbered and no prescription row is
+    touched. A move to the current position is a no-op and records no event.
+    """
+    workout = get(conn, workout_id)
+    if workout is None:
+        raise ValueError("workout not found")
+    items = _editable(workout)
+    index = int(item_index)
+    target = int(to_index)
+    if not 0 <= index < len(items):
+        raise ValueError("item_index out of range")
+    if not 0 <= target < len(items):
+        raise ValueError("to_index out of range")
+    if target == index:
+        return workout
+    item = items.pop(index)
+    items.insert(target, item)
+    plan = {**(workout.get("plan") or {}), "items": items}
+    return _write_plan(conn, workout_id, plan, "move_exercise",
+                       {"item_index": index, "to_index": target,
+                        "exercise_id": item.get("exercise_id")})
 
 
 def change_sets(conn, workout_id: str, item_index: int, delta: int) -> dict:

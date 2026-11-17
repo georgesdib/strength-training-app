@@ -2146,3 +2146,94 @@ def test_queue_selection_is_fifo(tmp_path):
         assert selected["issued_plan_id"] == "older"
     finally:
         store.close()
+
+
+def test_ios_plan_add_accepts_shape_and_still_refuses_a_client_load(ios):
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(ios, token, issued["issued_plan_id"])
+    assert status == 200, workout
+    plan_ids = {item["exercise_id"] for item in workout["plan"]["items"]}
+    status, catalogue = _request(ios["base"], "/api/ios/v1/exercises", token=token)
+    assert status == 200, catalogue
+    new_id = next(entry["id"] for entry in catalogue["exercises"] if entry["id"] not in plan_ids)
+
+    status, refused = _plan_edit(
+        ios, token, workout["workout_id"], "/exercises",
+        {"exercise_id": new_id, "load_kg": 100},
+    )
+    assert status == 400, refused
+    assert refused["code"] == "unknown_field"
+
+    status, added = _plan_edit(
+        ios, token, workout["workout_id"], "/exercises",
+        {"exercise_id": new_id, "sets": 4, "reps_low": 5, "reps_high": 6,
+         "rir_target": 3},
+    )
+    assert status == 200, added
+    item = next(entry for entry in added["plan"]["items"]
+                if entry["exercise_id"] == new_id)
+    assert item["sets"] == 4
+    assert item["reps_low"] == 5
+    assert item["reps_high"] == 6
+    assert item["rir_target"] == 3
+    # The fresh test database has no history for this exercise, so it is added unsolved
+    # with the solver's reason rather than a client-supplied load.
+    assert item["load_kg"] is None
+    assert item["unknown_load_reason"]
+
+
+def test_ios_plan_move_reorders_and_guards_a_stale_index(ios):
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(ios, token, issued["issued_plan_id"])
+    assert status == 200, workout
+    items = workout["plan"]["items"]
+    first, second = items[0], items[1]
+
+    status, conflict = _plan_edit(
+        ios, token, workout["workout_id"], "/items/0/move",
+        {"to_index": 1, "expected_exercise_id": "wrong_exercise"},
+    )
+    assert status == 409, conflict
+    assert conflict["code"] == "plan_changed"
+
+    status, moved = _plan_edit(
+        ios, token, workout["workout_id"], "/items/0/move",
+        {"to_index": 1, "expected_exercise_id": first["exercise_id"]},
+    )
+    assert status == 200, moved
+    ordered = moved["plan"]["items"]
+    assert ordered[0]["exercise_id"] == second["exercise_id"]
+    assert ordered[1]["exercise_id"] == first["exercise_id"]
+    # Identity travels with the item; only the display position changed.
+    assert ordered[1].get("order_index", first.get("order_index")) == first.get(
+        "order_index"
+    )
+    assert _scalar(
+        ios["path"],
+        "SELECT COUNT(*) FROM workout_event WHERE workout_id = ? "
+        "AND event_type = 'move_exercise'",
+        (workout["workout_id"],),
+    ) == 1
+
+    status, out_of_range = _plan_edit(
+        ios, token, workout["workout_id"], "/items/0/move",
+        {"to_index": 99, "expected_exercise_id": second["exercise_id"]},
+    )
+    assert status == 409, out_of_range
+    assert out_of_range["code"] == "plan_changed"
+
+    status, same = _plan_edit(
+        ios, token, workout["workout_id"], "/items/1/move",
+        {"to_index": 1, "expected_exercise_id": first["exercise_id"]},
+    )
+    assert status == 200, same
+    assert _scalar(
+        ios["path"],
+        "SELECT COUNT(*) FROM workout_event WHERE workout_id = ? "
+        "AND event_type = 'move_exercise'",
+        (workout["workout_id"],),
+    ) == 1

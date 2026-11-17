@@ -372,3 +372,53 @@ def test_family_scope_metadata_reaches_the_plan_item(monkeypatch):
     assert item["vbt"]["family"] == "squat"
     assert row["scope"] == "family"
     assert row["vbt_family"] == "squat"
+
+
+
+def test_add_solves_the_added_exercise_from_its_own_history():
+    with store_with(rows_with_velocity()) as store:
+        conn = store.connection
+        prescription = build_prescription(
+            conn, for_date="2024-01-22", session_type="squat",
+        )
+        plan = prescription_dict(prescription)
+        started = workout.start(
+            conn, for_date="2024-01-22", plan=plan, readiness=READINESS,
+        )
+        added = workout.add_exercise(
+            conn, started["workout_id"], exercise_id="lateral_raise",
+            sets=2, reps_low=12, reps_high=15, rir_target=3,
+        )
+
+    item = next(
+        value for value in added["plan"]["items"]
+        if value["exercise_id"] == "lateral_raise"
+    )
+    # The raise has its own history (12.5 kg x 10), so the solver supplies the load.
+    assert item["load_kg"] == 12.5
+    assert item["unknown_load_reason"] is None
+    assert item["added_during_workout"] is True
+    assert item["sets"] == 2 and item["reps_low"] == 12 and item["reps_high"] == 15
+
+
+def test_add_without_history_stays_unsolved_and_says_why():
+    with store_with(rows_with_velocity()) as store:
+        conn = store.connection
+        prescription = build_prescription(
+            conn, for_date="2024-01-22", session_type="squat",
+        )
+        plan = prescription_dict(prescription)
+        started = workout.start(
+            conn, for_date="2024-01-22", plan=plan, readiness=READINESS,
+        )
+        added = workout.add_exercise(
+            conn, started["workout_id"], exercise_id="lat_pulldown", sets=2,
+        )
+
+    item = next(
+        value for value in added["plan"]["items"]
+        if value["exercise_id"] == "lat_pulldown"
+    )
+    assert item["load_kg"] is None
+    # The solver's own reason is kept rather than replaced by a generic string.
+    assert item["unknown_load_reason"]
