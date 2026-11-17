@@ -2003,6 +2003,59 @@ def test_ios_execution_events_are_idempotent_and_analysable(ios):
     assert web_analytics["data_quality"]["event_count"] == 4
 
 
+def test_ios_execution_analytics_keeps_overlapping_superset_exercises(ios):
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(ios, token, issued["issued_plan_id"])
+    assert status == 200, workout
+
+    workout_start = datetime.datetime.now(datetime.UTC) - datetime.timedelta(seconds=120)
+    store = db.Store(ios["path"])
+    try:
+        store.connection.execute(
+            "UPDATE workout_session SET started_at = ? WHERE workout_id = ?",
+            (workout_start.isoformat(), workout["workout_id"]),
+        )
+        store.connection.commit()
+    finally:
+        store.close()
+
+    def stamp(offset):
+        return (workout_start + datetime.timedelta(seconds=offset)).isoformat()
+
+    # A superset: both exercises start while the other is still running, and each ends on its
+    # own. A single "currently open exercise" slot would silently drop the first start.
+    events = [
+        {"event_id": str(uuid.uuid4()), "event_type": "exercise_started",
+         "occurred_at": stamp(1), "plan_item_index": 0},
+        {"event_id": str(uuid.uuid4()), "event_type": "exercise_started",
+         "occurred_at": stamp(2), "plan_item_index": 1},
+        {"event_id": str(uuid.uuid4()), "event_type": "exercise_completed",
+         "occurred_at": stamp(31), "plan_item_index": 0},
+        {"event_id": str(uuid.uuid4()), "event_type": "exercise_completed",
+         "occurred_at": stamp(41), "plan_item_index": 1},
+    ]
+    status, result = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/execution-events",
+        method="POST", payload={"events": events}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, result
+
+    status, analytics = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/execution",
+        token=token,
+    )
+    assert status == 200, analytics
+    assert [item["plan_item_index"] for item in analytics["exercises"]] == [0, 1]
+    assert analytics["exercises"][0]["duration_s"] == 30
+    assert analytics["exercises"][1]["duration_s"] == 39
+    assert analytics["data_quality"]["exercise_started_events"] == 2
+    assert analytics["data_quality"]["exercise_completed_events"] == 2
+    # Overlapping intervals leave no gap between the two, so they contribute no transition.
+    assert analytics["summary"]["exercise_transition_s"] == 0
+
+
 def test_ios_execution_events_reject_bad_timestamps_atomically(ios):
     token, _ = _paired(ios)
     status, issued = _issue(ios, token)

@@ -210,6 +210,23 @@ def _seconds(start: str, end: str) -> float | None:
     return round(value, 3) if value >= 0 else None
 
 
+def _exercise_key(event: dict[str, Any]) -> str:
+    """Identify the exercise an event belongs to, so supersets may overlap.
+
+    `plan_item_index` is the plan position; an off-plan exercise has none, so the payload's
+    `exercise_id` identifies it instead. An event that carries neither keeps a unique key and
+    is simply never paired.
+    """
+    index = event.get("plan_item_index")
+    if index is not None:
+        return f"item:{index}"
+    payload = event.get("payload") or {}
+    exercise = payload.get("exercise_id")
+    if isinstance(exercise, str) and exercise:
+        return f"exercise:{exercise}"
+    return f"event:{event['event_id']}"
+
+
 def _merge(intervals: list[tuple[float, float]]) -> list[tuple[float, float]]:
     if not intervals:
         return []
@@ -253,7 +270,10 @@ def analytics(
     rests: list[dict[str, Any]] = []
     open_rest: dict[str, Any] | None = None
     exercises: list[dict[str, Any]] = []
-    open_exercise: dict[str, Any] | None = None
+    # Keyed by exercise so two exercises may be open at once (supersets). The client that
+    # records a superset starts each member at its own first set and ends each at its own end,
+    # so the intervals legitimately overlap and a single "currently open" slot would discard one.
+    open_exercises: dict[str, dict[str, Any]] = {}
 
     for event in events:
         event_type = str(event["event_type"])
@@ -315,20 +335,24 @@ def analytics(
                 if isinstance(current, int):
                     open_rest["prescribed_rest_s"] = current + added
         elif event_type == "exercise_started":
-            open_exercise = {
+            open_exercises[_exercise_key(event)] = {
                 "plan_item_index": event.get("plan_item_index"),
                 "started_at": occurred,
             }
-        elif event_type == "exercise_completed" and open_exercise is not None:
-            duration = _seconds(open_exercise["started_at"], occurred)
-            if duration is not None:
-                exercises.append({
-                    **open_exercise,
-                    "ended_at": occurred,
-                    "duration_s": duration,
-                })
-            open_exercise = None
+        elif event_type == "exercise_completed":
+            start = open_exercises.pop(_exercise_key(event), None)
+            if start is not None:
+                duration = _seconds(start["started_at"], occurred)
+                if duration is not None:
+                    exercises.append({
+                        **start,
+                        "ended_at": occurred,
+                        "duration_s": duration,
+                    })
 
+    # Completion order is not start order once two exercises overlap, so order the timeline
+    # before deriving the gaps between exercises.
+    exercises.sort(key=lambda item: _parse_timestamp(item["started_at"], "started_at"))
     active_intervals = [
         (_parse_timestamp(item["started_at"], "started_at").timestamp(),
          _parse_timestamp(item["completed_at"], "completed_at").timestamp())
