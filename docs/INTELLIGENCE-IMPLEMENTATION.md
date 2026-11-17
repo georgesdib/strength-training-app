@@ -1020,9 +1020,10 @@ persisted and count against the daily budget.
 
 **INT-11 — Explain the System.** Implemented and closed 2026-11-16 with documented limitations. The
 local incremental FTS5 index, retrieval, citation check, explain/status endpoints, background startup
-refresh and web/iOS Explain tabs exist. Known gaps: programme-block archive/contract context, no
-outcome evidence cited for reactive trigger counts, and no iOS physical-device acceptance. INT-12 web
-search/RAG is deferred.
+refresh and web/iOS Explain tabs exist. The owner closed the device-acceptance and release-tag items
+on 2026-11-17 by decision: no separate device run was made and no dedicated tag was cut, so Explain
+ships with the next tagged release. Known gaps: programme-block archive/contract context and no
+outcome evidence cited for reactive trigger counts. INT-12 web search/RAG is deferred.
 
 **INT-12 — Web search and RAG.** Deferred: opt-in fixed-provider web search with URL citations and
 SSRF/privacy controls; embeddings only if the INT-11 keyword baseline is measured insufficient. The
