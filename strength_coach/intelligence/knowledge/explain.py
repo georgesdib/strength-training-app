@@ -4,11 +4,30 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from typing import Protocol
 
-from strength_coach.agents.client import LLMClient
 from strength_coach.intelligence.knowledge.allowlist import KnowledgeConfig
 from strength_coach.intelligence.knowledge.citations import Citation, extract
 from strength_coach.intelligence.knowledge.retrieval import RetrievedChunk, search
+
+
+class ExplainResponse(Protocol):
+    """The response shape this layer reads; the model layer owns the concrete type."""
+
+    text: str
+    tokens: int | None
+
+
+class ExplainModel(Protocol):
+    """The only model capability the knowledge layer needs (ADR-INT-002).
+
+    The capability layer declares this port so it does not import the agents layer; the web
+    layer passes its concrete model client, which satisfies the protocol structurally.
+    """
+
+    def complete(
+        self, prompt: str, *, system: str | None = None,
+    ) -> ExplainResponse: ...
 
 
 @dataclass(frozen=True)
@@ -47,7 +66,7 @@ def _sources(chunks: tuple[RetrievedChunk, ...]) -> str:
 
 
 def run_explain(
-    config: KnowledgeConfig, client: LLMClient, question: str,
+    config: KnowledgeConfig, client: ExplainModel, question: str,
 ) -> ExplainResult:
     chunks = tuple(search(
         config.index_path, question,
