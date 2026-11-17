@@ -118,3 +118,28 @@ def test_healthkit_values_flow_through_all_readiness_consumers():
         assert after["healthkit"]["hrv_ms"]["value"] == 56.0
     finally:
         store.close()
+
+
+def test_same_sample_after_midnight_is_skipped_not_conflicted():
+    store = _store()
+    try:
+        conn = store.connection
+        first = _observation("2024-01-12", "hrv_ms", 55.0, sample_id="sample-midnight")
+        inserted = healthkit_readiness.record_observations(
+            conn, device_id=DEVICE_ID, on_date="2024-01-12",
+            samples=[first], imported_at="2024-01-12T23:55:00+00:00",
+        )
+        assert inserted == 1
+
+        # The app imports again after midnight and may select the same 48-hour HRV sample.
+        again = healthkit_readiness.record_observations(
+            conn, device_id=DEVICE_ID, on_date="2024-01-13",
+            samples=[first], imported_at="2024-01-13T00:05:00+00:00",
+        )
+        assert again == 0
+        assert conn.execute("SELECT COUNT(*) FROM healthkit_readiness").fetchone()[0] == 1
+        row = conn.execute("SELECT on_date FROM healthkit_readiness").fetchone()
+        assert row["on_date"] == "2024-01-12"
+        assert queries.readiness_day(conn, "2024-01-13") is None
+    finally:
+        store.close()
