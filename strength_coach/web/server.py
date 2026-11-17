@@ -957,6 +957,10 @@ class Handler(BaseHTTPRequestHandler):
         self._send(status, body, "application/json; charset=utf-8", headers=headers)
 
     def _error(self, status: int, message: str, fields: dict[str, str] | None = None) -> None:
+        # A 4xx is a client contract violation, and the phone cannot show us its request. Logging
+        # the message is what makes a rejected sync diagnosable from the server side.
+        if status >= 400:
+            LOGGER.warning("HTTP %s %s: %s", status, urlparse(self.path).path, message)
         payload: dict[str, Any] = {"error": message}
         if fields:
             payload["fields"] = fields
