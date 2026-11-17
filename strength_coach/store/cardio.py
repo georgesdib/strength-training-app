@@ -495,6 +495,16 @@ def record_vo2max(
     if not 0 < float(value) < 100:
         raise CardioIngestError(f"implausible VO2max {value!r}")
     when = utc_iso(measured_at, field="measured_at")
+    # Content idempotency, not just key idempotency: the export wrote the same readings under content
+    # hashes, so a full re-sync by UUID would otherwise duplicate every historical estimate. Two
+    # readings identical in time, value and method are indistinguishable from a duplicate.
+    existing = conn.execute(
+        "SELECT 1 FROM measurement WHERE metric_key='vo2max' AND measured_at=? AND value=? "
+        "AND method=? LIMIT 1",
+        (when, float(value), method),
+    ).fetchone()
+    if existing is not None:
+        return False
     conn.execute(
         """
         INSERT OR IGNORE INTO metric_definition (

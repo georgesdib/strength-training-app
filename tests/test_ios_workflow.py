@@ -2430,3 +2430,20 @@ def test_healthkit_activity_carries_effort_and_vo2max(ios):
     assert status == 200, body
     assert int(_scalar(ios["path"],
         "SELECT COUNT(*) FROM measurement WHERE metric_key='vo2max'")) == 1
+
+
+def test_vo2max_is_content_idempotent_across_key_schemes(ios):
+    """A re-sync of history must not duplicate the export's rows, which carry different keys."""
+    token, _ = _paired(ios)
+    metrics = [{
+        "key": uuid.uuid4().hex, "kind": "vo2max",
+        "measured_at": "2026-11-18T07:00:00+00:00", "value": 51.4, "method": "Apple Watch",
+    }]
+    for _ in range(2):
+        status, body = _request(
+            ios["base"], "/api/ios/v1/healthkit/samples", method="POST",
+            payload={"samples": [], "metrics": metrics}, token=token, key=uuid.uuid4().hex,
+        )
+        assert status == 200, body
+    assert int(_scalar(ios["path"],
+        "SELECT COUNT(*) FROM measurement WHERE metric_key='vo2max'")) == 1
