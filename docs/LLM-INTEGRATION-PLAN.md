@@ -17,23 +17,23 @@ current implementation remains the source of truth until a phase is implemented 
 > [Training Intelligence plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md)
 > (§16 and `ADR-INT-013`). **Do not extend this document; amend that plan instead.**
 >
-> Three things here remain in force and are retained as its requirements record:
+> Two things here remain in force; the third is retained as a withdrawal record:
 >
 > 1. **§8.1 outbound-data inventory** and **§9 evaluation/rollout gates** — adopted by reference by the
 >    new plan; every model path still depends on them.
 > 2. **§8.2 / Phase 1b selector retirement** (`DEC-LLM-14`) — still required before a server-side
 >    narration phase, so that only one model surface exists.
 > 3. **§7 / phases 4–5 constrained proposer** (`DEC-LLM-09`) — a **write** capability outside the
->    read-only workstream. It is **deferred/unscheduled** by this supersession: its decision,
->    requirements and approval gates stay recorded, and any future work needs a new decision.
+>    read-only workstream. It is **withdrawn 2026-11-17**: the CLI proposal surface was removed for
+>    CLI/UI parity, the decision is closed, and any future work needs a new decision.
 >
 > The Iteration 1/Iteration 2 analysis below is kept as the historical record of why the boundary was
 > drawn. It no longer describes the planned sequence: MCP is now INT-1, and the read-only capabilities
 > are INT-2/INT-3.
 
-## 1. Current implementation (verified)
+## 1. Implementation at the plan date (historical)
 
-What exists today:
+What existed on 2026-10-29:
 
 - strength_coach/agents/client.py — a text-in/text-out LLMClient protocol, NullLLM, and one
   OpenAI-compatible HTTP adapter. There are no tools, function calls, streaming or embeddings.
@@ -54,6 +54,9 @@ What exists today:
   hashes, code version, model and tokens.
 - The web UI exposes the optional Use LLM selection chooser and LLM settings. It has no
   analyst, explainer or proposer surface; the proposer remains CLI-only.
+
+> **Removed 2026-11-17:** the selector and the `agents/proposal.py` / `run --propose` path no
+> longer exist. The remaining LLM surfaces are read-only: narrative, chat and Explain.
 
 ## 2. What is inadequate about the minimal selector
 

@@ -1,8 +1,7 @@
 """Deterministic prescription engine (Day B in v0).
 
 Layering: above `rules` and `store`; below `critique` and `agents`. Nothing here calls a
-model -- the LLM layer may only *explain* what this produced, or propose something the policy
-engine accepts.
+model -- the LLM layer may only *explain* what this produced.
 """
 
 from strength_coach.prescribe.config import Thresholds

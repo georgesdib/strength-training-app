@@ -5,8 +5,8 @@ One page. The long version is the rest of `docs/`.
 ## 1. Shape
 
 Hybrid by construction: a deterministic Python core, with an LLM layer bolted on the
-outside that may *explain*, *select among pre-approved options* and *propose bounded
-structural edits*. Policy validates every edit.
+outside that may *explain* and answer read-only questions. It never selects an exercise or edits
+the plan.
 
 ```
                     ┌─────────────────────────────────────────────┐
@@ -33,9 +33,9 @@ structural edits*. Policy validates every edit.
    └────────┬───────────────┘        └──────────────┬─────────────────┘
             ▼                                       ▼
    ┌──────────────────────────────────────────────────────────────┐
-   │ agents  LLM receives FACTS + CITED RULES, returns prose,      │
-   │         option choices and bounded structural proposals      │
-   │         (never load/RIR/velocity numbers)                    │
+   │ agents  LLM receives FACTS + CITED RULES, returns prose      │
+   │         and read-only answers (never load/RIR/velocity       │
+   │         numbers or plan changes)                             │
    └──────────────────────────────┬───────────────────────────────┘
                                   ▼
    ┌──────────────────────────────────────────────────────────────┐
@@ -65,22 +65,18 @@ structural edits*. Policy validates every edit.
 
 ## 3. Where the LLM sits (and where it must not)
 
-**Sits:** the *why*. Narrative critique, rubric rationale, rationale sentences that cite
-stable rule IDs, choosing among a small set of pre-approved session options, and bounded
-structural proposals (swap, set count, drop, reorder, scheme) that policy validates.
+**Sits:** the *why*. Narrative, chat over supplied facts, a local knowledge explainer and
+read-only weekly-review prose, always citing stable rule IDs where facts are asserted.
 
-**Does not sit:** any computed training number. Loads, RIR targets, velocity targets,
-percentages, tonnage, e1RM, progression decisions, session-type selection logic, and rubric
-arithmetic are Python. A bounded set-count proposal is a structural choice, not an arithmetic
-result: Python bounds it (`proposal_max_sets` / `proposal_max_set_change`) and rebuilds the item.
+**Does not sit:** any computed training number or any plan edit. Loads, RIR targets, velocity
+targets, percentages, tonnage, e1RM, progression decisions, session-type selection logic, exercise
+selection, set counts and rubric arithmetic are Python.
 
 Three hard boundaries:
 
-1. **Computed numbers are supplied, never generated.** The current client is text-in/text-out
-   and has no tool protocol: facts arrive in the prompt, and menu values are computed by Python
-   before the model chooses among them. A future tool-call interface would still return the
-   value from Python; the boundary, not the transport, is the invariant. Set counts are not
-   computed; they are bounded structural proposals.
+1. **Computed numbers are supplied, never generated.** Facts arrive in the prompt or through
+   read-only tools; any future tool-call interface would still return the value from Python. The
+   boundary, not the transport, is the invariant.
 2. **Every LLM output is validated.** The policy engine re-checks the composed
    prescription against the hard rules. Failure ⇒ deterministic fallback prescription is
    used, and the run is marked `llm_downgraded`.
@@ -88,25 +84,17 @@ Three hard boundaries:
    with no narrative. This path is exercised by a test, so "LLM unavailable" is a tested
    state, not a hope.
 
-### 3.1 Future direction (planned, not implemented)
+### 3.1 Current intelligence layer and retired write path
 
-The proposed next layer separates three permissions while keeping this diagram's deterministic
-core unchanged: a read-only **athlete analyst**, a read-only **programme explainer** and a
-**constrained proposer** whose structural changes are rebuilt and validated by Python and
-require explicit approval. All three use one deterministic, versioned context/evidence package;
-the LLM never becomes the source of a load, e1RM, volume or safety verdict. The phased plan,
-contracts and evaluation gates are in
-[`LLM-INTEGRATION-PLAN.md`](LLM-INTEGRATION-PLAN.md); ROADMAP §4.24 tracks status. Iteration 1
-reuses the existing client, proposal, feature, repository, provenance and trace infrastructure
-and adds the new shared deterministic context/evidence builder in Phase 2, which serialises the
-evidence produced by the Athlete Feedback & Coaching layer ([`AFC plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md), ROADMAP §4.33)
-rather than recomputing its metrics; retrieval/RAG and advanced orchestration are conditional
-Iteration 2 work. Nothing in this subsection is a current runtime capability.
-
-The read-only, provider-neutral capability layer and the separately deployable MCP server that serve
-those facts are specified in the portfolio
+The read-only capability layer and the separately deployable MCP server are implemented and
+specified in the portfolio
 [Training Intelligence plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md).
-It adds no model capability here, computes no metric of its own, and is not implemented.
+They use one deterministic, versioned evidence package and never become the source of a load,
+e1RM, volume or safety verdict.
+
+The former **constrained proposer** was withdrawn on 2026-11-17: the CLI `run --propose` surface
+was removed for CLI/UI parity, and `DEC-LLM-09` is closed rather than deferred. No LLM may select
+an exercise or propose a plan change. Retrieval/RAG remains deferred (INT-12).
 
 ## 4. Run lifecycle and trace
 

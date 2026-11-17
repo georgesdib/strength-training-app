@@ -58,7 +58,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v1.6 | Cardio depth | **planned** | cardio data audit and reproducible cardio impulse/shadow load (§4.13a); the deeper labelled calibration set is retired (`DEC-EVAL-09`, §4.14) |
 | — | Training-day session fragments | **done 2026-11-01** | one local training day may contain multiple session fragments; attendance and budget use days, volume/spinal use combined sets, e1RM uses one day-level observation; no schema migration; see [`docs/TRAINING-DAY-MODEL.md`](docs/TRAINING-DAY-MODEL.md) |
 | — | Deterministic dynamic template resolver | **Steps 0–6 complete 2026-11-01/03; merged to `development` 2026-11-03; released in v1.2.0 as opt-in (`resolver.enabled` default false)** | plan and confirmed decisions at [`docs/archive/PROGRAMME-BUILDER-PLAN.md`](docs/archive/PROGRAMME-BUILDER-PLAN.md) and [`docs/DECISIONS.md`](docs/DECISIONS.md) (`DEC-RESOLVER-01`–`12`); Step 1 delivered policy/settings/provenance; Step 2 delivered and remediated the internal deterministic generator core (`generator.py`, `resolver_settings.py`, accepted pattern-flexibility mapping); remediation covers shared injury/constraint eligibility, power-slot safety, require_can_do/unrated/rotation-default semantics, fallback repair, structural availability, whole-session/duplicate-aggregated authoritative spinal scoring, completed-workout precedence, history merge, retired redundant rotation/preference weights and policy/catalogue digests; Step 3 adds the opt-in top-set/back-off structure, top-set persistence and role-aware workout logging, and the hinge maximal-week programme change; Step 4C wires the flag-on resolver path through candidate pools, bounded beam and read-only evaluator, adds pool-aware scheduler availability, rejects selection overrides, and records generated-session provenance; the 4C audit remediation enforces required patterns on final assignments, separates evaluator failure stages, fingerprints beam configuration and DataFrame schemas, and uses the same auto-candidate/slot matching in scheduling; Step 5 adds the dedicated Settings -> Resolver panel, append-only scalar settings, validated policy YAML with atomic writes and 20 timestamped backups, read-only preview with choices/alternatives/suggestions, inline suitability rating, top-set preview, regenerate/diff and a start handoff; the Step 5 remediation adds shared CLI/web readiness enforcement, atomic backup creation, shared resolver-enable confirmation, deterministic restore with a reported pre-restore snapshot, and a full-prescription preview diff; Step 6 adds generated-slot snapshot provenance for critique/exemption reads with a legacy-null fallback, top-set role-aware critique coverage, a real-database copy smoke test, flag/policy rollback verification and the rollout documentation; forecast remains fixed option (c); the flag remains off |
-| v1.5 | LLM integration: read-only intelligence delivered | **released 2026-11-15; constrained proposer deferred** | phased workstream at §4.24; capability layer, MCP server, REST facade, narration and chat delivered; the constrained proposer (`DEC-LLM-09`) stays deferred and needs its own gated plan |
+| v1.5 | LLM integration: read-only intelligence delivered | **released 2026-11-15; constrained proposer withdrawn 2026-11-17** | phased workstream at §4.24; capability layer, MCP server, REST facade, narration and chat delivered; the constrained proposer (`DEC-LLM-09`) stays deferred and needs its own gated plan |
 | future | Derived analytics layer | **Milestones A, B and C implemented 2026-11-14; all planned consumers migrated; C-1 maintenance worker deployed 2026-11-15** | §4.35; shared versioned, rebuildable analytics (per-set, session/exercise, weekly; snapshots optional and deferred) owned by the existing analytical modules; motivated by the ODROID overview (2.7 s p50) and monitoring (49 s) measurements |
 | future | Athlete Feedback & Coaching (AFC) | **AFC-2, AFC-2i, AFC-3 and AFC-4 implemented 2026-11-13; physical iPhone acceptance owner-confirmed 2026-11-14; AFC-5 scoped (docs only); backend, web and native iOS presentation** | §4.33; canonical plan [`AFC plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md); composes the existing adherence, VBT, readiness, feedback and volume services; AFC-1 dissolved and planned-session compliance excluded by `DEC-W7-01`; Phase 5A instruments frozen; AFC-2i renders the same report contract in the iPhone app (`DEC-AFC-03`) |
 | — | Symptom attribution and injury-signal verification | **done 2026-11-01** | Phases 1–2 closed: verification hygiene and optional session/lift attribution with required onset/confidence, migration `0047`, CLI/API/web and display-only views. Phase 3 was split into a separate roadmap phase (§4.28) |
@@ -99,7 +99,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v1.6 | cardio depth and reproducible cardio impulse/shadow load | **planned; see §4.13a** |
 | — | training-day session fragments | **done 2026-11-01** (see §4.27) |
 | — | post-workout form assessment | **done 2026-10-25** |
-| future | LLM integration: analyst, explainer, constrained proposer | **Iteration 1 planned after v1.5; Iteration 2 conditional (§4.24)** |
+| future | LLM integration: read-only intelligence delivered; constrained proposer withdrawn | **read-only delivered; no write path (§4.24)** |
 
 **Rule:** cardio work does not enter v0.3; video is descoped. The strength model (§4.16) is
 strength-only and closed with v0.3. Audit/documentation/form closeout is v0.4. v1.0 is the beta
@@ -354,6 +354,9 @@ Acceptance:
   prescription untouched;
 - the existing LLM-off equivalence test passes unchanged;
 - the golden fixture gains an accepted-proposal case and a vetoed one.
+
+**Withdrawn 2026-11-17:** the CLI proposal surface described below was removed for CLI/UI
+parity. It is retained here as the historical record; no LLM write path remains.
 
 Delivered: `run --propose [--yes]` (requires `--llm on`). Parsing rejects any
 computed-number key — load, weight, RIR, percentage or velocity — anywhere in the payload, so a
@@ -759,9 +762,9 @@ the documentation contract.
 
 **Status: closed 2026-10-23; amended 2026-10-28.** The **Terminal** was removed
 (`DEC-WEB-02`), so the parity gaps that used it as a fallback are CLI-only. Manual logging,
-state editing, import, Programme, exercise editing and calibration are in the UI. The LLM proposal view is deliberately **not**
-built: `run --propose` stays CLI-only, and the deterministic prescription, warnings and review
-remain the UI path. `workout start` is UI-only because it needs the full readiness form. Both are
+state editing, import, Programme, exercise editing and calibration are in the UI. The LLM proposal surface **no longer exists**:
+`run --propose` was removed on 2026-11-17 for CLI/UI parity, so neither interface offers one and
+the deterministic prescription, warnings and review remain the only plan path. `workout start` is UI-only because it needs the full readiness form. Both are
 documented exceptions, not open items.
 
 The local UI covers Today, Prescribe (rolling session types), Programme, Review, Readiness, Import, an editable
@@ -774,8 +777,8 @@ Planned surfaces, in suggested order:
 2. **State editing** — **done**. Profile, constraints, suitability ratings, e1RM overrides,
    strength tests, block start and symptoms; append-only, with an exercise picker and the
    current tables shown beside the forms.
-3. **LLM proposals** — **closed as CLI-only.** `run --propose` keeps the proposal view, citations,
-   warnings and policy veto in the terminal; the web UI does not duplicate it.
+3. **LLM proposals** — **withdrawn 2026-11-17.** The CLI surface was removed for parity; no
+   proposal view exists in either interface and suggestions are display-only.
 4. **Manual workout logging** (4.2) — **done** via Workout mode: per-set entry, plan overrides,
    import, end and reports.
 5. **Programme view** (4.4) — **done**. Rolling session-type horizon with recomputation on the day; canonical session types are the only label.
@@ -1258,7 +1261,7 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | v1.1 | Fatigue signals: exposure, substitution, advisories | **Phase 0 done 2026-10-28** (five decisions; `docs/FATIGUE-SIGNALS.md`, `docs/EXERCISE-DEMANDS.md`). **Phase 1 done 2026-10-28**: `config/exercises/demands.v1.yaml` populated for **28/63** reachable ids (4 in-scope dimensions at 55.6 % known, 2 `supported` claims, 4 evidence entries). **Rating path done 2026-10-28**: git-ignored `config/exercises/demands.local.yaml` overlay merged over the reviewed file, with `exercise demands report|unrated|set|clear` and automatic rollback on a rejected write (digest covers both files). **Phase 2 done 2026-10-28**: `features/exposure.py` (7/28-day ratio, coverage, gap/deload/break abstention, exposure dedup, per-group ratios), `exposure ratio` CLI, `GET /api/exposure`, Prescribe **Exposure ratio** panel and the Part D low-exposure advisory; report-only, trim not implemented. **Demand display done 2026-10-28**: Exercises rows show `rated/4` and the details dialog shows the profile with confidence, reason, catalogue digest and overlay state; the same form rates or clears a dimension (`POST /api/exercises/demands`, same `set_claim` as the CLI). **Phase 3 done 2026-10-28**: `MOD-EXP-001` (constitution 1.20.0) trims at most one non-essential accessory set per affected group (≤2/session, floor 1) when `athlete_profile.exposure_trim_enabled` is on (default off), skipping main lifts, essential items, readiness cuts and under-MEV additions; `shadow_decision` table + repository exist (append-only triggers). Shadow writes and the review report land in Phase 6 so forecast builds never write rows. **Phase 4 done 2026-10-28**: `prescribe/fatigue_selection.py` suggests at most one accessory substitution when the exposure signal is high, the candidate is A/B comparable, covers the current lift's primary muscles and is rated strictly lower on an in-scope demand dimension; `GET /api/substitution`, the Exercise-selection panel block and `select --fatigue` expose it. Suggest-only; abstains when the trim already acted or the metadata is unknown. **Phase 5 done 2026-10-28**: `features/residual.py` computes the VBT-only execution residual (observed minus prescribed velocity) from linked workout sets, lift-scoped, 84-day window, with the ≥5 signal and ≥20/8-week/two-lift evaluation gates; `residual`, `GET /api/residual` and the Prescribe panel expose it. Shadow only. **Phase 6 done 2026-10-28**: `prescribe/shadow.py` writes exposure + substitution rows only when a prescription is persisted; `features/shadow_report.py` and `shadow`/`GET /api/shadow`/Prescribe **Shadow review** expose counts, abstentions, conflicts and the four gate checks. The gate never enables anything (`activation_allowed: false`); the fatigue-signals specification is fully implemented. |
 | v1.6 | Cardio depth and shadow cardio load | planned (§4.13a, Q14) |
 | — | Deeper labelled calibration set | retired 2026-11-13 (§4.14, `DEC-EVAL-09`) |
-| v1.5 | LLM integration: read-only delivered; constrained proposer deferred | §4.24; selector retirement done (Phase 1b) |
+| v1.5 | LLM integration: read-only delivered; constrained proposer withdrawn 2026-11-17 | §4.24; selector retirement done (Phase 1b) |
 | future | Personalised volume-response model | idea only; shadow/gated (§13, Q28) |
 | future | Athlete Feedback & Coaching (AFC) — deferred AFC-3 second cut | AFC-2, AFC-2i, AFC-3 and AFC-4 implemented 2026-11-13; physical iPhone report acceptance owner-confirmed 2026-11-14 (§4.33) |
 | done (Phases 0–4, R1–R10, 6.0–6.7) | Native iPhone and watchOS client | Phase 0 complete 2026-11-07; Phases 1–2 complete and owner-confirmed on the physical iPhone (2026-11-07); Phase 3A closed 2026-11-08 (HealthKit readiness, physical acceptance owner-confirmed); Phase 4 closed 2026-11-08 (offline capture and replay, physical acceptance owner-confirmed); R1–R5 and R7–R10 closed (R11 dropped); Phase 6.0–6.7 complete with physical Apple Watch acceptance owner-confirmed 2026-11-14 (§4.32); the AFC-2i session report is implemented. Apple PCC remains an optional AI-only network exception (§4.29; [`iOS client plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/IOS-CLIENT-PLAN.md)) |
@@ -1387,7 +1390,7 @@ architecture and contracts, the shared context/evidence builder, the athlete ana
 explainer, the MCP server and the Apple-platform work — is specified in §4.34 and the portfolio
 [Training Intelligence plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md).
 Rows 1–3 and the exit gate below are superseded; the MCP clause of Iteration 2 is superseded; the
-constrained proposer (rows 4–5) is **deferred/unscheduled** and needs a new decision. Phase 1b, the
+constrained proposer (rows 4–5) was **withdrawn 2026-11-17** and needs a new decision. Phase 1b, the
 outbound-data inventory (plan §8.1) and the evaluation gates (plan §9) remain in force. No prompt,
 source, schema, API, UI or training-rule change is part of what remains; the detailed requirements,
 privacy rules and acceptance criteria live in
@@ -1439,20 +1442,17 @@ framework.
 then 2 → 3 → 4 → 5; phase 1b runs after phase 1, in parallel with 2/3 if useful, and must finish
 before the Iteration 1 exit. The current read-only order is INT-1 → INT-2 → INT-3 (§4.34); phase 1b
 still precedes any server-side narration phase.
-No capability code starts before the owner approves its contracts. Phases 4–5 do not run on
-sessions already downgraded by a safety modifier (`DEC-LLM-04`); any relaxation is a new
-decision.
+No capability code starts before the owner approves its contracts. The former proposal phases
+4–5 are withdrawn with `DEC-LLM-09`; no write path runs.
 
 **Selector retirement is not a refactor and not a proposer dependency.** The deterministic
 selection engine, taxonomy, movement-family classifications, comparability rules, validation,
 class-B `selection_confirmed` confirmation and history remain. Only the minimal LLM chooser is
-removed. The new proposer is decision `DEC-LLM-09`; it is not a continuation of the chooser.
+removed. The proposer was withdrawn 2026-11-17; `DEC-LLM-09` is closed, not deferred.
 
-**Wider proposal licence.** The current constrained proposer may choose one bounded
-keep/easier/harder/heavier/lighter option. Once the menu has proved itself in real sessions, a
-later extension may allow more than one increment on that Python-computed menu. The menu
-principle and approval path do not change: the model chooses, Python resolves and re-validates,
-and the deterministic baseline stays visible.
+**Wider proposal licence — withdrawn.** With the proposal surface removed there is no menu or
+approval path to extend. If a write capability is ever revisited, it needs a new decision and the
+same structural-only boundary.
 
 ### Iteration 2 — evidence retrieval and advanced architecture (conditional)
 

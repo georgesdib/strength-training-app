@@ -67,7 +67,6 @@ does not support that floor, and RIR 1 is a legitimate strength exposure.
 The window lives in `config/rules/programme.v1.yaml` (`params.default_rir`) and in
 `domain.rir.ALLOWED_RIR_WINDOW` (a consistency test keeps them equal). Changing it also changes:
 
-- the proposal menu (wider window → more options),
 - `validate_prescription`'s `RIR_OUTSIDE_WINDOW` check,
 - the rubric's `RIR_ADHERENCE` score.
 

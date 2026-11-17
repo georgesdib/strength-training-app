@@ -2022,9 +2022,9 @@ def build_item(
 ) -> tuple[PrescriptionItem, tuple[str, ...]]:
     """Build one item from a slot, solving its load from stored history.
 
-    Kept separate from the loop so a proposal can rebuild a single item after a substitution
-    without re-deriving loads itself -- the proposal path must use the same solver as the
-    deterministic path, or the two would drift.
+    Kept separate from the loop so callers can rebuild a single item without re-deriving loads
+    themselves; every caller must use the same solver as the deterministic path, or the two
+    would drift.
     """
     warnings: list[str] = []
     if exercise_id is None:
@@ -2038,7 +2038,7 @@ def build_item(
     increment = thresholds.increment_for(exercise_id)
     props = context.entity(exercise_id)
     bodyweight = bool(props.get("bodyweight_type", False))
-    # A power jump is never load-progressed, even if a proposal rebuilds the item through a
+    # A power jump is never load-progressed, even when an item is rebuilt through a
     # generic slot. The pattern check is the backstop; the template also uses bodyweight.
     power_exercise = bool(slot.power) or str(props.get("pattern")) == "power_jump"
     effort_model = "quality" if power_exercise else "rir"
@@ -2504,9 +2504,8 @@ def validate_prescription(
             and item.effort_model == "rir"
             and item.rir_target is not None
         ):
-            # PRG-RIR-001: the effort window is a rule, not a suggestion. This check was
-            # missing until proposals could name a menu option, which is exactly when a
-            # target RIR stopped being guaranteed by the template.
+            # PRG-RIR-001: the effort window is a rule, not a suggestion. This check matters
+            # whenever a target RIR is not guaranteed by the template.
             params = document.rule("PRG-RIR-001").params
             window = (params.get("per_exercise_rir") or {}).get(
                 item.exercise_id, params.get("default_rir")

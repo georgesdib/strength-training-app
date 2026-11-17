@@ -238,7 +238,7 @@ def test_documented_cli_commands_and_options_still_exist() -> None:
     assert documented <= available, f"documented commands missing from the parser: {documented - available}"
 
     for command, options in {
-        "run": ("--date", "--session-type", "--llm", "--propose"),
+        "run": ("--date", "--session-type", "--llm"),
         "programme": ("--weeks", "--remaining"),
         "readiness": ("set", "calibrate", "shadow"),
         "block": ("--date",),
@@ -246,6 +246,9 @@ def test_documented_cli_commands_and_options_still_exist() -> None:
         command_help = _cli_help(command)
         missing = [option for option in options if option not in command_help]
         assert not missing, f"documented options missing from {command}: {missing}"
+
+    assert "--propose" not in _cli_help("run"), \
+        "the removed LLM proposal surface must not reappear in the CLI"
 
 
 def test_cli_contract_detects_a_removed_documented_command() -> None:

@@ -57,9 +57,8 @@ The forecast is always the blueprint/expected pattern (option c), never a genera
 ## 3. Non-negotiables
 
 1. Loads, RIR targets, velocity targets, tonnage and e1RM are computed by Python.
-2. The LLM may narrate and choose among precomputed options. It may propose bounded structural
-   edits, including a set-count change, but policy validates them; it cannot write a load,
-   RIR, velocity or percentage.
+2. The LLM may narrate, answer read-only questions and explain a decision. It may not choose a
+   plan option or propose an edit, and it cannot write a load, RIR, velocity or percentage.
 3. The LLM may never veto a rule.
 4. Missing data is `unknown`, never zero or normal.
 5. Prescriptions, critiques, calibrations and provenance are append-only.
@@ -123,7 +122,7 @@ deeper tier reduces main-lift sets to a floor of two. See
 | load/RIR/set policy | `DEC-` entry, config, tests, docs |
 | new hard rule | user approval; constitution version |
 | new metric | definition, direction, aggregation, missing-data rule, prescription effect |
-| new LLM capability | validated option/proposal; no computed numbers |
+| new LLM capability | read-only narrative/answer; no computed numbers or plan writes |
 | evidence claim | citation and evidence classification |
 | methodology change | update this version and the relevant detailed doc |
 

@@ -2,7 +2,7 @@
 
 Severity comes from the constitution, never from the caller:
 
-    veto       the proposal is rejected; the deterministic fallback is used
+    veto       the prescription is rejected; the deterministic fallback is used
     downgrade  the offending item is reduced; the prescription survives
     warn       recorded and surfaced; no change
     advisory   informational only

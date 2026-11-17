@@ -1157,10 +1157,10 @@
       <div class="panel">
         <div class="panel-head"><h2>Language model</h2>
           <span class="badge" id="settings-llm-status">loading…</span></div>
-        <p class="section-help"><span>Optional narrator/proposer; it never computes loads or overrides rules.</span> <a class="doc-link" href="#docs?doc=docs/ARCHITECTURE.md">Architecture</a></p>
-        <p class="muted">The model writes narrative and may choose among precomputed options. It
-          never calculates a load, RIR or set. Disable it to run fully deterministically; all
-          features continue to work with no model configured.</p>
+        <p class="section-help"><span>Optional read-only narrator, chat and explainer; it never computes loads, edits the plan or overrides rules.</span> <a class="doc-link" href="#docs?doc=docs/ARCHITECTURE.md">Architecture</a></p>
+        <p class="muted">The model writes narrative and answers questions from supplied facts. It
+          never calculates a load, RIR or set, and it cannot propose or apply a plan change. Disable
+          it to run fully deterministically; all features continue to work with no model configured.</p>
         <form id="settings-llm-form">
           <label><input type="checkbox" id="settings-llm-enabled"> Enable LLM narration and selection</label>
           <div class="form-row">

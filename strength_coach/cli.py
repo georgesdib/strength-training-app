@@ -25,12 +25,10 @@ import yaml
 
 from strength_coach import __version__, modalities, settings_profile, workout
 from strength_coach.agents import (
-    LLMError,
     build_client,
     explain_prescription,
     load_settings,
 )
-from strength_coach.agents import proposal as proposal_mod
 from strength_coach.analytics import core as derived_core
 from strength_coach.critique import UnknownSessionError
 from strength_coach.domain import e1rm as e1rm_mod
@@ -77,12 +75,11 @@ from strength_coach.prescribe import (
 from strength_coach.prescribe import config as prescribe_config
 from strength_coach.prescribe import deload as deload_mod
 from strength_coach.prescribe import schedule as schedule_mod
-from strength_coach.prescribe import schemes as schemes_mod
 from strength_coach.prescribe import selection as selection_mod
 from strength_coach.prescribe import shadow as shadow_feature
 from strength_coach.prescribe import volume_budget as volume_budget_mod
 from strength_coach.prescribe.evaluator import EvaluationInputs
-from strength_coach.rules import RuleContext, evaluate, load_document
+from strength_coach.rules import RuleContext
 from strength_coach.store import (
     db,
     exercise_admin,
@@ -126,14 +123,10 @@ def main(argv: list[str] | None = None) -> int:
                      help="regenerate even if this date was already prescribed")
     run.add_argument("--deload", choices=("ask", "yes", "no"), default="ask",
                      help="scheduled deload: ask (interactive, default no), yes, or no")
-    run.add_argument("--propose", action="store_true",
-                     help="ask the model for a structural proposal (requires --llm on)")
     run.add_argument("--apply-selection", action="store_true",
                      help="apply the shadow selector's exercise substitutions")
     run.add_argument("--selection-confirm", action="store_true",
                      help="confirm a near-comparable (class B) substitution; class C is never automatic")
-    run.add_argument("--yes", action="store_true",
-                     help="apply an accepted proposal without asking")
     run.add_argument("--minimum-session", action="store_true",
                      help="user-selected volume-only minimum session (MOD-MIN-001)")
     run.add_argument("--target-minutes", type=int, choices=(30, 45, 60), default=None,
@@ -772,11 +765,6 @@ def _cmd_run(args) -> int:
         with RunTrace.start(conn, input_hash=f"{session_id}:{args.date}",
                             window_end=args.date) as trace:
             approved_by = "deterministic"
-            if args.propose:
-                if args.llm != "on":
-                    print("--propose requires --llm on")
-                    return 2
-                prescription, approved_by = _propose(conn, trace, prescription, args)
             prescription_id = repositories.append_prescription(
                 conn,
                 prescription_id=_new_id(),
@@ -3077,96 +3065,6 @@ def _import_export(conn):
         training_sha256=importer.sha256_file(training_path),
         readiness_sha256=importer.sha256_file(readiness_path),
     )
-
-
-def _propose(conn, trace, prescription, args):
-    """Ask for a structured proposal and decide it. Returns (prescription, approved_by).
-
-    Every rejection path keeps the deterministic prescription: the model may propose, the
-    validator decides, and a failure never leaves the athlete without a session.
-    """
-    settings = load_settings()
-    client = build_client(settings)
-    if not client.available:
-        print("\n(proposal skipped: no model configured)")
-        return prescription, "deterministic"
-
-    context = RuleContext.from_store(conn, end=prescription.for_date)
-    if prescription.fallback_level != "full" or context.symptom_flare:
-        print("\n(proposal skipped: the session was already modified by a safety rule)")
-        return prescription, "deterministic"
-
-    allowed = proposal_mod.allowed_substitutes(conn, context, prescription)
-    document = load_document()
-    options = proposal_mod.menu(prescription, document)
-    reps = proposal_mod.scheme_options(prescription, schemes_mod.Schemes.load())
-    try:
-        response = client.complete(
-            proposal_mod.prompt_for(prescription, allowed, options, reps),
-            system=proposal_mod.SYSTEM,
-        )
-    except LLMError as exc:
-        print(f"\nproposal unavailable: {exc}")
-        trace.finish(status="llm_failed")
-        return prescription, "deterministic"
-
-    trace.add_tokens(response.tokens)
-    trace.event("llm_output", {
-        "kind": "proposal", "text": response.text, "model": response.model,
-    })
-
-    try:
-        parsed = proposal_mod.parse(response.text)
-    except proposal_mod.ProposalError as exc:
-        print(f"\nproposal rejected: {exc}")
-        trace.event("policy_verdict", {"proposal": "rejected", "reasons": [str(exc)]})
-        trace.finish(status="llm_downgraded")
-        return prescription, "deterministic"
-
-    thresholds = prescribe_config.Thresholds.load()
-    decisions = evaluate(document, context).verdict("PRG-DP-001").details.get("decisions", {})
-    outcome = proposal_mod.assess(
-        conn, prescription, parsed, context=context, document=document,
-        thresholds=thresholds, decisions=decisions,
-    )
-
-    print("\nproposal")
-    print("  " + proposal_mod.describe(parsed))
-    if parsed.summary:
-        print(f"  why: {parsed.summary}")
-
-    if not outcome.accepted:
-        print("  rejected: " + "; ".join(outcome.reasons))
-        trace.event("policy_verdict", {
-            "proposal": "rejected", "reasons": list(outcome.reasons),
-        })
-        trace.finish(status="llm_downgraded")
-        return prescription, "deterministic"
-
-    essential_ids = {item.exercise_id for item in prescription.items if item.essential}
-    main_change = any(
-        change.action == "substitute" and change.exercise in essential_ids
-        for change in parsed.changes
-    )
-    if main_change:
-        # A main-lift swap is never applied silently, even with --yes.
-        answer = input("  this replaces an essential lift; apply? [y/N] ").strip().lower()
-    elif not args.yes:
-        answer = input("  apply this proposal? [y/N] ").strip().lower()
-    else:
-        answer = "yes"
-    if answer not in ("y", "yes"):
-        print("  declined: keeping the deterministic prescription")
-        trace.event("policy_verdict", {"proposal": "declined"})
-        return prescription, "deterministic"
-
-    trace.event("policy_verdict", {
-        "proposal": "accepted",
-        "changes": proposal_mod.describe(parsed),
-        "main_substitution": main_change,
-    })
-    print("  accepted")
-    return outcome.prescription, "llm+policy"
 
 
 def _narrate(conn, trace, prescription) -> None:

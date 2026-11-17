@@ -117,7 +117,7 @@ current destinations; they do not duplicate their forms or imply new data contra
 | Declared break | Append-only holiday/deload/test-week range; freezes the DUP week and the erector ramp | [CONTINUITY.md](CONTINUITY.md) |
 | Log symptom | Pre-session 0-3 reading per region; what to log when it settles | [SYMPTOM-LOGGING.md](SYMPTOM-LOGGING.md) |
 | Appearance | Browser theme preference only | [WEB-UI.md](WEB-UI.md) |
-| Language model | Optional narrator/proposer; never computes loads | [ARCHITECTURE.md](ARCHITECTURE.md) |
+| Language model | Optional read-only narrator/chat/explainer; never computes loads or edits the plan | [ARCHITECTURE.md](ARCHITECTURE.md) |
 | iOS settings | Edits `config/ios.v1.yaml`; effective per request, no restart; descriptions show mutation and TTL impact | [API.md](API.md) |
 | Prescribe defaults | Browser-only form preferences | [WEB-UI.md](WEB-UI.md) |
 | App | Local-only status and data location | [WEB-UI.md](WEB-UI.md) |
