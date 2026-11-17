@@ -382,9 +382,10 @@ def _definitions() -> tuple[SettingDefinition, ...]:
         _d("resolver.top_set.protect_top_set", "Resolver", "Protect top set", "bool", True,
            "settings profile (registry defaults)", "prescription_policy",
            "Volume trim removes back-off sets first."),
-        _d("resolver.top_set.fallback_above_rir", "Resolver", "Fallback above RIR", "int", 2,
+        _d("resolver.top_set.fallback_above_rir", "Resolver", "Top-set RIR ceiling", "int", 2,
            "settings profile (registry defaults)", "prescription_policy",
-           "Use straight sets when the resolved top-set RIR would exceed this.",
+           "Ceiling for the top-set RIR. A one-step readiness drop is absorbed here and the "
+           "back-offs take the raised RIR; a two-step drop still uses straight sets.",
            minimum=1, maximum=4),
         _d("resolver.top_set.rir_by_main_scheme.maximal", "Resolver",
            "Top-set RIR: maximal", "int", 1, "settings profile (registry defaults)", "guarded_safety",

@@ -73,7 +73,10 @@ def resolved_top_set_rir(
         value = settings.top_set_rir_off
     value = max(1, int(value))
     if value > settings.top_set_fallback_above_rir:
-        return None, f"resolved top-set RIR {value} is above the fallback threshold"
+        return None, (
+            f"configured top-set RIR {value} is above the RIR ceiling "
+            f"{settings.top_set_fallback_above_rir}"
+        )
     return value, f"DUP {scheme or 'off'}: RIR {value}"
 
 
@@ -112,9 +115,15 @@ def plan_top_set(
     for_date: str,
     deload: bool,
     requested: bool | None,
-    rir_bump: int = 0,
+    readiness_bump: int = 0,
+    blocked_reason: str | None = None,
 ) -> TopSetPlan:
-    """Build one top set plus back-offs, or return a transparent non-application reason."""
+    """Build one top set plus back-offs, or return a transparent non-application reason.
+
+    One readiness step is absorbed by the ceiling: the top set stays the hardest set of the
+    session and the back-offs take the raised RIR. A two-step readiness drop, a continuity gap
+    or a back flare keeps the straight-set fallback (DEC-RESOLVER-14).
+    """
     is_eligible, reason = eligible(
         item,
         primary_exercise=primary_exercise,
@@ -126,20 +135,30 @@ def plan_top_set(
         return TopSetPlan(False, "not_applied", reason)
     if deload:
         return TopSetPlan(False, "not_applied", "deload week: straight sets")
+    if blocked_reason is not None:
+        return TopSetPlan(False, "not_applied", blocked_reason)
+    if readiness_bump > 1:
+        return TopSetPlan(
+            False,
+            "not_applied",
+            f"readiness lowered the working RIR by {readiness_bump} steps; straight sets",
+        )
     window = competition_window(competition_date, for_date, settings)
     rir, rir_reason = resolved_top_set_rir(
         scheme=scheme, window=window, settings=settings
     )
     if rir is None:
         return TopSetPlan(False, "not_applied", rir_reason)
-    rir = max(1, int(rir) + int(rir_bump))
-    if rir > settings.top_set_fallback_above_rir:
-        return TopSetPlan(
-            False,
-            "not_applied",
-            f"resolved top-set RIR {rir} after modifiers is above the fallback threshold",
+    rir = min(
+        max(1, int(rir) + int(readiness_bump)),
+        settings.top_set_fallback_above_rir,
+    )
+    if readiness_bump:
+        rir_reason = (
+            f"{rir_reason}; readiness +{readiness_bump} absorbed by the ceiling, RIR {rir}"
         )
-    rir_reason = f"{rir_reason}; final RIR {rir}"
+    else:
+        rir_reason = f"{rir_reason}; final RIR {rir}"
     if item.load_kg is None or item.load_kg <= 0:
         return TopSetPlan(False, "not_applied", "no usable main-lift load")
     # Use the item's final load/RIR so readiness, continuity and back-flare reductions are

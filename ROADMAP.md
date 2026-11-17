@@ -1533,7 +1533,10 @@ and records the post-budget evaluator result. There is no second scheduler, pres
 volume engine, programme/block lifecycle or pathway selector.
 
 Top set/back-off is an optional main-lift structure, default ask, with DUP/competition RIR
-mapping, preserved total sets and a first-class set-group model. Hinge is allowed on a maximal
+mapping, preserved total sets and a first-class set-group model. `DEC-RESOLVER-14`
+(2026-11-17) replaces the straight-set fallback with a ceiling: one readiness or sleep/energy
+step is absorbed by the ceiling and the back-offs take the raised RIR, while a two-step drop, a
+continuity gap or a back flare still falls back to straight sets. Hinge is allowed on a maximal
 week for the prescribed hinge main lifts; the existing accessory/risk exclusions remain. A
 competition-date override sets RIR 1 in the peak window and removes the top set in the taper;
 an empty date means no override. All resolver configuration lives under Settings -> Resolver;

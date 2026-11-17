@@ -59,6 +59,47 @@ RULE_REF_RE = re.compile(r"^(PRG|MOD)(?:-[A-Z0-9]+)+-\d{3}$")
 # (config/readiness.v1.yaml); this module no longer hardcodes either.
 
 
+def _primary_rir(items, primary_exercise: str | None) -> int | None:
+    """The primary main lift's current RIR target, or None when it has none."""
+    return next(
+        (
+            int(item.rir_target)
+            for item in items
+            if item.exercise_id == primary_exercise and item.rir_target is not None
+        ),
+        None,
+    )
+
+
+def _top_set_rir_bumps(
+    base: int | None,
+    after_readiness: int | None,
+    after_flare: int | None,
+    final: int | None,
+) -> tuple[int, str | None]:
+    """Split the primary RIR rise into a readiness step and a caution veto.
+
+    Only the readiness/floor step may be absorbed by the top-set ceiling: the top set stays
+    the hardest set of the session and the back-offs take the raised RIR. A back flare or a
+    return-to-training gap raises the working RIR for a safety reason, so those keep the
+    straight-set fallback instead of being flattened into a near-normal top set.
+    """
+    if base is None or final is None:
+        return 0, None
+    if after_readiness is None:
+        after_readiness = base
+    if after_flare is None:
+        after_flare = after_readiness
+    readiness = max(0, int(after_readiness) - int(base))
+    flare = max(0, int(after_flare) - int(after_readiness))
+    later = max(0, int(final) - int(after_flare))
+    if flare:
+        return readiness, "back flare held the primary lift; straight sets"
+    if later:
+        return readiness, "continuity caution held the primary lift; straight sets"
+    return readiness, None
+
+
 def build_prescription(
     conn,
     *,
@@ -323,14 +364,7 @@ def build_prescription(
         )
         warnings.extend(dup_warnings)
 
-    base_primary_rir = next(
-        (
-            int(item.rir_target)
-            for item in items
-            if item.exercise_id == template.primary_exercise and item.rir_target is not None
-        ),
-        None,
-    )
+    base_primary_rir = _primary_rir(items, template.primary_exercise)
     primary_scheme: str | None = None
     if dup_plan:
         primary_scheme = str(dup_plan.get("main") or "") or None
@@ -385,6 +419,8 @@ def build_prescription(
     if readiness_level == "fatigue_reduced":
         fallback_level = "fatigue_reduced"
     warnings.extend(readiness_warnings)
+    post_readiness_primary_rir = _primary_rir(items, template.primary_exercise)
+    post_flare_primary_rir = post_readiness_primary_rir
 
     flare_note: dict[str, list[str]] = {}
     if context.symptom_flare is True:
@@ -411,6 +447,7 @@ def build_prescription(
             "reviewed_unchanged": reviewed,
             "dose": list(flare_dose),
         }
+        post_flare_primary_rir = _primary_rir(items, template.primary_exercise)
 
     continuity_cal = None
     if context.gap_days is not None and context.gap_days >= thresholds.continuity_short_days:
@@ -438,14 +475,12 @@ def build_prescription(
         (item for item in items if item.exercise_id == template.primary_exercise), None
     )
     if primary_item is not None:
-        final_primary_rir = primary_item.rir_target
-        rir_bump = 0
-        if (
-            base_primary_rir is not None
-            and final_primary_rir is not None
-            and int(final_primary_rir) > int(base_primary_rir)
-        ):
-            rir_bump = int(final_primary_rir) - int(base_primary_rir)
+        readiness_bump, top_set_block = _top_set_rir_bumps(
+            base_primary_rir,
+            post_readiness_primary_rir,
+            post_flare_primary_rir,
+            primary_item.rir_target,
+        )
         profile = queries.athlete_profile(conn) or {}
         # The resolver policy is only needed when the structure is actually requested or
         # pre-selected. Ask/off keeps the fixed path independent of resolver configuration and
@@ -474,7 +509,8 @@ def build_prescription(
                 for_date=for_date,
                 deload=deload_decision is not None,
                 requested=top_set_requested,
-                rir_bump=rir_bump,
+                readiness_bump=readiness_bump,
+                blocked_reason=top_set_block,
             )
             top_set_note = {
                 "status": top_plan.status,

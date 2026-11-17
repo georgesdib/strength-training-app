@@ -2,7 +2,14 @@
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+
+- **A one-step readiness drop no longer removes the top set** (`DEC-RESOLVER-14`). The top-set
+  RIR is capped at `resolver.top_set.fallback_above_rir` instead of falling back to straight
+  sets, so a low score or a sleep/energy trigger keeps one top set at the ceiling and hands the
+  raised RIR to the back-off sets. A two-step readiness drop, a continuity gap or a back flare
+  still falls back, and deload, taper, eligibility and set-count/load vetoes are unchanged.
+  Settings now labels the key "Top-set RIR ceiling".
 
 ## [1.5.0] — 2026-11-15
 
