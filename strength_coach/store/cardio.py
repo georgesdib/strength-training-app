@@ -82,6 +82,11 @@ def utc_iso(value: str, *, field: str) -> str:
     return parsed.astimezone(dt.UTC).isoformat()
 
 
+def key_text(value: str | bytes | None) -> str:
+    """Public alias: render a stored key for logs, reports and CLI arguments."""
+    return _text(value)
+
+
 def _text(value: str | bytes | None) -> str:
     """Render a key for a message; keys are stored as digests, so log them as hex."""
     if isinstance(value, bytes):
