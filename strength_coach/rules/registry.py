@@ -538,8 +538,11 @@ def spinal_exposures(
                 .groupby(list(group_keys), sort=False, observed=True)["intensity"]
                 .mean(skipna=False)
             )
+            # A dict, not Series.get: the index is a MultiIndex, so every lookup rebuilt a
+            # tuple and ran a binary search (~25k lookups across one resolver build).
+            mean_by_key = dict(zip(means.index, means.to_numpy(), strict=False))
             for key, count in sizes.items():
-                mean = means.get(key)
+                mean = mean_by_key.get(key)
                 add(
                     key[1], key[2], key[0], int(count),
                     None if mean is None or pd.isna(mean) else float(mean),
