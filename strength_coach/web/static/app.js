@@ -27,7 +27,7 @@ const VIEW_LOADERS = {
   review: () => fillSessionSelect(),
   readiness: () => loadReadiness($("#readiness-date").value),
   exercises: () => loadExerciseCatalog(),
-  cardio: () => loadCardio(),
+  cardio: () => loadRecordedActivity(cardioWeeks()),
   measures: () => loadMeasurements(),
   prescribe: () => {
     loadFatigue(); loadContinuity(); loadVolume(); loadVolumeBudget(); loadExposure();
@@ -3232,41 +3232,8 @@ function cardioWeeklyChart(data) {
   });
 }
 
-function renderCardio(data) {
-  const weeks = Object.entries(data.weekly_minutes || {}).map(([week, minutes]) =>
-    `<tr><td>${esc(week)}</td><td>${minutes}</td></tr>`).join("");
-  const modalities = Object.entries(data.by_modality || {}).map(([name, count]) =>
-    `<tr><td>${esc(name)}</td><td>${count}</td></tr>`).join("");
-  $("#cardio-result").innerHTML = `
-    <div class="panel"><div class="panel-head"><h2>Summary</h2>
-      <span class="muted">${esc(data.from_date)} to ${esc(data.to_date)}</span></div>
-      <p><strong>${data.total_minutes}</strong> min across <strong>${data.sessions}</strong>
-        session(s) · <strong>${data.average_weekly_minutes}</strong> min/week average</p>
-      <p class="muted">Reference: ${data.reference_min}-${data.reference_max} min/week.
-        ${esc(data.reference_note)}</p>
-      <div class="health-trend-chart"><h3>Weekly logged minutes</h3>${cardioWeeklyChart(data)}</div>
-      ${weeks ? `<table><thead><tr><th>Week</th><th>Minutes</th></tr></thead>
-        <tbody>${weeks}</tbody></table>` : "<p class='empty'>No cardio logged in this window.</p>"}
-      ${modalities ? `<table><thead><tr><th>Modality</th><th>Sessions</th></tr></thead>
-        <tbody>${modalities}</tbody></table>` : ""}
-    </div>`;
-}
-
 function cardioWeeks() {
   return Number($("#cardio-weeks")?.value || 12);
-}
-
-async function loadCardio(weeks = null) {
-  try {
-    const params = new URLSearchParams({ weeks: weeks || cardioWeeks() });
-    const asOf = $("#cardio-asof")?.value;
-    if (asOf) params.set("date", asOf);
-    const data = await api("/api/cardio?" + params.toString());
-    renderCardio(data);
-  } catch (error) {
-    $("#cardio-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
-  }
-  loadRecordedActivity(weeks || cardioWeeks());
 }
 
 /**
@@ -3363,8 +3330,8 @@ async function loadRecordedActivity(weeks) {
   }
 }
 
-$("#cardio-weeks").addEventListener("change", () => loadCardio());
-$("#cardio-asof").addEventListener("change", () => loadCardio());
+$("#cardio-weeks").addEventListener("change", () => loadRecordedActivity(cardioWeeks()));
+
 
 $("#cardio-form").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -3382,7 +3349,7 @@ $("#cardio-form").addEventListener("submit", async (event) => {
   button.disabled = true;
   try {
     await api("/api/cardio", { method: "POST", body: JSON.stringify(payload) });
-    await loadCardio();
+    await loadRecordedActivity(cardioWeeks());
     $("#cardio-form").reset();
   } catch (error) {
     applyFieldErrors(error, $("#cardio-result"), {

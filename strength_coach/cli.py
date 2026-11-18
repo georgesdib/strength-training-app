@@ -33,7 +33,6 @@ from strength_coach.analytics import core as derived_core
 from strength_coach.critique import UnknownSessionError
 from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.features import breaks as breaks_feature
-from strength_coach.features import cardio as cardio_feature
 from strength_coach.features import (
     continuity_calibration,
     heavy_spinal,
@@ -356,20 +355,6 @@ def main(argv: list[str] | None = None) -> int:
     readiness.add_argument("--wearable-weight", type=float, default=None)
     readiness.add_argument("--setting-note", default=None)
 
-    cardio = sub.add_parser("cardio", help="log or summarise cardio sessions")
-    cardio.add_argument("--date", default=None, help="YYYY-MM-DD (default: today)")
-    cardio.add_argument("--modality", default=None,
-                        help="e.g. walk, run, bike, row, intervals, swim")
-    cardio.add_argument("--minutes", type=float, default=None, help="session duration")
-    cardio.add_argument("--avg-hr", type=int, default=None, help="average heart rate")
-    cardio.add_argument("--max-hr", type=int, default=None, help="maximum heart rate")
-    cardio.add_argument("--distance-km", type=float, default=None)
-    cardio.add_argument("--srpe", type=int, default=None, help="session RPE, 1-10")
-    cardio.add_argument("--note", default=None)
-    cardio.add_argument("--show", action="store_true", help="show the summary")
-    cardio.add_argument("--weeks", type=int, default=12,
-                        help="summary window in weeks (default 12)")
-
     workout_parser = sub.add_parser("workout", help="inspect or finish the active live workout")
     workout_sub = workout_parser.add_subparsers(dest="action", required=True)
     workout_sub.add_parser("status", help="show the active workout")
@@ -627,7 +612,6 @@ def main(argv: list[str] | None = None) -> int:
         "e1rm": _cmd_e1rm,
         "test": _cmd_test,
         "symptom": _cmd_symptom,
-        "cardio": _cmd_cardio,
         "measure": _cmd_measure,
         "volume": _cmd_volume,
         "continuity": _cmd_continuity,
@@ -1893,60 +1877,6 @@ def _print_symptoms(conn, *, region: str | None = None) -> None:
               f"{row['level']:>6}  {settled:<8} "
               f"{attribution + (' · ' if attribution and row['note'] else '')}"
               f"{row['note'] or ''}")
-
-
-def _cmd_cardio(args) -> int:
-    store = db.Store(args.db)
-    try:
-        conn = store.connection
-        logging = args.modality is not None or args.minutes is not None
-        if args.show or not logging:
-            _print_cardio(conn, weeks=args.weeks, on_date=args.date)
-            return 0
-        if not args.modality:
-            raise SystemExit("--modality is required when logging a cardio session")
-        if args.minutes is None:
-            raise SystemExit("--minutes is required when logging a cardio session")
-        on_date = args.date or datetime.date.today().isoformat()
-        repositories.append_cardio(
-            conn,
-            performed_on=on_date,
-            modality=args.modality,
-            duration_s=round(float(args.minutes) * 60),
-            avg_hr=args.avg_hr,
-            max_hr=args.max_hr,
-            distance_m=(None if args.distance_km is None else args.distance_km * 1000),
-            srpe=args.srpe,
-            note=args.note,
-        )
-        print(f"logged {args.modality} {args.minutes:g} min on {on_date}")
-        summary = cardio_feature.compute(conn, weeks=args.weeks, on_date=on_date)
-        print(f"last {args.weeks} weeks: {summary.total_minutes:g} min across "
-              f"{summary.sessions} sessions "
-              f"({summary.average_weekly_minutes:g} min/week)")
-        return 0
-    finally:
-        store.close()
-
-
-def _print_cardio(conn, *, weeks: int = 12, on_date: str | None = None) -> None:
-    summary = cardio_feature.compute(conn, weeks=weeks, on_date=on_date)
-    print(f"cardio, last {weeks} weeks ({summary.from_date} to {summary.to_date})")
-    print(f"  sessions        {summary.sessions}")
-    print(f"  total minutes   {summary.total_minutes:g}")
-    print(f"  average/week    {summary.average_weekly_minutes:g}")
-    if summary.average_srpe is not None:
-        print(f"  average sRPE    {summary.average_srpe:g}/10")
-    if summary.by_modality:
-        print("  modalities      " + ", ".join(
-            f"{name} x{count}" for name, count in summary.by_modality.items()
-        ))
-    if summary.weekly_minutes:
-        print("  weekly minutes")
-        for week, minutes in summary.weekly_minutes.items():
-            print(f"    {week}  {minutes:g}")
-    print(f"  reference       {summary.reference_min}-{summary.reference_max} min/week")
-    print(f"  {summary.reference_note}")
 
 
 def _cmd_exercise_demands(args) -> int:

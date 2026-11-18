@@ -969,17 +969,6 @@
       <div class="panel">
         <div class="panel-head"><h2>Cardio</h2><span class="muted">separate exposure; no prescription yet</span></div>
         <p class="section-help"><span>Captures aerobic exposure as a separate item; no prescription yet.</span> <a class="doc-link" href="#docs?doc=docs/LONGEVITY-REVIEW.md">Longevity review</a></p>
-        <form id="cardio-form" class="form-row">
-          <label>Date <input id="cardio-date" type="date"></label>
-          <label>Modality <input id="cardio-modality" type="text" placeholder="walk / run / bike" required></label>
-          <label>Minutes <input id="cardio-minutes" type="number" min="1" step="1" required></label>
-          <label>Avg HR <input id="cardio-avg-hr" type="number" min="30" max="230"></label>
-          <label>Max HR <input id="cardio-max-hr" type="number" min="30" max="250"></label>
-          <label>Distance km <input id="cardio-distance" type="number" min="0" step="0.1"></label>
-          <label>sRPE 1-10 <input id="cardio-srpe" type="number" min="1" max="10"></label>
-          <label class="grow">Note <input id="cardio-note" type="text"></label>
-          <button class="primary" type="submit">Log session</button>
-        </form>
         <div class="form-row">
           <label>Show last
             <select id="cardio-weeks">
@@ -988,16 +977,15 @@
               <option value="26">26</option>
               <option value="52">52</option>
             </select> weeks</label>
-          <label>As of <input type="date" id="cardio-asof"></label>
         </div>
-        <p class="muted">Cardio is captured first, as its own exposure. Nothing here changes a load;
-          the reference range is public-health guidance, not a personal target.</p>
+        <p class="muted">Cardio is recorded by Apple Health and synced from the phone; it is never
+          logged by hand here. Nothing on this page changes a load.</p>
       </div>
-      <div id="cardio-result"></div>
       <div class="panel">
         <div class="panel-head"><h2>Recorded activity</h2><span class="muted">Apple Health import · read-only</span></div>
         <p class="section-help"><span>Minutes classified by Apple's METs, then by heart rate, then reported as
-          unclassified. Resistance work is counted and shown separately.</span></p>
+          unclassified. Resistance work is counted and shown separately.</span>
+          <a class="doc-link" href="#docs?doc=docs/LONGEVITY-REVIEW.md">Longevity review</a></p>
         <div id="cardio-hk-result"><p class="muted">Loading recorded activity…</p></div>
       </div>
     </section>

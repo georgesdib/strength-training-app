@@ -612,28 +612,6 @@ def _flags_to_ingest_form(raw: str) -> str:
     return ";".join(str(v) for v in values)
 
 
-def cardio_entries(
-    conn,
-    *,
-    since: str | None = None,
-    until: str | None = None,
-) -> list[dict]:
-    """Cardio sessions in date order. Append-only, so a correction is a later row."""
-    clauses: list[str] = []
-    params: list[object] = []
-    if since is not None:
-        clauses.append("performed_on >= ?")
-        params.append(since)
-    if until is not None:
-        clauses.append("performed_on <= ?")
-        params.append(until)
-    sql = "SELECT * FROM cardio_log"
-    if clauses:
-        sql += " WHERE " + " AND ".join(clauses)
-    sql += " ORDER BY performed_on, created_at, entry_id"
-    return [dict(row) for row in conn.execute(sql, params)]
-
-
 def metric_definitions(conn) -> dict[str, dict]:
     rows = conn.execute("SELECT * FROM metric_definition ORDER BY metric_key")
     return {str(row["metric_key"]): dict(row) for row in rows}

@@ -475,7 +475,6 @@ def test_validation_errors_name_the_field(server):
                 "display": "Bad Pattern", "log_names": ["Bad Pattern"], "pattern": "sqaut",
             },
         }, "pattern"),
-        ("/api/cardio", {"modality": "walk", "minutes": 0}, "minutes"),
         ("/api/measurements", {"metric": "not_a_metric", "value": 1}, "metric"),
         ("/api/state/symptom", {"region": "low_back", "level": 9}, "level"),
         ("/api/state/break", {
@@ -792,30 +791,6 @@ def test_cardio_summary_endpoint_is_served(server):
     status, body = get(server, "/api/cardio/summary")
     assert status == 200
     assert json.loads(body)["weeks"] == []
-
-
-def test_cardio_round_trip_and_overview(server):
-    today = date.today().isoformat()
-    data = post(server, "/api/cardio", {
-        "date": today, "modality": "walk", "minutes": 30,
-        "avg_hr": 110, "max_hr": 130, "srpe": 3,
-    })
-    assert data["sessions"] == 1
-    assert data["total_minutes"] == 30.0
-    assert data["by_modality"] == {"walk": 1}
-
-    status, body = get(server, "/api/cardio?weeks=4")
-    assert status == 200
-    assert json.loads(body)["sessions"] == 1
-
-    # The API accepts the same window anchor as `cardio --show --date`.
-    status, body = get(server, f"/api/cardio?weeks=4&date={today}")
-    assert status == 200
-    assert json.loads(body)["to_date"] == today
-
-    overview = json.loads(get(server, "/api/overview")[1])
-    assert overview["cardio"]["sessions"] == 1
-    assert overview["cardio"]["reference_min"] == 150
 
 
 def test_measurements_round_trip(server):

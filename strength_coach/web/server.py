@@ -75,7 +75,6 @@ from strength_coach.features import (
     retrospective_validation,
 )
 from strength_coach.features import breaks as breaks_feature
-from strength_coach.features import cardio as cardio_feature
 from strength_coach.features import deload as deload_feature
 from strength_coach.features import demands as demands_feature
 from strength_coach.features import derived as derived_feature
@@ -3098,13 +3097,8 @@ class Handler(BaseHTTPRequestHandler):
                 ))
             elif path == "/api/state":
                 self._json(200, self._with_conn(self._state))
-            elif path == "/api/cardio":
-                query = parse_qs(urlparse(self.path).query)
-                weeks = int(query.get("weeks", ["12"])[0])
-                on_date = query.get("date", [None])[0]
-                self._json(200, self._with_conn(
-                    lambda c: self._cardio(c, {"weeks": weeks, "date": on_date})
-                ))
+            elif path == "/api/cardio/legacy":
+                self._error(410, "manual cardio logging was retired; use /api/cardio/summary")
             elif path == "/api/cardio/workouts":
                 query = parse_qs(urlparse(self.path).query)
                 limit = min(int(query.get("limit", ["50"])[0]), 200)
@@ -3631,8 +3625,6 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(202, job)
             elif path == "/api/programme":
                 self._json(200, self._with_conn(lambda c: self._programme(c, body)))
-            elif path == "/api/cardio":
-                self._json(200, self._with_conn(lambda c: self._save_cardio(c, body)))
             elif path == "/api/cardio/visibility":
                 self._json(200, self._with_conn(
                     lambda c: self._set_workout_visibility(c, body)
@@ -4324,7 +4316,7 @@ class Handler(BaseHTTPRequestHandler):
             "block_week": context.block_week_index,
             "readiness": readiness,
             "readiness_score": readiness_score.compute(conn, today).as_dict(),
-            "cardio": cardio_feature.compute(conn, weeks=4).as_dict(),
+            "cardio": cardio_metrics.activity_summary(conn, weeks=4),
             "injury_signal": signal,
             "sessions": _session_rows(conn, 12),
             "form_evaluation": form_assessment_feature.followup(conn, as_of=today),
@@ -5389,83 +5381,6 @@ class Handler(BaseHTTPRequestHandler):
             reason=body.get("reason"),
         )
         return {"workout_id": workout_id, "hidden": hidden}
-
-    def _cardio(self, conn, body: dict | None = None) -> dict:
-        body = body or {}
-        weeks = int(body.get("weeks") or 12)
-        # `date` anchors the window like `cardio --show --date`; without it, today.
-        return cardio_feature.compute(
-            conn, weeks=weeks, on_date=body.get("date") or None
-        ).as_dict()
-
-    def _save_cardio(self, conn, body: dict) -> dict:
-        """Log one cardio session through the same writer the CLI uses."""
-        def optional(name: str):
-            value = body.get(name)
-            return None if value in (None, "") else value
-
-        day = str(body.get("date") or datetime.date.today().isoformat())
-        try:
-            datetime.date.fromisoformat(day)
-        except ValueError as exc:
-            raise FieldError("date must be YYYY-MM-DD", {"date": "must be YYYY-MM-DD"}) from exc
-        modality = str(body.get("modality") or "").strip()
-        if not modality:
-            raise FieldError("modality is required", {"modality": "required"})
-        minutes = optional("minutes")
-        if minutes is None:
-            raise FieldError("minutes is required", {"minutes": "required"})
-        try:
-            minutes_value = float(minutes)
-        except (TypeError, ValueError) as exc:
-            raise FieldError("minutes must be a number", {"minutes": "must be a number"}) from exc
-        if minutes_value <= 0:
-            raise FieldError("minutes must be positive", {"minutes": "must be positive"})
-        avg_hr = optional("avg_hr")
-        max_hr = optional("max_hr")
-        distance_km = optional("distance_km")
-        srpe = optional("srpe")
-        for name, value, low, high in (
-            ("avg_hr", avg_hr, 30, 230),
-            ("max_hr", max_hr, 30, 250),
-            ("srpe", srpe, 1, 10),
-        ):
-            if value is None:
-                continue
-            try:
-                number = float(value)
-            except (TypeError, ValueError) as exc:
-                raise FieldError(f"{name} must be a number", {name: "must be a number"}) from exc
-            if not low <= number <= high:
-                raise FieldError(
-                    f"{name} must be between {low} and {high}",
-                    {name: f"must be between {low} and {high}"},
-                )
-        distance_value = None
-        if distance_km is not None:
-            try:
-                distance_value = float(distance_km)
-            except (TypeError, ValueError) as exc:
-                raise FieldError(
-                    "distance_km must be a number", {"distance_km": "must be a number"}
-                ) from exc
-            if distance_value < 0:
-                raise FieldError(
-                    "distance_km must be non-negative",
-                    {"distance_km": "must be non-negative"},
-                )
-        repositories.append_cardio(
-            conn,
-            performed_on=day,
-            modality=modality,
-            duration_s=round(minutes_value * 60),
-            avg_hr=avg_hr,
-            max_hr=max_hr,
-            distance_m=None if distance_value is None else distance_value * 1000,
-            srpe=srpe,
-            note=body.get("note") or None,
-        )
-        return self._cardio(conn, body)
 
     def _selection(self, conn, day: str, session_type: str | None,
                    include_different: bool = False) -> dict:

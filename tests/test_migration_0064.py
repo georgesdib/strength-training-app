@@ -15,7 +15,7 @@ def _connection(tmp_path):
     partial = tmp_path / "migrations"
     partial.mkdir()
     for path in sorted(source.glob("*.sql")):
-        if path.name.startswith("0064"):
+        if int(path.name[:4]) >= 64:  # build a 0063 schema, then apply this migration
             continue
         shutil.copy2(path, partial / path.name)
     conn = db.connect(tmp_path / "coach.db")
