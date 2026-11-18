@@ -20,6 +20,13 @@ def test_setup_venv_is_executable_and_parses() -> None:
     subprocess.run([bash, "-n", str(SCRIPT)], check=True, capture_output=True, text=True)
 
 
+def test_setup_venv_installs_the_lock_by_default() -> None:
+    """A resolved install can pick a pandas major the tests never ran on."""
+    text = SCRIPT.read_text(encoding="utf-8")
+    assert 'MODE="locked"' in text
+    assert "--resolve" in text
+
+
 def test_setup_venv_help_does_not_create_a_venv() -> None:
     bash = shutil.which("bash")
     if bash is None:

@@ -4,8 +4,8 @@
 # Run this from an extracted repository export. The archive itself is not extracted here
 # because this script lives inside the archive; extract it first, then run this script.
 #
-#   ./setup-venv.sh                  # editable install with dev/test tools
-#   ./setup-venv.sh --locked         # reproducible requirements.lock install
+#   ./setup-venv.sh                  # reproducible requirements.lock install (default)
+#   ./setup-venv.sh --resolve        # let pip resolve from pyproject.toml instead
 #   ./setup-venv.sh --python python3.12
 #
 # The script never activates the venv in your current shell; use
@@ -17,18 +17,21 @@ ROOT="$(cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 
 PYTHON="${PYTHON:-python3}"
-MODE="dev"
+MODE="locked"
 
 usage() {
   cat <<'EOF'
 Create .venv and install the repository dependencies.
 
 Usage:
-  ./setup-venv.sh [--locked] [--python PYTHON]
+  ./setup-venv.sh [--locked | --resolve] [--python PYTHON]
 
 Options:
   --locked         Install requirements.lock, then the project without resolving
-                   dependencies again. This matches CI more closely.
+                   dependencies again. This is the default and matches CI, so the
+                   interpreter cannot pick a pandas/numpy major the tests never ran on.
+  --resolve        Resolve dependencies from pyproject.toml instead, for the case
+                   where a new pin needs testing before requirements.lock is updated.
   --python PATH    Python interpreter to use (default: $PYTHON, then python3).
   -h, --help       Show this help.
 
@@ -42,6 +45,9 @@ while [ "$#" -gt 0 ]; do
   case "$1" in
     --locked)
       MODE="locked"
+      ;;
+    --resolve)
+      MODE="resolve"
       ;;
     --python)
       if [ "$#" -lt 2 ]; then
@@ -97,7 +103,7 @@ if [ "$MODE" = "locked" ]; then
   echo "Installing project ..."
   .venv/bin/python -m pip install -e . --no-deps
 else
-  echo "Installing project with dev extras ..."
+  echo "Resolving dependencies from pyproject.toml ..."
   .venv/bin/python -m pip install -e ".[dev]"
 fi
 
