@@ -9,6 +9,8 @@ Short answer: **the resistance-training half is strong and already above the dos
 with lower mortality; the aerobic half was absent, and power and assessment are still missing.**
 Adding more lifting is not the answer — cardio and a small amount of power/upper-back work are.
 
+**Update 2026-11-17:** manual cardio capture was retired. The cardio context in this review now comes from the imported corpus (HealthKit history plus phone sync), with coverage and tier labels beside the numbers. See the cardio stage plan in the portfolio repository.
+
 Status (2026-10-20): **cardio capture**, the **pulling slot** and the **power slot** have been
 applied (`DEC-CARDIO-01`, `DEC-PULL-01/02`, `DEC-POWER-01`); the cardio prescription and the
 assessment metrics remain proposals. This document keeps the evidence and the reasoning; the sections below say
