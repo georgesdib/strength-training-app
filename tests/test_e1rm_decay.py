@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import os
+
 import pytest
+import yaml
 from conftest import make_readiness, make_training
 
 from strength_coach.features import e1rm_decay
@@ -42,3 +45,41 @@ def test_an_old_set_is_decayed_in_the_prescription():
     squat = next(item for item in prescription.items if item.exercise_id == "ssb_squat")
     assert "MOD-E1RM-DECAY-001" in squat.rationale_refs
     assert any("e1RM is old" in warning for warning in prescription.warnings)
+
+def test_decay_config_is_parsed_once_per_file_stamp(tmp_path, monkeypatch):
+    """The decay factor is asked for every prescribed item; the file must be read once."""
+    source = tmp_path / "decay.yaml"
+    source.write_text("grace_days: 10\nweekly_decay: 0.02\n", encoding="utf-8")
+    e1rm_decay._load_stamped.cache_clear()
+    parses: list[str] = []
+    real = yaml.safe_load
+
+    def counting(text):
+        parses.append(text)
+        return real(text)
+
+    monkeypatch.setattr(e1rm_decay.yaml, "safe_load", counting)
+    first = e1rm_decay.DecayConfig.load(source)
+    second = e1rm_decay.DecayConfig.load(source)
+
+    assert parses == [source.read_text(encoding="utf-8")]
+    assert first is second
+    assert first.grace_days == 10
+    assert first.weekly_decay == pytest.approx(0.02)
+    assert first.source_path == source
+
+
+def test_decay_config_edit_invalidates_the_cache(tmp_path):
+    """A stamp change must never serve the previous values."""
+    source = tmp_path / "decay.yaml"
+    source.write_text("grace_days: 10\n", encoding="utf-8")
+    e1rm_decay._load_stamped.cache_clear()
+    assert e1rm_decay.DecayConfig.load(source).grace_days == 10
+
+    source.write_text("grace_days: 30\n", encoding="utf-8")
+    before = source.stat()
+    os.utime(source, ns=(before.st_atime_ns, before.st_mtime_ns + 1_000_000_000))
+
+    edited = e1rm_decay.DecayConfig.load(source)
+    assert edited.grace_days == 30
+    assert edited is e1rm_decay.DecayConfig.load(source)
