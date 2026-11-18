@@ -17,7 +17,7 @@ from __future__ import annotations
 import argparse
 import json
 import platform
-import shutil
+import sqlite3
 import statistics
 import tempfile
 import time
@@ -31,9 +31,14 @@ from strength_coach.store import db
 
 
 def _copy_database(source: Path) -> tuple[Path, tempfile.TemporaryDirectory]:
+    """SQLite backup, not a file copy: a WAL database copied by shutil can miss committed pages."""
     staging = tempfile.TemporaryDirectory(prefix="resolver-bench-")
     target = Path(staging.name) / "coach.db"
-    shutil.copyfile(source, target)
+    with (
+        sqlite3.connect(f"file:{source}?mode=ro", uri=True) as origin,
+        sqlite3.connect(target) as copy,
+    ):
+        origin.backup(copy)
     return target, staging
 
 
@@ -76,7 +81,10 @@ def main() -> int:
     if not args.db.is_file():
         parser.error(f"database not found: {args.db}")
 
-    target, staging = _copy_database(args.db)
+    try:
+        target, staging = _copy_database(args.db)
+    except sqlite3.DatabaseError as exc:
+        parser.error(f"not a readable SQLite database: {args.db}: {exc}")
     try:
         store = db.Store(target)
         conn = store.connection
