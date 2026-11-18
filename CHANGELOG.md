@@ -2,7 +2,21 @@
 
 ## [Unreleased]
 
-- Nothing yet.
+### Fixed
+
+- **The readiness recovery series prefers a complete night over a newer partial one.**
+  A query window that started or ended mid-day computed a valid-looking median from part of the
+  night, and the value-keyed sample id let it supersede the complete night; the series now
+  prefers the row computed from more samples before recency.
+- **Pre-cutover manual and imported HRV no longer override the recovery night.** A manual HRV
+  entered before 2026-11-18 measured the old newest-sample definition, and the imported
+  readiness HRV column is that same definition; readiness now takes HRV only from the recovery
+  series or from a manual entry recorded after the cutover, and a day with neither has no HRV.
+  Manual precedence for every other readiness field is unchanged.
+- **The 7- and 28-day cardio windows end at an explicit `as_of`.** The windows hung off the
+  last workout, so "last 7 days" excluded every day since the last session; they now end at
+  `as_of` (default today, Europe/London), empty weeks are present at zero, and the reference
+  date is injectable for determinism.
 
 ## [1.6.0] — 2026-11-17
 
