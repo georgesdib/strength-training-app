@@ -219,6 +219,8 @@ def build_arguments(
             arguments[name] = {
                 "week_end": (day - dt.timedelta(days=day.weekday() + 1)).isoformat(),
             }
+        elif name == "get_longevity_assessment":
+            arguments[name] = {"as_of": day.isoformat()}
         elif name == "compare_training_periods":
             arguments[name] = {
                 "period_a": {"start": start_a, "end": end_a},

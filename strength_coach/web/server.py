@@ -1073,6 +1073,8 @@ class Handler(BaseHTTPRequestHandler):
                     payload = intelligence_api.prescription(self.db_path, device, self.path)
                 elif path == "/api/ios/v1/intelligence/programme-summary":
                     payload = intelligence_api.programme_summary(self.db_path, device, self.path)
+                elif path == "/api/ios/v1/intelligence/longevity":
+                    payload = intelligence_api.longevity(self.db_path, device, self.path)
                 elif path == "/api/ios/v1/intelligence/adherence":
                     payload = intelligence_api.adherence(self.db_path, device, self.path)
                 elif path == "/api/ios/v1/healthkit/activity/summary":
@@ -5560,23 +5562,9 @@ class Handler(BaseHTTPRequestHandler):
         if include_patterns:
             day = as_of or datetime.date.today().isoformat()
             try:
-                budget = volume_budget_mod.report(conn, day)
-                per_pattern = budget.get("per_pattern") or {}
-                patterns = {
-                    "per_pattern": {
-                        key: {
-                            "status": row.get("status"),
-                            "short": row.get("short"),
-                            "headroom_sets": (row.get("top_up_capacity") or {}).get("sets", 0),
-                        }
-                        for key, row in per_pattern.items()
-                    }
-                }
-                profile = dict(queries.athlete_profile(conn) or {})
-                target = int(profile.get("sessions_per_week_target") or 0)
-                if target:
-                    done = volume_budget_mod.completed_sessions(conn, on_date=day)
-                    sessions_remaining = max(0, target - done)
+                headroom = volume_budget_mod.headroom(conn, day)
+                patterns = headroom
+                sessions_remaining = headroom.get("sessions_remaining")
             except (ValueError, KeyError, TypeError, AttributeError) as exc:
                 # The budget is a programme read; it must not take the cardio endpoint down.
                 # Not silent: the assessment reports no patterns, and the log names the reason.

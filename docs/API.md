@@ -381,6 +381,7 @@ in the StrengthApp repository.
 | `GET /api/ios/v1/progress?weeks=&date=` | bearer | exactly `progress_feature.dashboard`; weeks 1-52, default 8 |
 | `GET /api/ios/v1/intelligence/weekly-review?week_end=YYYY-MM-DD` | bearer | exactly the `get_weekly_review` envelope (Monday-Sunday week containing `week_end`; default the most recently completed week); unknown query parameter 400, disabled capability 503, malformed envelope never returned |
 | `GET /api/ios/v1/intelligence/overview?as_of=&window_weeks=` | bearer | exactly the `get_training_overview` envelope; window 1-52, default 4 |
+| `GET /api/ios/v1/intelligence/longevity?as_of=&include_time_in_zone=&include_patterns=` | bearer | exactly the `get_longevity_assessment` envelope: last completed week against the WHO reference as context, current week progress, VO₂max status, optional sample-based time-in-zone and per-pattern headroom; facts only, no advice |
 | `GET /api/ios/v1/intelligence/exercises/<id>/progression?as_of=&window_days=&include_sessions=&limit_sessions=` | bearer | exactly the `get_exercise_progression` envelope; window 28-365, default 84; unknown exercise 404 |
 | `GET /api/ios/v1/intelligence/readiness?from=&to=&fields=` | bearer | exactly the `get_readiness_history` envelope; `fields` is a comma-separated list, default `score`; the paired app may name raw fields |
 | `GET /api/ios/v1/intelligence/session-details?workout_id=&session_id=&include_ratios=` | bearer | exactly the `get_session_details` envelope; exactly one identifier required |

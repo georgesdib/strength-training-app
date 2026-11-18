@@ -11,6 +11,10 @@
   (relation `unknown`) when fewer than half the week's minutes are classified, and nothing reads
   cardio to change a prescription (`DEC-LONGEVITY-01`). Optional `tiz=1` and `patterns=1` add
   sample-based zone minutes and per-pattern volume headroom. No migration, no notification, no model.
+- **`get_longevity_assessment` capability** (MCP tool 11, `GET /api/ios/v1/intelligence/longevity`,
+  and the chat/ `training_data` catalogue): the same facts as a versioned envelope with
+  `privacy.class: health`, abstaining to `insufficient` when classification is thin and `no_data`
+  when the week is empty. It returns no advice and no prose.
 
 ### Fixed
 

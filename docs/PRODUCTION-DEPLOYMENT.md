@@ -134,7 +134,7 @@ Do not put the token on the command line or in shell history.
 - 0060-0063 recorded; analytics/derived tables exist.
 - core family ready: true, readiness: verified.
 - C-1 timer active; one manual run succeeded and reports ready.
-- MCP tools/list returns 10 tools; slow tools are callable.
+- MCP tools/list returns 11 tools; slow tools are callable.
 - iOS/backend compatibility: bootstrap capabilities include `intelligence_read`; the app hides
   the Weekly review entry on an older server (capability absent). The weekly-review route returns
   200 with the envelope, and a stale app build still works because the field is additive.

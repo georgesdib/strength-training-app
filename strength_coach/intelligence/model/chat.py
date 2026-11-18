@@ -40,7 +40,9 @@ CAPABILITY_TOOL: dict[str, Any] = {
             "get_exercise_progression (exercise_id), get_readiness_history (from, to, fields), "
             "get_session_details (workout_id or session_id), get_prescription (for_date or "
             "prescription_id), get_programme_block_summary (as_of, block_weeks), "
-            "get_adherence_analysis (weeks or from/to), compare_training_periods, get_vbt_analysis."
+            "get_adherence_analysis (weeks or from/to), compare_training_periods, get_vbt_analysis, "
+            "get_longevity_assessment (as_of, include_time_in_zone, include_patterns) for aerobic "
+            "activity, VO2max and per-pattern volume headroom."
         ),
         "parameters": {
             "type": "object",
@@ -86,6 +88,7 @@ def run_chat(
         ("get_readiness_history", {"from": start, "to": today.isoformat(), "fields": ["score"]}),
         ("get_adherence_analysis", {"weeks": 12}),
         ("get_programme_block_summary", {}),
+        ("get_longevity_assessment", {}),
     ]
     blocks = []
     envelopes = []

@@ -31,10 +31,18 @@ MEASURED: dict[str, tuple[int, str]] = {
     # (221-session synthetic database, 12 measured requests) and provisional until the next
     # ODROID HTTP benchmark.
     "get_weekly_review": (571, "slow"),
+    # Added 2026-11-18: in-process capability service on the development Mac, synthetic database,
+    # 30 measured requests after 5 warm-ups. Provisional until the next ODROID HTTP run.
+    "get_longevity_assessment": (27, "fast"),
 }
 
 #: Capabilities whose figure comes from a different run than SOURCE.
-PROVISIONAL: dict[str, str] = {}
+PROVISIONAL: dict[str, str] = {
+    "get_longevity_assessment": (
+        "in-process capability service, development Mac, synthetic database (30 requests, "
+        "warm cache); not an MCP HTTP measurement"
+    ),
+}
 
 _GUIDANCE = {
     "fast": "Prefer this capability when it supplies sufficient evidence.",

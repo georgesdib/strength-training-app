@@ -18,6 +18,7 @@ from strength_coach.features import (
     adherence_analytics,
     attendance,
     breaks,
+    cardio_metrics,
     deload,
     exercise_history,
     observations,
@@ -28,6 +29,7 @@ from strength_coach.features import (
     vbt_performance,
     volume,
 )
+from strength_coach.prescribe import volume_budget
 from strength_coach.store import queries
 from strength_coach.utils import exercises
 
@@ -60,6 +62,10 @@ METHODS: dict[str, Callable[..., object]] = {
     "strength_coach.store.queries.prescription_detail": queries.prescription_detail,
     "strength_coach.utils.exercises.taxonomy": exercises.taxonomy,
     "strength_coach.utils.exercises.canonical_id": exercises.canonical_id,
+    "strength_coach.features.cardio_metrics.adequacy": cardio_metrics.adequacy,
+    "strength_coach.features.cardio_metrics.latest_vo2max": cardio_metrics.latest_vo2max,
+    "strength_coach.features.cardio_metrics.time_in_zone": cardio_metrics.time_in_zone,
+    "strength_coach.prescribe.volume_budget.headroom": volume_budget.headroom,
 }
 
 

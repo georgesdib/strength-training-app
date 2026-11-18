@@ -466,7 +466,8 @@ def time_in_zone(conn, *, on_date: str | None = None, days: int = 28) -> dict[st
     }
 
 
-def _latest_vo2max(conn) -> dict[str, Any] | None:
+def latest_vo2max(conn) -> dict[str, Any] | None:
+    """The newest stored VO2max measurement row, or None when the athlete has none."""
     row = conn.execute(
         """
         SELECT m.*, d.unit AS unit
@@ -547,6 +548,8 @@ def adequacy(
         "end": current_end.isoformat(),
         "days_elapsed": (today - current_start).days + 1,
         "days_remaining": (current_end - today).days,
+        "workouts": int(current_row.get("workouts") or 0),
+        "total_minutes": round(float(current_row.get("total_minutes") or 0.0), 1),
         "moderate_minutes": round(float(current_row.get("moderate_minutes") or 0.0), 1),
         "vigorous_minutes": round(float(current_row.get("vigorous_minutes") or 0.0), 1),
         "equivalent_minutes": round(float(current_row.get("equivalent_minutes") or 0.0), 1),
@@ -574,6 +577,8 @@ def adequacy(
             "iso_week": _iso_week_key(last_start),
             "start": last_start.isoformat(),
             "end": last_end.isoformat(),
+            "workouts": int(last_row.get("workouts") or 0),
+            "total_minutes": round(float(last_row.get("total_minutes") or 0.0), 1),
             "moderate_minutes": round(float(last_row.get("moderate_minutes") or 0.0), 1),
             "vigorous_minutes": round(float(last_row.get("vigorous_minutes") or 0.0), 1),
             "equivalent_minutes": round(equivalent, 1),
@@ -628,7 +633,7 @@ def assessment(
     return adequacy(
         summary,
         today=day,
-        vo2max_row=_latest_vo2max(conn),
+        vo2max_row=latest_vo2max(conn),
         patterns=patterns,
         sessions_remaining=sessions_remaining,
         time_in_zone_block=time_in_zone(conn, on_date=day.isoformat()) if include_tiz else None,

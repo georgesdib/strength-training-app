@@ -2047,7 +2047,7 @@ Owner approval of the plan's section 13 decisions remains required before the tr
 **MCP rollout follow-ups (updated 2026-11-14).** The extended HTTP benchmark on the ODROID
 measured p95 6,201 ms (session details), 4,058 ms (overview), 3,800 ms (programme) and 1,663 ms
 (readiness). The owner accepted a latency-aware budget (T-1) and the **transport is enabled on
-the trusted LAN with the full ten-tool catalogue**. The original one-second blanket gate is
+the trusted LAN with the full tool catalogue**. The original one-second blanket gate is
 superseded by T-1; existing benchmark numbers remain the reference until T-3 remeasurement.
 
 - **C-1 - Automatic maintenance worker (done 2026-11-15).** Installed on the home host:
@@ -2082,7 +2082,7 @@ until that remeasurement.
 (installed the same day with `deploy/install-intelligence-mcp.sh`, user `dsh`, host-specific
 paths), enabled at boot, from the production checkout's virtual environment on `10.0.0.44:8765`
 (the LAN address; loopback is no longer bound). The `allowed_hosts` list contains `10.0.0.44:*` and
-`odroid.local:*`; a mismatched Host is rejected with 421 even with a valid token. Full ten-tool
+`odroid.local:*`; a mismatched Host is rejected with 421 even with a valid token. Full tool
 catalogue, token file under the checkout's git-ignored config. It reads the production database
 read-only; the unit grants `ReadWritePaths` on the data directory because SQLite WAL needs
 `-shm`/`-wal` even for a read-only connection. Validated over real Streamable HTTP on 2026-11-15:
@@ -2281,9 +2281,10 @@ VO₂max be read at all, and what volume headroom remains per pattern. Canonical
 [longevity assessment](https://github.com/georgesdib/strength-app/blob/development/docs/plans/LONGEVITY-ASSESSMENT.md).
 
 Python computes the facts and exposes them as one `assessment` block on `GET /api/cardio/summary`
-and as a `get_longevity_assessment` intelligence capability; the iPhone Today card and the web
-Longevity panel render the same block, and the host model writes the advisory prose from it
-(on-device or configured). The WHO 150–300 band is context, not a target (`DEC-LONGEVITY-01`); there
+and as the `get_longevity_assessment` intelligence capability (MCP tool 11, the iOS intelligence
+route and the chat dossier). It returns facts only; the iPhone Today card and the web Longevity
+panel render the same block, and the host model writes the advisory prose from it (on-device or
+configured). The WHO 150–300 band is context, not a target (`DEC-LONGEVITY-01`); there
 is no VO₂max category and no age/sex field (`DEC-LONGEVITY-04`); cardio minutes, time-in-zone and
 VO₂max are `health` and need their own off-device consent (`DEC-LONGEVITY-02`); the advice is never
 wired to a prescription. Time-in-zone reuses the existing sample classification, which is not an

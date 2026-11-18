@@ -2,7 +2,7 @@
 
 **Status:** written 2026-11-14 for the INT-1b service; deployed on the home host on 2026-11-15 with
 `deploy/install-intelligence-mcp.sh`, which rendered the unit for `/home/dsh/strength-training-app`
-and user `dsh`. The unit is enabled and active (all ten tools over Streamable HTTP,
+and user `dsh`. The unit is enabled and active (all eleven tools over Streamable HTTP,
 `get_weekly_review` included) and it survives a reboot. The `/opt` paths in this page remain the
 reference for a dedicated-user deployment.
 
