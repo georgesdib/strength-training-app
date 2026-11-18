@@ -17,13 +17,12 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-import yaml
 
 from strength_coach.domain import rir as rir_mod
 from strength_coach.features import exposure as exposure_feature
 from strength_coach.features import volume as volume_feature
 from strength_coach.features.strength_observations import Unavailable
-from strength_coach.utils import exercises, paths
+from strength_coach.utils import exercises, paths, yaml_files
 
 
 @dataclass(frozen=True)
@@ -64,7 +63,7 @@ class MonitoringConfig:
     @classmethod
     def load(cls, path: str | Path | None = None) -> MonitoringConfig:
         source = Path(path or paths.config_dir("monitoring.v1.yaml"))
-        raw = yaml.safe_load(source.read_text(encoding="utf-8")) if source.is_file() else {}
+        raw = yaml_files.load_yaml_file(source) if source.is_file() else {}
         raw = raw or {}
         recent = raw.get("recent_reference") or {}
         bands = (raw.get("relative_intensity") or {}).get("bands") or {}
