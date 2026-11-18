@@ -10,11 +10,9 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-import yaml
-
 from strength_coach.prescribe import loads
 from strength_coach.prescribe.models import PrescriptionItem, WarmupSet
-from strength_coach.utils import paths
+from strength_coach.utils import paths, yaml_files
 
 
 @dataclass(frozen=True)
@@ -32,7 +30,7 @@ class WarmupConfig:
     @classmethod
     def load(cls, path: str | Path | None = None) -> WarmupConfig:
         source = Path(path or paths.config_dir("warmup.v1.yaml"))
-        raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
+        raw = yaml_files.load_yaml_file(source) or {}
         percents = tuple(float(x) for x in raw.get("percents", [0.50, 0.70, 0.85]))
         reps = tuple(int(x) for x in raw.get("reps", [5, 3, 2]))
         if len(percents) != len(reps):

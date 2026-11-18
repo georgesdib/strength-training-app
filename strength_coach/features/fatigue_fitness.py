@@ -15,11 +15,10 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-import yaml
 
 from strength_coach.features import derived
 from strength_coach.store import queries
-from strength_coach.utils import exercises, paths
+from strength_coach.utils import exercises, paths, yaml_files
 
 
 @dataclass(frozen=True)
@@ -37,7 +36,7 @@ class ModelConfig:
     @classmethod
     def load(cls, path: str | Path | None = None) -> ModelConfig:
         source = Path(path or paths.fatigue_fitness_yaml())
-        raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
+        raw = yaml_files.load_yaml_file(source) or {}
         return cls(
             enabled=bool(raw.get("enabled", True)),
             fitness_half_life_days=float(raw.get("fitness_half_life_days", 42)),

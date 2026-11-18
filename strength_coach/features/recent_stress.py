@@ -13,9 +13,8 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-import yaml
 
-from strength_coach.utils import exercises, paths
+from strength_coach.utils import exercises, paths, yaml_files
 
 STATUSES = ("high", "normal", "low")
 
@@ -33,7 +32,7 @@ class StressConfig:
     @classmethod
     def load(cls, path: str | Path | None = None) -> StressConfig:
         source = Path(path or paths.stress_yaml())
-        raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
+        raw = yaml_files.load_yaml_file(source) or {}
         return cls(
             half_life_hours=float(raw.get("half_life_hours", 48)),
             window_days=int(raw.get("window_days", 10)),

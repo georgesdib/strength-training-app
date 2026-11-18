@@ -13,9 +13,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any
 
-import yaml
-
-from strength_coach.utils import paths
+from strength_coach.utils import paths, yaml_files
 
 # The three ways an e1RM can be selected from a window of set-level estimates. The names are
 # config values, so they are defined once here and compared by identity in the engine rather
@@ -61,7 +59,7 @@ class Thresholds:
     @classmethod
     def load(cls, path: str | Path | None = None) -> Thresholds:
         source = Path(path or paths.thresholds_yaml())
-        raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
+        raw = yaml_files.load_yaml_file(source) or {}
         load = raw.get("load") or {}
         modifiers = raw.get("modifiers") or {}
         testing = raw.get("testing") or {}
