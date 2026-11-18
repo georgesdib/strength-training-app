@@ -4,7 +4,7 @@ The resume point for this project. If you are picking this up cold — human or 
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
 
-Last updated: 2026-11-18 · **v1.6.0 released; v1.6.x cardio impulse next** · version `1.6.0`
+Last updated: 2026-11-18 · **v1.6.0 released; v1.6.x longevity assessment next** · version `1.6.0`
 
 
 ---
@@ -96,8 +96,8 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v1.3 | UI closure, measurement/readiness cleanup and documentation infrastructure | **released 2026-11-06; stable** |
 | v1.4 | VBT target metadata, active/historical target feedback and longitudinal target analysis | **released 2026-11-13; stable** |
 | v1.5 | read-only training intelligence: capability layer, MCP server, REST facade, narration and chat | **released 2026-11-15; stable** |
-| v1.6 | cardio depth and reproducible cardio impulse/shadow load | **partly delivered (1.6.0): corpus, linking, analytics, dashboards; impulse planned; see §4.13a** |
-| v1.6.x | cardio impulse/shadow load (§4.13a A2/A3), plus the unreleased post-1.6.0 fixes: a complete night outranks a partial one in the recovery series, pre-cutover manual/imported HRV is ignored, and the 7/28-day cardio windows end at an explicit `as_of` | **in progress on `development`; not released** |
+| v1.6 | cardio depth and reproducible cardio impulse/shadow load | **delivered (1.6.0): corpus, linking, analytics, dashboards; the impulse (A2/A3) was retired 2026-11-18 (`DEC-LONGEVITY-03`)** |
+| v1.6.x | longevity assessment (§4.36): aerobic adequacy, VO₂max status, per-pattern headroom and advisory prose, plus the unreleased post-1.6.0 fixes: a complete night outranks a partial one in the recovery series, pre-cutover manual/imported HRV is ignored, and the 7/28-day cardio windows end at an explicit `as_of` | **approved 2026-11-18; not implemented; the fixes remain unreleased** |
 | — | training-day session fragments | **done 2026-11-01** (see §4.27) |
 | — | post-workout form assessment | **done 2026-10-25** |
 | future | LLM integration: read-only intelligence delivered; constrained proposer withdrawn | **read-only delivered; no write path (§4.24)** |
@@ -109,8 +109,9 @@ shipped the resolver as an opt-in feature; v1.3.0 closed the UI redesign and con
 measurement/readiness and documentation work; v1.4.0 shipped the VBT target analytics and v1.4.1
 patched the native summary performance and the portability test; v1.5.0 shipped the read-only
 training intelligence workstream. Cardio depth moves to v1.6, and the deeper labelled calibration
-set is retired (`DEC-EVAL-09`). v1.6.0 shipped the cardio stage on 2026-11-18; the impulse remains
-the v1.6.x deliverable, and the post-release readiness/cardio fixes are still unreleased.
+set is retired (`DEC-EVAL-09`). v1.6.0 shipped the cardio stage on 2026-11-18; the impulse was retired the same day
+(`DEC-LONGEVITY-03`) in favour of the longevity assessment, and the post-release readiness/cardio
+fixes are still unreleased.
 
 ### What works end to end today
 
@@ -884,7 +885,9 @@ well-observed band applies the calibrated factor; the prescription cites the app
 command) was removed in favour of the imported corpus; the portfolio cardio stage plan is the
 canonical account and closed on 2026-11-18 at release 1.6.0. That stage deferred the web
 time-in-zone chart and HealthKit deletion detection (replaced by hiding a workout); its test debt is
-recorded there. The impulse item below still stands and is the remaining v1.6.x deliverable.
+recorded there. The impulse item below was retired on 2026-11-18 (`DEC-LONGEVITY-03`); the
+[longevity assessment plan](https://github.com/georgesdib/strength-app/blob/development/docs/plans/LONGEVITY-ASSESSMENT.md) replaces it with sample-based time-in-zone,
+which adds no load model.
 
 The app currently measures resistance training only. Cardio is a separate exposure with a
 different fatigue signature, and a single "fatigue score" would hide that. This item adds the
@@ -969,9 +972,12 @@ published in the portfolio cardio stage plan
 [plan](https://github.com/georgesdib/strength-app/blob/development/docs/plans/CARDIO-STAGE.md)): 1,431
 HealthKit workouts, 546 k usable HR samples, 320 of 378 sessions with a single same-day workout
 candidate, and exactly one historical exact identifier. Capture completion (A1) shipped with that stage,
-which closed on 2026-11-18 at release 1.6.0; the impulse/shadow load (A2/A3) remains this section's
-v1.6.x deliverable, so v1.6 stays open. A4 and A5 are unchanged. Nothing in the stage changes a
-prescription, and no general cardio impulse is implemented until A2 is taken here.
+which closed on 2026-11-18 at release 1.6.0. The impulse/shadow load (A2/A3) and the model decision
+(A4) were **retired the same day** (`DEC-LONGEVITY-03`): TRIMP, sRPE impulse, acute:chronic ratios
+and unified fatigue scores are closed as product direction, and A5 (interaction review) follows them.
+The replacement is the [longevity assessment plan](https://github.com/georgesdib/strength-app/blob/development/docs/plans/LONGEVITY-ASSESSMENT.md): deterministic aerobic adequacy, VO₂max
+status and per-pattern headroom, with sample-based time-in-zone as the only new cardio computation.
+Nothing reads cardio data to change a prescription.
 
 **Principles**
 
@@ -1277,7 +1283,8 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | P2 | Step 8 effective-set accounting | **implemented and live 2026-10-27** — 0.25 map, target 68.25, landmarks unscaled, effective budget/ledger, raw UI column, `hard`/`effective` switch; rollback one profile change (VOLUME-MODULATION-PLAN §15–16) |
 | P2 | Volume modulation: weekly target + session cap | **complete/closed 2026-10-27** — steps 1, 2, 2b, 9a and 9b implemented: read-only budget, per-group accessory budget behind the off-by-default profile flag (`MOD-VOL-003`, constitution 1.17.0), opt-in main-lift `reduce`, compensation preview, and opt-in additive compensation application (`MOD-VOL-004`, executable load required, high-band guarded); **9c-1 drop engine** and **9c-2 identity/UX** implemented (labels/API/UI, startable empty technique, derived review, forecast actual types, migration 0038; `MOD-VOL-005`/constitution 1.18.0); **9c-3 confirmation/settings** implemented (Settings/API, local overlay, per-session confirmation); **7a settings registry/snapshot** implemented (deload reactive constants moved to config); **step 4 settings profile** implemented (append-only versions, budget wiring, snapshots); **7b profile-backed feature wiring** implemented (DUP, deload, volume, readiness, e1RM, plausibility); **step 5 Settings UI/guarded settings** implemented; **5b modality registry/UI** implemented (11 modules, CLI/API/UI parity); **step 6 budget-aware forecast/weekly panels**, **5c remaining modules** and **step 8 effective-set accounting** implemented and live; the plan is closed. Step 3 is a standing Today-page review follow-up, not a plan milestone. The programme forecast now supports 1–5 sessions/week; 4 uses Mon/Wed/Fri/Sun and 5 uses Mon/Tue/Thu/Fri/Sun. Design in `docs/archive/VOLUME-MODULATION-PLAN.md` |
 | v1.1 | Fatigue signals: exposure, substitution, advisories | **Phase 0 done 2026-10-28** (five decisions; `docs/FATIGUE-SIGNALS.md`, `docs/EXERCISE-DEMANDS.md`). **Phase 1 done 2026-10-28**: `config/exercises/demands.v1.yaml` populated for **28/63** reachable ids (4 in-scope dimensions at 55.6 % known, 2 `supported` claims, 4 evidence entries). **Rating path done 2026-10-28**: git-ignored `config/exercises/demands.local.yaml` overlay merged over the reviewed file, with `exercise demands report|unrated|set|clear` and automatic rollback on a rejected write (digest covers both files). **Phase 2 done 2026-10-28**: `features/exposure.py` (7/28-day ratio, coverage, gap/deload/break abstention, exposure dedup, per-group ratios), `exposure ratio` CLI, `GET /api/exposure`, Prescribe **Exposure ratio** panel and the Part D low-exposure advisory; report-only, trim not implemented. **Demand display done 2026-10-28**: Exercises rows show `rated/4` and the details dialog shows the profile with confidence, reason, catalogue digest and overlay state; the same form rates or clears a dimension (`POST /api/exercises/demands`, same `set_claim` as the CLI). **Phase 3 done 2026-10-28**: `MOD-EXP-001` (constitution 1.20.0) trims at most one non-essential accessory set per affected group (≤2/session, floor 1) when `athlete_profile.exposure_trim_enabled` is on (default off), skipping main lifts, essential items, readiness cuts and under-MEV additions; `shadow_decision` table + repository exist (append-only triggers). Shadow writes and the review report land in Phase 6 so forecast builds never write rows. **Phase 4 done 2026-10-28**: `prescribe/fatigue_selection.py` suggests at most one accessory substitution when the exposure signal is high, the candidate is A/B comparable, covers the current lift's primary muscles and is rated strictly lower on an in-scope demand dimension; `GET /api/substitution`, the Exercise-selection panel block and `select --fatigue` expose it. Suggest-only; abstains when the trim already acted or the metadata is unknown. **Phase 5 done 2026-10-28**: `features/residual.py` computes the VBT-only execution residual (observed minus prescribed velocity) from linked workout sets, lift-scoped, 84-day window, with the ≥5 signal and ≥20/8-week/two-lift evaluation gates; `residual`, `GET /api/residual` and the Prescribe panel expose it. Shadow only. **Phase 6 done 2026-10-28**: `prescribe/shadow.py` writes exposure + substitution rows only when a prescription is persisted; `features/shadow_report.py` and `shadow`/`GET /api/shadow`/Prescribe **Shadow review** expose counts, abstentions, conflicts and the four gate checks. The gate never enables anything (`activation_allowed: false`); the fatigue-signals specification is fully implemented. |
-| v1.6 | Cardio depth and shadow cardio load | **partly delivered (1.6.0)** — corpus, linking, analytics and dashboards; the impulse/shadow load is the remaining v1.6.x item (§4.13a, Q14) |
+| v1.6 | Cardio depth | **delivered (1.6.0)** — corpus, linking, analytics and dashboards; the impulse/shadow load was retired 2026-11-18 (`DEC-LONGEVITY-03`, §4.13a) |
+| v1.6.x | Longevity assessment | **next; approved 2026-11-18, not implemented** — aerobic adequacy, VO₂max status, per-pattern headroom and advisory prose; no migration (§4.36, [plan](https://github.com/georgesdib/strength-app/blob/development/docs/plans/LONGEVITY-ASSESSMENT.md)) |
 | — | Deeper labelled calibration set | retired 2026-11-13 (§4.14, `DEC-EVAL-09`) |
 | v1.5 | LLM integration: read-only delivered; constrained proposer withdrawn 2026-11-17 | §4.24; selector retirement done (Phase 1b) |
 | future | Personalised volume-response model | idea only; shadow/gated (§13, Q28) |
@@ -2266,6 +2273,21 @@ family reads, and fallback when a family is incomplete or failed.
 
 **Non-goals:** metric changes, deload policy changes, lookback truncation, a generic cache, MCP
 transport changes or client changes.
+
+### 4.36 Longevity assessment — aerobic adequacy, fitness and strength context  (approved 2026-11-18; not implemented)
+
+Three questions, one deterministic answer each: is the aerobic reference being met, can the stored
+VO₂max be read at all, and what volume headroom remains per pattern. Canonical plan:
+[longevity assessment](https://github.com/georgesdib/strength-app/blob/development/docs/plans/LONGEVITY-ASSESSMENT.md).
+
+Python computes the facts and exposes them as one `assessment` block on `GET /api/cardio/summary`
+and as a `get_longevity_assessment` intelligence capability; the iPhone Today card and the web
+Longevity panel render the same block, and the host model writes the advisory prose from it
+(on-device or configured). The WHO 150–300 band is context, not a target (`DEC-LONGEVITY-01`); there
+is no VO₂max category and no age/sex field (`DEC-LONGEVITY-04`); cardio minutes, time-in-zone and
+VO₂max are `health` and need their own off-device consent (`DEC-LONGEVITY-02`); the advice is never
+wired to a prescription. Time-in-zone reuses the existing sample classification, which is not an
+impulse model. No migration, no notification, no strength verdict.
 
 ## 5. Known gaps and risks
 
