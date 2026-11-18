@@ -18,6 +18,10 @@
 
 ### Fixed
 
+- **Time-in-zone loads only the workouts in its window.** It read all 590,000 heart-rate samples
+  to answer a 28-day question; scoping the query to the 25 workouts in the window took the ODROID
+  figure from 11,078 ms p95 to 191 ms, and the block is now cheap enough for the panel it was
+  built for.
 - **The readiness recovery series prefers a complete night over a newer partial one.**
   A query window that started or ended mid-day computed a valid-looking median from part of the
   night, and the value-keyed sample id let it supersede the complete night; the series now

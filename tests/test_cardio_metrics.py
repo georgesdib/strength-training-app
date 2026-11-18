@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import datetime as dt
+
 import pytest
 
 from strength_coach.features import cardio_metrics as metrics
@@ -185,6 +187,38 @@ def test_continuity_admits_dense_series_and_rejects_sparse(conn):
     assert payload["time_in_zone"]["eligible_workouts"] == 1
     assert payload["time_in_zone"]["eligible_by_year"] == {"2026": 1}
     assert payload["time_in_zone"]["minutes_by_year"]["2026"]["moderate"] == 10
+
+def _samples(conn, workout, start_iso, count=3):
+    start = dt.datetime.fromisoformat(start_iso)
+    for offset in range(count):
+        at = (start + dt.timedelta(seconds=30 * offset)).isoformat()
+        cardio.record_sample(
+            conn,
+            sample_key=cardio.sample_content_key(
+                kind="heart_rate", sampled_at=at, value=120.0,
+                unit="count/min", source_bundle_id="Watch",
+            ),
+            kind="heart_rate",
+            sampled_at=at,
+            value=120.0,
+            unit="count/min",
+            source_name="Watch",
+            imported_at="2026-11-17T18:00:00+00:00",
+            external_workout_id=workout["external_workout_id"],
+            association="workout",
+        )
+
+
+def test_hr_values_for_loads_only_the_named_workouts(conn):
+    first = _workout(conn, "2026-11-10T08:00:00+00:00", 40, avg_hr=130)
+    second = _workout(conn, "2026-11-12T08:00:00+00:00", 40, avg_hr=150)
+    _samples(conn, first, "2026-11-10T08:00:00+00:00")
+    _samples(conn, second, "2026-11-12T08:00:00+00:00")
+
+    values = metrics.hr_values_for(conn, [first["external_workout_id"]])
+    assert set(values) == {first["external_workout_id"]}
+    assert len(values[first["external_workout_id"]]) == 3
+
 
 # --- Longevity assessment -------------------------------------------------
 

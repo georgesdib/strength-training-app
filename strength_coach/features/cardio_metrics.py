@@ -119,6 +119,32 @@ def _hr_values(conn) -> dict[str, list[tuple[float, float]]]:
     return values
 
 
+def hr_values_for(conn, workout_ids: list[str]) -> dict[str, list[tuple[float, float]]]:
+    """(epoch, bpm) per workout, for the named workouts only.
+
+    The corpus holds ~590,000 heart-rate samples; loading all of them to answer a 28-day question
+    cost 6 s on the ODROID, while the 25 workouts in that window hold ~4,900. Chunked because
+    SQLite caps the number of bound parameters.
+    """
+    values: dict[str, list[tuple[float, float]]] = defaultdict(list)
+    unique = list(dict.fromkeys(workout_ids))
+    for start in range(0, len(unique), 500):
+        chunk = unique[start:start + 500]
+        marks = ",".join("?" * len(chunk))
+        for row in conn.execute(
+            f"""
+            SELECT external_workout_id, sampled_at, value FROM health_sample
+            WHERE kind = 'heart_rate' AND external_workout_id IN ({marks})
+            ORDER BY external_workout_id, sampled_at
+            """,
+            chunk,
+        ):
+            values[row["external_workout_id"]].append(
+                (dt.datetime.fromisoformat(row["sampled_at"]).timestamp(), float(row["value"]))
+            )
+    return values
+
+
 def classification_rows(conn) -> list[dict[str, Any]]:
     """Classify every workout once, using the series mean only where Apple supplied no average."""
     averaged = {
@@ -430,10 +456,7 @@ def time_in_zone(conn, *, on_date: str | None = None, days: int = 28) -> dict[st
     anchor = _as_of_date(on_date)
     first = anchor - dt.timedelta(days=days - 1)
     hidden = hidden_workout_ids(conn)
-    series_by_workout = _hr_values(conn)
-    totals: Counter = Counter()
-    covered = 0
-    eligible = 0
+    in_window: list[dict[str, Any]] = []
     for row in conn.execute("SELECT * FROM external_workout"):
         workout = dict(row)
         if workout["external_workout_id"] in hidden:
@@ -441,8 +464,15 @@ def time_in_zone(conn, *, on_date: str | None = None, days: int = 28) -> dict[st
         ended = dt.datetime.fromisoformat(workout["ended_at"]).astimezone(
             ZoneInfo("Europe/London")
         ).date()
-        if not first <= ended <= anchor:
-            continue
+        if first <= ended <= anchor:
+            in_window.append(workout)
+    series_by_workout = hr_values_for(
+        conn, [workout["external_workout_id"] for workout in in_window]
+    )
+    totals: Counter = Counter()
+    covered = 0
+    eligible = 0
+    for workout in in_window:
         series = series_by_workout.get(workout["external_workout_id"], [])
         if not series:
             continue
