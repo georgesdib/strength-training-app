@@ -879,8 +879,10 @@ well-observed band applies the calibrated factor; the prescription cites the app
 ### 4.13 Cardio workouts and an impulse fatigue model  (capture v0.2 done; cardio model v1.5; strength model is §4.16)
 
 **Capture retired 2026-11-17.** Manual cardio logging (`cardio_log`, the web form, the `cardio` CLI
-command) was removed in favour of the imported corpus; the stage plan in
-`docs/plans/CARDIO-STAGE.md` is the canonical account. The impulse item below still stands.
+command) was removed in favour of the imported corpus; the portfolio cardio stage plan is the
+canonical account and closed on 2026-11-18 at release 1.6.0. That stage deferred the web
+time-in-zone chart and HealthKit deletion detection (replaced by hiding a workout); its test debt is
+recorded there. The impulse item below still stands and is the remaining v1.6.x deliverable.
 
 The app currently measures resistance training only. Cardio is a separate exposure with a
 different fatigue signature, and a single "fatigue score" would hide that. This item adds the
