@@ -108,6 +108,13 @@ because the prescription is user-facing. If a test fails only because an unrelat
 moved, the test is too literal. Integration tests that import real exports are marked and
 must not run in the fast lane; synthesise public test data.
 
+### Parallel runs and order-dependent failures
+
+`tests/test_ios_workflow.py` starts real HTTP servers and shares fixtures, so under xdist it can
+fail in groups that disappear when the file is run alone (`-n 0`). Observed 2026-11-18: five
+failures in one parallel run, a different five in the next, the whole file green serially. Re-run a
+suspicious failure serially before diagnosing a regression.
+
 ### Waiting for long suites
 
 Do not poll a running suite in short increments. Estimate from collected count/recent runs,
