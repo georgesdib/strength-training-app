@@ -2291,10 +2291,11 @@ panel render the same block, and the host model writes the advisory prose from i
 configured). The WHO 150–300 band is context, not a target (`DEC-LONGEVITY-01`); there
 is no VO₂max category and no age/sex field (`DEC-LONGEVITY-04`); cardio minutes, time-in-zone and
 VO₂max are `health` and need their own off-device consent (`DEC-LONGEVITY-02`); the advice is never
-wired to a prescription. Time-in-zone reuses the existing sample classification, which is not an
-impulse model. No migration, no notification, no strength verdict.
+wired to a prescription. Time-in-zone reuses the existing sample classification and the corrected
+elapsed-time integration, which is not an impulse model. No migration, no notification, no strength
+verdict.
 
-**1.7.1 corrective release (2026-11-18).** Seven audit findings were verified against the 1.7.0
+**1.7.1 corrective release (2026-11-18).** Eight audit findings were verified against the 1.7.0
 code and corrected without changing the product decisions: (1) the DeepSeek chat dispatcher now
 builds a per-request allowlist from the tools it actually advertised and rejects unadvertised
 health or plan tools before their provider is called; (2) recovery-tail samples
@@ -2307,8 +2308,8 @@ above the band, never as excessive or harmful; (5) inserting new heartbeat sampl
 already-imported workout invalidates the classification cache via a cheap state marker, and a
 re-import is a no-op; (6) the web Longevity panel reads only the canonical `assessment` block and
 requests optional time-in-zone/headroom deliberately; (7) VO₂max presentation includes units,
-date, source/method and currency on both clients, and remote narration of a health-class
-capability requires an explicit `health_consent` flag in addition to the browser disclosure.
+date, source/method and currency on both clients; (8) remote narration of a health-class capability
+requires an explicit `health_consent` flag in addition to the browser disclosure.
 Cross-platform fixtures are byte-identical in both repositories and are asserted by the parent
 contract test. Limitations: time-in-zone is still sample-based and only for continuity-eligible
 workouts, so it is not a clinical zone-duration measurement; whole-workout classification remains
