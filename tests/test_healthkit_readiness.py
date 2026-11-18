@@ -200,6 +200,54 @@ def test_raw_healthkit_hrv_is_suppressed_without_a_recovery_night():
         store.close()
 
 
+def test_manual_hrv_before_the_cutover_does_not_override_a_recovery_night():
+    store = _store()
+    try:
+        conn = store.connection
+        day = "2026-11-15"
+        _base_day(conn, day)
+        hrv_recovery.record_samples(
+            conn, device_id=DEVICE_ID, samples=[_recovery(day, 69.25)],
+            imported_at="2026-11-18T07:00:00+00:00",
+        )
+        # The 89.3 was entered under the old "newest sample" definition.
+        conn.execute(
+            "INSERT INTO readiness_entry "
+            "(entry_id, on_date, field, value, source, recorded_at) VALUES (?, ?, ?, ?, ?, ?)",
+            ("old-manual", day, "hrv_ms", 89.3, "manual", "2026-11-15T18:14:38Z"),
+        )
+
+        effective = queries.readiness_day(conn, day)
+        assert effective["hrv_ms"] == 69.25
+        assert effective["sources"]["hrv_ms"] == "hrv_recovery"
+    finally:
+        store.close()
+
+
+def test_manual_hrv_after_the_cutover_overrides_a_recovery_night():
+    store = _store()
+    try:
+        conn = store.connection
+        day = "2026-11-15"
+        _base_day(conn, day)
+        hrv_recovery.record_samples(
+            conn, device_id=DEVICE_ID, samples=[_recovery(day, 69.25)],
+            imported_at="2026-11-18T07:00:00+00:00",
+        )
+        conn.execute(
+            "INSERT INTO readiness_entry "
+            "(entry_id, on_date, field, value, source, recorded_at) VALUES (?, ?, ?, ?, ?, ?)",
+            ("new-manual", day, "hrv_ms", 89.3, "manual", "2026-11-18T07:10:00Z"),
+        )
+
+        effective = queries.readiness_day(conn, day)
+        assert effective["hrv_ms"] == 89.3
+        assert effective["sources"]["hrv_ms"] == "manual"
+        assert effective["healthkit"]["hrv_ms"]["value"] == 69.25
+    finally:
+        store.close()
+
+
 def test_recovery_samples_are_idempotent_and_conflict_on_a_changed_value():
     store = _store()
     try:
