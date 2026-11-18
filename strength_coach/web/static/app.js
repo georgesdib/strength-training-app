@@ -685,6 +685,20 @@ async function loadLongevity() {
   const day = $("#longevity-date").value;
   $("#longevity-summary").innerHTML = "<p class='empty'>Building longevity view…</p>";
   $("#longevity-details").innerHTML = "";
+  // The longevity assessment is the cardio summary's block (DEC-LONGEVITY-01): one composed
+  // function, so this panel cannot disagree with the phone.
+  let assessment = {};
+  try { assessment = (await api("/api/cardio/summary?weeks=4")).assessment || {}; }
+  catch { assessment = {}; }
+  const lastWeek = assessment.last_week || null;
+  const relationText = !lastWeek
+    ? "No completed week to assess yet."
+    : lastWeek.relation === "inside"
+      ? fmt(lastWeek.equivalent_minutes, 0) + " moderate-equivalent minutes last week — inside the 150–300 reference."
+      : lastWeek.relation === "below"
+        ? fmt(lastWeek.equivalent_minutes, 0) + " moderate-equivalent minutes last week — "
+          + fmt(lastWeek.remaining_minutes, 0) + " short of the 150-minute reference."
+        : "Last week's activity could not be classified well enough to compare with the reference.";
   try {
     const query = new URLSearchParams({ weeks });
     if (day) query.set("date", day);
@@ -719,9 +733,12 @@ async function loadLongevity() {
     const symptomReadings = regions.reduce((sum, row) => sum + (row.readings || 0), 0);
     const flares = regions.reduce((sum, row) => sum + (row.flares || 0), 0);
     const contextNotes = [];
-    contextNotes.push(cardioAvg == null
-      ? "No cardio minutes recorded in this window."
-      : cardioAvg + " cardio minutes per week on average; the 150–300 minute WHO reference is general context, not an individualized goal.");
+    contextNotes.push(relationText);
+    if (lastWeek && lastWeek.unclassified_minutes > 0) {
+      contextNotes.push(fmt(lastWeek.unclassified_minutes, 0)
+        + " minutes last week were unclassified and are not counted as zero.");
+    }
+    contextNotes.push("The 150–300 minute WHO band is context, not an individualized target.");
     contextNotes.push(metricCount
       ? metricCount + " configured measurement type(s) have recorded values; latest values below use available history, not only this window."
       : "No configured measurement types have recorded values in available history.");
@@ -763,6 +780,29 @@ async function loadLongevity() {
       "<h3>Recorded context and coverage</h3><ul class='list'>" +
       contextNotes.map((x) => "<li>" + esc(x) + "</li>").join("") +
       "</ul><p class='muted'>Descriptive records only; no medical interpretation or prescription change.</p>";
+    $("#longevity-narrative")?.remove();
+    const narrativeHost = document.createElement("div");
+    narrativeHost.id = "longevity-narrative";
+    narrativeHost.innerHTML = "<p>" + esc(relationText) + "</p>"
+      + "<button id='longevity-write' type='button'>Write the summary</button>"
+      + "<p id='longevity-narrative-text' class='muted'></p>";
+    document.querySelector("#longevity-summary").appendChild(narrativeHost);
+    document.querySelector("#longevity-write").addEventListener("click", async () => {
+      const text = document.querySelector("#longevity-narrative-text");
+      text.textContent = "Writing…";
+      try {
+        const result = await api("/api/intelligence/narrate", {
+          method: "POST",
+          body: JSON.stringify({ capability: "get_longevity_assessment", payload: {} }),
+        });
+        const parts = [result.headline].concat(result.observations || []).filter(Boolean);
+        text.textContent = parts.join(" ")
+          + (result.model ? " — written by " + result.model : " — server text");
+      } catch (error) {
+        text.textContent = "No summary was written: " + error.message
+          + ". The numbers above are the assessment.";
+      }
+    });
     $("#longevity-details").innerHTML =
       "<h3>Cardio weeks</h3><table><thead><tr><th>Week</th><th>minutes</th></tr></thead><tbody>" +
       (cardioWeeks || "<tr><td colspan='2' class='muted'>no cardio entries</td></tr>") + "</tbody></table>" +

@@ -11,6 +11,10 @@
   (relation `unknown`) when fewer than half the week's minutes are classified, and nothing reads
   cardio to change a prescription (`DEC-LONGEVITY-01`). Optional `tiz=1` and `patterns=1` add
   sample-based zone minutes and per-pattern volume headroom. No migration, no notification, no model.
+- **The web Longevity panel now leads with the assessment.** The 4-week average sentence is
+  replaced by the completed week against the reference, with unclassified minutes named, and a
+  **Write the summary** button that calls `/api/intelligence/narrate` on demand and labels the
+  model that wrote it. Nothing is generated until asked.
 - **`get_longevity_assessment` capability** (MCP tool 11, `GET /api/ios/v1/intelligence/longevity`,
   and the chat/ `training_data` catalogue): the same facts as a versioned envelope with
   `privacy.class: health`, abstaining to `insufficient` when classification is thin and `no_data`
