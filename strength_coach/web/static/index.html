@@ -1305,7 +1305,7 @@
 
         <div class="panel" style="margin:12px 0 0">
           <div class="panel-head"><h3>Generation preview</h3><span class="muted">read-only · nothing is persisted</span></div>
-          <p class="section-help"><span>Preview is read-only; rating a suggestion updates suitability, and Start opens the frozen workflow.</span>
+          <p class="section-help"><span>Preview is read-only; rating a suggestion records suitability. Press Build preview to regenerate it, and Start opens the frozen workflow.</span>
             <a class="doc-link" href="#docs?doc=docs/archive/PROGRAMME-BUILDER-PLAN.md">Resolver methodology</a></p>
           <form id="settings-resolver-preview-form" class="form-row">
             <label>Date <input type="date" id="settings-resolver-preview-date" required></label>
@@ -1328,7 +1328,7 @@
             <label><input type="checkbox" id="settings-resolver-preview-allow-unknown"> Allow unknown readiness</label>
             <button class="primary" type="submit">Build preview</button>
           </form>
-          <p class="muted">Preview uses the same engine as Start. Rating a suggestion below appends a suitability record; it never changes the preview silently.</p>
+          <p class="muted">Preview uses the same engine as Start. Rating a suggestion below appends a suitability record; press Build preview to regenerate the preview before starting.</p>
           <div id="settings-resolver-preview"><p class="empty">No preview built.</p></div>
           <div id="settings-resolver-preview-diff" class="muted"></div>
         </div>

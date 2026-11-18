@@ -726,6 +726,7 @@ function resolverPreviewChoicesHtml(data) {
       : "<span class='muted'>none</span>";
     const suggestions = (choice.suggestions || []).length
       ? choice.suggestions.map((item) =>
+          "<span class='resolver-suggestion' data-resolver-suggestion='" + esc(item) + "'>" +
           "<span class='badge warn'>" + esc(item) + "</span> " +
           "<button type='button' class='ghost' data-resolver-rate='" + esc(item) +
           "' data-resolver-rate-kind='auto' data-resolver-rate-date='" +
@@ -735,7 +736,8 @@ function resolverPreviewChoicesHtml(data) {
           esc($("#settings-resolver-preview-date").value) + "'>Won\'t do</button>" +
           "<button type='button' class='ghost' data-resolver-rate='" + esc(item) +
           "' data-resolver-rate-kind='feels_bad' data-resolver-rate-date='" +
-          esc($("#settings-resolver-preview-date").value) + "'>Feels bad</button>"
+          esc($("#settings-resolver-preview-date").value) + "'>Feels bad</button>" +
+          "</span>"
         ).join("<br>")
       : "<span class='muted'>none</span>";
     return "<tr><td><strong>" + esc(choice.slot_id) + "</strong></td><td><strong>" +
@@ -938,9 +940,27 @@ async function runResolverPreview() {
 
 let resolverRatingRunning = false;
 
+function markResolverSuggestionRated(exerciseId, ratingLabel) {
+  document.querySelectorAll("[data-resolver-suggestion]").forEach((group) => {
+    if (group.dataset.resolverSuggestion !== exerciseId) return;
+    group.innerHTML = "<span class='badge'>rated</span> " + esc(exerciseId) +
+      " <span class='muted'>" + esc(ratingLabel) + "</span>";
+  });
+}
+
+function markResolverPreviewStale() {
+  const box = $("#settings-resolver-preview");
+  if (!box || box.querySelector("[data-resolver-preview-stale]")) return;
+  // The built preview stays on screen until the explicit Build preview click. Say so, because
+  // the Start button remains disabled while the displayed suggestions are stale.
+  box.insertAdjacentHTML("afterbegin",
+    "<div class='warnbox' data-resolver-preview-stale='true'>" +
+    "<strong>Preview is stale.</strong> Press <strong>Build preview</strong> to regenerate it.</div>");
+}
+
 async function rateResolverSuggestion(button) {
-  // The preview rebuild is slow enough that a second click is likely, and a repeat posts the
-  // same (exercise, day) rating twice. Keep the rating single-flight and say what is happening.
+  // A repeated click would post the same (exercise, day) rating twice. Keep the rating
+  // single-flight and say what is happening.
   if (resolverRatingRunning) return;
   resolverRatingRunning = true;
   const buttons = [...document.querySelectorAll("[data-resolver-rate]")];
@@ -960,8 +980,12 @@ async function rateResolverSuggestion(button) {
   };
   try {
     await api("/api/state/suitability", { method: "POST", body: JSON.stringify(payload) });
-    notify("Suitability recorded. Rebuilding preview…");
-    await runResolverPreview();
+    // Do not rebuild automatically: the build can take seconds, and the owner wants an explicit
+    // Build preview click. The previous preview stays until then.
+    markResolverSuggestionRated(exerciseId, label);
+    markResolverPreviewStale();
+    notify("Suitability recorded for " + exerciseId +
+      ". Press Build preview to regenerate the preview.");
   } catch (error) {
     notify(error.message, "error");
   } finally {

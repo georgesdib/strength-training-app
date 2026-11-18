@@ -542,6 +542,103 @@ def test_volume_panel_is_consolidated_and_linked_to_its_guide() -> None:
     assert result.returncode == 0, result.stderr
 
 
+def test_resolver_suggestion_rating_does_not_rebuild_the_preview() -> None:
+    """Rating a suggestion records state but leaves the old preview until Build preview."""
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+
+        pytest.skip("node is not installed")
+    settings = (STATIC / "settings.js").read_text(encoding="utf-8")
+
+    def function_source(name: str) -> str:
+        match = re.search(
+            rf"(?:async\s+)?function {name}\([^)]*\) \{{[\s\S]*?\n\}}", settings
+        )
+        assert match, f"{name}() not found"
+        return match.group(0)
+
+    script = "\n".join([
+        function_source("markResolverSuggestionRated"),
+        function_source("markResolverPreviewStale"),
+        function_source("rateResolverSuggestion"),
+        """
+let rebuildCalls = 0;
+const notices = [];
+let staleHtml = "";
+function runResolverPreview() {
+  rebuildCalls += 1;
+  return Promise.resolve();
+}
+function notify(message) { notices.push(message); }
+function esc(value) { return String(value ?? ""); }
+const groups = [
+  {dataset: {resolverSuggestion: "ssb_squat"}, innerHTML: "original"},
+  {dataset: {resolverSuggestion: "bench_press"}, innerHTML: "other"},
+];
+const previewBox = {
+  querySelector() { return null; },
+  insertAdjacentHTML(position, html) { staleHtml = position + ":" + html; },
+};
+function $(selector) {
+  return selector === "#settings-resolver-preview" ? previewBox : null;
+}
+function makeButton(exerciseId) {
+  return {
+    dataset: {
+      resolverRate: exerciseId,
+      resolverRateKind: "auto",
+      resolverRateDate: "2024-01-01",
+    },
+    textContent: "Can do",
+    disabled: false,
+  };
+}
+const clicked = makeButton("ssb_squat");
+const other = makeButton("bench_press");
+const buttons = [clicked, other];
+const document = {
+  querySelectorAll(selector) {
+    if (selector === "[data-resolver-rate]") return buttons;
+    if (selector === "[data-resolver-suggestion]") return groups;
+    throw new Error("unexpected selector " + selector);
+  },
+};
+let posted = null;
+function api(path, options) {
+  posted = {path: path, payload: JSON.parse(options.body)};
+  return Promise.resolve({});
+}
+let resolverRatingRunning = false;
+(async () => {
+  await rateResolverSuggestion(clicked);
+  if (!posted || posted.path !== "/api/state/suitability")
+    throw new Error("rating was not posted");
+  if (posted.payload.exercise_id !== "ssb_squat")
+    throw new Error("rating payload lost the exercise");
+  if (rebuildCalls !== 0)
+    throw new Error("rating rebuilt the preview automatically");
+  if (!groups[0].innerHTML.includes("rated") ||
+      !groups[0].innerHTML.includes("ssb_squat"))
+    throw new Error("rated suggestion was not marked");
+  if (groups[1].innerHTML !== "other")
+    throw new Error("unrelated suggestion was rewritten");
+  if (other.disabled)
+    throw new Error("other suggestions were left disabled");
+  if (!staleHtml.includes("Build preview"))
+    throw new Error("stale preview was not flagged");
+  if (!notices.some((message) => message.includes("Build preview")))
+    throw new Error("the toast did not ask for an explicit rebuild");
+})().catch((error) => {
+  console.error(error.message);
+  process.exit(1);
+});
+""",
+    ])
+    result = _run_node(script)
+    assert result.returncode == 0, result.stderr
+
+
 def test_technique_throttle_scope_is_a_constrained_select() -> None:
     page = INDEX.read_text(encoding="utf-8")
     app = (STATIC / "app.js").read_text(encoding="utf-8")
