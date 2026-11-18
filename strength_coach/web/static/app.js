@@ -687,12 +687,14 @@ async function loadLongevity() {
   $("#longevity-details").innerHTML = "";
   // The longevity assessment is the cardio summary's block (DEC-LONGEVITY-01): one composed
   // function, so this panel cannot disagree with the phone.
-  let assessment = {};
-  try { assessment = (await api("/api/cardio/summary?weeks=4")).assessment || {}; }
-  catch { assessment = {}; }
-  const lastWeek = assessment.last_week || null;
-  const relationText = !lastWeek
-    ? "No completed week to assess yet."
+  let assessment = null;
+  try { assessment = (await api("/api/cardio/summary?weeks=4")).assessment || null; }
+  catch { assessment = null; }
+  const lastWeek = assessment?.last_week || null;
+  const relationText = assessment == null
+    ? "Assessment unavailable — the server returned no longevity assessment."
+    : !lastWeek
+      ? "No completed week to assess yet."
     : lastWeek.relation === "inside"
       ? fmt(lastWeek.equivalent_minutes, 0) + " moderate-equivalent minutes last week — inside the 150–300 reference."
       : lastWeek.relation === "below"
