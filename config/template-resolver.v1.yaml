@@ -84,11 +84,22 @@ allowed_patterns:
 # Explicit pools are used instead of the catalogue for that slot. The hinge main lift needs
 # this because the catalogue has no hinge_main entry: the accepted main pool is trap bar and
 # sumo (conventional deadlift is not a taxonomy main lift).
+#
+# The four conventional-band/chain variants were added at the owner's request (2026-11-18) and
+# sit after the two originals so the existing rank order is unchanged. Two consequences to keep
+# in view: their spinal_cost is 3 (trap bar 2, sumo 2.5), so a week holding one costs more
+# against the PRG-SPINE-001 cap of 6, which is a veto; and accommodating resistance is not
+# modelled — load_kg is bar load, so e1RM, double progression and RIR read them as straight
+# weight, under-reading top-range effort and over-reading bottom-range effort.
 slot_pools:
   hinge:
     hinge_main:
       - trap_bar_deadlift
       - sumo_deadlift
+      - deadlift_w_bands
+      - deadlift_w_chains
+      - deadlift_w_chains_off_blocks
+      - deficit_deadlift_w_chains
   # DEC-SPINE-09: the bench+hinge support lift may be the trap bar as well as the sumo. Sumo
   # stays first (the default); the trap bar carries the lower spinal cost (2 against 2.5).
   bench_hinge:

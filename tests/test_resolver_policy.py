@@ -45,7 +45,12 @@ def test_default_policy_loads_and_hashes() -> None:
         "core_anti_extension", "core_stability"
     )
     assert policy.slot_pools["hinge"]["hinge_main"] == (
-        "trap_bar_deadlift", "sumo_deadlift"
+        "trap_bar_deadlift",
+        "sumo_deadlift",
+        "deadlift_w_bands",
+        "deadlift_w_chains",
+        "deadlift_w_chains_off_blocks",
+        "deficit_deadlift_w_chains",
     )
     assert policy.redundancy.max_per_pattern == 2
     assert "ssb_squat" in policy.top_set.eligible_lifts
