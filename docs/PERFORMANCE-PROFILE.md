@@ -5,6 +5,8 @@ Updated 2026-11-05: per-generation `clean_sets` snapshot implemented and A/B reb
 §8 statuses clarified.
 Updated 2026-11-10: §9 adds an iMac coding-host re-run of the resolver and programme forecast;
 the ODROID-C4 figures in §2–§8 are unchanged.
+Updated 2026-11-18: §11 records four Python-side hot-path changes and their measured effect;
+the ODROID-C4 figures in §2–§9 are unchanged and §11 has no deployment-target numbers yet.
 No prescription behaviour changed.
 **Workload:** deterministic resolver build for 2026-11-04, squat, target field 30 minutes
 (minimum-session trimming not applied), resolver enabled, against the owner's local database
@@ -286,3 +288,99 @@ time-in-zone alone 191 ms.
    variant would refine a tool description nothing reads. Refresh it only if MCP acquires a client. The transport is named per row in `intelligence/latency.py`.
 5. HTTP adds 10–15 % on this hardware (readiness: 377 ms HTTP vs 434 ms direct), so the two
    transports are not interchangeable when comparing.
+
+## 11. Python hot-path work (2026-11-18)
+
+**Status:** implemented on `development`; no ODROID-C4 confirmation yet.
+**Not the deployment target.** Every figure below is from the MacBook coding host and is used
+for ratios and for locating the work, not as a latency claim.
+
+### 11.1 Method
+
+The owner's database was not opened. The benchmark database is synthetic, built from the
+checked-in taxonomy and session templates: **407 sessions and 9,160 clean sets**, deliberately
+close to the production shape in §10 (379 / 8,009). Same inputs as §2–§9: date 2026-11-04,
+squat emphasis, `minimum_target_minutes=30`, `top_set_requested=False`, resolver enabled.
+
+Calibration: the baseline build is **2.47 s p50** here against 6.84 s on the iMac (§9.1) and
+35.41 s on the ODROID-C4 (§2). The MacBook is therefore about **14×** the C4, so a 36 % local
+reduction is expected to be a 36 % reduction there, pending the run in §11.6.
+
+### 11.2 Where one build went (baseline)
+
+| Phase | Share |
+|---|---:|
+| Four full `build_prescription` evaluations (the beam) | **91 %** |
+| `candidate_pools` | 8 % |
+| fingerprint, snapshot validation, policy load | 1 % |
+
+Deterministic counts inside those four builds:
+
+- **195 SQL statements**, with **5 ms** of `sqlite3` C time. The database is not the bottleneck.
+- **19.6 M Python calls.** `cProfile` attributes 37 % to pandas object access, 29 % to PyYAML,
+  21 % to `strength_coach` itself and 0.3 % to C extensions.
+- **899 `DecayConfig.load` calls** (one per prescribed item per candidate build) for one file.
+- **5 `History.load` calls**: a clean-set query plus `derived.enrich` over the whole record, five
+  times, for the same past.
+- **16 `spinal_exposures` recomputations**, each walking every working set with `itertuples`
+  (2.65 M `ExtensionArray.__getitem__` and 2.65 M `__iter__` calls per build).
+
+### 11.3 Changes
+
+| Commit | Change |
+|---|---|
+| `aca8459` | `DecayConfig` parsed once per (path, mtime, size); the object is frozen and scalar-only, so it is shared. |
+| `c63b9e7` | The beam's four evaluations share one `History`. It is passed beside `inputs`, not inside it, so the prescription input fingerprint still describes the request. |
+| `1b14e71` | `spinal_exposures` groups in column space. Every working row still counts as a set, intensity still averages only rows carrying load and e1RM, and `skipna=False` keeps one missing ratio poisoning its group mean. |
+| `0cb8d7a` | `utils/yaml_files` caches a parsed config document per (path, mtime, size); each loader still builds its own frozen dataclass from it. The constitution was already content-hash cached and is unchanged. |
+
+### 11.4 Measured effect on the resolver build
+
+| Tree | p50 | Change |
+|---|---:|---:|
+| baseline | 2.465 s | — |
+| + decay-config cache | 2.195 s | −11 % |
+| + shared `History` | 1.826 s | −17 % |
+| + grouped spinal exposures | **1.575 s** | −14 % |
+| all three | **1.575 s** | **−36 % (1.57×)** |
+
+The steps are sequential, not additive: the `History` change removes work the other two also
+touch. The config cache (`0cb8d7a`) leaves this path essentially unchanged (117 YAML parses per
+build versus 129); its effect is per request in a long-lived process, see §11.5.
+
+Output was identical at every step: the same seven items in the same order, the same set counts,
+spinal cost/headroom and warnings on 2026-11-04, 2026-06-10 and 2025-12-03.
+
+### 11.5 Effect on the capabilities
+
+Warm YAML parses per request, before → after `0cb8d7a`:
+
+| Capability | Parses per request |
+|---|---|
+| `get_session_details` | 30 → 3 |
+| `get_weekly_review` | 5 → 2 |
+| `get_training_overview` | 3 → 1 |
+| `get_longevity_assessment` | 39 → 14 |
+
+The largest single parse removed was the exercise taxonomy at **67.7 ms per call**, now 0.01 ms.
+End-to-end capability timings were not recorded at a quiet enough moment to publish; they are to
+be taken with the ODROID run below. The remaining parses are small files and were left alone.
+
+### 11.6 Reproduce
+
+```text
+python tools/resolver_benchmark.py --db /path/to/copied/coach.db --runs 5 --forecast-weeks 2
+```
+
+The tool copies the database to a temporary directory, enables the resolver on the copy, and
+prints min/p50/max plus the prescribed items. Report the machine with the result.
+
+### 11.7 Rejected
+
+1. **Rust / PyO3 rewrite.** Only 5 ms of a 2.47 s build is in C (`sqlite3`); the cost is
+   redundant work (899 parses, 5 history loads, 16 whole-record scans) that a port would still
+   perform. The measured 1.57× came from removing that work in Python, without a second
+   implementation of the prescription authority.
+2. **Caching the parsed rule document.** Already implemented in `rules/loader.load_document`
+   (content-hash keyed); nothing to add.
+3. **Multiprocessing.** §6 still stands: one CPU-heavy build at a time, no process backend.
