@@ -15,8 +15,10 @@ laptop are not deployment numbers, so report the machine with the result.
 from __future__ import annotations
 
 import argparse
+import cProfile
 import json
 import platform
+import pstats
 import sqlite3
 import statistics
 import tempfile
@@ -68,6 +70,51 @@ def _timed(fn, runs: int) -> dict:
     }
 
 
+def _category(source: str) -> str:
+    if source.startswith("{") or source == "~":
+        return "c/builtin"
+    if "/site-packages/pandas" in source or "/site-packages/numpy" in source:
+        return "pandas/numpy python-level"
+    if "/site-packages/yaml" in source:
+        return "pyyaml"
+    if "strength_coach" in source:
+        return "strength_coach"
+    if "/lib/python" in source or "python3." in source:
+        return "stdlib"
+    return "other"
+
+
+def _profile_summary(profiler: cProfile.Profile, limit: int = 20) -> dict:
+    """Where a build spends its time, grouped the way section 11 of the profile reports it."""
+    stats = pstats.Stats(profiler)
+    total = stats.total_tt or 1e-9
+    categories: dict[str, float] = {}
+    rows: list[tuple[float, float, int, str, int, str]] = []
+    for (source, line, func), (_cc, calls, own, cumulative, _callers) in stats.stats.items():
+        categories[_category(source or "")] = (
+            categories.get(_category(source or ""), 0.0) + own
+        )
+        rows.append((cumulative, own, calls, source or "", line, func))
+    coach = [row for row in rows if "strength_coach" in row[3]]
+    coach.sort(key=lambda row: row[0], reverse=True)
+    return {
+        "profiled_s": round(stats.total_tt, 3),
+        "categories": {
+            name: round(100 * seconds / total, 1)
+            for name, seconds in sorted(categories.items(), key=lambda kv: -kv[1])
+        },
+        "top_strength_coach": [
+            {
+                "cum_s": round(cumulative, 3),
+                "own_s": round(own, 3),
+                "calls": calls,
+                "where": f"{source.split('strength_coach/')[-1]}:{line} {func}",
+            }
+            for cumulative, own, calls, source, line, func in coach[:limit]
+        ],
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", required=True, type=Path, help="source database (copied, never written)")
@@ -76,6 +123,12 @@ def main() -> int:
     parser.add_argument("--minimum-target-minutes", type=int, default=30)
     parser.add_argument("--runs", type=int, default=3)
     parser.add_argument("--forecast-weeks", type=int, default=0, help="also time a forecast of N weeks")
+    parser.add_argument(
+        "--profile",
+        type=Path,
+        default=None,
+        help="also profile one build, write the pstats dump here and print a summary",
+    )
     args = parser.parse_args()
 
     if not args.db.is_file():
@@ -105,6 +158,16 @@ def main() -> int:
         build()  # warm process-wide caches; not measured
         resolver_run = _timed(build, max(1, args.runs))
 
+        profiled: dict | None = None
+        if args.profile is not None:
+            profiler = cProfile.Profile()
+            profiler.enable()
+            build()
+            profiler.disable()
+            args.profile.parent.mkdir(parents=True, exist_ok=True)
+            profiler.dump_stats(str(args.profile))
+            profiled = _profile_summary(profiler)
+
         report: dict = {
             "environment": {
                 "machine": platform.platform(),
@@ -119,6 +182,8 @@ def main() -> int:
             },
             "items": resolver_run["result"],
         }
+        if profiled is not None:
+            report["profile"] = {"dump": str(args.profile), **profiled}
 
         if args.forecast_weeks:
             def forecast():
