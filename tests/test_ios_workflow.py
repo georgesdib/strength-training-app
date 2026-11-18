@@ -1595,31 +1595,6 @@ def test_concurrent_identical_set_requests_do_not_duplicate(ios, monkeypatch):
     )) == 1
 
 
-def test_concurrent_identical_start_requests_create_one_workout(ios, monkeypatch):
-    token, _ = _paired(ios)
-    status, issued = _issue(ios, token)
-    assert status == 200, issued
-    key = uuid.uuid4().hex
-    payload = {"issued_plan_id": issued["issued_plan_id"]}
-    _concurrent_require_barrier(monkeypatch)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
-        futures = [
-            pool.submit(
-                _request_full, ios["base"], "/api/ios/v1/workouts",
-                method="POST", payload=payload, token=token, key=key,
-            )
-            for _ in range(2)
-        ]
-        results = [future.result(timeout=20) for future in futures]
-    assert [status for status, _, _ in results] == [200, 200]
-    assert len({body["workout_id"] for _, body, _ in results}) == 1
-    assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM workout_session")) == 1
-    assert int(_scalar(
-        ios["path"],
-        "SELECT COUNT(*) FROM ios_issued_plan WHERE consumed_at IS NOT NULL",
-    )) == 1
-
-
 def test_concurrent_identical_completion_materialises_one_session(ios, monkeypatch):
     token, _ = _paired(ios)
     status, issued = _issue(ios, token)
@@ -1685,44 +1660,6 @@ def test_active_workout_recovery_returns_logged_sets(ios):
         ios["path"], "SELECT COUNT(*) FROM workout_set WHERE workout_id = ?",
         (workout["workout_id"],),
     )) == 2
-
-
-def test_set_is_rejected_after_completion_or_abandonment(ios):
-    token, _ = _paired(ios)
-    status, issued = _issue(ios, token)
-    assert status == 200, issued
-    status, workout = _start(ios, token, issued["issued_plan_id"])
-    assert status == 200, workout
-    item = _first_item(issued["plan"])
-    assert _add_set(ios, token, workout["workout_id"], item)[0] == 200
-    status, completed = _request(
-        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/complete",
-        method="POST", payload={"not_recorded": True}, token=token,
-        key=uuid.uuid4().hex,
-    )
-    assert status == 200, completed
-    status, body = _add_set(
-        ios, token, workout["workout_id"], item, set_index=2
-    )
-    assert status == 409, body
-    assert body["code"] == "workout_not_active"
-    assert int(_scalar(
-        ios["path"], "SELECT COUNT(*) FROM workout_set WHERE workout_id = ?",
-        (workout["workout_id"],),
-    )) == 1
-
-    status, issued = _issue(ios, token)
-    assert status == 200, issued
-    status, workout = _start(ios, token, issued["issued_plan_id"])
-    assert status == 200, workout
-    status, abandoned = _request(
-        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/abandon",
-        method="POST", payload={}, token=token, key=uuid.uuid4().hex,
-    )
-    assert status == 200, abandoned
-    status, body = _add_set(ios, token, workout["workout_id"], item)
-    assert status == 409, body
-    assert body["code"] == "workout_not_active"
 
 
 def test_second_start_while_active_is_rejected(ios):

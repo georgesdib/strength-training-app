@@ -110,10 +110,12 @@ must not run in the fast lane; synthesise public test data.
 
 ### Parallel runs and order-dependent failures
 
-`tests/test_ios_workflow.py` starts real HTTP servers and shares fixtures, so under xdist it can
-fail in groups that disappear when the file is run alone (`-n 0`). Observed 2026-11-18: five
-failures in one parallel run, a different five in the next, the whole file green serially. Re-run a
-suspicious failure serially before diagnosing a regression.
+`tests/test_ios_workflow.py` starts real HTTP servers and polls asynchronous plan requests, so under
+xdist it can time out different tests on different runs; the whole file passes serially. The
+blocking CI lane excludes it (`--ignore=tests/test_ios_workflow.py`) and it is run manually with
+`pytest tests/test_ios_workflow.py -o addopts=""`. Three smaller suites import its fixtures and
+remain in the blocking lane. Do not add the file back to the blocking lane without making its
+concurrency deterministic.
 
 ### Waiting for long suites
 
