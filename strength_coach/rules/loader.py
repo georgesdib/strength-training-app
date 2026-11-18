@@ -124,7 +124,7 @@ def load_document(path: str | Path | None = None) -> RuleDocument:
     return _parse_document(str(source), digest, body)
 
 
-@lru_cache(maxsize=8)
+@lru_cache(maxsize=64)
 def _parse_document(source_name: str, digest: str, body: str) -> RuleDocument:
     source = Path(source_name)
     raw = yaml.safe_load(body)

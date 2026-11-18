@@ -135,6 +135,37 @@ def _database_key(conn) -> str:
     return ""
 
 
+_AVAILABILITY_CACHE: OrderedDict[tuple[Any, ...], dict[str, bool]] = OrderedDict()
+_AVAILABILITY_CACHE_LOCK = threading.Lock()
+_AVAILABILITY_CACHE_MAX = 64
+
+
+def _availability_cached(conn, before: str | None) -> dict[str, bool]:
+    """Availability per database revision and date.
+
+    A report asks for the next type once per projected session, and every date-key miss rebuilt
+    the full rule context. One computation per revision and date is enough; a writer or config
+    edit changes the stamp. In-memory databases have no cross-connection identity and stay
+    uncached.
+    """
+    database = _database_key(conn)
+    if not database or before is None:
+        return _availability(conn, before)
+    data_version, changes, config_stamp = _schedule_stamp(conn)
+    key = (database, before, data_version, changes, config_stamp)
+    with _AVAILABILITY_CACHE_LOCK:
+        cached = _AVAILABILITY_CACHE.get(key)
+        if cached is not None:
+            _AVAILABILITY_CACHE.move_to_end(key)
+            return cached
+        value = _availability(conn, before)
+        _AVAILABILITY_CACHE[key] = value
+        _AVAILABILITY_CACHE.move_to_end(key)
+        while len(_AVAILABILITY_CACHE) > _AVAILABILITY_CACHE_MAX:
+            _AVAILABILITY_CACHE.popitem(last=False)
+        return value
+
+
 def next_session_type(conn, before: str, *, prior_types=()) -> str:
     """Choose the next type from recent training days plus any forecast choices.
 
@@ -170,7 +201,7 @@ def _next_session_type_uncached(conn, before: str, *, prior_types=()) -> str:
     ][-WINDOW:]
     recent.extend(str(item) for item in prior_types)
 
-    availability = _availability(conn, before)
+    availability = _availability_cached(conn, before)
     available_families = {
         family for family in TARGETS
         if any(availability.get(session_type) for session_type in SESSION_TYPES
