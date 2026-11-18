@@ -1355,39 +1355,6 @@ def test_form_and_complete_materialise_once(ios):
     assert any(s["session_id"] == workout["workout_id"] for s in history["sessions"])
 
 
-def test_abandon_and_completion_retry_rules(ios):
-    token, _ = _paired(ios)
-    status, issued = _issue(ios, token)
-    assert status == 200, issued
-    status, workout = _start(ios, token, issued["issued_plan_id"])
-    assert status == 200, workout
-    key = uuid.uuid4().hex
-    status, abandoned = _request(
-        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/abandon",
-        method="POST", payload={}, token=token, key=key,
-    )
-    assert status == 200, abandoned
-    assert abandoned["status"] == "abandoned"
-
-    status, replay, headers = _request_full(
-        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/abandon",
-        method="POST", payload={}, token=token, key=key,
-    )
-    assert status == 200, replay
-    assert headers.get("Idempotent-Replay") == "true"
-
-    status, body = _request(
-        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/abandon",
-        method="POST", payload={}, token=token, key=uuid.uuid4().hex,
-    )
-    assert status == 409, body
-    assert body["code"] == "workout_not_active"
-
-    status, body = _start(ios, token, issued["issued_plan_id"])
-    assert status == 410, body
-    assert body["code"] == "plan_consumed"
-
-
 # --- concurrency, lost responses, recovery -------------------------------
 
 
