@@ -2406,3 +2406,36 @@ def test_exercise_save_reports_why_it_did_not_send() -> None:
     assert "is required or invalid" in exercises
     # A catalogue that has not loaded leaves the required pattern select empty.
     assert "loadExerciseCatalog().then" in exercises
+
+def test_a_started_preview_never_carries_its_build_time() -> None:
+    """build_ms is view-only: it must not be frozen into the plan a workout is started from."""
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    source = (STATIC / "settings.js").read_text(encoding="utf-8")
+    keys = re.search(r"const RESOLVER_PREVIEW_ONLY_KEYS = \[[\s\S]*?\];", source)
+    assert keys, "RESOLVER_PREVIEW_ONLY_KEYS not found"
+    helper = re.search(
+        r"function resolverPlanFromPreview\(data\) \{[\s\S]*?\n\}", source
+    )
+    assert helper, "resolverPlanFromPreview() not found"
+    # One eval: a const declared in a separate eval call is not visible to the next one.
+    declared = keys.group(0) + "\n" + helper.group(0) + "\nresolverPlanFromPreview"
+    script = (
+        f"const freeze = eval({json.dumps(declared)});"
+        "const preview = {"
+        "  ok: true, build_ms: 16640, choices: [], beam: {}, top_set: null,"
+        "  for_date: '2026-11-04', session_type: 'squat', warnings: [],"
+        "  items: [{exercise_id: 'ssb_squat', sets: 5}],"
+        "};"
+        "const plan = freeze(preview);"
+        "if ('build_ms' in plan) throw new Error('build_ms survived the freeze');"
+        "if ('ok' in plan || 'choices' in plan || 'beam' in plan) "
+        "  throw new Error('preview-only metadata survived the freeze');"
+        "if (plan.items.length !== 1 || plan.items[0].exercise_id !== 'ssb_squat') "
+        "  throw new Error('the prescription was dropped');"
+        "if (preview.build_ms !== 16640) throw new Error('the preview was mutated');"
+    )
+    result = _run_node(script)
+    assert result.returncode == 0, result.stderr

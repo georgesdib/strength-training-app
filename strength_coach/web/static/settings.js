@@ -1008,6 +1008,22 @@ async function rateResolverSuggestion(button) {
   }
 }
 
+// Keys the preview panel adds for display or diagnostics. They must never reach a frozen
+// workout plan: build_ms is a view-only timing and the rest are diff/diagnostic metadata.
+const RESOLVER_PREVIEW_ONLY_KEYS = [
+  "ok", "stage", "message", "choices", "beam", "top_set", "projected_week",
+  "session_time", "policy_digest", "catalogue_digest", "template_digest",
+  "input_hash", "scheduled_suggestion", "build_ms",
+];
+
+function resolverPlanFromPreview(data) {
+  // The response is the exact prescription payload. Remove preview-only metadata so the
+  // frozen plan contains the displayed prescription, not UI/diff controls or timings.
+  const plan = { ...data };
+  RESOLVER_PREVIEW_ONLY_KEYS.forEach((key) => { delete plan[key]; });
+  return plan;
+}
+
 async function openResolverPreviewStart() {
   const data = window.__resolverPreview;
   if (!data || !data.ok) return;
@@ -1015,14 +1031,7 @@ async function openResolverPreviewStart() {
     notify("Rate the suggested exercise(s) before starting this preview.", "error");
     return;
   }
-  // The response is the exact prescription payload. Remove preview-only metadata so the
-  // frozen plan contains the displayed prescription, not UI/diff controls.
-  const plan = { ...data };
-  ["ok", "stage", "message", "choices", "beam", "top_set", "projected_week",
-    "session_time", "policy_digest", "catalogue_digest", "template_digest",
-    "input_hash", "scheduled_suggestion", "build_ms"].forEach((key) => {
-    delete plan[key];
-  });
+  const plan = resolverPlanFromPreview(data);
   window.__lastPrescription = plan;
   if (typeof cachePrescription === "function") cachePrescription(plan);
   if (typeof openWorkoutStart === "function") openWorkoutStart();
