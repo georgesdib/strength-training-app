@@ -2523,3 +2523,53 @@ def test_ios_activity_summary_is_authenticated_and_shaped(ios):
 
     status, _ = _request(ios["base"], "/api/ios/v1/healthkit/activity/summary", token="nope")
     assert status == 401
+
+
+def test_activity_batch_survives_one_conflicting_sample(ios):
+    token, _ = _paired(ios)
+    workout_key = _activity_key("tolerance-workout")
+    status, _ = _request(
+        ios["base"], "/api/ios/v1/healthkit/workouts", method="POST",
+        payload={"workouts": [_workout_payload(workout_key)]}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200
+    first = _sample_payload(workout_key, 0)
+    status, _ = _request(
+        ios["base"], "/api/ios/v1/healthkit/samples", method="POST",
+        payload={"samples": [first]}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200
+
+    conflicting = dict(first, value=199.0)  # same identity, different value
+    fresh = _sample_payload(workout_key, 1)
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/samples", method="POST",
+        payload={"samples": [conflicting, fresh]}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, body
+    assert body["created"] == 1
+    assert body["rejected"] == 1
+
+
+def test_pre_cutoff_workout_is_rejected_server_side(ios):
+    token, _ = _paired(ios)
+    store = db.Store(ios["path"])
+    store.connection.execute(
+        "INSERT INTO cardio_sync_state (name, value, updated_at) VALUES "
+        "('history_cutoff', '2026-11-17T17:49:23+00:00', '2026-11-17T18:00:00+00:00')"
+    )
+    store.connection.commit()
+    store.close()
+    old = _workout_payload(_activity_key("pre-cutoff"), day="2026-01-05")
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/workouts", method="POST",
+        payload={"workouts": [old]}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, body
+    assert body["rejected"] == 1
+    assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM external_workout")) == 0
+
+
+def test_retired_cardio_route_answers_410(ios):
+    status, _body = _request(ios["base"], "/api/cardio", token=None)
+    assert status == 410

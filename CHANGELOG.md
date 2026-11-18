@@ -2,6 +2,35 @@
 
 ## [Unreleased]
 
+- Nothing yet.
+
+## [1.6.0] — 2026-11-17
+
+### Added
+
+- Cardio stage: Apple Health history is promoted offline (1,430 workouts, 599,927 samples, 399
+  VO2max estimates), the phone syncs incrementally afterwards, and workouts are linked to training
+  sessions in two tiers. 326 sessions carry heart rate, active energy and true duration.
+- Analytics and dashboards: WHO-equivalent minutes under a MET-then-HR cascade, coverage by year,
+  resistance share reported separately, time-in-zone for the 275 continuity-eligible workouts,
+  /api/cardio/summary, an activity panel with per-workout Hide, and an iOS overview behind an
+  authenticated route.
+- cardio_exclusion, external_workout.srpe, and the corpus tables (migrations 0064-0068).
+
+### Changed
+
+- The longevity review reads the imported corpus instead of cardio_log.
+- Per-item tolerance on both activity routes: one bad sample or metric no longer rejects a batch,
+  and rejected counts make a partial write visible.
+- Workouts dated before history_cutoff are rejected server-side rather than trusted to the client.
+- idx_health_sample_kind dropped after the query plan showed it chosen for the per-workout lookup
+  and then filtering ~590k rows (0070).
+
+### Removed
+
+- cardio_log, the Cardio entry form, GET/POST /api/cardio (now 410), the cardio CLI command and
+  append_cardio (0069, DEC-CARDIO-19).
+
 ### Changed
 
 - **A one-step readiness drop no longer removes the top set** (`DEC-RESOLVER-14`). The top-set

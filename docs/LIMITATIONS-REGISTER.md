@@ -75,6 +75,10 @@ This register does not override the detailed audit reports. It indexes them.
 | LIM-64 | Rubric calibration measures agreement with one athlete's fresh marks, not validity. There is no independent marker, inter-rater comparison or prospective outcome, so the 84% headline must not be read as proof that the rubric or its weights are correct | open (inherent) | B1 review / DEC-EVAL-07 | no action before the Phase 5A gate; do not claim validation |
 | LIM-65 | The per-workout observation's family is chosen by the highest normalised severity across RIR deviation, unperformed prescribed slots and sets outside the VBT calibration band. That ordering is a deterministic display heuristic, not a validated ranking or a measure of which problem matters most. It abstains when nothing qualifies and never changes a prescription | open | AFC-2i/AFC-5, `DEC-AFC-08` | if observation usefulness is ever evaluated; do not tune the ranking on the sessions that motivated it |
 
+| LIM-66 | Manual cardio entry is retired; activity recorded without a device is absent, not unclassified | accepted (design choice) | CARDIO-STAGE (portfolio plan) | revisit if a session is missed for lack of a device |
+| LIM-67 | Workouts deleted in Health are never detected: the export has no tombstones and anchored sync is not built | accepted | CARDIO-STAGE (portfolio plan) | hide the row manually |
+| LIM-68 | METs and effort on phone-uploaded workouts depend on Apple writing them; no new post-cutoff workout has been uploaded, so the values are unobserved | accepted (owner, 2026-11-18) | CARDIO-STAGE C7 | the values appear on the next upload; the cascade falls back to heart rate meanwhile |
+
 ## Rules
 
 - An item moves to **closed** only when a later change removes the limitation and tests it.
