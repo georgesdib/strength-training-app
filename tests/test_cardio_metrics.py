@@ -374,3 +374,254 @@ def test_optional_blocks_are_absent_unless_requested(conn):
     assessment = _assessment(conn)
     assert assessment["time_in_zone"] is None
     assert assessment["patterns"] is None
+
+
+# --- Recovery-tail exclusion and classification invalidation -----------------
+
+
+def _hr_sample(conn, workout, offset_s, bpm, *, association="workout"):
+    at = (
+        dt.datetime.fromisoformat(workout["started_at"]) + dt.timedelta(seconds=offset_s)
+    ).isoformat()
+    cardio.record_sample(
+        conn,
+        sample_key=cardio.sample_content_key(
+            kind="heart_rate", sampled_at=at, value=bpm,
+            unit="count/min", source_bundle_id="Watch",
+        ),
+        kind="heart_rate",
+        sampled_at=at,
+        value=bpm,
+        unit="count/min",
+        source_name="Watch",
+        imported_at="2026-11-17T18:00:00+00:00",
+        external_workout_id=workout["external_workout_id"],
+        association=association,
+    )
+
+
+def _classification(conn, workout):
+    return next(
+        row for row in metrics.classification_rows(conn)
+        if row["external_workout_id"] == workout["external_workout_id"]
+    )
+
+
+def test_recovery_tail_does_not_change_the_workout_classification(conn):
+    workout = _workout(conn, "2026-11-10T08:00:00+00:00", 40)
+    for offset in (0, 600, 1200, 1800):
+        _hr_sample(conn, workout, offset, 150)  # mean 150 -> moderate
+    before = _classification(conn, workout)
+    assert before["zone"] == "moderate"
+    assert before["tier"] == "hr"
+
+    # A recovery tail is deliberately vigorous-looking. It must not move the workout.
+    for offset in (2405, 2420, 2435):
+        _hr_sample(conn, workout, offset, 200, association="tail")
+    # A mislabelled workout sample outside the interval must not move it either.
+    _hr_sample(conn, workout, 3000, 200, association="workout")
+
+    after = _classification(conn, workout)
+    assert after["zone"] == before["zone"] == "moderate"
+    assert after["tier"] == before["tier"] == "hr"
+
+
+def test_new_heart_rate_samples_invalidate_the_classification_cache(conn, monkeypatch):
+    workout = _workout(conn, "2026-11-10T08:00:00+00:00", 40)
+    calls = []
+    original = metrics.rebuild_classification
+
+    def counted(connection):
+        calls.append(1)
+        return original(connection)
+
+    monkeypatch.setattr(metrics, "rebuild_classification", counted)
+
+    first = metrics.activity_summary(conn, weeks=2, as_of=TODAY)
+    week_key = "2026-W46"
+    first_week = next(row for row in first["weeks"] if row["iso_week"] == week_key)
+    assert first_week["unclassified_minutes"] == 40.0
+    assert len(calls) == 1
+
+    for offset in range(0, 601, 10):
+        _hr_sample(conn, workout, offset, 150)
+
+    second = metrics.activity_summary(conn, weeks=2, as_of=TODAY)
+    second_week = next(row for row in second["weeks"] if row["iso_week"] == week_key)
+    assert second_week["unclassified_minutes"] == 0.0
+    assert second_week["moderate_minutes"] == 40.0
+    assert len(calls) == 2
+
+    # Re-importing the same samples is a no-op, so the cache must not be rebuilt again.
+    for offset in range(0, 601, 10):
+        _hr_sample(conn, workout, offset, 150)
+    third = metrics.activity_summary(conn, weeks=2, as_of=TODAY)
+    third_week = next(row for row in third["weeks"] if row["iso_week"] == week_key)
+    assert third_week["moderate_minutes"] == 40.0
+    assert len(calls) == 2
+
+
+# --- Elapsed-time time in zone ------------------------------------------------
+
+
+def _tiz(conn, *, days=28):
+    return metrics.time_in_zone(conn, on_date=TODAY, days=days)
+
+
+def test_uniform_samples_integrate_elapsed_time(conn):
+    workout = _workout(conn, "2026-11-10T08:00:00+00:00", 10)
+    for offset in range(0, 601, 10):
+        _hr_sample(conn, workout, offset, 150)
+    block = _tiz(conn)
+    assert block["eligible_workouts"] == 1
+    assert block["covered_minutes"] == 10.0
+    assert block["workout_minutes"] == 10.0
+    assert block["temporal_coverage_share"] == 1.0
+    assert block["minutes"]["moderate"] == 10.0
+
+
+def test_uneven_samples_integrate_each_interval_into_its_zone(conn):
+    workout = _workout(conn, "2026-11-10T08:00:00+00:00", 2)
+    for offset, bpm in ((0, 150), (20, 170), (50, 170), (60, 120), (110, 150), (120, 150)):
+        _hr_sample(conn, workout, offset, bpm)
+    block = _tiz(conn)
+    # The sample at t describes [t, next_t): moderate 0-20 (20 s) + 110-120 (10 s),
+    # vigorous 20-60 (40 s), light 60-110 (50 s). The final sample closes no interval.
+    assert block["minutes"]["moderate"] == 0.5
+    assert block["minutes"]["vigorous"] == 0.7
+    assert block["minutes"]["light"] == 0.8
+    assert block["covered_minutes"] == 2.0
+    assert block["equivalent_minutes"] == 1.8
+
+
+@pytest.mark.parametrize(
+    ("span_seconds", "expected_coverage"),
+    ((600, 0.5), (900, 0.75), (1140, 0.95)),
+)
+def test_partial_coverage_is_reported_not_extrapolated(conn, span_seconds, expected_coverage):
+    workout = _workout(conn, "2026-11-10T08:00:00+00:00", 20)
+    for offset in range(0, span_seconds + 1, 10):
+        _hr_sample(conn, workout, offset, 150)
+    block = _tiz(conn)
+    assert block["eligible_workouts"] == 1
+    assert block["covered_minutes"] == round(span_seconds / 60.0, 1)
+    assert block["workout_minutes"] == 20.0
+    assert block["temporal_coverage_share"] == expected_coverage
+    assert block["minutes"]["moderate"] == block["covered_minutes"]
+    assert block["minutes"]["moderate"] <= block["workout_minutes"]
+
+
+def test_large_internal_gap_is_unobserved_and_not_allocated(conn):
+    start = dt.datetime.fromisoformat("2026-11-10T08:00:00+00:00").timestamp()
+    workout = _workout(conn, "2026-11-10T08:00:00+00:00", 10)
+    points = [
+        (start + 0, 150.0),
+        (start + 10, 150.0),
+        (start + 20, 150.0),
+        (start + 300, 150.0),
+        (start + 310, 150.0),
+        (start + 320, 150.0),
+    ]
+    integrated = metrics.integrate_zone_minutes(
+        points, started_at=workout["started_at"], ended_at=workout["ended_at"]
+    )
+    assert integrated is not None
+    assert integrated.covered_seconds == 40.0  # 10 + 10 + 10 + 10; the 280 s hole is excluded
+    assert integrated.minutes["moderate"] == pytest.approx(40 / 60)
+    # The continuity gate also rejects the series as a whole, so it contributes to no product total.
+    assert metrics.sample_zone_minutes(
+        points, started_at=workout["started_at"], ended_at=workout["ended_at"]
+    ) is None
+
+
+def test_samples_outside_the_workout_are_excluded_even_if_labelled_workout(conn):
+    start = dt.datetime.fromisoformat("2026-11-10T08:00:00+00:00").timestamp()
+    workout = _workout(conn, "2026-11-10T08:00:00+00:00", 10)
+    points = [
+        (start - 100, 170.0),
+        (start + 0, 150.0),
+        (start + 10, 150.0),
+        (start + 600, 170.0),
+        (start + 700, 170.0),
+    ]
+    integrated = metrics.integrate_zone_minutes(
+        points, started_at=workout["started_at"], ended_at=workout["ended_at"]
+    )
+    assert integrated is not None
+    assert integrated.covered_seconds == 10.0
+    assert integrated.minutes["moderate"] == pytest.approx(10 / 60)
+    assert integrated.minutes["vigorous"] == 0.0
+
+
+def test_recovery_tail_is_never_time_in_zone(conn):
+    workout = _workout(conn, "2026-11-10T08:00:00+00:00", 10)
+    for offset in range(0, 601, 10):
+        _hr_sample(conn, workout, offset, 150)
+    # A tail sample that happens to fall inside the interval is still not exercise intensity.
+    _hr_sample(conn, workout, 30, 200, association="tail")
+    block = _tiz(conn)
+    assert block["minutes"]["vigorous"] == 0.0
+    assert block["minutes"]["moderate"] == 10.0
+
+
+def test_mislabelled_workout_sample_outside_the_interval_is_not_time_in_zone(conn):
+    workout = _workout(conn, "2026-11-10T08:00:00+00:00", 10)
+    for offset in range(0, 601, 10):
+        _hr_sample(conn, workout, offset, 150)
+    _hr_sample(conn, workout, 610, 200, association="workout")
+    block = _tiz(conn)
+    assert block["minutes"]["vigorous"] == 0.0
+    assert block["minutes"]["moderate"] == 10.0
+
+
+def test_empty_and_single_sample_series_are_not_eligible(conn):
+    workout = _workout(conn, "2026-11-10T08:00:00+00:00", 10)
+    assert metrics.sample_zone_minutes(
+        [], started_at=workout["started_at"], ended_at=workout["ended_at"]
+    ) is None
+    _hr_sample(conn, workout, 0, 150)
+    assert metrics.sample_zone_minutes(
+        [(dt.datetime.fromisoformat(workout["started_at"]).timestamp(), 150.0)],
+        started_at=workout["started_at"],
+        ended_at=workout["ended_at"],
+    ) is None
+    assert _tiz(conn)["eligible_workouts"] == 0
+
+
+def test_workout_boundaries_clip_the_integration(conn):
+    workout = _workout(conn, "2026-11-10T08:00:00+00:00", 1)
+    for offset, bpm in ((0, 150), (30, 150), (60, 150)):
+        _hr_sample(conn, workout, offset, bpm)
+    block = _tiz(conn)
+    assert block["covered_minutes"] == 1.0
+    assert block["temporal_coverage_share"] == 1.0
+    assert block["minutes"]["moderate"] == 1.0
+
+
+# --- Adequacy at both reference boundaries and above the band -----------------
+
+
+def test_adequacy_just_below_the_lower_boundary_is_below(conn):
+    _workout(conn, "2026-11-10T08:00:00+00:00", 149.9, mets=4.0)
+    last_week = _assessment(conn)["last_week"]
+    assert last_week["equivalent_minutes"] == 149.9
+    assert last_week["relation"] == "below"
+    assert last_week["remaining_minutes"] == 0.1
+
+
+def test_adequacy_exactly_300_is_within_the_band(conn):
+    _workout(conn, "2026-11-10T08:00:00+00:00", 300, mets=4.0)
+    last_week = _assessment(conn)["last_week"]
+    assert last_week["equivalent_minutes"] == 300.0
+    assert last_week["relation"] == "inside"
+    assert last_week["above_upper"] is False
+    assert last_week["remaining_minutes"] is None
+
+
+def test_adequacy_above_300_is_its_own_state_not_a_verdict(conn):
+    _workout(conn, "2026-11-10T08:00:00+00:00", 300.1, mets=4.0)
+    last_week = _assessment(conn)["last_week"]
+    assert last_week["equivalent_minutes"] == 300.1
+    assert last_week["relation"] == "above"
+    assert last_week["above_upper"] is True
+    assert last_week["remaining_minutes"] is None

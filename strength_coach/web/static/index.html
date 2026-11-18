@@ -291,6 +291,7 @@
           <button class="primary" type="submit">Build review</button>
         </form>
         <div id="outcomes-result"></div>
+        <div id="outcomes-bodyweight"></div>
         <div class="panel">
           <div class="panel-head"><h2>Prospective check</h2><span class="muted">W5 protocol; descriptive only</span></div>
         <p class="section-help"><span>Programme-level W5 check; descriptive only and not a model forecast.</span> <a class="doc-link" href="#docs?doc=docs/archive/audits/W5-PROSPECTIVE-EVALUATION.md">W5 protocol</a></p>
@@ -369,22 +370,16 @@
 
     <section id="view-longevity" class="view">
       <div class="panel">
-        <div class="panel-head"><h2>Longevity context</h2><span class="muted">descriptive; not medical advice</span></div>
-        <p class="section-help"><span>Consolidated cardio, measurement, readiness and symptom context; status labels are descriptive.</span> <a class="doc-link" href="#docs?doc=docs/LONGEVITY-REVIEW.md">Longevity review</a></p>
-        <p class="muted">Cardio, measurements, readiness and symptoms in one view. Status labels are deterministic context, not targets for every metric.</p>
+        <div class="panel-head"><h2>Longevity assessment</h2><span class="muted">deterministic facts; not medical advice</span></div>
+        <p class="section-help"><span>The canonical aerobic adequacy, VO₂max status and optional sample-based blocks. The WHO band is context, not a target.</span> <a class="doc-link" href="#docs?doc=docs/LONGEVITY-REVIEW.md">Longevity review</a></p>
+        <p class="muted">Historical measurements, readiness and symptoms live in their own views. This panel does not repeat Apple Health's history charts.</p>
         <form id="longevity-form" class="form-row">
-          <label>Period
-            <select id="longevity-weeks">
-              <option value="4">4 weeks</option>
-              <option value="8">8 weeks</option>
-              <option value="12" selected>12 weeks</option>
-            </select>
-          </label>
           <label>As of <input type="date" id="longevity-date"></label>
-          <button class="primary" type="submit">Build longevity view</button>
+          <label class="check"><input type="checkbox" id="longevity-tiz"> Include time in zone</label>
+          <label class="check"><input type="checkbox" id="longevity-patterns"> Include volume headroom</label>
+          <button class="primary" type="submit">Build assessment</button>
         </form>
         <div id="longevity-summary"></div>
-        <div id="longevity-bodyweight"></div>
         <div id="longevity-details"></div>
       </div>
     </section>
@@ -847,11 +842,11 @@
           <div class="form-row">
             <label class="grow">Capability
               <select id="narrate-capability">
-                <option value="get_weekly_review">Weekly review</option>
+                <option value="get_weekly_review" data-health="true">Weekly review</option>
                 <option value="get_training_overview">Training overview</option>
-                <option value="get_longevity_assessment">Longevity assessment</option>
+                <option value="get_longevity_assessment" data-health="true">Longevity assessment</option>
                 <option value="get_exercise_progression">Exercise progression</option>
-                <option value="get_readiness_history">Readiness history</option>
+                <option value="get_readiness_history" data-health="true">Readiness history</option>
                 <option value="get_session_details">Session details</option>
                 <option value="get_prescription">Prescription</option>
                 <option value="get_programme_block_summary">Programme block</option>
@@ -866,12 +861,19 @@
           <label>Request payload (JSON)
             <textarea id="narrate-payload" rows="4" spellcheck="false">{}</textarea>
           </label>
+          <div id="narrate-consent" class="warnbox" hidden>
+            <p><strong>Health facts leave this server.</strong> This capability includes health
+              measurements. Its facts will be sent to <span id="narrate-model">the configured model</span>
+              to write the narrative.</p>
+            <label class="check"><input type="checkbox" id="narrate-health-consent">
+              I understand and want to send these health facts.</label>
+          </div>
           <div class="form-row">
             <button class="primary" type="submit" id="narrate-submit">Narrate</button>
             <span class="muted" id="narrate-msg"></span>
           </div>
         </form>
-        <p class="muted">The trace records the model and token count, not the prompt or narrative. The narrative is not saved as a training artifact.</p>
+        <p class="muted">The trace records the model and token count, not the prompt or narrative. The narrative is not saved as a training artifact. Deterministic facts are available without narration.</p>
       </div>
       <div id="narrate-result"></div>
     </section>

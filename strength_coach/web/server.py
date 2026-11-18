@@ -4429,6 +4429,7 @@ class Handler(BaseHTTPRequestHandler):
             raise FieldError("capability is required", {"capability": "choose one"})
         if not isinstance(payload, dict):
             raise FieldError("payload must be a JSON object", {"payload": "JSON object"})
+        health_consent = _truth(body.get("health_consent"))
         settings = load_settings()
         if not settings.enabled:
             raise ValueError("LLM is disabled or incomplete; configure it in Settings")
@@ -4439,6 +4440,15 @@ class Handler(BaseHTTPRequestHandler):
             error = result.error
             raise ValueError(f"{error.code}: {error.message}")
         envelope = result.envelope
+        # The privacy boundary is enforced here, not only in the browser: a health-class
+        # envelope may not be handed to the remote model without an explicit confirmation.
+        # The deterministic facts were already returned to the caller; narration is optional.
+        if envelope.privacy.classification == "health" and not health_consent:
+            raise FieldError(
+                "health-data consent is required before sending these facts to "
+                f"{settings.provider} / {client.model}",
+                {"health_consent": "explicit consent is required for health capabilities"},
+            )
         try:
             ensure_daily_budget(conn, settings.daily_tokens)
         except NarrativeBudgetError as exc:

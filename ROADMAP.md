@@ -4,7 +4,7 @@ The resume point for this project. If you are picking this up cold — human or 
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
 
-Last updated: 2026-11-18 · **v1.7.0 released (longevity assessment)** · version `1.7.0`
+Last updated: 2026-11-18 · **v1.7.1 released (longevity correctness, privacy and integration)** · version `1.7.1`
 
 
 ---
@@ -57,6 +57,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v1.5 | Read-only training intelligence | **released 2026-11-15** | capability layer, MCP server (ten tools, three resources), REST facade, deterministic weekly review, server narration, web/CLI narrate, server and web chat with the deterministic dossier, plan-aware tools, token budgets, selector retirement and the evaluation harness; no training-decision, prescription or schema change; the iOS client renders the same envelopes |
 | v1.6 | Cardio depth | **partly delivered (1.6.0)** | v1.6.0 ships the imported cardio corpus, linking, analytics and dashboards (portfolio cardio stage plan); the reproducible cardio impulse/shadow load (§4.13a) remains planned for 1.6.x; the deeper labelled calibration set is retired (`DEC-EVAL-09`, §4.14) |
 | v1.7 | Longevity assessment | **released 2026-11-18** | `assessment` block on the cardio summary and the phone route, `get_longevity_assessment` capability (MCP tool 11, iOS route, chat dossier), iPhone Today section with a separate health-data consent, time-in-zone panel, web panel with on-demand prose; no migration (§4.36, portfolio plan) |
+| v1.7.1 | Longevity corrective release | **released 2026-11-18** | execution-time health/plan tool allowlist, recovery-tail exclusion, elapsed-time time-in-zone with explicit coverage, three-state adequacy above 300 minutes, HR-ingestion cache invalidation, canonical web panel, VO₂max provenance, remote-narration consent; no migration (§4.36) |
 | — | Training-day session fragments | **done 2026-11-01** | one local training day may contain multiple session fragments; attendance and budget use days, volume/spinal use combined sets, e1RM uses one day-level observation; no schema migration; see [`docs/TRAINING-DAY-MODEL.md`](docs/TRAINING-DAY-MODEL.md) |
 | — | Deterministic dynamic template resolver | **Steps 0–6 complete 2026-11-01/03; merged to `development` 2026-11-03; released in v1.2.0 as opt-in (`resolver.enabled` default false)** | plan and confirmed decisions at [`docs/archive/PROGRAMME-BUILDER-PLAN.md`](docs/archive/PROGRAMME-BUILDER-PLAN.md) and [`docs/DECISIONS.md`](docs/DECISIONS.md) (`DEC-RESOLVER-01`–`12`); Step 1 delivered policy/settings/provenance; Step 2 delivered and remediated the internal deterministic generator core (`generator.py`, `resolver_settings.py`, accepted pattern-flexibility mapping); remediation covers shared injury/constraint eligibility, power-slot safety, require_can_do/unrated/rotation-default semantics, fallback repair, structural availability, whole-session/duplicate-aggregated authoritative spinal scoring, completed-workout precedence, history merge, retired redundant rotation/preference weights and policy/catalogue digests; Step 3 adds the opt-in top-set/back-off structure, top-set persistence and role-aware workout logging, and the hinge maximal-week programme change; Step 4C wires the flag-on resolver path through candidate pools, bounded beam and read-only evaluator, adds pool-aware scheduler availability, rejects selection overrides, and records generated-session provenance; the 4C audit remediation enforces required patterns on final assignments, separates evaluator failure stages, fingerprints beam configuration and DataFrame schemas, and uses the same auto-candidate/slot matching in scheduling; Step 5 adds the dedicated Settings -> Resolver panel, append-only scalar settings, validated policy YAML with atomic writes and 20 timestamped backups, read-only preview with choices/alternatives/suggestions, inline suitability rating, top-set preview, regenerate/diff and a start handoff; the Step 5 remediation adds shared CLI/web readiness enforcement, atomic backup creation, shared resolver-enable confirmation, deterministic restore with a reported pre-restore snapshot, and a full-prescription preview diff; Step 6 adds generated-slot snapshot provenance for critique/exemption reads with a legacy-null fallback, top-set role-aware critique coverage, a real-database copy smoke test, flag/policy rollback verification and the rollout documentation; forecast remains fixed option (c); the flag remains off |
 | v1.5 | LLM integration: read-only intelligence delivered | **released 2026-11-15; constrained proposer withdrawn 2026-11-17** | phased workstream at §4.24; capability layer, MCP server, REST facade, narration and chat delivered; the constrained proposer (`DEC-LLM-09`) stays deferred and needs its own gated plan |
@@ -99,6 +100,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v1.5 | read-only training intelligence: capability layer, MCP server, REST facade, narration and chat | **released 2026-11-15; stable** |
 | v1.6 | cardio depth and reproducible cardio impulse/shadow load | **delivered (1.6.0): corpus, linking, analytics, dashboards; the impulse (A2/A3) was retired 2026-11-18 (`DEC-LONGEVITY-03`)** |
 | v1.7 | longevity assessment (§4.36): aerobic adequacy as context, VO₂max status, per-pattern headroom, sample-based time-in-zone and advisory prose on iPhone and web, with the three post-1.6.0 readiness/cardio fixes | **released 2026-11-18** |
+| v1.7.1 | longevity correctness, privacy and integration (§4.36): execution allowlist, tail exclusion, elapsed-time integration, above-band state, cache invalidation, canonical web panel, VO₂max provenance and remote-narration consent | **released 2026-11-18** |
 | — | training-day session fragments | **done 2026-11-01** (see §4.27) |
 | — | post-workout form assessment | **done 2026-10-25** |
 | future | LLM integration: read-only intelligence delivered; constrained proposer withdrawn | **read-only delivered; no write path (§4.24)** |
@@ -1286,6 +1288,7 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | v1.1 | Fatigue signals: exposure, substitution, advisories | **Phase 0 done 2026-10-28** (five decisions; `docs/FATIGUE-SIGNALS.md`, `docs/EXERCISE-DEMANDS.md`). **Phase 1 done 2026-10-28**: `config/exercises/demands.v1.yaml` populated for **28/63** reachable ids (4 in-scope dimensions at 55.6 % known, 2 `supported` claims, 4 evidence entries). **Rating path done 2026-10-28**: git-ignored `config/exercises/demands.local.yaml` overlay merged over the reviewed file, with `exercise demands report|unrated|set|clear` and automatic rollback on a rejected write (digest covers both files). **Phase 2 done 2026-10-28**: `features/exposure.py` (7/28-day ratio, coverage, gap/deload/break abstention, exposure dedup, per-group ratios), `exposure ratio` CLI, `GET /api/exposure`, Prescribe **Exposure ratio** panel and the Part D low-exposure advisory; report-only, trim not implemented. **Demand display done 2026-10-28**: Exercises rows show `rated/4` and the details dialog shows the profile with confidence, reason, catalogue digest and overlay state; the same form rates or clears a dimension (`POST /api/exercises/demands`, same `set_claim` as the CLI). **Phase 3 done 2026-10-28**: `MOD-EXP-001` (constitution 1.20.0) trims at most one non-essential accessory set per affected group (≤2/session, floor 1) when `athlete_profile.exposure_trim_enabled` is on (default off), skipping main lifts, essential items, readiness cuts and under-MEV additions; `shadow_decision` table + repository exist (append-only triggers). Shadow writes and the review report land in Phase 6 so forecast builds never write rows. **Phase 4 done 2026-10-28**: `prescribe/fatigue_selection.py` suggests at most one accessory substitution when the exposure signal is high, the candidate is A/B comparable, covers the current lift's primary muscles and is rated strictly lower on an in-scope demand dimension; `GET /api/substitution`, the Exercise-selection panel block and `select --fatigue` expose it. Suggest-only; abstains when the trim already acted or the metadata is unknown. **Phase 5 done 2026-10-28**: `features/residual.py` computes the VBT-only execution residual (observed minus prescribed velocity) from linked workout sets, lift-scoped, 84-day window, with the ≥5 signal and ≥20/8-week/two-lift evaluation gates; `residual`, `GET /api/residual` and the Prescribe panel expose it. Shadow only. **Phase 6 done 2026-10-28**: `prescribe/shadow.py` writes exposure + substitution rows only when a prescription is persisted; `features/shadow_report.py` and `shadow`/`GET /api/shadow`/Prescribe **Shadow review** expose counts, abstentions, conflicts and the four gate checks. The gate never enables anything (`activation_allowed: false`); the fatigue-signals specification is fully implemented. |
 | v1.6 | Cardio depth | **delivered (1.6.0)** — corpus, linking, analytics and dashboards; the impulse/shadow load was retired 2026-11-18 (`DEC-LONGEVITY-03`, §4.13a) |
 | v1.7 | Longevity assessment | **released 2026-11-18 (1.7.0)** — `assessment` block, capability and MCP tool, iPhone Today section with its own health consent, time-in-zone panel, web panel with on-demand prose; no migration (§4.36, [plan](https://github.com/georgesdib/strength-app/blob/development/docs/plans/LONGEVITY-ASSESSMENT.md)) |
+| v1.7.1 | Longevity corrective release | **released 2026-11-18 (1.7.1)** — execution-time allowlist, tail exclusion, elapsed-time integration with coverage, above-band state, HR cache invalidation, canonical web panel, VO₂max provenance and remote-narration consent; no migration (§4.36) |
 | — | Deeper labelled calibration set | retired 2026-11-13 (§4.14, `DEC-EVAL-09`) |
 | v1.5 | LLM integration: read-only delivered; constrained proposer withdrawn 2026-11-17 | §4.24; selector retirement done (Phase 1b) |
 | future | Personalised volume-response model | idea only; shadow/gated (§13, Q28) |
@@ -2275,7 +2278,7 @@ family reads, and fallback when a family is incomplete or failed.
 **Non-goals:** metric changes, deload policy changes, lookback truncation, a generic cache, MCP
 transport changes or client changes.
 
-### 4.36 Longevity assessment — aerobic adequacy, fitness and strength context  (implemented 2026-11-18; released in 1.7.0)
+### 4.36 Longevity assessment — aerobic adequacy, fitness and strength context  (implemented 2026-11-18; released in 1.7.0; corrected in 1.7.1)
 
 Three questions, one deterministic answer each: is the aerobic reference being met, can the stored
 VO₂max be read at all, and what volume headroom remains per pattern. Canonical plan:
@@ -2290,6 +2293,26 @@ is no VO₂max category and no age/sex field (`DEC-LONGEVITY-04`); cardio minute
 VO₂max are `health` and need their own off-device consent (`DEC-LONGEVITY-02`); the advice is never
 wired to a prescription. Time-in-zone reuses the existing sample classification, which is not an
 impulse model. No migration, no notification, no strength verdict.
+
+**1.7.1 corrective release (2026-11-18).** Seven audit findings were verified against the 1.7.0
+code and corrected without changing the product decisions: (1) the DeepSeek chat dispatcher now
+builds a per-request allowlist from the tools it actually advertised and rejects unadvertised
+health or plan tools before their provider is called; (2) recovery-tail samples
+(`association = 'tail'`) and samples outside the workout interval are excluded from workout
+classification and time-in-zone while remaining in the corpus; (3) time-in-zone now integrates
+elapsed time between adjacent samples, clips to the workout, does not allocate gaps over 120 s or
+the final sample, and reports covered/workout/unobserved duration separately from continuity
+eligibility; (4) an above-300-minute week is its own `above` relation and is described as context
+above the band, never as excessive or harmful; (5) inserting new heartbeat samples for an
+already-imported workout invalidates the classification cache via a cheap state marker, and a
+re-import is a no-op; (6) the web Longevity panel reads only the canonical `assessment` block and
+requests optional time-in-zone/headroom deliberately; (7) VO₂max presentation includes units,
+date, source/method and currency on both clients, and remote narration of a health-class
+capability requires an explicit `health_consent` flag in addition to the browser disclosure.
+Cross-platform fixtures are byte-identical in both repositories and are asserted by the parent
+contract test. Limitations: time-in-zone is still sample-based and only for continuity-eligible
+workouts, so it is not a clinical zone-duration measurement; whole-workout classification remains
+an estimate; VO₂max remains a consumer estimate with no age/sex category.
 
 ## 5. Known gaps and risks
 

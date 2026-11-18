@@ -210,6 +210,12 @@ Cardio scope is Q14 and ROADMAP §4.13. This review only ranks the priorities.
   recommendation is age-conditional.
 - The cardio dose is a guideline synthesis, not an individual prescription; it needs the
   athlete's current fitness and preferences, neither of which is in the app yet.
+- Time-in-zone is an elapsed-time integration of heart-rate samples inside the workout interval,
+  not a clinical zone-duration measurement. Recovery-tail samples are excluded, unobserved time
+  (including gaps over 120 s and after the final sample) is not assigned to a zone, and temporal
+  coverage is reported beside continuity eligibility.
+- VO₂max is a consumer estimate, not a laboratory measurement. Its value, unit, date and
+  source/method are reported with a currency state; absence is not evidence of poor fitness.
 - Nothing here changes the constitution. The strength methodology remains the source of truth.
 
 ## 8. Proposed data display extension (not implemented)

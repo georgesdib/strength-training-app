@@ -581,6 +581,7 @@ async function loadOutcomes() {
     const readinessFields = Object.entries(longevity.readiness?.fields || {}).map(([field, row]) => `
       <tr><td>${esc(field)}</td><td>${row.n}</td><td>${row.average ?? "—"}</td>
       <td>${row.first ?? "—"} → ${row.last ?? "—"}</td></tr>`).join("");
+    await loadOutcomesBodyweight(period);
     $("#outcomes-result").innerHTML = `
       <p class="muted">${esc(period.from ?? "unknown")} to ${esc(period.to ?? "unknown")} · ${period.weeks ?? "—"} weeks</p>
       <h3>Strength</h3>
@@ -604,6 +605,31 @@ async function loadOutcomes() {
     await loadProspective(weeks, day);
   } catch (error) {
     $("#outcomes-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
+
+async function loadOutcomesBodyweight(period) {
+  const host = $("#outcomes-bodyweight");
+  if (!host) return;
+  if (!period.from || !period.to) {
+    host.innerHTML = "";
+    return;
+  }
+  try {
+    const data = await api("/api/readiness/history?from=" + encodeURIComponent(period.from) +
+      "&to=" + encodeURIComponent(period.to) + "&fields=bodyweight_kg");
+    const points = (data && data.points) || [];
+    const rows = points.map((point) =>
+      "<tr><td>" + esc(point.date) + "</td><td>" + fmt(point.bodyweight_kg) + " kg</td><td>" +
+      esc(point.sources?.bodyweight_kg || "unknown") + "</td></tr>").join("");
+    host.innerHTML = "<h3>Bodyweight history</h3>" +
+      (rows ? "<table><thead><tr><th>Date</th><th>Bodyweight</th><th>Source</th></tr></thead><tbody>" +
+        rows + "</tbody></table>" : "<p class='empty'>No observed bodyweight values in this window.</p>") +
+      "<p class='muted'>Observed readiness dates only; missing dates are not filled. " +
+      points.length + " of " + (data?.coverage?.window_days ?? "unknown") +
+      " window days observed.</p>";
+  } catch (error) {
+    host.innerHTML = "<p class='warnbox'>" + esc(error.message) + "</p>";
   }
 }
 
@@ -682,154 +708,214 @@ async function loadProspective(weeks, day) {
   }
 }
 
+const HEALTH_CAPABILITIES = new Set([
+  "get_weekly_review",
+  "get_longevity_assessment",
+  "get_readiness_history",
+]);
+let narrateModelPromise = null;
+
+function narrateModelLabel() {
+  // One cache for the page: the disclosure names the configured provider and model.
+  if (!narrateModelPromise) {
+    narrateModelPromise = api("/api/settings")
+      .then((settings) => {
+        const llm = settings?.llm || {};
+        const provider = llm.provider || "the configured provider";
+        const model = llm.model || "the configured model";
+        return provider + " / " + model;
+      })
+      .catch(() => "the configured model");
+  }
+  return narrateModelPromise;
+}
+
+function longevityRelationText(assessment) {
+  if (!assessment) {
+    return "Assessment unavailable — the server returned no longevity assessment.";
+  }
+  const last = assessment.last_week;
+  if (!last) return "No completed week to assess yet.";
+  if (last.gate === "insufficient" || last.relation === "unknown") {
+    return "Last week's activity could not be classified well enough to compare with the reference.";
+  }
+  const minutes = fmt(last.equivalent_minutes, 0);
+  if (last.relation === "below") {
+    return minutes + " moderate-equivalent minutes last week — "
+      + fmt(last.remaining_minutes, 0) + " short of the 150-minute reference.";
+  }
+  if (last.relation === "above") {
+    return minutes + " moderate-equivalent minutes last week — above the 150–300 reference. "
+      + "The upper bound is context, not a maximum safe dose.";
+  }
+  return minutes + " moderate-equivalent minutes last week — within the 150–300 reference.";
+}
+
+function longevityVo2maxText(vo2) {
+  if (!vo2 || vo2.status === "absent" || vo2.value == null) {
+    return "No VO₂max measurement recorded. Missing is not evidence of poor fitness.";
+  }
+  const parts = [fmt(vo2.value, 1) + " " + (vo2.unit || "ml/kg/min")];
+  if (vo2.measured_on) parts.push(vo2.measured_on);
+  if (vo2.method) parts.push(vo2.method);
+  else if (vo2.source) parts.push(vo2.source);
+  parts.push(vo2.status === "stale" ? "stale" : "current");
+  return "VO₂max " + parts.join(" · ");
+}
+
 async function loadLongevity() {
-  const weeks = $("#longevity-weeks").value;
   const day = $("#longevity-date").value;
-  $("#longevity-summary").innerHTML = "<p class='empty'>Building longevity view…</p>";
+  const includeTiz = $("#longevity-tiz").checked;
+  const includePatterns = $("#longevity-patterns").checked;
+  $("#longevity-summary").innerHTML = "<p class='empty'>Building assessment…</p>";
   $("#longevity-details").innerHTML = "";
-  // The longevity assessment is the cardio summary's block (DEC-LONGEVITY-01): one composed
-  // function, so this panel cannot disagree with the phone.
+  const query = new URLSearchParams({ weeks: "4" });
+  if (day) query.set("as_of", day);
+  if (includeTiz) query.set("tiz", "1");
+  if (includePatterns) query.set("patterns", "1");
   let assessment = null;
-  try { assessment = (await api("/api/cardio/summary?weeks=4")).assessment || null; }
-  catch { assessment = null; }
-  const lastWeek = assessment?.last_week || null;
-  const relationText = assessment == null
-    ? "Assessment unavailable — the server returned no longevity assessment."
-    : !lastWeek
-      ? "No completed week to assess yet."
-    : lastWeek.relation === "inside"
-      ? fmt(lastWeek.equivalent_minutes, 0) + " moderate-equivalent minutes last week — inside the 150–300 reference."
-      : lastWeek.relation === "below"
-        ? fmt(lastWeek.equivalent_minutes, 0) + " moderate-equivalent minutes last week — "
-          + fmt(lastWeek.remaining_minutes, 0) + " short of the 150-minute reference."
-        : "Last week's activity could not be classified well enough to compare with the reference.";
   try {
-    const query = new URLSearchParams({ weeks });
-    if (day) query.set("date", day);
-    const data = (await api("/api/outcomes?" + query.toString())) || {};
-    const period = data.window || {};
-    const bodyweightHost = $("#longevity-bodyweight");
-    let bodyweight = null;
-    let bodyweightError = false;
-    if (bodyweightHost && period.from && period.to) {
-      try {
-        bodyweight = await api("/api/readiness/history?from=" + encodeURIComponent(period.from) +
-          "&to=" + encodeURIComponent(period.to) + "&fields=bodyweight_kg");
-      } catch (error) {
-        bodyweightError = true;
-        bodyweightHost.innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
-      }
-    }
-    const longevity = data.longevity || {};
-    const cardio = longevity.cardio || {};
-    const metrics = longevity.measurements || {};
-    const readiness = longevity.readiness || {};
-    const fields = readiness.fields || {};
-    const symptoms = (data.strength && data.strength.symptoms && data.strength.symptoms.regions) || {};
-    const attendance = (data.strength && data.strength.attendance) || {};
-    const cardioAvg = cardio.rolling_4w_average ?? cardio.average_weekly_minutes;
-    const refMin = cardio.reference_min ?? 150;
-    const refMax = cardio.reference_max ?? 300;
-    const metricCount = Object.values(metrics).filter((row) => Number(row.count || 0) > 0).length;
-    const readinessCount = Object.values(fields).filter((row) => row.n > 0).length;
-    const readinessTotal = Object.keys(fields).length;
-    const regions = Object.values(symptoms);
-    const symptomReadings = regions.reduce((sum, row) => sum + (row.readings || 0), 0);
-    const flares = regions.reduce((sum, row) => sum + (row.flares || 0), 0);
-    const contextNotes = [];
-    contextNotes.push(relationText);
-    if (lastWeek && lastWeek.unclassified_minutes > 0) {
-      contextNotes.push(fmt(lastWeek.unclassified_minutes, 0)
-        + " minutes last week were unclassified and are not counted as zero.");
-    }
-    contextNotes.push("The 150–300 minute WHO band is context, not an individualized target.");
-    contextNotes.push(metricCount
-      ? metricCount + " configured measurement type(s) have recorded values; latest values below use available history, not only this window."
-      : "No configured measurement types have recorded values in available history.");
-    contextNotes.push("Readiness entries are present for " + readinessCount + " of " + readinessTotal + " subjective fields in this window; missing is unknown.");
-    contextNotes.push(symptomReadings === 0
-      ? "No symptom readings; flare status is unknown, not zero."
-      : flares + " symptom flare(s) among " + symptomReadings + " recorded reading(s); descriptive context only.");
-    contextNotes.push(attendance.pct == null
-      ? (attendance.completed ?? 0) + " training day(s) recorded; target is unknown and no planned-session calendar is stored."
-      : attendance.completed + " training day(s), " + attendance.pct + "% of the configured weekly target; this is not planned-date adherence.");
-    const metricRows = Object.entries(metrics).map(([key, row]) =>
-      "<tr><td>" + esc(key) + "</td><td>" + (row.count ?? 0) + "</td><td>" + (row.latest_value ?? "—") + "</td><td>" +
-      (row.change == null ? "—" : (row.change > 0 ? "+" : "") + row.change) +
-      "</td><td>" + esc(row.latest_on || "—") + "</td></tr>").join("");
-    const readinessRows = Object.entries(fields).map(([field, row]) =>
-      "<tr><td>" + esc(field) + "</td><td>" + row.n + "</td><td>" +
-      (row.average ?? "—") + "</td><td>" + (row.first ?? "—") + " → " +
-      (row.last ?? "—") + "</td></tr>").join("");
-    const symptomRows = Object.entries(symptoms).map(([region, row]) =>
-      "<tr><td>" + esc(region) + "</td><td>" + row.flares + "</td><td>" +
-      row.readings + "</td><td>" + esc(row.latest_on || "—") + " · level " +
-      (row.latest_level ?? "—") + "</td></tr>").join("");
-    const cardioWeeks = Object.entries(cardio.weekly_minutes || {}).map(([week, minutes]) =>
-      "<tr><td>" + esc(week) + "</td><td>" + fmt(minutes, 1) + " min</td></tr>").join("");
-    $("#longevity-summary").innerHTML =
-      "<p class='muted'>" + esc(period.from ?? "unknown") + " to " + esc(period.to ?? "unknown") +
-      " · " + esc(weeks) + " weeks.</p>" +
-      "<div class='cards'>" +
-      "<div class='card'><div class='label'>Cardio</div><div class='value'>" +
-      (cardioAvg == null ? "unknown" : cardioAvg + " min/wk") + "</div><div class='sub'>reference " +
-      refMin + "–" + refMax + " · context only</div></div>" +
-      "<div class='card'><div class='label'>Measurements</div><div class='value'>" +
-      metricCount + "</div><div class='sub'>recorded metric types</div></div>" +
-      "<div class='card'><div class='label'>Readiness</div><div class='value'>" +
-      readinessCount + "/" + readinessTotal + "</div><div class='sub'>subjective fields with data</div></div>" +
-      "<div class='card'><div class='label'>Symptoms</div><div class='value'>" +
-      (symptomReadings ? flares + " flare(s)" : "unknown") + "</div><div class='sub'>" +
-      symptomReadings + " reading(s)</div></div></div>" +
-      "<h3>Recorded context and coverage</h3><ul class='list'>" +
-      contextNotes.map((x) => "<li>" + esc(x) + "</li>").join("") +
-      "</ul><p class='muted'>Descriptive records only; no medical interpretation or prescription change.</p>";
-    $("#longevity-narrative")?.remove();
-    const narrativeHost = document.createElement("div");
-    narrativeHost.id = "longevity-narrative";
-    narrativeHost.innerHTML = "<p>" + esc(relationText) + "</p>"
-      + "<button id='longevity-write' type='button'>Write the summary</button>"
-      + "<p id='longevity-narrative-text' class='muted'></p>";
-    document.querySelector("#longevity-summary").appendChild(narrativeHost);
-    document.querySelector("#longevity-write").addEventListener("click", async () => {
-      const text = document.querySelector("#longevity-narrative-text");
-      text.textContent = "Writing…";
-      try {
-        const result = await api("/api/intelligence/narrate", {
-          method: "POST",
-          body: JSON.stringify({ capability: "get_longevity_assessment", payload: {} }),
-        });
-        const parts = [result.headline].concat(result.observations || []).filter(Boolean);
-        text.textContent = parts.join(" ")
-          + (result.model ? " — written by " + result.model : " — server text");
-      } catch (error) {
-        text.textContent = "No summary was written: " + error.message
-          + ". The numbers above are the assessment.";
-      }
-    });
-    $("#longevity-details").innerHTML =
-      "<h3>Cardio weeks</h3><table><thead><tr><th>Week</th><th>minutes</th></tr></thead><tbody>" +
-      (cardioWeeks || "<tr><td colspan='2' class='muted'>no cardio entries</td></tr>") + "</tbody></table>" +
-      "<h3>Measurements (latest available history)</h3><table><thead><tr><th>Metric</th><th>n</th><th>latest</th><th>change</th><th>date</th></tr></thead><tbody>" +
-      (metricRows || "<tr><td colspan='5' class='muted'>no recorded measurements</td></tr>") + "</tbody></table>" +
-      "<h3>Readiness fields</h3><table><thead><tr><th>Field</th><th>n</th><th>average</th><th>first → last</th></tr></thead><tbody>" +
-      (readinessRows || "<tr><td colspan='4' class='muted'>no readiness fields</td></tr>") + "</tbody></table>" +
-      "<h3>Symptoms</h3><table><thead><tr><th>Region</th><th>flares</th><th>readings</th><th>latest</th></tr></thead><tbody>" +
-      (symptomRows || "<tr><td colspan='4' class='muted'>no symptom entries — unknown, not “no flare”</td></tr>") + "</tbody></table>" +
-      "<p class='muted'>" + esc(longevity.note || "") + "</p>";
-    if (bodyweightHost && !bodyweightError) {
-      const points = (bodyweight && bodyweight.points) || [];
-      const rows = points.map((point) =>
-        `<tr><td>${esc(point.date)}</td><td>${fmt(point.bodyweight_kg)} kg</td><td>${esc(point.sources?.bodyweight_kg || "unknown")}</td></tr>`
-      ).join("");
-      bodyweightHost.innerHTML = "<h3>Bodyweight history</h3>" +
-        (rows ? `<table><thead><tr><th>Date</th><th>Bodyweight</th><th>Source</th></tr></thead><tbody>${rows}</tbody></table>` :
-          "<p class='empty'>No observed bodyweight values in this window.</p>") +
-        `<p class='muted'>Observed readiness dates only; missing dates are not filled. ${points.length} of ${bodyweight?.coverage?.window_days ?? "unknown"} window days observed.</p>`;
-    }
+    const payload = await api("/api/cardio/summary?" + query.toString());
+    assessment = payload.assessment || null;
   } catch (error) {
     $("#longevity-summary").innerHTML = "<p class='warnbox'>" + esc(error.message) + "</p>";
+    return;
   }
+  if (!assessment) {
+    $("#longevity-summary").innerHTML =
+      "<p class='warnbox'>Assessment unavailable — the server returned no longevity assessment.</p>";
+    return;
+  }
+  const last = assessment.last_week;
+  const current = assessment.current_week || {};
+  const vo2 = assessment.vo2max || {};
+  const reference = assessment.reference || {};
+  const relation = longevityRelationText(assessment);
+  const lastLabel = last
+    ? "Completed week · " + esc(last.start) + " to " + esc(last.end)
+    : "Completed week · unavailable";
+  const lastMinutes = last ? fmt(last.equivalent_minutes, 0) + " min" : "unknown";
+  const currentSub = current.days_remaining == null
+    ? "progress this week; no completed-week verdict"
+    : fmt(current.equivalent_minutes ?? 0, 0) + " min so far · "
+      + current.days_remaining + " day(s) remaining"
+      + (assessment.sessions_remaining == null ? "" : " · "
+        + assessment.sessions_remaining + " session(s) remaining")
+      + "; no completed-week verdict";
+  const classified = last ? Math.round((last.classified_share || 0) * 100) + "%" : "unknown";
+  const unclassified = last ? fmt(last.unclassified_minutes || 0, 0) : "unknown";
+  const notes = [relation];
+  if (last && last.relation === "below" && last.remaining_minutes != null) {
+    notes.push(fmt(last.remaining_minutes, 0) + " additional moderate-equivalent minutes would "
+      + "reach the 150-minute reference; this is context, not a prescription.");
+  }
+  if (last && last.relation === "above") {
+    notes.push("Above 300 minutes is reported as above the reference band; the band has no "
+      + "maximum safe dose and this is not a warning.");
+  }
+  if (last && Number(last.unclassified_minutes || 0) > 0) {
+    notes.push(fmt(last.unclassified_minutes, 0) + " minutes last week were unclassified and are "
+      + "not counted as zero.");
+  }
+  notes.push("The WHO 150–300 minute band is population context, not an individualized target.");
+  $("#longevity-summary").innerHTML =
+    "<p class='muted'>As of " + esc(assessment.as_of || day || "today") + "</p>" +
+    "<div class='cards'>" +
+    "<div class='card'><div class='label'>" + lastLabel + "</div><div class='value'>" +
+    lastMinutes + "</div><div class='sub'>" + esc(relation) + "</div></div>" +
+    "<div class='card'><div class='label'>Current week</div><div class='value'>" +
+    fmt(current.equivalent_minutes ?? 0, 0) + " min</div><div class='sub'>" +
+    esc(currentSub) + "</div></div>" +
+    "<div class='card'><div class='label'>Classification</div><div class='value'>" +
+    classified + "</div><div class='sub'>" + unclassified +
+    " min unclassified</div></div>" +
+    "<div class='card'><div class='label'>VO₂max</div><div class='value'>" +
+    (vo2.value == null ? "unknown" : fmt(vo2.value, 1)) + "</div><div class='sub'>" +
+    esc(longevityVo2maxText(vo2)) + "</div></div></div>" +
+    "<h3>What the assessment says</h3><ul class='list'>" +
+    notes.map((x) => "<li>" + esc(x) + "</li>").join("") + "</ul>" +
+    "<p class='muted'>Reference " + fmt(reference.min_minutes ?? 150, 0) + "–" +
+    fmt(reference.max_minutes ?? 300, 0) + " moderate-equivalent minutes per week. " +
+    esc(reference.role || "context, not a target") + ".</p>";
+  $("#longevity-narrative")?.remove();
+  const narrativeHost = document.createElement("div");
+  narrativeHost.id = "longevity-narrative";
+  const modelLabel = await narrateModelLabel();
+  narrativeHost.innerHTML = "<p>" + esc(relation) + "</p>" +
+    "<p class='muted'>Writing the summary sends the assessment facts above to " +
+    esc(modelLabel) + " over the network. The deterministic facts stay available without it.</p>" +
+    "<label class='check'><input type='checkbox' id='longevity-narrative-consent'> " +
+    "I understand and want to send these health facts.</label>" +
+    "<div class='form-row'><button id='longevity-write' type='button' disabled>" +
+    "Write the summary</button></div>" +
+    "<p id='longevity-narrative-text' class='muted'></p>";
+  $("#longevity-summary").appendChild(narrativeHost);
+  const consent = document.querySelector("#longevity-narrative-consent");
+  const write = document.querySelector("#longevity-write");
+  const text = document.querySelector("#longevity-narrative-text");
+  consent.addEventListener("change", () => { write.disabled = !consent.checked; });
+  write.addEventListener("click", async () => {
+    if (!consent.checked) {
+      text.textContent = "Confirm the health-data disclosure before writing the summary.";
+      return;
+    }
+    text.textContent = "Writing…";
+    write.disabled = true;
+    try {
+      const payload = {
+        include_time_in_zone: includeTiz,
+        include_patterns: includePatterns,
+      };
+      if (day) payload.as_of = day;
+      const result = await api("/api/intelligence/narrate", {
+        method: "POST",
+        body: JSON.stringify({
+          capability: "get_longevity_assessment",
+          payload: payload,
+          health_consent: true,
+        }),
+      });
+      const parts = [result.headline].concat(result.observations || []).filter(Boolean);
+      text.textContent = parts.join(" ")
+        + (result.model ? " — written by " + result.model : " — server text");
+    } catch (error) {
+      text.textContent = "No summary was written: " + error.message
+        + ". The numbers above are the assessment.";
+    } finally {
+      write.disabled = !consent.checked;
+    }
+  });
+  const details = [];
+  if (includeTiz) {
+    const tiz = assessment.time_in_zone;
+    if (!tiz || !tiz.eligible_workouts) {
+      details.push("<h3>Time in zone</h3><p class='empty'>No continuity-eligible "
+        + "time-in-zone data in this window.</p>");
+    } else {
+      details.push("<h3>Time in zone</h3><p>" +
+        fmt(tiz.minutes?.moderate ?? 0) + " moderate and " +
+        fmt(tiz.minutes?.vigorous ?? 0) + " vigorous minutes across " +
+        esc(tiz.eligible_workouts) + " eligible workout(s).</p>" +
+        "<p class='muted'>" + fmt(tiz.covered_minutes ?? 0) + " of " +
+        fmt(tiz.workout_minutes ?? 0) + " workout minutes had usable samples (" +
+        Math.round((tiz.temporal_coverage_share || 0) * 100) + "% temporal coverage); " +
+        fmt(tiz.unobserved_minutes ?? 0) + " minutes are unobserved. " +
+        esc(tiz.method || "") + ".</p>");
+    }
+  }
+  if (includePatterns) {
+    const patterns = assessment.patterns;
+    const rows = Object.entries(patterns?.per_pattern || {}).map(([key, row]) =>
+      "<tr><td>" + esc(key) + "</td><td>" + esc(row.status || "unknown") + "</td><td>" +
+      esc(row.short ?? "—") + "</td><td>" + esc(row.headroom_sets ?? 0) + "</td></tr>").join("");
+    details.push("<h3>Volume headroom</h3>" +
+      (rows ? "<table><thead><tr><th>Pattern</th><th>status</th><th>short</th>" +
+        "<th>headroom sets</th></tr></thead><tbody>" + rows + "</tbody></table>"
+        : "<p class='empty'>No per-pattern headroom is available.</p>") +
+      "<p class='muted'>Training-volume context from the configured budget; it is not a "
+      + "strength-preservation claim.</p>");
+  }
+  $("#longevity-details").innerHTML = details.join("");
 }
 
 async function loadReadinessFeedback(weeks, day) {
@@ -3870,8 +3956,26 @@ function syncNarrateCapability() {
   if (help) help.textContent = guide.text || "";
   if (usage) usage.textContent = guide.usage || "";
   if (payload) payload.value = JSON.stringify(guide.example || {}, null, 2);
+  // Health-class capabilities need an explicit disclosure before their facts leave the server.
+  const isHealth = HEALTH_CAPABILITIES.has(capability);
+  const consentBox = $("#narrate-consent");
+  if (consentBox) consentBox.hidden = !isHealth;
+  const consent = $("#narrate-health-consent");
+  if (consent) consent.checked = false;
+  const button = $("#narrate-submit");
+  if (button) button.disabled = isHealth;
+  if (isHealth) {
+    narrateModelLabel().then((label) => {
+      const host = $("#narrate-model");
+      if (host) host.textContent = label;
+    });
+  }
 }
 $("#narrate-capability")?.addEventListener("change", syncNarrateCapability);
+$("#narrate-health-consent")?.addEventListener("change", (event) => {
+  const button = $("#narrate-submit");
+  if (button) button.disabled = !event.target.checked;
+});
 if ($("#narrate-capability")) syncNarrateCapability();
 
 $("#narrate-form")?.addEventListener("submit", async (event) => {
@@ -3894,9 +3998,18 @@ $("#narrate-form")?.addEventListener("submit", async (event) => {
     if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
       throw new Error("Request payload must be a JSON object.");
     }
+    const isHealth = HEALTH_CAPABILITIES.has(capability);
+    const consent = $("#narrate-health-consent");
+    if (isHealth && !consent?.checked) {
+      throw new Error("Confirm the health-data disclosure before narrating.");
+    }
     const data = await api("/api/intelligence/narrate", {
       method: "POST",
-      body: JSON.stringify({ capability, payload }),
+      body: JSON.stringify({
+        capability: capability,
+        payload: payload,
+        ...(isHealth ? { health_consent: true } : {}),
+      }),
     });
     const observations = (data.observations || [])
       .map((item) => "<li>" + esc(item) + "</li>").join("");

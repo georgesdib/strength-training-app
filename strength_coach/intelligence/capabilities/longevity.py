@@ -65,6 +65,11 @@ LIMITATIONS = (
     "lifting session can read moderate and an interval session's rests dilute it (LIM-69).",
     "Time-in-zone is sample-based and covers only continuity-eligible workouts; it is reported "
     "separately and never merged into the weekly total.",
+    "Recovery-tail heart-rate samples are retained in the corpus but excluded from workout "
+    "classification and time-in-zone.",
+    "Time-in-zone integrates elapsed time between adjacent workout samples, clipped to the "
+    "workout; gaps over 120 s and the final sample are not allocated, and temporal coverage is "
+    "reported separately from continuity eligibility.",
     "VO2max is a consumer estimate and carries no age/sex reference category by design (LIM-70); "
     "absence is not evidence of poor fitness.",
     "Pattern headroom is the configured volume budget, not a measurement of adaptation.",
@@ -187,6 +192,11 @@ def longevity_assessment(
         "vo2max_age_days": vo2max.get("age_days"),
         "time_in_zone_eligible_workouts": (
             int((result["time_in_zone"] or {}).get("eligible_workouts") or 0)
+            if result["time_in_zone"] is not None
+            else None
+        ),
+        "time_in_zone_temporal_coverage": (
+            (result["time_in_zone"] or {}).get("temporal_coverage_share")
             if result["time_in_zone"] is not None
             else None
         ),

@@ -24,7 +24,7 @@ def store(tmp_path):
 
 def _workout(conn, start, minutes, *, mets=None):
     end = (dt.datetime.fromisoformat(start) + dt.timedelta(minutes=minutes)).isoformat()
-    cardio.record_workout(
+    return cardio.record_workout(
         conn,
         external_key=cardio.content_key(
             activity_type=RUN, started_at=start, ended_at=end, duration_s=minutes * 60
@@ -38,7 +38,7 @@ def _workout(conn, start, minutes, *, mets=None):
         avg_mets=mets,
         avg_heart_rate=None,
         imported_at="2026-11-17T18:00:00+00:00",
-    )
+    )[0]
 
 
 def _vo2max(conn, *, measured_at="2026-11-10T08:00:00+00:00", value=48.0):
@@ -134,6 +134,48 @@ def test_optional_blocks_follow_the_request(store):
 
     without_patterns = _call(conn, include_patterns=False).envelope
     assert "patterns" not in without_patterns.facts
+
+
+def test_above_the_band_is_its_own_relation(store):
+    conn = store.connection
+    _workout(conn, "2026-11-03T08:00:00+00:00", 310, mets=4.0)
+    env = _call(conn).envelope
+    last = env.facts["last_week"].value
+    assert last["equivalent_minutes"] == 310.0
+    assert last["relation"] == "above"
+    assert last["above_upper"] is True
+    assert last["remaining_minutes"] is None
+
+
+def test_time_in_zone_reports_temporal_coverage_separately(store):
+    conn = store.connection
+    workout = _workout(conn, "2026-11-03T08:00:00+00:00", 20, mets=4.0)
+    start = dt.datetime.fromisoformat("2026-11-03T08:00:00+00:00")
+    for index in range(0, 601, 10):
+        at = (start + dt.timedelta(seconds=index)).isoformat()
+        cardio.record_sample(
+            conn,
+            sample_key=cardio.sample_content_key(
+                kind="heart_rate", sampled_at=at, value=150.0,
+                unit="count/min", source_bundle_id="Watch",
+            ),
+            kind="heart_rate",
+            sampled_at=at,
+            value=150.0,
+            unit="count/min",
+            source_name="Watch",
+            imported_at="2026-11-17T18:00:00+00:00",
+            external_workout_id=workout["external_workout_id"],
+            association="workout",
+        )
+
+    block = _call(conn, include_time_in_zone=True).envelope.facts["time_in_zone"].value
+    assert block["eligible_workouts"] == 1
+    assert block["covered_minutes"] == 10.0
+    assert block["workout_minutes"] == 20.0
+    assert block["unobserved_minutes"] == 10.0
+    assert block["temporal_coverage_share"] == 0.5
+    assert block["minutes"]["moderate"] == 10.0
 
 
 def test_future_date_and_unknown_arguments_are_rejected(store):

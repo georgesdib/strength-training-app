@@ -323,6 +323,13 @@ def record_sample(
             utc_iso(imported_at, field="imported_at"),
         ),
     )
+    # A workout's heart rate can arrive after the workout itself, without changing the workout
+    # count. Drop the classification marker so the next summary rebuilds from these samples.
+    # Tail samples are excluded from intensity, so they must not invalidate anything.
+    if kind == "heart_rate" and association == "workout":
+        from strength_coach.features import cardio_metrics
+
+        cardio_metrics.invalidate_classification(conn)
     stored = conn.execute(
         "SELECT * FROM health_sample WHERE sample_key = ?", (sample_key,)
     ).fetchone()

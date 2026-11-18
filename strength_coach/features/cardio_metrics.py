@@ -18,6 +18,7 @@ import datetime as dt
 import statistics
 import threading
 from collections import Counter, defaultdict
+from dataclasses import dataclass
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -35,6 +36,9 @@ RESISTANCE_TYPES = (
 CONTINUITY_MAX_GAP_S = 30.0
 CONTINUITY_MAX_INTERNAL_GAP_S = 120.0
 CONTINUITY_MIN_COVERAGE = 0.5
+#: A gap wider than this is unobserved time; it is never spread across the adjacent zones. The
+#: continuity gate already rejects such a series, so this is a second, independent guard.
+MAX_ZONE_INTEGRATION_GAP_S = CONTINUITY_MAX_INTERNAL_GAP_S
 
 
 def classify_met(mets: float | None) -> str | None:
@@ -105,16 +109,42 @@ def _share(counter: Counter) -> dict[str, Any]:
     }
 
 
+def _workout_hr_rows(conn, workout_ids: list[str] | None = None):
+    """Heart-rate samples that belong to a workout's own interval.
+
+    Two filters, deliberately independent: the importer labels the ten-minute recovery window
+    after a workout as association 'tail', and a mislabelled row can still sit outside
+    [started_at, ended_at]. Intensity is only ever read from a sample that passes both.
+    """
+    sql = """
+        SELECT s.external_workout_id, s.sampled_at, s.value
+          FROM health_sample s
+          JOIN external_workout w
+            ON w.external_workout_id = s.external_workout_id
+         WHERE s.kind = 'heart_rate'
+           AND s.association = 'workout'
+           AND s.sampled_at >= w.started_at
+           AND s.sampled_at <= w.ended_at
+    """
+    if workout_ids is None:
+        yield from conn.execute(sql + " ORDER BY s.external_workout_id, s.sampled_at")
+        return
+    unique = list(dict.fromkeys(workout_ids))
+    # SQLite caps the number of bound parameters, so large windows are read in chunks.
+    for start in range(0, len(unique), 500):
+        chunk = unique[start:start + 500]
+        marks = ",".join("?" * len(chunk))
+        yield from conn.execute(
+            sql + f" AND s.external_workout_id IN ({marks})"
+            " ORDER BY s.external_workout_id, s.sampled_at",
+            chunk,
+        )
+
+
 def _hr_values(conn) -> dict[str, list[tuple[float, float]]]:
-    """(epoch, bpm) per workout, ordered."""
+    """(epoch, bpm) per workout, ordered; workout samples inside the workout interval only."""
     values: dict[str, list[tuple[float, float]]] = defaultdict(list)
-    for row in conn.execute(
-        """
-        SELECT external_workout_id, sampled_at, value FROM health_sample
-        WHERE kind = 'heart_rate' AND external_workout_id IS NOT NULL
-        ORDER BY external_workout_id, sampled_at
-        """
-    ):
+    for row in _workout_hr_rows(conn):
         values[row["external_workout_id"]].append(
             (dt.datetime.fromisoformat(row["sampled_at"]).timestamp(), float(row["value"]))
         )
@@ -129,32 +159,34 @@ def hr_values_for(conn, workout_ids: list[str]) -> dict[str, list[tuple[float, f
     SQLite caps the number of bound parameters.
     """
     values: dict[str, list[tuple[float, float]]] = defaultdict(list)
-    unique = list(dict.fromkeys(workout_ids))
-    for start in range(0, len(unique), 500):
-        chunk = unique[start:start + 500]
-        marks = ",".join("?" * len(chunk))
-        for row in conn.execute(
-            f"""
-            SELECT external_workout_id, sampled_at, value FROM health_sample
-            WHERE kind = 'heart_rate' AND external_workout_id IN ({marks})
-            ORDER BY external_workout_id, sampled_at
-            """,
-            chunk,
-        ):
-            values[row["external_workout_id"]].append(
-                (dt.datetime.fromisoformat(row["sampled_at"]).timestamp(), float(row["value"]))
-            )
+    for row in _workout_hr_rows(conn, workout_ids):
+        values[row["external_workout_id"]].append(
+            (dt.datetime.fromisoformat(row["sampled_at"]).timestamp(), float(row["value"]))
+        )
     return values
 
 
 def classification_rows(conn) -> list[dict[str, Any]]:
-    """Classify every workout once, using the series mean only where Apple supplied no average."""
+    """Classify every workout once, using the series mean only where Apple supplied no average.
+
+    The fallback mean is computed from workout-interval samples only. Recovery-tail samples are
+    kept in the corpus for recovery, but they are not exercise intensity and must never move a
+    workout's zone.
+    """
     averaged = {
         row["external_workout_id"]: row["avg_hr"]
         for row in conn.execute(
-            "SELECT external_workout_id, AVG(value) AS avg_hr FROM health_sample "
-            "WHERE kind = 'heart_rate' AND external_workout_id IS NOT NULL "
-            "GROUP BY external_workout_id"
+            """
+            SELECT s.external_workout_id, AVG(s.value) AS avg_hr
+              FROM health_sample s
+              JOIN external_workout w
+                ON w.external_workout_id = s.external_workout_id
+             WHERE s.kind = 'heart_rate'
+               AND s.association = 'workout'
+               AND s.sampled_at >= w.started_at
+               AND s.sampled_at <= w.ended_at
+             GROUP BY s.external_workout_id
+            """
         )
     }
     rows = []
@@ -175,6 +207,23 @@ def classification_rows(conn) -> list[dict[str, Any]]:
             }
         )
     return rows
+
+
+CLASSIFICATION_STATE = "classification"
+
+
+def invalidate_classification(conn) -> None:
+    """Force the next summary read to rebuild the cache from source.
+
+    This is the cheap half of the invalidation contract: a heart-rate sample can change a
+    workout's classification without changing the workout count, so ingestion drops the state
+    marker instead of making every read scan ~590,000 samples to discover it. Re-inserting an
+    identical sample is a no-op in the store and does not reach here, so a re-import does not
+    cause a rebuild.
+    """
+    conn.execute(
+        "DELETE FROM cardio_cache_state WHERE name = ?", (CLASSIFICATION_STATE,)
+    )
 
 
 def rebuild_classification(conn) -> int:
@@ -200,17 +249,27 @@ def rebuild_classification(conn) -> int:
         )
         conn.execute(
             """
-            INSERT INTO cardio_cache_state (name, value, updated_at) VALUES ('classification', ?, ?)
+            INSERT INTO cardio_cache_state (name, value, updated_at) VALUES (?, ?, ?)
             ON CONFLICT(name) DO UPDATE SET value = excluded.value,
                                            updated_at = excluded.updated_at
             """,
-            (str(len(rows)), now),
+            (CLASSIFICATION_STATE, str(len(rows)), now),
         )
     return len(rows)
 
 
 def cache_is_stale(conn) -> bool:
-    """True when the corpus has grown since the cache was built."""
+    """True when the cache is absent or the workout corpus has changed since it was built.
+
+    Presence of the state marker is the ingestion signal: adding heart-rate samples for an
+    already-imported workout deletes it. The row-count comparison still catches a new or removed
+    workout written by any path.
+    """
+    state = conn.execute(
+        "SELECT 1 FROM cardio_cache_state WHERE name = ?", (CLASSIFICATION_STATE,)
+    ).fetchone()
+    if state is None:
+        return True
     cached = conn.execute("SELECT COUNT(*) FROM cardio_classification").fetchone()[0]
     live = conn.execute("SELECT COUNT(*) FROM external_workout").fetchone()[0]
     return cached != live
@@ -357,6 +416,8 @@ def report(conn, *, since: str | None = None, weeks_limit: int = 104) -> dict[st
     zone_minutes: dict[str, Counter] = defaultdict(Counter)
     eligible_by_year: Counter = Counter()
     eligible = 0
+    covered_seconds = 0.0
+    workout_seconds = 0.0
 
     for workout in workouts:
         started = dt.datetime.fromisoformat(workout["started_at"])
@@ -383,11 +444,17 @@ def report(conn, *, since: str | None = None, weeks_limit: int = 104) -> dict[st
                 if zone is not None:
                     bucket["resistance_classified_min"] += minutes
 
-        zones = sample_zone_minutes(series, duration_s=duration, minutes=minutes)
+        zones = sample_zone_minutes(
+            series,
+            started_at=workout["started_at"],
+            ended_at=workout["ended_at"],
+        )
         if zones is not None:
             eligible += 1
             eligible_by_year[str(started.year)] += 1
-            for zone_name, value in zones.items():
+            covered_seconds += zones.covered_seconds
+            workout_seconds += zones.workout_seconds
+            for zone_name, value in zones.minutes.items():
                 zone_minutes[str(started.year)][zone_name] += value
 
     ordered_weeks = sorted(weeks)
@@ -439,6 +506,11 @@ def report(conn, *, since: str | None = None, weeks_limit: int = 104) -> dict[st
         "time_in_zone": {
             "eligible_workouts": eligible,
             "eligible_by_year": dict(sorted(eligible_by_year.items())),
+            "covered_minutes": round(covered_seconds / 60.0, 1),
+            "workout_minutes": round(workout_seconds / 60.0, 1),
+            "unobserved_minutes": round(
+                max(workout_seconds - covered_seconds, 0.0) / 60.0, 1
+            ),
             "minutes_by_year": {
                 year: {zone: round(counter[zone], 1) for zone in ZONES}
                 for year, counter in sorted(zone_minutes.items())
@@ -458,33 +530,106 @@ CLASSIFIED_FLOOR = 0.5  # below half the week classified, the weekly relation st
 VO2MAX_STALE_DAYS = 90  # Apple writes VO2max weekly-ish; a season-old estimate is not current
 
 
-def sample_zone_minutes(
-    series: list[tuple[float, float]], *, duration_s: int, minutes: float
-) -> Counter | None:
-    """Per-sample zone minutes for one workout, or None when its series is not eligible.
+@dataclass(frozen=True)
+class ZoneIntegration:
+    """Zone minutes and the interval they actually represent for one workout.
 
-    One implementation for both consumers: the per-year time-in-zone report and the longevity
-    panel. Whole-workout classification is a different (and more generous) estimate.
+    covered_seconds is the sum of the adjacent-sample intervals that were integrated. It is not
+    the workout duration: the first sample opens the series, each interval is attributed to the
+    sample that opens it, and the final sample closes no interval. Unobserved time (before the
+    first sample, after the last, or across a gap wider than MAX_ZONE_INTEGRATION_GAP_S) is
+    excluded rather than extrapolated into a zone.
     """
-    if not series:
+
+    minutes: Counter
+    covered_seconds: float
+    workout_seconds: float
+    samples: int
+
+    @property
+    def unobserved_seconds(self) -> float:
+        return max(self.workout_seconds - self.covered_seconds, 0.0)
+
+    @property
+    def temporal_coverage(self) -> float:
+        if self.workout_seconds <= 0:
+            return 0.0
+        return min(self.covered_seconds / self.workout_seconds, 1.0)
+
+
+def integrate_zone_minutes(
+    series: list[tuple[float, float]], *, started_at: str, ended_at: str
+) -> ZoneIntegration | None:
+    """Elapsed-time integration of adjacent heart-rate samples, clipped to the workout.
+
+    Methodology: the sample at t describes [t, next_t). The interval is clipped to the workout's
+    actual start and end, so a sample recorded just outside the workout cannot extend the covered
+    time. A gap wider than MAX_ZONE_INTEGRATION_GAP_S is unobserved and is not allocated to any
+    zone. The final sample represents no duration because there is no following sample to bound
+    it; this intentionally understates coverage rather than inventing it.
+
+    Returns None for an empty or single-sample series: one sample cannot represent an interval.
+    """
+    start = dt.datetime.fromisoformat(started_at).timestamp()
+    end = dt.datetime.fromisoformat(ended_at).timestamp()
+    workout_seconds = end - start
+    if workout_seconds <= 0:
         return None
-    ok, _median = continuity([t for t, _bpm in series], duration_s)
-    if not ok:
+    points = sorted((t, bpm) for t, bpm in series if start <= t <= end)
+    if len(points) < 2:
         return None
     out: Counter = Counter()
-    per_sample = minutes / len(series)
-    for _t, bpm in series:
+    covered = 0.0
+    for (t0, bpm), (t1, _next_bpm) in zip(points, points[1:], strict=False):
+        gap = t1 - t0
+        if gap <= 0 or gap > MAX_ZONE_INTEGRATION_GAP_S:
+            continue
+        lo = max(t0, start)
+        hi = min(t1, end)
+        if hi <= lo:
+            continue
+        span = hi - lo
+        covered += span
         zone = classify_hr(bpm)
         if zone is not None:
-            out[zone] += per_sample
-    return out
+            out[zone] += span / 60.0
+    return ZoneIntegration(
+        minutes=out,
+        covered_seconds=covered,
+        workout_seconds=workout_seconds,
+        samples=len(points),
+    )
+
+
+def sample_zone_minutes(
+    series: list[tuple[float, float]], *, started_at: str, ended_at: str
+) -> ZoneIntegration | None:
+    """Integrated zone minutes for one workout, or None when its series is not eligible.
+
+    One implementation for both consumers: the per-year time-in-zone report and the longevity
+    panel. Whole-workout classification is a different (and more generous) estimate. The
+    continuity gate is deliberately separate from temporal coverage: a series can be continuous
+    and still cover only half the workout, in which case the missing half is reported as
+    unobserved instead of being spread over the samples that exist.
+    """
+    duration_s = (
+        dt.datetime.fromisoformat(ended_at) - dt.datetime.fromisoformat(started_at)
+    ).total_seconds()
+    if not series or duration_s <= 0:
+        return None
+    ok, _median = continuity([t for t, _bpm in series], int(duration_s))
+    if not ok:
+        return None
+    return integrate_zone_minutes(series, started_at=started_at, ended_at=ended_at)
 
 
 def time_in_zone(conn, *, on_date: str | None = None, days: int = 28) -> dict[str, Any]:
     """Sample-based zone minutes over a calendar window, with its own coverage.
 
     This covers only continuity-eligible workouts, so it is reported as its own block and never
-    merged into the weekly total. Hidden workouts are excluded like everywhere else.
+    merged into the weekly total. Hidden workouts are excluded like everywhere else. Two
+    coverages are reported: the share of workouts whose series is continuity-eligible, and the
+    share of eligible workout time represented by integrated samples.
     """
     anchor = _as_of_date(on_date)
     first = anchor - dt.timedelta(days=days - 1)
@@ -503,28 +648,43 @@ def time_in_zone(conn, *, on_date: str | None = None, days: int = 28) -> dict[st
         conn, [workout["external_workout_id"] for workout in in_window]
     )
     totals: Counter = Counter()
-    covered = 0
+    with_series = 0
     eligible = 0
+    covered_seconds = 0.0
+    workout_seconds = 0.0
     for workout in in_window:
         series = series_by_workout.get(workout["external_workout_id"], [])
         if not series:
             continue
-        covered += 1
-        minutes = round(int(workout["duration_s"]) / 60.0, 1)
+        with_series += 1
         zones = sample_zone_minutes(
-            series, duration_s=int(workout["duration_s"]), minutes=minutes
+            series,
+            started_at=workout["started_at"],
+            ended_at=workout["ended_at"],
         )
         if zones is None:
             continue
         eligible += 1
-        totals.update(zones)
+        totals.update(zones.minutes)
+        covered_seconds += zones.covered_seconds
+        workout_seconds += zones.workout_seconds
     return {
         "window": {"start": first.isoformat(), "end": anchor.isoformat(), "days": days},
-        "workouts_with_series": covered,
+        "workouts_with_series": with_series,
         "eligible_workouts": eligible,
-        "coverage_share": round(eligible / covered, 3) if covered else 0.0,
+        "coverage_share": round(eligible / with_series, 3) if with_series else 0.0,
+        "covered_minutes": round(covered_seconds / 60.0, 1),
+        "workout_minutes": round(workout_seconds / 60.0, 1),
+        "unobserved_minutes": round(max(workout_seconds - covered_seconds, 0.0) / 60.0, 1),
+        "temporal_coverage_share": (
+            round(min(covered_seconds / workout_seconds, 1.0), 3) if workout_seconds else 0.0
+        ),
         "minutes": {zone: round(totals[zone], 1) for zone in ZONES},
         "equivalent_minutes": round(totals["moderate"] + 2 * totals["vigorous"], 1),
+        "method": (
+            "elapsed time between adjacent heart-rate samples, clipped to the workout; "
+            "gaps over 120 s and the final sample are not allocated"
+        ),
         "source": "heart-rate samples of continuity-eligible workouts",
     }
 
@@ -559,6 +719,7 @@ def vo2max_assessment(
             "unit": "ml/kg/min",
             "measured_on": None,
             "source": None,
+            "method": None,
             "age_days": None,
         }
     measured = dt.date.fromisoformat(str(row["measured_on"]))
@@ -568,7 +729,10 @@ def vo2max_assessment(
         "value": round(float(row["value"]), 1),
         "unit": str(row.get("unit") or "ml/kg/min"),
         "measured_on": measured.isoformat(),
+        # source is the provenance class (device/config); method is the recording app or
+        # algorithm that produced the estimate. Both are reported when the row has them.
         "source": row.get("source"),
+        "method": row.get("method"),
         "age_days": age_days,
     }
 
@@ -629,6 +793,11 @@ def adequacy(
         gate = "signal" if share >= classified_floor else "insufficient"
         if gate == "insufficient":
             relation = "unknown"
+            remaining_minutes = None
+        elif equivalent > ref_max:
+            # Above the band is its own state. The upper bound is contextual, not a maximum safe
+            # dose, so this is never described as excessive or harmful.
+            relation = "above"
             remaining_minutes = None
         elif equivalent >= ref_min:
             relation = "inside"

@@ -798,7 +798,7 @@ if (html.indexOf("role='button'") < 0 || html.indexOf("tabindex='0'") < 0) throw
     assert result.returncode == 0, result.stderr
 
 
-def test_longevity_coverage_counts_observations_and_uses_returned_fields() -> None:
+def test_longevity_panel_uses_the_canonical_assessment_only() -> None:
     node = shutil.which("node")
     if node is None:
         import pytest
@@ -806,36 +806,156 @@ def test_longevity_coverage_counts_observations_and_uses_returned_fields() -> No
     source = (STATIC / "app.js").read_text(encoding="utf-8")
     match = re.search(r"async function loadLongevity\(\) \{[\s\S]*?\n\}", source)
     assert match, "loadLongevity() not found"
+    # The panel must not own a second adequacy calculation or a four-week-vs-weekly comparison.
+    assert "/api/outcomes" not in match.group(0)
+    assert "rolling_4w_average" not in match.group(0)
+    assert "average_weekly_minutes" not in match.group(0)
+    relation = re.search(
+        r"function longevityRelationText\(assessment\) \{[\s\S]*?\n\}", source
+    )
+    vo2 = re.search(
+        r"function longevityVo2maxText\(vo2\) \{[\s\S]*?\n\}", source
+    )
+    assert relation and vo2
     script = r"""
 const els = {
-  "#longevity-weeks": {value: "8"}, "#longevity-date": {value: "2024-01-31"},
-  "#longevity-summary": {innerHTML: ""}, "#longevity-details": {innerHTML: ""}
+  "#longevity-date": {value: "2026-11-18"}, "#longevity-tiz": {checked: true},
+  "#longevity-patterns": {checked: true},
+  "#longevity-summary": {innerHTML: "", appendChild: function () {}},
+  "#longevity-details": {innerHTML: ""}
 };
 global.$ = function (selector) { return els[selector]; };
 global.esc = function (value) { return String(value == null ? "" : value); };
-global.fmt = function (value) { return Number(value).toFixed(1).replace(/\.0+$/, ""); };
+global.fmt = function (value, digits) {
+  if (value == null) return "—";
+  const n = Number(value);
+  return Number.isFinite(n) ? n.toFixed(digits === undefined ? 1 : digits).replace(/\.0+$/, "") : String(value);
+};
+global.narrateModelLabel = function () { return Promise.resolve("deepseek / fake-model"); };
+let requested = null;
+const assessment = {
+  as_of: "2026-11-18",
+  reference: {min_minutes: 150, max_minutes: 300, role: "context, not a target"},
+  last_week: {start: "2026-11-09", end: "2026-11-15", equivalent_minutes: 420,
+    unclassified_minutes: 10, classified_share: 0.9, gate: "signal",
+    relation: "above", remaining_minutes: null},
+  current_week: {equivalent_minutes: 45, days_remaining: 4},
+  sessions_remaining: 2,
+  vo2max: {status: "current", value: 48.2, unit: "ml/kg/min",
+    measured_on: "2026-11-12", method: "Apple Watch", source: "device"},
+  time_in_zone: {eligible_workouts: 2, covered_minutes: 40, workout_minutes: 60,
+    unobserved_minutes: 20, temporal_coverage_share: 0.667,
+    minutes: {moderate: 30, vigorous: 5}, method: "elapsed time between adjacent samples"},
+  patterns: {per_pattern: {squat: {status: "under", short: 2, headroom_sets: 2}}}
+};
+global.api = function (path) {
+  if (path.indexOf("/api/settings") === 0) {
+    return Promise.resolve({llm: {provider: "deepseek", model: "fake-model"}});
+  }
+  requested = path;
+  return Promise.resolve({assessment: assessment});
+};
 global.document = {
   createElement: function () { return {id: "", innerHTML: ""}; },
-  querySelector: function () { return {appendChild: function () {}, addEventListener: function () {}}; }
+  querySelector: function () {
+    return {addEventListener: function () {}, disabled: false, checked: false, textContent: ""};
+  }
 };
-global.api = function () { return Promise.resolve({
-  window: {from: "2023-12-07", to: "2024-01-31"},
-  longevity: {cardio: {average_weekly_minutes: null, reference_min: 150, reference_max: 300, weekly_minutes: {}},
-    measurements: {bodyweight_kg: {count: 0}, grip_strength_kg: {count: 2, latest_value: 44, change: 4, latest_on: "2024-01-20"}},
-    readiness: {fields: {sleep: {n: 1, average: 4, first: 4, last: 4}, energy: {n: 0}, stress: {n: 0}, soreness: {n: 0}}},
-    symptoms: {}},
-  strength: {symptoms: {regions: {}}, attendance: {completed: 0, pct: null}}, note: "descriptive"
-}); };
-eval(FUNCTION);
+eval(__RELATION_FN__);
+eval(__VO2_FN__);
+eval(__LOAD_FN__);
 loadLongevity().then(() => {
   const html = els["#longevity-summary"].innerHTML;
-  if (!html.includes("recorded metric types")) throw new Error("metric count label missing");
-  if (!html.includes("1/4")) throw new Error("readiness denominator must match returned fields");
-  if (html.includes("80%") || html.includes("Going well") || html.includes("Needs attention"))
-    throw new Error("unsupported status threshold remains");
-  if (!html.includes("latest values below use available history")) throw new Error("measurement window caveat missing");
+  const details = els["#longevity-details"].innerHTML;
+  if (!requested || requested.indexOf("tiz=1") < 0 || requested.indexOf("patterns=1") < 0) {
+    throw new Error("optional assessment blocks were not requested deliberately");
+  }
+  if (!html.includes("above the 150–300 reference")) throw new Error("above-band state missing");
+  if (!html.includes("not a maximum safe dose")) throw new Error("upper-band context missing");
+  if (!html.includes("45 min")) throw new Error("current-week progress missing");
+  if (!html.includes("48.2")) throw new Error("VO2max value missing");
+  if (!html.includes("Apple Watch") || !html.includes("current"))
+    throw new Error("VO2max provenance or currency missing");
+  if (html.includes("recorded metric types")) throw new Error("legacy panel content returned");
+  if (details.indexOf("40 of 60 workout minutes") < 0)
+    throw new Error("time-in-zone temporal coverage missing");
+  if (details.indexOf("Training-volume context") < 0)
+    throw new Error("volume headroom label missing");
 });
-""".replace("FUNCTION", json.dumps(match.group(0)))
+""".replace("__RELATION_FN__", json.dumps(relation.group(0))) \
+        .replace("__VO2_FN__", json.dumps(vo2.group(0))) \
+        .replace("__LOAD_FN__", json.dumps(match.group(0)))
+    result = _run_node(script)
+    assert result.returncode == 0, result.stderr
+
+
+def test_longevity_relation_states_agree_at_both_boundaries() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    source = (STATIC / "app.js").read_text(encoding="utf-8")
+    relation = re.search(
+        r"function longevityRelationText\(assessment\) \{[\s\S]*?\n\}", source
+    )
+    assert relation
+    script = r"""
+global.fmt = function (value, digits) {
+  if (value == null) return "—";
+  const n = Number(value);
+  return Number.isFinite(n) ? n.toFixed(digits === undefined ? 1 : digits).replace(/\.0+$/, "") : String(value);
+};
+eval(FUNCTION);
+function text(relation, equivalent, remaining) {
+  return longevityRelationText({last_week: {gate: "signal", relation: relation,
+    equivalent_minutes: equivalent, remaining_minutes: remaining}});
+}
+if (text("inside", 150, null).indexOf("within the 150–300 reference") < 0)
+  throw new Error("150 must be within");
+if (text("inside", 300, null).indexOf("within the 150–300 reference") < 0)
+  throw new Error("300 must be within");
+if (text("below", 149.9, 0.1).indexOf("short of the 150-minute reference") < 0)
+  throw new Error("below-150 must state the gap");
+if (text("above", 300.1, null).indexOf("above the 150–300 reference") < 0)
+  throw new Error("above-300 must be its own state");
+if (text("above", 300.1, null).toLowerCase().indexOf("excessive") >= 0)
+  throw new Error("above-300 must not be described as excessive");
+if (text("unknown", 0, null).indexOf("could not be classified") < 0)
+  throw new Error("unknown must abstain");
+""".replace("FUNCTION", json.dumps(relation.group(0)))
+    result = _run_node(script)
+    assert result.returncode == 0, result.stderr
+
+
+def test_longevity_vo2max_provenance_is_present_or_explicitly_absent() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    source = (STATIC / "app.js").read_text(encoding="utf-8")
+    vo2 = re.search(
+        r"function longevityVo2maxText\(vo2\) \{[\s\S]*?\n\}", source
+    )
+    assert vo2
+    script = r"""
+global.fmt = function (value, digits) {
+  if (value == null) return "—";
+  const n = Number(value);
+  return Number.isFinite(n) ? n.toFixed(digits === undefined ? 1 : digits).replace(/\.0+$/, "") : String(value);
+};
+eval(FUNCTION);
+const current = longevityVo2maxText({status: "current", value: 48.2,
+  unit: "ml/kg/min", measured_on: "2026-11-12", method: "Apple Watch"});
+if (current.indexOf("48.2") < 0 || current.indexOf("ml/kg/min") < 0) throw new Error("value/unit missing");
+if (current.indexOf("2026-11-12") < 0 || current.indexOf("Apple Watch") < 0)
+  throw new Error("date/source missing");
+if (current.indexOf("current") < 0) throw new Error("currency missing");
+const stale = longevityVo2maxText({status: "stale", value: 44, measured_on: "2026-06-01"});
+if (stale.indexOf("stale") < 0) throw new Error("stale missing");
+const absent = longevityVo2maxText({status: "absent", value: null});
+if (absent.indexOf("No VO₂max") < 0 || absent.toLowerCase().indexOf("poor fitness") < 0)
+  throw new Error("absence must not imply poor fitness");
+""".replace("FUNCTION", json.dumps(vo2.group(0)))
     result = _run_node(script)
     assert result.returncode == 0, result.stderr
 
