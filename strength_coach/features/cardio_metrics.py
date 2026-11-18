@@ -17,6 +17,7 @@ from __future__ import annotations
 import datetime as dt
 from collections import Counter, defaultdict
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from strength_coach.store import db
 from strength_coach.store.cardio import hidden_workout_ids
@@ -187,13 +188,33 @@ def cache_is_stale(conn) -> bool:
     return cached != live
 
 
-def activity_summary(conn, *, weeks: int = 12) -> dict[str, Any]:
+def _as_of_date(as_of: str | None) -> dt.date:
+    """Anchor for calendar windows: explicit when given, otherwise today in the reporting zone."""
+    if as_of:
+        return dt.date.fromisoformat(str(as_of))
+    return dt.datetime.now(ZoneInfo("Europe/London")).date()
+
+
+def _iso_week_key(day: dt.date) -> str:
+    iso = day.isocalendar()
+    return f"{iso[0]}-W{iso[1]:02d}"
+
+
+def activity_summary(
+    conn, *, weeks: int = 12, as_of: str | None = None
+) -> dict[str, Any]:
     """Weekly activity, rolling windows and coverage, read from the classification cache.
+
+    Windows are **calendar** windows ending at `as_of` (default: today in Europe/London), never at
+    the last workout. Anchoring on the last workout made "last 7 days" exclude the days since you
+    last trained, which reads as a measurement error rather than a quiet week. `as_of` is injectable
+    so the value is deterministic in tests.
 
     The cache is rebuilt here when the corpus has grown, so a page load is only ever slow once --
     on the first request after an import. Time-in-zone still needs the sample series and remains a
     separate, slower path.
     """
+    anchor = _as_of_date(as_of)
     if cache_is_stale(conn):
         rebuild_classification(conn)
     hidden = hidden_workout_ids(conn)
@@ -203,13 +224,19 @@ def activity_summary(conn, *, weeks: int = 12) -> dict[str, Any]:
         if row["external_workout_id"] not in hidden
     ]
 
-    week_totals: dict[str, Counter] = defaultdict(Counter)
+    # Every week in the window exists, even with no workouts: a gap is a real week with zero
+    # minutes, not a week that disappears from the chart.
+    anchor_week_start = anchor - dt.timedelta(days=anchor.weekday())
+    week_totals: dict[str, Counter] = {
+        _iso_week_key(anchor_week_start - dt.timedelta(weeks=offset)): Counter()
+        for offset in range(weeks - 1, -1, -1)
+    }
     year_totals: dict[str, Counter] = defaultdict(Counter)
     for row in rows:
         started = dt.datetime.fromisoformat(row["started_at"])
         iso = started.isocalendar()
         week_key = f"{iso[0]}-W{iso[1]:02d}"
-        for bucket in (week_totals[week_key], year_totals[str(started.year)]):
+        for bucket in (week_totals.setdefault(week_key, Counter()), year_totals[str(started.year)]):
             bucket["workouts"] += 1
             bucket["total_min"] += row["minutes"]
             bucket[f"{row['zone'] or 'unclassified'}_min"] += row["minutes"]
@@ -221,17 +248,18 @@ def activity_summary(conn, *, weeks: int = 12) -> dict[str, Any]:
 
     ordered = sorted(week_totals)
     rolling: dict[str, Any] = {}
-    if rows:
-        latest = max(dt.datetime.fromisoformat(row["ended_at"]) for row in rows)
-        for label, days in (("7d", 7), ("28d", 28)):
-            cutoff = latest - dt.timedelta(days=days)
-            totals: Counter = Counter()
-            for row in rows:
-                if dt.datetime.fromisoformat(row["ended_at"]) < cutoff:
-                    continue
-                totals[row["zone"] or "unclassified"] += row["minutes"]
-                totals["total_min"] += row["minutes"]
-            rolling[label] = {
+    for label, days in (("7d", 7), ("28d", 28)):
+        first_day = anchor - dt.timedelta(days=days - 1)
+        totals: Counter = Counter()
+        for row in rows:
+            ended = dt.datetime.fromisoformat(row["ended_at"]).astimezone(
+                ZoneInfo("Europe/London")
+            ).date()
+            if not first_day <= ended <= anchor:
+                continue
+            totals[row["zone"] or "unclassified"] += row["minutes"]
+            totals["total_min"] += row["minutes"]
+        rolling[label] = {
                 "total_minutes": round(totals["total_min"], 1),
                 "moderate_minutes": round(totals["moderate"], 1),
                 "vigorous_minutes": round(totals["vigorous"], 1),

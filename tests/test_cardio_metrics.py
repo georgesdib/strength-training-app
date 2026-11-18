@@ -96,10 +96,10 @@ def test_resistance_share_is_reported_separately(conn):
 def test_activity_summary_is_weekly_and_cheap(conn):
     _workout(conn, "2026-01-05T08:00:00+00:00", 30, mets=4.0)
     _workout(conn, "2026-01-06T08:00:00+00:00", 40, mets=9.0)
-    summary = metrics.activity_summary(conn, weeks=4)
-    assert len(summary["weeks"]) == 1
-    week = summary["weeks"][0]
-    assert week["iso_week"] == "2026-W02"
+    summary = metrics.activity_summary(conn, weeks=4, as_of="2026-01-10")
+
+    assert len(summary["weeks"]) == 4  # empty weeks are present, not omitted
+    week = next(w for w in summary["weeks"] if w["iso_week"] == "2026-W02")
     assert week["moderate_minutes"] == 30
     assert week["vigorous_minutes"] == 40
     assert week["equivalent_minutes"] == 110
@@ -107,6 +107,19 @@ def test_activity_summary_is_weekly_and_cheap(conn):
     assert summary["rolling"]["7d"]["equivalent_minutes"] == 110
 
 
+def test_rolling_windows_end_at_as_of_not_at_the_last_workout(conn):
+    # Five days ago relative to the anchor: inside the last seven days, and today has no workout.
+    _workout(conn, "2026-03-05T18:00:00+00:00", 45, mets=5.0)
+    summary = metrics.activity_summary(conn, weeks=4, as_of="2026-03-10")
+
+    assert summary["rolling"]["7d"]["total_minutes"] == 45
+    assert summary["rolling"]["28d"]["total_minutes"] == 45
+
+    # A quiet week later, the same workout falls out of the 7-day window without any data change.
+    later = metrics.activity_summary(conn, weeks=4, as_of="2026-03-20")
+    assert later["rolling"]["7d"]["total_minutes"] == 0
+    assert later["rolling"]["28d"]["total_minutes"] == 45
+    assert len(later["weeks"]) == 4
 def test_continuity_admits_dense_series_and_rejects_sparse(conn):
     dense = _workout(conn, "2026-01-11T08:00:00+00:00", 10, mets=9.0)
     sparse = _workout(conn, "2026-01-12T08:00:00+00:00", 120, mets=4.0)

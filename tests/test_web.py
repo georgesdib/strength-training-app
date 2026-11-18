@@ -785,12 +785,13 @@ def test_cardio_summary_endpoint_is_served(server):
     assert status == 200
     payload = json.loads(body)
     assert payload["policy"]["equivalent_rule"] == "moderate + 2 * vigorous"
-    assert payload["weeks"] == []
+    assert len(payload["weeks"]) == 4  # empty weeks are present, not omitted
+    assert all(week["equivalent_minutes"] == 0 for week in payload["weeks"])
     assert payload["years"] == {}
 
     status, body = get(server, "/api/cardio/summary")
     assert status == 200
-    assert json.loads(body)["weeks"] == []
+    assert len(json.loads(body)["weeks"]) == 12
 
 
 def test_measurements_round_trip(server):

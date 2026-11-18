@@ -23,13 +23,13 @@ from strength_coach.utils import exercises
 WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
 
-def _cardio_context(conn, weeks: int) -> dict:
+def _cardio_context(conn, weeks: int, end: dt.date) -> dict:
     """Cardio context for the longevity review, read from the imported corpus.
 
     Manual logging was retired: there is one activity history, and it is what HealthKit recorded.
     Coverage travels with the numbers so imported minutes are never presented as uniformly measured.
     """
-    summary = cardio_metrics.activity_summary(conn, weeks=weeks)
+    summary = cardio_metrics.activity_summary(conn, weeks=weeks, as_of=end.isoformat())
     weekly = {week["iso_week"]: week["equivalent_minutes"] for week in summary["weeks"]}
     last_four = [value for value in list(weekly.values())[-4:]]
     totals = summary["years"]
@@ -317,7 +317,7 @@ def report(conn, *, weeks: int = 8, on_date: str | None = None) -> dict:
     symptoms = _symptoms(conn, start, end)
     spinal = _spinal(conn, start, end)
     deloads = _deloads(conn, start, end)
-    cardio = _cardio_context(conn, weeks)
+    cardio = _cardio_context(conn, weeks, end)
     measured = measurements_feature.summary(conn)
     metrics = {row["key"]: row for row in measured if row["key"] in MEASUREMENT_KEYS}
 

@@ -1078,8 +1078,9 @@ class Handler(BaseHTTPRequestHandler):
                 elif path == "/api/ios/v1/healthkit/activity/summary":
                     query = parse_qs(urlparse(self.path).query)
                     weeks = int(query.get("weeks", ["12"])[0])
+                    as_of = query.get("as_of", [None])[0]
                     self._json(200, self._with_conn(
-                        lambda c: self._ios_activity_summary(c, weeks)
+                        lambda c: self._ios_activity_summary(c, weeks, as_of)
                     ))
                 elif path == "/api/ios/v1/today":
                     self._ios_idle_sweep(conn)
@@ -3295,8 +3296,9 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/cardio/summary":
                 query = parse_qs(urlparse(self.path).query)
                 weeks = int(query.get("weeks", ["12"])[0])
+                as_of = query.get("as_of", [None])[0]
                 self._json(200, self._with_conn(
-                    lambda c: cardio_metrics.activity_summary(c, weeks=weeks)
+                    lambda c: cardio_metrics.activity_summary(c, weeks=weeks, as_of=as_of)
                 ))
             elif path == "/api/breaks":
                 self._json(200, self._with_conn(self._breaks))
@@ -5521,14 +5523,14 @@ class Handler(BaseHTTPRequestHandler):
             "options": options_mod.canonical_options(),
         }
 
-    def _ios_activity_summary(self, conn, weeks: int) -> dict:
+    def _ios_activity_summary(self, conn, weeks: int, as_of: str | None = None) -> dict:
         """The same numbers the web panel shows, behind device authentication.
 
         The phone must not call the unauthenticated browser route, so this is a thin wrapper over
         the same computation, plus the few recent workouts the overview lists.
         """
         return {
-            "summary": cardio_metrics.activity_summary(conn, weeks=weeks),
+            "summary": cardio_metrics.activity_summary(conn, weeks=weeks, as_of=as_of),
             "recent": self._recorded_workouts(conn, 5)["workouts"],
         }
 

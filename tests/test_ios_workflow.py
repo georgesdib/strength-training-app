@@ -2518,7 +2518,8 @@ def test_ios_activity_summary_is_authenticated_and_shaped(ios):
     assert status == 200, body
     assert set(body) == {"summary", "recent"}
     assert body["summary"]["policy"]["equivalent_rule"] == "moderate + 2 * vigorous"
-    assert body["summary"]["weeks"] == []
+    assert len(body["summary"]["weeks"]) == 4  # empty weeks are present, not omitted
+    assert all(week["equivalent_minutes"] == 0 for week in body["summary"]["weeks"])
     assert body["recent"] == []
 
     status, _ = _request(ios["base"], "/api/ios/v1/healthkit/activity/summary", token="nope")
