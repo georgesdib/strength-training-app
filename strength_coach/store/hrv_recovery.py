@@ -31,16 +31,17 @@ def provenance(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def latest_by_date(conn, start: str, end: str) -> dict[str, dict[str, Any]]:
-    """Newest observation per date in the inclusive window.
+    """The winning observation per date in the inclusive window.
 
-    Ordering is stable (sample timestamp, import time, sample id), so a re-uploaded night replaces
-    the earlier value in the effective view without rewriting history.
+    A later import wins, except that a night computed from more samples wins over a partial one:
+    a truncated query window produces a valid-looking median from fewer readings, and that must
+    not displace the complete night. Ties fall back to sample id for determinism.
     """
     rows = conn.execute(
         """
         SELECT * FROM hrv_recovery
          WHERE on_date BETWEEN ? AND ?
-         ORDER BY on_date, sample_at, imported_at, sample_id
+         ORDER BY on_date, sample_count, imported_at, sample_id
         """,
         (str(start), str(end)),
     ).fetchall()

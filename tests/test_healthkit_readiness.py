@@ -228,6 +228,29 @@ def test_recovery_samples_are_idempotent_and_conflict_on_a_changed_value():
         store.close()
 
 
+def test_a_more_complete_night_beats_a_later_partial_one():
+    store = _store()
+    try:
+        conn = store.connection
+        today = "2024-01-12"
+        full = {**_recovery(today, 69.25, sample_id="full"), "sample_count": 105}
+        partial = {**_recovery(today, 51.0, sample_id="partial"), "sample_count": 17,
+                   "sample_at": f"{today}T08:27:00+00:00"}
+        hrv_recovery.record_samples(
+            conn, device_id=DEVICE_ID, samples=[full],
+            imported_at="2024-01-12T07:00:00+00:00",
+        )
+        hrv_recovery.record_samples(
+            conn, device_id=DEVICE_ID, samples=[partial],
+            imported_at="2024-01-12T07:10:00+00:00",
+        )
+
+        latest = hrv_recovery.latest_by_date(conn, today, today)
+        assert latest[today]["value"] == 69.25, "a truncated window must not win"
+    finally:
+        store.close()
+
+
 def test_a_later_recovery_sample_for_the_same_night_wins():
     store = _store()
     try:
