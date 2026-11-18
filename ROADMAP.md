@@ -13,7 +13,7 @@ Last updated: 2026-11-18 · **v1.7.1 released (longevity correctness, privacy an
 
 ```bash
 cd strength-training-app
-.venv/bin/python -m pytest            # 1451 default tests; optional layers excluded
+.venv/bin/python -m pytest            # default suite: 2315 tests (2026-11-18 run)
 .venv/bin/python tools/profile_data.py   # data profile (needs data/raw/)
 .venv/bin/python tools/baseline.py       # strength baseline
 ```
@@ -114,7 +114,8 @@ patched the native summary performance and the portability test; v1.5.0 shipped 
 training intelligence workstream. Cardio depth moves to v1.6, and the deeper labelled calibration
 set is retired (`DEC-EVAL-09`). v1.6.0 shipped the cardio stage on 2026-11-18; the impulse was retired the same day
 (`DEC-LONGEVITY-03`) in favour of the longevity assessment, which shipped as v1.7.0 with the
-post-release readiness/cardio fixes.
+post-release readiness/cardio fixes. v1.7.1 corrected the longevity assessment's consent,
+intensity, time-in-zone, cache and presentation issues without a migration.
 
 ### What works end to end today
 
