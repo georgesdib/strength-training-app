@@ -4,8 +4,9 @@ Diagnostics and log rules. Read ../AGENTS.md and AGENT-WORKFLOWS.md first.
 
 ## 1. Token discipline
 
-- Do not read ROADMAP.md, CHANGELOG.md, large docs, logs, exports, lockfiles, build
-  artefacts or databases unless essential to the task.
+- Do not read ROADMAP.md, ROADMAP-DONE.md, CHANGELOG.md, large docs, logs, exports,
+  lockfiles, build artefacts or databases unless essential to the task. ROADMAP.md is the
+  live/next list; ROADMAP-DONE.md is the completed-history archive and is audit-only.
 - Prefer targeted search and small excerpts.
 - Never paste full test/build/log output into context.
 - On failure, return only failing test names, assertion messages and relevant tracebacks.

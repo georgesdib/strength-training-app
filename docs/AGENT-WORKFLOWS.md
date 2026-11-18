@@ -11,7 +11,8 @@ prescription. The server is authoritative for readiness, prescriptions, loads, s
 progression and scoring.
 
 Read only what the task needs:
-- ROADMAP.md — live phase status and next actions.
+- ROADMAP.md — live phase status and next actions. Completed history is in ROADMAP-DONE.md;
+  read that only for an audit or a past-deliverable question.
 - docs/DECISIONS.md — expensive-to-reverse decisions.
 - docs/DATA-MODEL.md — canonical schema.
 - docs/API.md — HTTP contracts.

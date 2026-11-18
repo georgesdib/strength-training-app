@@ -789,6 +789,14 @@ documents:
   status: archived
   audience: public
   nav: true
+- id: roadmap-done
+  path: ROADMAP-DONE.md
+  title: ROADMAP — completed work
+  description: 'completed v0.1-v1.x roadmap sections split out of ROADMAP.md for audits and past-deliverable questions; not a default read'
+  category: archive
+  status: archived
+  audience: maintainer
+  nav: false
 - id: archive-ui-design-implementation-plan
   path: docs/archive/UI-DESIGN-IMPLEMENTATION-PLAN.md
   title: Strength Training App UI Design — audit and implementation plan
