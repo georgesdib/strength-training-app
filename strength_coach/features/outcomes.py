@@ -31,13 +31,13 @@ def _cardio_context(conn, weeks: int, end: dt.date) -> dict:
     """
     summary = cardio_metrics.activity_summary(conn, weeks=weeks, as_of=end.isoformat())
     weekly = {week["iso_week"]: week["equivalent_minutes"] for week in summary["weeks"]}
-    last_four = [value for value in list(weekly.values())[-4:]]
     totals = summary["years"]
+    card = cardio_metrics.dashboard_card(summary)
     return {
         "weekly_minutes": weekly,
-        "rolling_4w_average": round(statistics.mean(last_four), 1) if last_four else None,
+        "rolling_4w_average": card["average_weekly_minutes"],
         "weeks_with_data": len(weekly),
-        "sessions": sum(week["workouts"] for week in summary["weeks"]),
+        "sessions": card["sessions"],
         "total_minutes": round(sum(week["total_minutes"] for week in summary["weeks"]), 1),
         "equivalent_minutes": round(sum(week["equivalent_minutes"] for week in summary["weeks"]), 1),
         "resistance_minutes": round(
@@ -50,8 +50,8 @@ def _cardio_context(conn, weeks: int, end: dt.date) -> dict:
             round(1 - sum(week["unclassified_minutes"] for week in summary["weeks"])
                   / max(sum(week["total_minutes"] for week in summary["weeks"]), 1), 3)
         ),
-        "reference_min": 150,
-        "reference_max": 300,
+        "reference_min": card["reference_min"],
+        "reference_max": card["reference_max"],
         "source": "recorded activity (HealthKit import and phone sync)",
         "coverage_years": {year: totals[year]["classified_share"] for year in totals},
     }

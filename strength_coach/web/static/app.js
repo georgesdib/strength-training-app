@@ -225,9 +225,11 @@ async function loadOverview() {
         data.readiness_score?.status + (data.readiness_score?.basis ? " · " + data.readiness_score.basis : "")],
       ["Block week", data.block_week ?? "unknown", "erector ramp / DUP"],
       ["Injury signal", signal?.status ?? "unknown", signal?.summary ?? ""],
-      ["Cardio (4 wk avg)", data.cardio ? data.cardio.average_weekly_minutes + " min/wk" : "unknown",
-        data.cardio ? "reference " + data.cardio.reference_min + "-" + data.cardio.reference_max
-          + " · " + data.cardio.sessions + " session(s)" : "no entry"],
+      ["Cardio (4 wk avg)", data.cardio?.average_weekly_minutes != null
+        ? data.cardio.average_weekly_minutes + " min/wk" : "unknown",
+        data.cardio ? "reference " + (data.cardio.reference_min ?? "unknown") + "-"
+          + (data.cardio.reference_max ?? "unknown")
+          + " · " + (data.cardio.sessions ?? "unknown") + " session(s)" : "no entry"],
     ];
     $("#cards").innerHTML = cards.map(([label, value, sub]) => `
       <div class="card"><div class="label">${esc(label)}</div>

@@ -155,6 +155,11 @@ def test_the_page_and_overview_are_served(server):
     data = json.loads(body)
     assert data["sessions"][0]["session_id"] == "2024-01-01"
     assert data["form_evaluation"]["target_events"] == 10
+    # The Today card reads these compact fields; the raw summary does not carry them.
+    cardio = data["cardio"]
+    assert cardio["average_weekly_minutes"] is not None
+    assert isinstance(cardio["sessions"], int)
+    assert (cardio["reference_min"], cardio["reference_max"]) == (150, 300)
 
 
 def test_every_ui_doc_link_resolves_through_the_api(server):

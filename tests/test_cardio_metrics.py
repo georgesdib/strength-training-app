@@ -109,6 +109,24 @@ def test_activity_summary_is_weekly_and_cheap(conn):
     assert summary["rolling"]["7d"]["equivalent_minutes"] == 110
 
 
+def test_dashboard_card_averages_the_last_four_equivalent_weeks():
+    summary = {"weeks": [
+        {"workouts": 1, "equivalent_minutes": 999.0},
+        {"workouts": 1, "equivalent_minutes": 0.0},
+        {"workouts": 2, "equivalent_minutes": 60.0},
+        {"workouts": 0, "equivalent_minutes": 0.0},
+        {"workouts": 3, "equivalent_minutes": 150.0},
+        {"workouts": 1, "equivalent_minutes": 210.0},
+        {"workouts": 4, "equivalent_minutes": 90.0},
+    ]}
+
+    card = metrics.dashboard_card(summary)
+
+    assert card["average_weekly_minutes"] == 112.5  # last four: 0, 150, 210, 90
+    assert card["sessions"] == 12
+    assert (card["reference_min"], card["reference_max"]) == (150, 300)
+
+
 def test_rolling_windows_end_at_as_of_not_at_the_last_workout(conn):
     # Five days ago relative to the anchor: inside the last seven days, and today has no workout.
     _workout(conn, "2026-03-05T18:00:00+00:00", 45, mets=5.0)

@@ -15,6 +15,7 @@ recording mode rather than the data.
 from __future__ import annotations
 
 import datetime as dt
+import statistics
 from collections import Counter, defaultdict
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -308,6 +309,23 @@ def activity_summary(
             "rows": len(rows),
             "source_rows": conn.execute("SELECT COUNT(*) FROM external_workout").fetchone()[0],
         },
+    }
+
+
+def dashboard_card(summary: dict[str, Any]) -> dict[str, Any]:
+    """Compact Today-card fields derived from one activity summary.
+
+    The card and the longevity panel must agree, so the average is the mean of the last four
+    weeks' *equivalent* minutes (moderate + 2 * vigorous) -- the quantity the WHO reference
+    describes -- and the reference is the shared constant rather than a second copy.
+    """
+    weeks = summary.get("weeks") or []
+    equivalent = [float(week.get("equivalent_minutes") or 0.0) for week in weeks][-4:]
+    return {
+        "average_weekly_minutes": round(statistics.mean(equivalent), 1) if equivalent else None,
+        "sessions": sum(int(week.get("workouts") or 0) for week in weeks),
+        "reference_min": int(REFERENCE_MINUTES[0]),
+        "reference_max": int(REFERENCE_MINUTES[1]),
     }
 
 

@@ -4521,13 +4521,16 @@ class Handler(BaseHTTPRequestHandler):
         signal = injury_signal.compute(
             conn, today, ramp_week=context.block_week_index
         ).as_dict()
+        # The Today card reads the compact fields; the summary alone no longer carries them.
+        cardio = cardio_metrics.activity_summary(conn, weeks=4)
+        cardio.update(cardio_metrics.dashboard_card(cardio))
         return {
             "today": today,
             "profile": dict(profile) if profile else None,
             "block_week": context.block_week_index,
             "readiness": readiness,
             "readiness_score": readiness_score.compute(conn, today).as_dict(),
-            "cardio": cardio_metrics.activity_summary(conn, weeks=4),
+            "cardio": cardio,
             "injury_signal": signal,
             "sessions": _session_rows(conn, 12),
             "form_evaluation": form_assessment_feature.followup(conn, as_of=today),
