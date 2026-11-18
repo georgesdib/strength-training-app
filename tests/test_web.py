@@ -590,6 +590,13 @@ def test_resolver_preview_inline_rating_is_single_flight(server):
     assert "let resolverRatingRunning = false;" in js
     assert "if (resolverRatingRunning) return;" in js
     assert 'button.textContent = "Saving…";' in js
+    start = js.index("async function rateResolverSuggestion")
+    end = js.index("\nasync function openResolverPreviewStart", start)
+    rating = js[start:end]
+    # Rating records suitability but must not rebuild the slow preview on its own; the owner
+    # presses Build preview to regenerate it.
+    assert "runResolverPreview" not in rating
+    assert "Build preview" in rating
 
 
 def test_exercise_catalogue_is_served(server):
@@ -1226,7 +1233,9 @@ def test_resolver_panel_uses_every_registry_setting(server):
     assert status == 200
     registry = json.loads(body)["registry"]
     resolver = [setting for setting in registry if setting["group"] == "Resolver"]
-    assert len(resolver) == 29
+    # 30 since resolver.full_evaluations was added; the panel renders the group generically,
+    # so this count is the guard that a new Resolver setting reaches the UI.
+    assert len(resolver) == 30
     assert all(setting["key"].startswith("resolver.") for setting in resolver)
     assert all(
         setting["key"] != "resolver.top_set.preserve_total_sets"

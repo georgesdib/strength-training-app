@@ -276,6 +276,46 @@ def test_build_resolved_loads_history_once_for_every_evaluation(monkeypatch) -> 
     assert len(loads) == 1
 
 
+def test_the_full_evaluation_budget_is_profile_writable(monkeypatch) -> None:
+    """Lowering it is a speed/coverage trade, so the value must reach the prescription."""
+    _without_required_patterns(monkeypatch)
+    wide = replace(
+        _pools(),
+        pools={
+            "power": ("box_jump",),
+            "squat_main": (
+                "ssb_squat", "competition_squat", "belt_squat", "split_squat",
+            ),
+        },
+    )
+    with store() as instance:
+        settings_profile.save(
+            instance.connection,
+            set_values={"resolver.enabled": True, "resolver.full_evaluations": 2},
+            resolver_enable_confirmed=True,
+            effective_from="2024-01-01",
+        )
+        monkeypatch.setattr(
+            resolver.generator, "candidate_pools", lambda *args, **kwargs: wide
+        )
+        resolved = resolver.build_resolved(
+            instance.connection,
+            for_date="2024-01-15",
+            session_type="squat",
+            inputs=EvaluationInputs(minimum_target_minutes=30, top_set_requested=False),
+        )
+
+    assert resolved.beam.as_dict()["evaluated"] == 2
+    assert resolved.generated_session["beam_config"]["max_full_evaluations"] == 2
+    assert resolved.generated_session["beam_config"]["width"] == 4
+
+
+def test_the_full_evaluation_budget_defaults_to_four() -> None:
+    overrides: dict[str, object] = {}
+    values = settings_profile.resolved_registry(overrides)
+    assert values["resolver.full_evaluations"] == 4
+
+
 def test_preview_payload_freezes_into_workout_start(monkeypatch) -> None:
     _without_required_patterns(monkeypatch)
     with store() as instance:

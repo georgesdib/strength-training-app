@@ -363,6 +363,12 @@ def _definitions() -> tuple[SettingDefinition, ...]:
            "settings profile (registry defaults)", "guarded_safety",
            "Guarded injury penalty weight; injury still excludes linked exercises.",
            minimum=0.0, maximum=1.0),
+        _d("resolver.full_evaluations", "Resolver", "Full evaluations", "int", 4,
+           "settings profile (registry defaults)", "prescription_policy",
+           "Beam finalists that get a complete prescription before the winner is chosen. "
+           "Lowering it is faster and can change which exercises are prescribed; the "
+           "evaluation budget in force is recorded on every prescription.",
+           minimum=1, maximum=4),
         _d("resolver.tie_break", "Resolver", "Tie break", "str", "least_recent",
            "settings profile (registry defaults)", "prescription_policy",
            "Deterministic final ordering after the score.",

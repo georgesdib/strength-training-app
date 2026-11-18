@@ -21,6 +21,7 @@ class ResolverSettings:
     rotation_accessory: float
     rotation_default: float
     max_dwell: int
+    full_evaluations: int
     require_can_do: bool
     unrated_mode: str
     will_do_blocks: bool
@@ -61,6 +62,7 @@ class ResolverSettings:
             rotation_accessory=float(values["resolver.rotation.accessory"]),
             rotation_default=float(values["resolver.rotation.default"]),
             max_dwell=int(values["resolver.rotation.max_dwell"]),
+            full_evaluations=int(values["resolver.full_evaluations"]),
             require_can_do=bool(values["resolver.eligibility.auto_requires_can_do"]),
             unrated_mode=str(values["resolver.eligibility.unrated_mode"]),
             will_do_blocks=bool(values["resolver.eligibility.will_do_blocks"]),

@@ -355,7 +355,11 @@ def _build_resolved(
 ) -> ResolvedPrescription:
     """Run the generator/beam/evaluator path and return the already-built final prescription."""
     settings = settings or ResolverSettings.load(conn, for_date)
-    effective_beam_config = beam_config or beam_mod.BeamConfig()
+    # The beam width stays fixed; only how many finalists get a full evaluation is a setting.
+    # Its value is frozen into generated_session.beam_config on every prescription.
+    effective_beam_config = beam_config or beam_mod.BeamConfig(
+        max_full_evaluations=settings.full_evaluations
+    )
     policy = policy or resolver_policy.ResolverPolicy.load()
     if not settings.enabled:
         raise ResolverBuildError(
