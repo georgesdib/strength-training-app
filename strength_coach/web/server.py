@@ -770,6 +770,10 @@ _RESOLVER_PREVIEW_JOB_MAX = 20
 MAX_RUNNING_RESOLVER_PREVIEW_JOBS = 1
 
 
+def _elapsed_ms(started: float) -> int:
+    return max(0, round((time.perf_counter() - started) * 1000))
+
+
 def _resolver_preview_job_cleanup() -> None:
     cutoff = datetime.datetime.now().timestamp() - _RESOLVER_PREVIEW_JOB_TTL_SECONDS
     stale = [
@@ -5144,6 +5148,7 @@ class Handler(BaseHTTPRequestHandler):
             drop_confirmed=_truth(body.get("drop_confirmed")),
             top_set_requested=top_set_requested,
         )
+        build_started = time.perf_counter()
         try:
             resolved = resolver.build_resolved(
                 conn,
@@ -5156,6 +5161,7 @@ class Handler(BaseHTTPRequestHandler):
                 "ok": False,
                 "stage": exc.stage,
                 "message": str(exc),
+                "build_ms": _elapsed_ms(build_started),
                 "beam": (
                     exc.beam_result.as_dict()
                     if exc.beam_result is not None else None
@@ -5189,6 +5195,9 @@ class Handler(BaseHTTPRequestHandler):
             })
         payload = prescription_dict(prescription)
         payload["ok"] = True
+        # Wall-clock for the build itself. Display-only: it is returned to the panel and
+        # stripped before the preview is frozen into a workout.
+        payload["build_ms"] = _elapsed_ms(build_started)
         payload["choices"] = choices
         payload["pending_ratings"] = list(
             (prescription.notes.get("resolver") or {}).get("pending_ratings") or []

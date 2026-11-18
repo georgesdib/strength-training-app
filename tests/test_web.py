@@ -1280,6 +1280,10 @@ def test_resolver_policy_and_preview_endpoints(server):
     })
     assert data["ok"] is False
     assert data["stage"] == "dispatch"
+    # The duration is reported even when the build fails, so the panel can say how long
+    # the attempt took.
+    assert isinstance(data["build_ms"], int)
+    assert data["build_ms"] >= 0
 
     status, body = post_status(server, "/api/settings/profile", {
         "set": {"resolver.enabled": True},
@@ -1320,6 +1324,7 @@ def test_resolver_preview_job_returns_a_pollable_result(server):
     assert job["status"] == "done"
     assert job["result"]["ok"] is False
     assert job["result"]["stage"] == "dispatch"
+    assert isinstance(job["result"]["build_ms"], int)
 
 
 def test_prescribe_job_returns_a_pollable_result(server):
@@ -2063,6 +2068,10 @@ def test_resolver_preview_uses_the_direct_prescription_response(server):
     assert "pending_ratings" in js
     assert "Rate suggestions to start" in js
     assert "Suitability ratings needed" in js
+    # The build duration is shown at the top of the preview and never frozen into a workout.
+    assert "data-resolver-build-ms" in js
+    assert "resolverBuildLabel(data.build_ms)" in js
+    assert "\"build_ms\"" in js
     _status, app_js = get(server, "/static/app.js")
     assert "Suitability ratings needed" in app_js
     assert "pending_ratings" in app_js

@@ -748,16 +748,29 @@ function resolverPreviewChoicesHtml(data) {
   }).join("");
 }
 
+function resolverBuildLabel(ms) {
+  // The build is CPU-bound and takes seconds on the server; show ms only when it is quick.
+  const value = Number(ms);
+  if (!Number.isFinite(value) || value < 0) return "";
+  if (value < 1000) return Math.round(value) + " ms";
+  return (value / 1000).toFixed(1) + " s";
+}
+
 function renderResolverPreview(data) {
   window.__resolverPreview = data;
   const box = $("#settings-resolver-preview");
   if (!box) return;
+  const buildLabel = resolverBuildLabel(data.build_ms);
+  const buildLine = buildLabel
+    ? "<div class='muted' data-resolver-build-ms>Built in " + esc(buildLabel) + "</div>"
+    : "";
   if (!data.ok) {
     const beam = data.beam ? "<details><summary>Search diagnostics</summary><pre>" +
       esc(JSON.stringify(data.beam, null, 2)) + "</pre></details>" : "";
     box.innerHTML = "<div class='warnbox'><strong>Resolver preview failed at " +
-      esc(data.stage || "resolver") + "</strong><p>" + esc(data.message) + "</p>" + beam +
-      "</div>";
+      esc(data.stage || "resolver") + "</strong><p>" + esc(data.message) + "</p>" +
+      (buildLabel ? "<p class='muted'>Failed after " + esc(buildLabel) + "</p>" : "") +
+      beam + "</div>";
     return;
   }
   const pending = data.pending_ratings || [];
@@ -774,7 +787,7 @@ function renderResolverPreview(data) {
       esc(JSON.stringify(data.projected_week, null, 2)) + "</pre></details>" : "";
   box.innerHTML = "<div class='panel'><div class='panel-head'><h3>" +
     esc(data.for_date) + " · " + esc(data.session_label || data.session_type) +
-    "</h3><span class='badge'>preview</span></div>" + pendingBox +
+    "</h3><span class='badge'>preview</span></div>" + buildLine + pendingBox +
     "<div class='table-scroll'><table><thead><tr><th>Slot</th><th>Chosen</th>" +
     "<th>Rank</th><th>Alternatives</th><th>Suggestion-only</th></tr></thead><tbody>" +
     resolverPreviewChoicesHtml(data) + "</tbody></table></div>" +
@@ -1007,7 +1020,9 @@ async function openResolverPreviewStart() {
   const plan = { ...data };
   ["ok", "stage", "message", "choices", "beam", "top_set", "projected_week",
     "session_time", "policy_digest", "catalogue_digest", "template_digest",
-    "input_hash", "scheduled_suggestion"].forEach((key) => { delete plan[key]; });
+    "input_hash", "scheduled_suggestion", "build_ms"].forEach((key) => {
+    delete plan[key];
+  });
   window.__lastPrescription = plan;
   if (typeof cachePrescription === "function") cachePrescription(plan);
   if (typeof openWorkoutStart === "function") openWorkoutStart();
