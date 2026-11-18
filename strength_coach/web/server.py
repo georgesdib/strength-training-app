@@ -1074,6 +1074,12 @@ class Handler(BaseHTTPRequestHandler):
                     payload = intelligence_api.programme_summary(self.db_path, device, self.path)
                 elif path == "/api/ios/v1/intelligence/adherence":
                     payload = intelligence_api.adherence(self.db_path, device, self.path)
+                elif path == "/api/ios/v1/healthkit/activity/summary":
+                    query = parse_qs(urlparse(self.path).query)
+                    weeks = int(query.get("weeks", ["12"])[0])
+                    self._json(200, self._with_conn(
+                        lambda c: self._ios_activity_summary(c, weeks)
+                    ))
                 elif path == "/api/ios/v1/today":
                     self._ios_idle_sweep(conn)
                     clock = _ios_clock()
@@ -5330,6 +5336,17 @@ class Handler(BaseHTTPRequestHandler):
             ).as_dict(),
             # Canonical choices for the athlete forms. The browser must not own these lists.
             "options": options_mod.canonical_options(),
+        }
+
+    def _ios_activity_summary(self, conn, weeks: int) -> dict:
+        """The same numbers the web panel shows, behind device authentication.
+
+        The phone must not call the unauthenticated browser route, so this is a thin wrapper over
+        the same computation, plus the few recent workouts the overview lists.
+        """
+        return {
+            "summary": cardio_metrics.activity_summary(conn, weeks=weeks),
+            "recent": self._recorded_workouts(conn, 5)["workouts"],
         }
 
     def _recorded_workouts(self, conn, limit: int) -> dict:

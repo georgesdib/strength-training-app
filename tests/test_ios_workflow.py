@@ -2447,3 +2447,18 @@ def test_vo2max_is_content_idempotent_across_key_schemes(ios):
         assert status == 200, body
     assert int(_scalar(ios["path"],
         "SELECT COUNT(*) FROM measurement WHERE metric_key='vo2max'")) == 1
+
+
+def test_ios_activity_summary_is_authenticated_and_shaped(ios):
+    token, _ = _paired(ios)
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/activity/summary?weeks=4", token=token
+    )
+    assert status == 200, body
+    assert set(body) == {"summary", "recent"}
+    assert body["summary"]["policy"]["equivalent_rule"] == "moderate + 2 * vigorous"
+    assert body["summary"]["weeks"] == []
+    assert body["recent"] == []
+
+    status, _ = _request(ios["base"], "/api/ios/v1/healthkit/activity/summary", token="nope")
+    assert status == 401
