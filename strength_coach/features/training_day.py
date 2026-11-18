@@ -169,10 +169,16 @@ def group(conn, *, start: str | None = None, end: str | None = None,
         return []
     prescriptions = _prescription_types(conn, sessions)
     exercises = _day_exercises(conn, start=start, end=end) if with_exercises else {}
+    # Convert the whole frame once. Grouping first and converting each group costs one pandas
+    # round-trip per training day, and the scheduler reads the full history on every plan.
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for fragment in _records(sessions):
+        raw = str(fragment.get("occurred_on") or "")
+        grouped.setdefault(raw, []).append(fragment)
     days: list[dict[str, Any]] = []
-    for occurred_on, group_frame in sessions.groupby("occurred_on", sort=True):
-        fragments = _records(group_frame)
-        day_key = str(occurred_on)[:10]
+    for raw in sorted(grouped):
+        fragments = grouped[raw]
+        day_key = raw[:10]
         day = _day(fragments, prescriptions, exercises.get(day_key, set()))
         day["occurred_on"] = day_key
         days.append(day)
