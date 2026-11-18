@@ -1,7 +1,7 @@
 """Deterministic fallback.
 
-The deterministic engine is the fallback: when the LLM layer (phase 7) is unavailable or its
-proposal is vetoed, this is what the athlete gets. That is the whole point of the architecture
+The deterministic engine is the fallback: when the LLM layer is unavailable or a rule vetoes the
+preferred prescription, this is what the athlete gets. That is the whole point of the architecture
 -- `build_prescription` never needs a model to produce a safe, executable session.
 
 This module holds the one transformation the fallback *does* need: scaling loads down without

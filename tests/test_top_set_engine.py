@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from conftest import make_readiness, make_training
 
 from strength_coach.features.deload import DeloadDecision
-from strength_coach.prescribe import build_prescription, loads
+from strength_coach.prescribe import build_prescription, engine, loads
 from strength_coach.store import db, importer, repositories
 
 ROWS = [
@@ -132,6 +132,22 @@ def test_warmup_uses_the_final_throttled_top_set_load() -> None:
     assert throttle_main.warmup[1].load_kg == loads.round_down(
         expected_top * 0.50, throttle_main.rounding_increment_kg
     )
+
+
+def test_rir_provenance_separates_readiness_from_caution() -> None:
+    # Only the readiness/floor step may be absorbed by the ceiling. Flare and continuity
+    # bumps come from a safety signal and keep the straight-set fallback.
+    assert engine._top_set_rir_bumps(2, 3, 3, 3) == (1, None)
+    assert engine._top_set_rir_bumps(2, 4, 4, 4) == (2, None)
+    assert engine._top_set_rir_bumps(2, 3, 4, 4) == (
+        1,
+        "back flare held the primary lift; straight sets",
+    )
+    assert engine._top_set_rir_bumps(2, 2, 2, 3) == (
+        0,
+        "continuity caution held the primary lift; straight sets",
+    )
+    assert engine._top_set_rir_bumps(None, 3, 3, 3) == (0, None)
 
 
 def test_hinge_maximal_is_allowed_and_warned() -> None:

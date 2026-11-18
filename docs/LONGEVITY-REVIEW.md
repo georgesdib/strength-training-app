@@ -9,6 +9,8 @@ Short answer: **the resistance-training half is strong and already above the dos
 with lower mortality; the aerobic half was absent, and power and assessment are still missing.**
 Adding more lifting is not the answer — cardio and a small amount of power/upper-back work are.
 
+**Update 2026-11-17:** manual cardio capture was retired. The cardio context in this review now comes from the imported corpus (HealthKit history plus phone sync), with coverage and tier labels beside the numbers. See the cardio stage plan in the portfolio repository.
+
 Status (2026-10-20): **cardio capture**, the **pulling slot** and the **power slot** have been
 applied (`DEC-CARDIO-01`, `DEC-PULL-01/02`, `DEC-POWER-01`); the cardio prescription and the
 assessment metrics remain proposals. This document keeps the evidence and the reasoning; the sections below say
@@ -208,6 +210,12 @@ Cardio scope is Q14 and ROADMAP §4.13. This review only ranks the priorities.
   recommendation is age-conditional.
 - The cardio dose is a guideline synthesis, not an individual prescription; it needs the
   athlete's current fitness and preferences, neither of which is in the app yet.
+- Time-in-zone is an elapsed-time integration of heart-rate samples inside the workout interval,
+  not a clinical zone-duration measurement. Recovery-tail samples are excluded, unobserved time
+  (including gaps over 120 s and after the final sample) is not assigned to a zone, and temporal
+  coverage is reported beside continuity eligibility.
+- VO₂max is a consumer estimate, not a laboratory measurement. Its value, unit, date and
+  source/method are reported with a currency state; absence is not evidence of poor fitness.
 - Nothing here changes the constitution. The strength methodology remains the source of truth.
 
 ## 8. Proposed data display extension (not implemented)

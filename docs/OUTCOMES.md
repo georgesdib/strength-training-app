@@ -46,6 +46,8 @@ GET /api/outcomes?weeks=8&date=YYYY-MM-DD
 - cardio sessions by modality and weeks with data;
 - WHO 150–300 minutes/week as **context only**;
 - steps, sitting, bodyweight, body fat, grip, VO2max estimate, sit-to-stand where measured;
+- an observed bodyweight history table from readiness dates (manual-over-import precedence; missing
+  dates are not filled);
 - sleep/energy/stress/soreness readiness trends (n, average, first/last);
 - readiness score trend and status counts;
 - symptom history by region.

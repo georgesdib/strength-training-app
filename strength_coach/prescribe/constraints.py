@@ -1,11 +1,11 @@
 """Athlete constraints and suitability, applied deterministically.
 
-This is where AGENTS.md §3.11 becomes code: a stored \`hard_exclude\` constraint vetoes a
+This is where AGENTS.md §3.11 becomes code: a stored `hard_exclude` constraint vetoes a
 proposed exercise whatever any agent says, and a suitability rating is surfaced rather than
 silently ignored.
 
 The empty case is deliberately *not* "no constraints": an unrecorded athlete state returns
-\`none_recorded\`, which the prescription engine reports as a warning. Silence must not read as
+`none_recorded`, which the prescription engine reports as a warning. Silence must not read as
 permission (AGENTS.md §3.12).
 """
 

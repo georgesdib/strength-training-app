@@ -2,9 +2,11 @@
 
 **Status:** INT-1 foundation, INT-1b MCP transport, the audit remediation, INT-2 catalogue, INT-3
 weekly review (closed 2026-11-15), INT-4 native model surface, INT-5 server narration and INT-6
-server/web chat (closed 2026-11-15) are implemented. Read-only, provider-neutral, independently runnable. Evidence
-producers for the aggregate capabilities remain deferred; INT-6 model tool calling and streaming are
-deferred by owner decision.
+server/web chat (closed 2026-11-15) are implemented. Read-only, provider-neutral, independently
+runnable. Evidence producers for the aggregate capabilities remain deferred; INT-6 model tool calling
+and streaming are deferred by owner decision. INT-11 (local docs/code Explain) is implemented and
+closed with documented limitations; INT-12 (web search/RAG) is deferred. Programme-block archive
+context, missing outcome evidence for reactive trigger counts and iOS physical acceptance remain.
 **Scope owner:** the canonical plan is the portfolio
 [Training Intelligence plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md);
 the payload contract is the
@@ -39,6 +41,7 @@ them: delivered work is marked delivered, and later phases are not advanced by t
 | INT-2 catalogue: seven further tools (INT-2) | implemented |
 | INT-2 resources: `strength://programme/current`, `strength://overview/current` (INT-2) | implemented |
 | `get_weekly_review` capability (INT-3) | implemented; INT-3 closed 2026-11-15 |
+| `get_longevity_assessment` capability | implemented 2026-11-18; iPhone Today section, consent toggle, time-in-zone panel and web panel released in 1.7.0. Corrected in 1.7.1: off-device tool execution allowlist, recovery-tail exclusion, elapsed-time integration with coverage, above-band state, cache invalidation, canonical web panel, VO₂max provenance and a server-side narration consent gate |
 | `GET /api/ios/v1/intelligence/weekly-review` (INT-3) | implemented; INT-3 closed 2026-11-15 |
 | iOS weekly-review screen and adapter (INT-3) | implemented 2026-11-15 |
 | Baseline context package (shared compact context) | implemented for narration as the envelope fact projection; no separate package |
@@ -1013,6 +1016,109 @@ calls, so the model receives the fixed dossier above; answers cannot query a cap
 
 **Closed/deferred.** Streaming is not planned; transcript policy is session-only. Chat tokens are
 persisted and count against the daily budget.
+
+## 31. Planned, not implemented (2026-11-16)
+
+**INT-11 — Explain the System.** Implemented and closed 2026-11-16 with documented limitations. The
+local incremental FTS5 index, retrieval, citation check, explain/status endpoints, background startup
+refresh and web/iOS Explain tabs exist. The owner closed the device-acceptance and release-tag items
+on 2026-11-17 by decision: no separate device run was made and no dedicated tag was cut, so Explain
+ships with the next tagged release. Known gaps: programme-block archive/contract context and no
+outcome evidence cited for reactive trigger counts. INT-12 web search/RAG is deferred.
+
+**INT-12 — Web search and RAG.** Deferred: opt-in fixed-provider web search with URL citations and
+SSRF/privacy controls; embeddings only if the INT-11 keyword baseline is measured insufficient. The
+existing MCP server is transport and facts-only; it is not a search engine and does not provide web
+access. Exposing either capability over MCP needs a new ADR and contract revision.
+
+## 32. INT-11 first slice — local knowledge index and CLI (2026-11-16)
+
+**Implemented.** The first INT-11 slice is the local index foundation, with no explain endpoint,
+retrieval answer, web tab, iOS tab or server-start hook yet.
+
+- `config/knowledge.v1.yaml`: named regex allowlist, test exclusion list, always-denied paths,
+  high-confidence secret-token patterns and a local FTS5 index path.
+- `strength_coach/intelligence/knowledge/`: allowlist scanning, markdown/Python/Swift chunking,
+  repository commit metadata and an incremental SQLite FTS5 index.
+- `strength-coach intelligence knowledge build|list|status`: dry-run listing, incremental build and
+  status output. The build records per-source commit and dirty state and skips secret-looking files.
+
+The index is derived, stored at `data/knowledge-index.sqlite` with mode `0600`, and never committed.
+Selected test source is included; test fixtures/snapshots/test data and known duplicate private
+backups are excluded. Non-secret personal private notes and data are included by owner decision.
+
+**Tests.** `tests/test_intelligence_knowledge.py` covers allowlist inclusion/exclusion, traversal,
+private personal inclusion, secret skipping, chunk line ranges, FTS5 search, incremental update and
+removal.
+
+## 33. INT-11 retrieval and Explain endpoint (2026-11-16)
+
+**Implemented.** The server has FTS5 retrieval, structural citation checking, the `POST
+/api/intelligence/explain` endpoint and `GET /api/intelligence/knowledge/status`. The web Explain tab
+and iOS Explain tab are implemented; index refresh now starts in the background with the web server.
+The explain trace stores a question hash and length, not the raw question.
+
+- retrieval expands readiness/deload/injury/evidence terms and returns the configured top chunks;
+- answers are prompted from project sources; if nothing matches, the model answers from general
+  knowledge and the response is marked `grounded: false`;
+- citations verify allowlisted path, line range and any quoted-snippet overlap; invalid citations
+  are surfaced as warnings and `grounded` becomes false;
+- public docs use the existing viewer hash, code uses GitHub blob links at the indexed commit, and
+  private files are copy-only;
+- the endpoint uses the existing model settings, daily token budget and run trace; no transcript is
+  stored;
+- retrieval bounds and answer word limit are in `config/knowledge.v1.yaml`.
+
+**Tests.** `tests/test_intelligence_explain.py` covers retrieval, citation validation, grounded and
+ungrounded answers, and the HTTP endpoint. The web page test covers the Explain tab; the iOS scheme
+builds with the Explain view.
+
+## 34. INT-11 evaluation (2026-11-16)
+
+**Scope.** Fifteen live questions covering readiness, injury/deload, programme rules, personal state,
+code paths, test expectations, VBT, volume, sRPE, AGENTS.md, a citation-sensitive question and a
+no-source question.
+
+**First pass.** All 15 returned HTTP 200 and 72/76 citations were structurally valid, but 7 answers
+were poor: readiness missed its score document, injury/deload surfaced generic or self-referential
+code, test expectations missed the test source, volume missed the private report and AGENTS.md was
+not retrieved. The knowledge implementation itself was being cited.
+
+**Fixes.** Source-intent priors (docs, code, test, private), explicit filename lookup, path/heading
+boosts, per-file diversity, exclusion of `strength_coach/intelligence/knowledge/` and explicit
+ungrounded-answer detection.
+
+**Second pass and closure.** Readiness, test expectation, readiness code path, personal state, VBT, volume, sRPE,
+AGENTS.md and the citation-sensitive question found their expected sources. The no-source question
+is reported ungrounded. The deload question retrieves `config/deload.v1.yaml` and now cites it cleanly;
+the injury-deload answer correctly separates the reactive trigger (two consecutive flares) from the
+absence of direct evidence for a specific injury-deload threshold; prescription rules retrieve
+`config/rules/programme.v1.yaml`, the template resolver and `strength_coach/prescribe/engine.py`.
+Remaining limitation: the programme-block answer still includes archive/contract context, and the
+injury answer notes that no outcome evidence is cited for the reactive trigger counts.
+
+## 35. INT-11 hardening (2026-11-16)
+
+**Settings.** The web Explain tab exposes `top_k`, `max_context_chars` and `max_answer_words`. Saving writes the git-ignored `config/knowledge.local.yaml`; the tracked config remains the default. The LLM model/key/token settings remain in Settings.
+
+**Privacy.** The explain trace no longer stores the raw question. It stores only the existing
+`input_hash`, character count, retrieved sources, citation count, grounded flag and token count.
+The web and iOS copy that no conversation is saved is now accurate.
+
+**Fail closed.** An index rejection is no longer treated as a successful scan: a previously indexed
+file that becomes secret-bearing, oversized, unreadable or invalid UTF-8 has its chunks and file
+metadata removed in the same build. Tests cover secret, invalid UTF-8 and oversized transitions.
+
+**Citations and sources.** Source blocks and citations carry the `backend`, `portfolio` or `ios`
+namespace. Resolution uses `(source, path, line range)`; source-less ambiguous paths are unverified.
+Only backend docs use the local docs viewer; portfolio/iOS docs use GitHub at the indexed commit;
+private files remain copy-only.
+
+**Prompt and index.** The system prompt marks project sources as untrusted and forbids following
+instructions inside them. Python classes are split into a header and method chunks with the chunk
+limit enforced. The first retrieved chunk is clipped to the remaining context budget. The index is
+created with a restrictive umask and SQLite sidecars are protected. Status reports every configured
+source, including missing roots and dirty state.
 
 ## Related
 

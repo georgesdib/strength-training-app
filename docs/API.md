@@ -60,8 +60,10 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `POST /api/programme/jobs` | starts a background build; returns `202` with `job_id` and status |
 | `GET /api/programme/jobs/<id>` | `running` / `done` with entries / `error`; has a one-hour in-memory TTL and is capped at 20 jobs |
 | `POST /api/programme` | synchronous compatibility endpoint -> date entries; Apply selection mirrors `/api/prescribe` and is deterministic |
-| `GET /api/cardio?weeks=N` | cardio summary for the window |
-| `POST /api/cardio` | `{date, modality, minutes, avg_hr, max_hr, distance_km, srpe, note}` -> summary |
+| `GET /api/cardio/summary?weeks=N&as_of=` | imported cardio weeks, policy, rolling windows and coverage; always carries an `assessment` block (last completed week's relation to the WHO 150–300 reference as context: `below`/`inside`/`above`/`unknown` (`inside` is presented as "within"), current-week progress with no relation, latest VO₂max with value, unit, date, source/method and `current`/`stale`/`absent`, and `missing` notes) |
+| `GET /api/cardio/summary?...&tiz=1&patterns=1` | adds the two optional blocks: `time_in_zone` (elapsed-time integration between workout-interval heart-rate samples, with `covered_minutes`/`workout_minutes`/`unobserved_minutes`/`temporal_coverage_share` and continuity eligibility reported separately) and `patterns` (per-pattern volume headroom from the budget, training-volume context only). Both are off by default; on the ODROID, `patterns` costs ~320 ms and `tiz` ~190 ms, against ~100 ms for the rest of the payload |
+| `GET /api/cardio/workouts?limit=N` | imported workouts with their hidden/visible state |
+| `POST /api/cardio` | **410** — manual cardio capture was retired 2026-11-17 (CARDIO-STAGE, portfolio plan); imports and the phone sync are the only sources |
 | `GET /api/fatigue?date=N` | strength fitness-fatigue diagnostic (per-lift state and status; not a predictor) |
 | `GET /api/validation?max_dates=N` | retrospective walk-forward report (not prospective) |
 | `GET /api/continuity?date=N` | return-to-training calibration: per-band n/median/CI/fixed/applied and `allow_relax_fixed` |
@@ -92,6 +94,9 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/modalities` | module list with class, enabled source, dependencies, citations and factors |
 | `GET/POST /api/modalities/<id>` | module state or enabled/factor update; guarded modules need guard_confirmed and reason |
 | `POST /api/settings/llm/test` | call the configured model with a tiny connectivity prompt |
+| `POST /api/intelligence/explain` | `{question}` -> project-grounded explanation, citations, warnings, `grounded`, sources and tokens; no transcript |
+| `GET/POST /api/intelligence/knowledge/settings` | current/save Explain retrieval bounds (`top_k`, `max_context_chars`, `max_answer_words`); persisted in the git-ignored `config/knowledge.local.yaml` |
+| `GET /api/intelligence/knowledge/status` | index readiness, file/chunk counts and per-source commit metadata |
 | `POST /api/intelligence/chat` | `{messages: [{role, content}]}` -> read-only multi-turn answer from a fresh six-capability fact dossier, `answer`, `suggestions`, source capability names, advisory warnings, tokens; max 20 turns; writes a run trace |
 | `POST /api/intelligence/narrate` | `{capability, payload}` -> run one read-only capability and return its narrative (headline, observations, limitations, warnings, raw facts, model, tokens); unverified numbers are warnings, not errors; writes a run trace; 400 when the LLM is disabled |
 | `GET /api/exposures?date=N` | recent high-intensity exposures and recovery guard |
@@ -265,8 +270,9 @@ An issued VBT target now carries an optional `vbt` object on each plan item:
 
 The legacy `velocity_target` and `vbt_basis` fields remain. The structured object is frozen
 into `workout_session.plan_json` at workout start, so a later recalibration cannot rewrite the
-target a workout was issued with. A swap clears the old target, an added exercise has no target,
-and a set-count change preserves a still-applicable target. Plans created before this field
+target a workout was issued with. A swap re-solves the replacement's own target and never borrows
+the old lift's; an added exercise is solved the same way and carries a target only when its own
+history supports one; a set-count change preserves a still-applicable target. Plans created before this field
 existed have no `vbt` object and are treated as legacy; the server does not reconstruct target
 bands from the current calibration.
 
@@ -375,6 +381,7 @@ in the StrengthApp repository.
 | `GET /api/ios/v1/progress?weeks=&date=` | bearer | exactly `progress_feature.dashboard`; weeks 1-52, default 8 |
 | `GET /api/ios/v1/intelligence/weekly-review?week_end=YYYY-MM-DD` | bearer | exactly the `get_weekly_review` envelope (Monday-Sunday week containing `week_end`; default the most recently completed week); unknown query parameter 400, disabled capability 503, malformed envelope never returned |
 | `GET /api/ios/v1/intelligence/overview?as_of=&window_weeks=` | bearer | exactly the `get_training_overview` envelope; window 1-52, default 4 |
+| `GET /api/ios/v1/intelligence/longevity?as_of=&include_time_in_zone=&include_patterns=` | bearer | exactly the `get_longevity_assessment` envelope: last completed week against the WHO reference as context, current week progress, VO₂max status, optional sample-based time-in-zone and per-pattern headroom; facts only, no advice |
 | `GET /api/ios/v1/intelligence/exercises/<id>/progression?as_of=&window_days=&include_sessions=&limit_sessions=` | bearer | exactly the `get_exercise_progression` envelope; window 28-365, default 84; unknown exercise 404 |
 | `GET /api/ios/v1/intelligence/readiness?from=&to=&fields=` | bearer | exactly the `get_readiness_history` envelope; `fields` is a comma-separated list, default `score`; the paired app may name raw fields |
 | `GET /api/ios/v1/intelligence/session-details?workout_id=&session_id=&include_ratios=` | bearer | exactly the `get_session_details` envelope; exactly one identifier required |
@@ -382,6 +389,9 @@ in the StrengthApp repository.
 | `GET /api/ios/v1/intelligence/programme-summary?as_of=&block_weeks=` | bearer | exactly the `get_programme_block_summary` envelope; `block_weeks` is 4, 6 or 8 |
 | `GET /api/ios/v1/intelligence/adherence?as_of=&weeks=&from=&to=&group_by=&exercise_id=&session_type=` | bearer | exactly the `get_adherence_analysis` envelope; `from` and `to` travel together |
 | `POST /api/ios/v1/readiness` | bearer + Idempotency-Key | `{values, note?}` -> the existing readiness payload; values use the accepted manual field set; unknown/empty/zero-placeholder fields are rejected |
+| `POST /api/ios/v1/healthkit/workouts` | bearer + Idempotency-Key | `{workouts:[{key, activity_type, started_at, ended_at, duration_s, source_name, avg_heart_rate?, max_heart_rate?, active_energy_kj?, distance_m?, avg_mets?, srpe?, timezone?}]}` -> `{workouts, created, existing, rejected}`; key is the HealthKit UUID (16 bytes) or a content digest (32); a workout starting before `history_cutoff` is rejected so history cannot be duplicated |
+| `POST /api/ios/v1/healthkit/samples` | bearer + Idempotency-Key | `{samples:[{key, workout_key, kind, sampled_at, value, unit, association, source_name?}], metrics?:[{key, kind, measured_at, value, method}]}` -> counts; samples land beside their workout (uploaded first), metrics in `measurement`; per-item tolerance, a bad row is counted and skipped |
+| `GET /api/ios/v1/healthkit/activity/summary?weeks=N` | bearer | `{summary, recent}` — the same computation the browser panel uses, authenticated for the phone |
 | `POST /api/ios/v1/healthkit/readiness` | bearer + Idempotency-Key | `{date, samples:[{field, value, sample_id, sample_at, source_name, source_bundle_id?, source_class, source_model?, source_manufacturer?}]}` -> the canonical readiness payload plus `healthkit` provenance; one to three samples (HRV, RHR, bodyweight), server-local today for the import, sample identity deduplicated; see Phase 3A contract |
 | `POST /api/ios/v1/prescriptions` | bearer + Idempotency-Key | `{readiness_ack?, confirmations?: {deload?, drop?}, settings?: {session_type?, minimum_session?, minimum_target_minutes?, top_set?}}` -> `202 {issued_plan_id, status, for_date, request_expires_at, plan_expires_at, retry_after_ms, settings}`; the request is built in the background (R7) |
 | `GET /api/ios/v1/plans/current` | bearer | the authoritative plan-request state: `{status: queued|building|ready|error|none, issued_plan_id, elapsed_seconds, settings, plan?, readiness?, warnings?, error?}`; `none` is a normal answer, not a 404 |
@@ -392,14 +402,16 @@ in the StrengthApp repository.
 | `GET /api/ios/v1/exercises` | bearer | `{exercises:[{id, display, pattern}]}`; canonical catalogue for the R8 picker and exercise library |
 | `GET /api/ios/v1/exercises/<id>` | bearer | read-only exercise detail: `{exercise:{id,display,pattern,source}, properties:{...}, e1rm_applicable, e1rm, e1rm_reason}`; `e1rm` is the existing 365-day eligible/degraded series, or `null` when not e1RM-applicable; applicability uses the shared derived structural default when the taxonomy has no explicit flag; unknown id 404 |
 | `GET /api/ios/v1/exercises/<id>/history?limit=&offset=` | bearer | exactly `exercise_history_feature.history`; completed sessions with current working sets, 20 default page, equivalents reported; unknown id 404 |
-| `POST /api/ios/v1/workouts/<id>/plan/items/<index>/swap` | bearer + Idempotency-Key | `{exercise_id, expected_exercise_id}` -> workout detail; `409 sets_already_logged` after a set, `409 exercise_already_present`, `409 plan_changed` |
+| `POST /api/ios/v1/workouts/<id>/plan/items/<index>/swap` | bearer + Idempotency-Key | `{exercise_id, expected_exercise_id}` -> workout detail; the replacement is re-solved from its own history (its own load, warm-ups and VBT target); `409 sets_already_logged` after a set, `409 exercise_already_present`, `409 plan_changed` |
 | `POST /api/ios/v1/workouts/<id>/plan/items/<index>/remove` | bearer + Idempotency-Key | `{expected_exercise_id}` -> workout detail; logged sets are kept; `409 last_plan_item`, `409 plan_changed` |
 | `POST /api/ios/v1/workouts/<id>/plan/items/<index>/sets` | bearer + Idempotency-Key | `{delta, expected_exercise_id}` -> workout detail; `409 sets_below_logged`, `409 plan_changed` |
-| `POST /api/ios/v1/workouts/<id>/plan/exercises` | bearer + Idempotency-Key | `{exercise_id}` -> workout detail; server defaults 3 sets, 8–12 reps, RIR 2, no load; duplicate is `409 exercise_already_present` |
+| `POST /api/ios/v1/workouts/<id>/plan/items/<index>/move` | bearer + Idempotency-Key | `{to_index, expected_exercise_id}` -> workout detail; `to_index` is the final position after removal, identities and logged-set attribution are preserved, a same-position move is a no-op, out-of-range is `409 plan_changed` |
+| `POST /api/ios/v1/workouts/<id>/plan/exercises` | bearer + Idempotency-Key | `{exercise_id, sets?, reps_low?, reps_high?, rir_target?}` -> workout detail; defaults 3 sets, 8–12 reps, RIR 2; the added slot is solved from its own history (load, warm-ups, VBT) and stays `load_kg: null` with `unknown_load_reason` when it cannot be solved; `load_kg` is `400 unknown_field`; duplicate is `409 exercise_already_present` |
 | `POST /api/ios/v1/workouts/<id>/complete` | bearer + Idempotency-Key | `{session_rpe? or not_recorded: true, duration_min?, notes?, ended_at?, productivity?}` -> completed workout detail; RPE and not-recorded are mutually exclusive; `ended_at` preserves the local finish time and measured duration; `productivity` is 1-5 when present |
 | `POST /api/ios/v1/workouts/<id>/abandon` | bearer + Idempotency-Key | `{}` -> abandoned workout detail |
 | `POST /api/ios/v1/workouts/<id>/execution-events` | bearer + Idempotency-Key | `{events:[{event_id, event_type, occurred_at, plan_item_index?, set_id?, local_set_id?, payload?}]}` -> `{workout_id, accepted, duplicates, received_at}`; 1-100 events, all-or-nothing, idempotent by event_id; unknown fields, bad timestamps, wrong ownership/status and conflicting event IDs are 400/404/409 |
-| `GET /api/ios/v1/workouts/<id>/execution` | bearer | read-only execution timeline and derived metrics, plus the session envelope `{owner_device_id, plan_revision, last_activity_at, stale, plan}` so a watch can reconcile ownership and apply a newer plan; empty event coverage is valid and historical workouts are never backfilled |
+| `POST /api/ios/v1/healthkit/hrv-recovery` | bearer + Idempotency-Key | `{samples:[{sample_id, date, value, sample_at, source_name, source_class, sample_count?}]}` -> `{date_from, date_to, accepted, duplicates}`; 1-500 dated nights, history accepted (2014+, not future), each idempotent by `sample_id`, changed immutable data is 409; readiness reads this series for HRV (2026-11-18) |
+| `GET /api/ios/v1/workouts/<id>/execution` | bearer | read-only execution timeline and derived metrics (exercise intervals may overlap when a session records a superset; they are folded per plan item), plus the session envelope `{owner_device_id, plan_revision, last_activity_at, stale, plan}` so a watch can reconcile ownership and apply a newer plan; empty event coverage is valid and historical workouts are never backfilled |
 | `GET /api/history/<id>/execution` | none (local web UI) | the same read-only execution payload for a completed workout, keyed by session/workout id; imported sessions without a workout row are 404 |
 
 Workout-detail sets carry the stable plan-item identity as both `plan_item_index` (the API field)

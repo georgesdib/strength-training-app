@@ -312,9 +312,10 @@ def test_healthkit_readiness_imports_and_replays(ios):
     key = uuid.uuid4().hex
     status, body = _healthkit(ios, token, samples, key=key)
     assert status == 200, body
-    assert body["healthkit"]["hrv_ms"]["value"] == 55.0
+    # The raw HRV sample is stored for audit but readiness reads the recovery series.
+    assert "hrv_ms" not in body["healthkit"]
+    assert "hrv_ms" not in body["sources"]
     assert body["healthkit"]["rhr_bpm"]["value"] == 52.0
-    assert body["sources"]["hrv_ms"] == "healthkit"
     assert body["sources"]["rhr_bpm"] == "healthkit"
     assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM healthkit_readiness")) == 2
     assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM readiness_entry")) == 0
@@ -322,8 +323,9 @@ def test_healthkit_readiness_imports_and_replays(ios):
 
     status, today = _request(ios["base"], "/api/ios/v1/today", token=token)
     assert status == 200
-    assert today["readiness"]["healthkit"]["hrv_ms"]["value"] == 55.0
-    assert today["readiness"]["sources"]["hrv_ms"] == "healthkit"
+    assert "hrv_ms" not in today["readiness"]["healthkit"]
+    assert "hrv_ms" not in today["readiness"]["sources"]
+    assert today["readiness"]["healthkit"]["rhr_bpm"]["value"] == 52.0
 
     status, replay, headers = _request_full(
         ios["base"], "/api/ios/v1/healthkit/readiness", method="POST",
@@ -377,8 +379,8 @@ def test_healthkit_observations_are_device_scoped(ios):
     first_token, first_device = _paired(ios)
     second_token, second_device = _paired(ios)
     assert first_device["device_id"] != second_device["device_id"]
-    first = _healthkit_sample("hrv_ms", 55.0, sample_id="shared-sample")
-    second = _healthkit_sample("hrv_ms", 56.0, sample_id="shared-sample")
+    first = _healthkit_sample("rhr_bpm", 55.0, sample_id="shared-sample")
+    second = _healthkit_sample("rhr_bpm", 56.0, sample_id="shared-sample")
     status, body = _healthkit(ios, first_token, [first], key=uuid.uuid4().hex)
     assert status == 200, body
     status, body = _healthkit(ios, second_token, [second], key=uuid.uuid4().hex)
@@ -388,10 +390,10 @@ def test_healthkit_observations_are_device_scoped(ios):
     assert status == 200
     # Readiness is athlete-level; device scope protects the observation identity, not a separate
     # per-device readiness view. The latest accepted observation is the effective one.
-    assert today["readiness"]["healthkit"]["hrv_ms"]["value"] == 56.0
+    assert today["readiness"]["healthkit"]["rhr_bpm"]["value"] == 56.0
     status, today = _request(ios["base"], "/api/ios/v1/today", token=second_token)
     assert status == 200
-    assert today["readiness"]["healthkit"]["hrv_ms"]["value"] == 56.0
+    assert today["readiness"]["healthkit"]["rhr_bpm"]["value"] == 56.0
 
 def test_healthkit_manual_precedence_keeps_observation(ios):
     token, _ = _paired(ios)
@@ -411,8 +413,67 @@ def test_healthkit_manual_precedence_keeps_observation(ios):
     assert body["hrv_ms"] == 60.0
     assert body["rhr_bpm"] == 58.0
     assert body["sources"]["hrv_ms"] == "manual"
-    assert body["healthkit"]["hrv_ms"]["value"] == 55.0
+    assert "hrv_ms" not in body["healthkit"], "the raw sample no longer feeds readiness"
     assert body["healthkit"]["rhr_bpm"]["value"] == 52.0
+
+
+def test_ios_hrv_recovery_accepts_dated_history_and_feeds_readiness(ios):
+    token, _ = _paired(ios)
+    today = datetime.date.fromisoformat(ios["today"])
+    yesterday = today - datetime.timedelta(days=1)
+
+    def night(day, value):
+        return {
+            "sample_id": f"night-{day.isoformat()}",
+            "date": day.isoformat(),
+            "value": value,
+            "sample_at": f"{day.isoformat()}T07:00:00+00:00",
+            "source_name": "Apple Watch",
+            "source_class": "apple_watch",
+            "sample_count": 3,
+        }
+
+    samples = [night(today, 48.0), night(yesterday, 46.0)]
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/hrv-recovery", method="POST",
+        payload={"samples": samples}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, body
+    assert body["accepted"] == [sample["sample_id"] for sample in samples]
+    assert body["duplicates"] == []
+
+    # A retry with a fresh idempotency key is deduplicated by sample id.
+    status, replay = _request(
+        ios["base"], "/api/ios/v1/healthkit/hrv-recovery", method="POST",
+        payload={"samples": samples}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, replay
+    assert replay["accepted"] == []
+    assert replay["duplicates"] == [sample["sample_id"] for sample in samples]
+
+    status, changed = _request(
+        ios["base"], "/api/ios/v1/healthkit/hrv-recovery", method="POST",
+        payload={"samples": [{**samples[0], "value": 52.0}]}, token=token,
+        key=uuid.uuid4().hex,
+    )
+    assert status == 409, changed
+    assert changed["code"] == "hrv_recovery_conflict"
+
+    status, future = _request(
+        ios["base"], "/api/ios/v1/healthkit/hrv-recovery", method="POST",
+        payload={"samples": [{**samples[0], "sample_id": "future",
+                              "date": (today + datetime.timedelta(days=1)).isoformat(),
+                              "sample_at": (today + datetime.timedelta(days=1)).isoformat()
+                              + "T07:00:00+00:00"}]},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 400, future
+
+    status, today_body = _request(ios["base"], "/api/ios/v1/today", token=token)
+    assert status == 200
+    assert today_body["readiness"]["hrv_ms"] == 48.0
+    assert today_body["readiness"]["sources"]["hrv_ms"] == "hrv_recovery"
+    assert today_body["readiness"]["healthkit"]["hrv_ms"]["sample_count"] == 3
 
 
 def test_healthkit_bodyweight_is_an_optional_readiness_observation(ios):
@@ -2003,6 +2064,59 @@ def test_ios_execution_events_are_idempotent_and_analysable(ios):
     assert web_analytics["data_quality"]["event_count"] == 4
 
 
+def test_ios_execution_analytics_keeps_overlapping_superset_exercises(ios):
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(ios, token, issued["issued_plan_id"])
+    assert status == 200, workout
+
+    workout_start = datetime.datetime.now(datetime.UTC) - datetime.timedelta(seconds=120)
+    store = db.Store(ios["path"])
+    try:
+        store.connection.execute(
+            "UPDATE workout_session SET started_at = ? WHERE workout_id = ?",
+            (workout_start.isoformat(), workout["workout_id"]),
+        )
+        store.connection.commit()
+    finally:
+        store.close()
+
+    def stamp(offset):
+        return (workout_start + datetime.timedelta(seconds=offset)).isoformat()
+
+    # A superset: both exercises start while the other is still running, and each ends on its
+    # own. A single "currently open exercise" slot would silently drop the first start.
+    events = [
+        {"event_id": str(uuid.uuid4()), "event_type": "exercise_started",
+         "occurred_at": stamp(1), "plan_item_index": 0},
+        {"event_id": str(uuid.uuid4()), "event_type": "exercise_started",
+         "occurred_at": stamp(2), "plan_item_index": 1},
+        {"event_id": str(uuid.uuid4()), "event_type": "exercise_completed",
+         "occurred_at": stamp(31), "plan_item_index": 0},
+        {"event_id": str(uuid.uuid4()), "event_type": "exercise_completed",
+         "occurred_at": stamp(41), "plan_item_index": 1},
+    ]
+    status, result = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/execution-events",
+        method="POST", payload={"events": events}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, result
+
+    status, analytics = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/execution",
+        token=token,
+    )
+    assert status == 200, analytics
+    assert [item["plan_item_index"] for item in analytics["exercises"]] == [0, 1]
+    assert analytics["exercises"][0]["duration_s"] == 30
+    assert analytics["exercises"][1]["duration_s"] == 39
+    assert analytics["data_quality"]["exercise_started_events"] == 2
+    assert analytics["data_quality"]["exercise_completed_events"] == 2
+    # Overlapping intervals leave no gap between the two, so they contribute no transition.
+    assert analytics["summary"]["exercise_transition_s"] == 0
+
+
 def test_ios_execution_events_reject_bad_timestamps_atomically(ios):
     token, _ = _paired(ios)
     status, issued = _issue(ios, token)
@@ -2146,3 +2260,327 @@ def test_queue_selection_is_fifo(tmp_path):
         assert selected["issued_plan_id"] == "older"
     finally:
         store.close()
+
+
+def test_ios_plan_add_accepts_shape_and_still_refuses_a_client_load(ios):
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(ios, token, issued["issued_plan_id"])
+    assert status == 200, workout
+    plan_ids = {item["exercise_id"] for item in workout["plan"]["items"]}
+    status, catalogue = _request(ios["base"], "/api/ios/v1/exercises", token=token)
+    assert status == 200, catalogue
+    new_id = next(entry["id"] for entry in catalogue["exercises"] if entry["id"] not in plan_ids)
+
+    status, refused = _plan_edit(
+        ios, token, workout["workout_id"], "/exercises",
+        {"exercise_id": new_id, "load_kg": 100},
+    )
+    assert status == 400, refused
+    assert refused["code"] == "unknown_field"
+
+    status, added = _plan_edit(
+        ios, token, workout["workout_id"], "/exercises",
+        {"exercise_id": new_id, "sets": 4, "reps_low": 5, "reps_high": 6,
+         "rir_target": 3},
+    )
+    assert status == 200, added
+    item = next(entry for entry in added["plan"]["items"]
+                if entry["exercise_id"] == new_id)
+    assert item["sets"] == 4
+    assert item["reps_low"] == 5
+    assert item["reps_high"] == 6
+    assert item["rir_target"] == 3
+    # The fresh test database has no history for this exercise, so it is added unsolved
+    # with the solver's reason rather than a client-supplied load.
+    assert item["load_kg"] is None
+    assert item["unknown_load_reason"]
+
+
+def test_ios_plan_move_reorders_and_guards_a_stale_index(ios):
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(ios, token, issued["issued_plan_id"])
+    assert status == 200, workout
+    items = workout["plan"]["items"]
+    first, second = items[0], items[1]
+
+    status, conflict = _plan_edit(
+        ios, token, workout["workout_id"], "/items/0/move",
+        {"to_index": 1, "expected_exercise_id": "wrong_exercise"},
+    )
+    assert status == 409, conflict
+    assert conflict["code"] == "plan_changed"
+
+    status, moved = _plan_edit(
+        ios, token, workout["workout_id"], "/items/0/move",
+        {"to_index": 1, "expected_exercise_id": first["exercise_id"]},
+    )
+    assert status == 200, moved
+    ordered = moved["plan"]["items"]
+    assert ordered[0]["exercise_id"] == second["exercise_id"]
+    assert ordered[1]["exercise_id"] == first["exercise_id"]
+    # Identity travels with the item; only the display position changed.
+    assert ordered[1].get("order_index", first.get("order_index")) == first.get(
+        "order_index"
+    )
+    assert _scalar(
+        ios["path"],
+        "SELECT COUNT(*) FROM workout_event WHERE workout_id = ? "
+        "AND event_type = 'move_exercise'",
+        (workout["workout_id"],),
+    ) == 1
+
+    status, out_of_range = _plan_edit(
+        ios, token, workout["workout_id"], "/items/0/move",
+        {"to_index": 99, "expected_exercise_id": second["exercise_id"]},
+    )
+    assert status == 409, out_of_range
+    assert out_of_range["code"] == "plan_changed"
+
+    status, same = _plan_edit(
+        ios, token, workout["workout_id"], "/items/1/move",
+        {"to_index": 1, "expected_exercise_id": first["exercise_id"]},
+    )
+    assert status == 200, same
+    assert _scalar(
+        ios["path"],
+        "SELECT COUNT(*) FROM workout_event WHERE workout_id = ? "
+        "AND event_type = 'move_exercise'",
+        (workout["workout_id"],),
+    ) == 1
+
+
+def _activity_key(seed: str) -> str:
+    import hashlib
+
+    return hashlib.sha256(seed.encode()).hexdigest()
+
+
+def _workout_payload(key: str, day: str = "2026-11-18") -> dict:
+    return {
+        "key": key,
+        "activity_type": "HKWorkoutActivityTypeTraditionalStrengthTraining",
+        "started_at": f"{day}T18:00:00+00:00",
+        "ended_at": f"{day}T19:00:00+00:00",
+        "duration_s": 3600,
+        "source_name": "Apple Watch",
+        "avg_heart_rate": 128,
+        "max_heart_rate": 165,
+    }
+
+
+def _sample_payload(workout_key: str, index: int, day: str = "2026-11-18") -> dict:
+    return {
+        "key": _activity_key(f"sample-{index}"),
+        "workout_key": workout_key,
+        "kind": "heart_rate",
+        "sampled_at": f"{day}T18:{index:02d}:00+00:00",
+        "value": 120.0 + index,
+        "unit": "count/min",
+        "association": "workout",
+        "source_name": "Apple Watch",
+    }
+
+
+def test_healthkit_activity_uploads_workouts_then_samples(ios):
+    token, _ = _paired(ios)
+    workout_key = _activity_key("workout-1")
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/workouts", method="POST",
+        payload={"workouts": [_workout_payload(workout_key)]}, token=token,
+        key=uuid.uuid4().hex,
+    )
+    assert status == 200, body
+    assert body["created"] == 1 and body["existing"] == 0
+    assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM external_workout")) == 1
+
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/samples", method="POST",
+        payload={"samples": [_sample_payload(workout_key, 0), _sample_payload(workout_key, 1)]},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, body
+    assert body["created"] == 2
+    assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM health_sample")) == 2
+    assert _scalar(ios["path"], "SELECT association FROM health_sample LIMIT 1") == "workout"
+
+    # Repeating both uploads is a no-op: the phone retries, the corpus does not grow.
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/workouts", method="POST",
+        payload={"workouts": [_workout_payload(workout_key)]}, token=token,
+        key=uuid.uuid4().hex,
+    )
+    assert status == 200 and body["existing"] == 1, body
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/samples", method="POST",
+        payload={"samples": [_sample_payload(workout_key, 0)]}, token=token,
+        key=uuid.uuid4().hex,
+    )
+    assert status == 200 and body["existing"] == 1, body
+    assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM health_sample")) == 2
+
+
+def test_healthkit_activity_accepts_a_16_byte_uuid_key(ios):
+    """The phone sends HealthKit UUIDs (16 bytes), not the export's 32-byte digests."""
+    token, _ = _paired(ios)
+    workout_key = uuid.uuid4().hex
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/workouts", method="POST",
+        payload={"workouts": [_workout_payload(workout_key)]}, token=token,
+        key=uuid.uuid4().hex,
+    )
+    assert status == 200, body
+    assert body["created"] == 1
+    assert int(_scalar(ios["path"], "SELECT length(external_key) FROM external_workout")) == 16
+
+
+def test_healthkit_samples_require_their_workout_first(ios):
+    token, _ = _paired(ios)
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/samples", method="POST",
+        payload={"samples": [_sample_payload(_activity_key("missing"), 0)]}, token=token,
+        key=uuid.uuid4().hex,
+    )
+    assert status == 400
+    assert "upload the workout" in json.dumps(body)
+
+
+def test_healthkit_activity_requires_pairing(ios):
+    status, _body = _request(
+        ios["base"], "/api/ios/v1/healthkit/workouts", method="POST",
+        payload={"workouts": [_workout_payload(_activity_key("x"))]}, token="nope",
+        key=uuid.uuid4().hex,
+    )
+    assert status == 401
+
+
+def test_healthkit_activity_carries_effort_and_vo2max(ios):
+    token, _ = _paired(ios)
+    workout_key = uuid.uuid4().hex
+    payload = _workout_payload(workout_key)
+    payload["srpe"] = 7
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/workouts", method="POST",
+        payload={"workouts": [payload]}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, body
+    assert float(_scalar(ios["path"], "SELECT srpe FROM external_workout")) == 7.0
+
+    metric_key = uuid.uuid4().hex
+    metrics = [{
+        "key": metric_key, "kind": "vo2max", "measured_at": "2026-11-18T07:00:00+00:00",
+        "value": 51.4, "method": "Apple Watch",
+    }]
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/samples", method="POST",
+        payload={"samples": [], "metrics": metrics}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, body
+    assert body["metrics"]["written"] == 1
+    assert float(_scalar(ios["path"],
+        "SELECT value FROM measurement WHERE metric_key='vo2max'")) == 51.4
+
+    # Re-sending the same metric is a no-op: identity is the HealthKit UUID.
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/samples", method="POST",
+        payload={"samples": [], "metrics": metrics}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, body
+    assert int(_scalar(ios["path"],
+        "SELECT COUNT(*) FROM measurement WHERE metric_key='vo2max'")) == 1
+
+
+def test_vo2max_is_content_idempotent_across_key_schemes(ios):
+    """A re-sync of history must not duplicate the export's rows, which carry different keys."""
+    token, _ = _paired(ios)
+    metrics = [{
+        "key": uuid.uuid4().hex, "kind": "vo2max",
+        "measured_at": "2026-11-18T07:00:00+00:00", "value": 51.4, "method": "Apple Watch",
+    }]
+    for _ in range(2):
+        status, body = _request(
+            ios["base"], "/api/ios/v1/healthkit/samples", method="POST",
+            payload={"samples": [], "metrics": metrics}, token=token, key=uuid.uuid4().hex,
+        )
+        assert status == 200, body
+    assert int(_scalar(ios["path"],
+        "SELECT COUNT(*) FROM measurement WHERE metric_key='vo2max'")) == 1
+
+
+def test_ios_activity_summary_is_authenticated_and_shaped(ios):
+    token, _ = _paired(ios)
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/activity/summary?weeks=4", token=token
+    )
+    assert status == 200, body
+    assert set(body) == {"summary", "assessment", "recent"}
+    assert body["summary"]["policy"]["equivalent_rule"] == "moderate + 2 * vigorous"
+    assert len(body["summary"]["weeks"]) == 4  # empty weeks are present, not omitted
+    assert all(week["equivalent_minutes"] == 0 for week in body["summary"]["weeks"])
+    assert body["recent"] == []
+
+    # The longevity block ships with the same payload, so the phone and the web panel cannot
+    # disagree about the week. Optional blocks stay off unless requested.
+    assessment = body["assessment"]
+    assert assessment["reference"]["min_minutes"] == 150.0
+    assert assessment["reference"]["role"] == "context, not a target"
+    assert assessment["current_week"]["equivalent_minutes"] == 0
+    assert assessment["vo2max"]["status"] == "absent"
+    assert assessment["time_in_zone"] is None
+    assert assessment["patterns"] is None
+
+    status, _ = _request(ios["base"], "/api/ios/v1/healthkit/activity/summary", token="nope")
+    assert status == 401
+
+
+def test_activity_batch_survives_one_conflicting_sample(ios):
+    token, _ = _paired(ios)
+    workout_key = _activity_key("tolerance-workout")
+    status, _ = _request(
+        ios["base"], "/api/ios/v1/healthkit/workouts", method="POST",
+        payload={"workouts": [_workout_payload(workout_key)]}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200
+    first = _sample_payload(workout_key, 0)
+    status, _ = _request(
+        ios["base"], "/api/ios/v1/healthkit/samples", method="POST",
+        payload={"samples": [first]}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200
+
+    conflicting = dict(first, value=199.0)  # same identity, different value
+    fresh = _sample_payload(workout_key, 1)
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/samples", method="POST",
+        payload={"samples": [conflicting, fresh]}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, body
+    assert body["created"] == 1
+    assert body["rejected"] == 1
+
+
+def test_pre_cutoff_workout_is_rejected_server_side(ios):
+    token, _ = _paired(ios)
+    store = db.Store(ios["path"])
+    store.connection.execute(
+        "INSERT INTO cardio_sync_state (name, value, updated_at) VALUES "
+        "('history_cutoff', '2026-11-17T17:49:23+00:00', '2026-11-17T18:00:00+00:00')"
+    )
+    store.connection.commit()
+    store.close()
+    old = _workout_payload(_activity_key("pre-cutoff"), day="2026-01-05")
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/workouts", method="POST",
+        payload={"workouts": [old]}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, body
+    assert body["rejected"] == 1
+    assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM external_workout")) == 0
+
+
+def test_retired_cardio_route_answers_410(ios):
+    status, _body = _request(ios["base"], "/api/cardio", token=None)
+    assert status == 410

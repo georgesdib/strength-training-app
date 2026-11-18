@@ -1,0 +1,98 @@
+# Training Intelligence knowledge index configuration.
+#
+# Domain reason: Explain the System is a local, owner-only read surface. This file names
+# exactly which repository paths may be indexed, which test data is excluded, and which
+# credential-like paths are denied. It contains no secrets and is safe to commit.
+
+version: 1
+index_path: data/knowledge-index.sqlite
+max_file_bytes: 1048576
+retrieval:
+  top_k: 8
+  max_context_chars: 24000
+  max_answer_words: 320
+
+sources:
+  - name: backend
+    root: .
+    include:
+      - '^strength_coach/.*\.py$'
+      - '^tests/.*\.py$'
+      - '^docs/.*\.md$'
+      - '^config/.*\.ya?ml$'
+      - '^deploy/.*\.sh$'
+      - '^scripts/.*\.sh$'
+      - '^private/.*\.(md|ya?ml|json)$'
+    exclude:
+      - '^tests/fixtures/'
+      - '^tests/.*/fixtures/'
+      - '^strength_coach/intelligence/knowledge/'
+      - '^private/eval/'
+      - '^private/marks-backup\.json$'
+      - '^private/docs/MONITORING-HISTORICAL-AUDIT\.json$'
+      - '^private/docs/ATHLETE-STATE\.md$'
+
+  - name: portfolio
+    root: ..
+    markers: ['docs']
+    include:
+      - '^docs/.*\.md$'
+      - '^README\.md$'
+      - '^AGENTS\.md$'
+      - '^private/.*\.(md|ya?ml|json)$'
+    exclude:
+      - '^private/eval/'
+      - '^private/marks-backup\.json$'
+      - '^private/docs/ATHLETE-STATE\.md$'
+      - '^private/docs/MONITORING-HISTORICAL-AUDIT\.json$'
+
+  - name: ios
+    root: ../StrengthApp
+    markers: ['StrengthCore']
+    include:
+      - '^StrengthCore/Sources/.*\.swift$'
+      - '^StrengthApp/.*\.swift$'
+      - '^StrengthWatch/.*\.swift$'
+      - '^StrengthAppTests/.*\.swift$'
+      - '^docs/.*\.md$'
+    exclude:
+      - '^StrengthAppTests/Fixtures/'
+      - '^StrengthCore/Tests/Fixtures/'
+
+deny_always:
+  - '(^|/)\.git/'
+  - '(^|/)\.build/'
+  - '(^|/)DerivedData/'
+  - '(^|/)\.venv/'
+  - '(^|/)__pycache__/'
+  - '(^|/)\.pytest_cache/'
+  - '(^|/)node_modules/'
+  - '(^|/)dist/'
+  - '(^|/)build/'
+  - '\.sqlite$'
+  - '\.db$'
+  - '\.DS_Store$'
+  - '(^|/)\.env(\.|$)'
+  - '^config/llm\.local\.toml$'
+  - 'intelligence\.local\.yaml$'
+  - '\.key$'
+  - '\.pem$'
+  - '\.p12$'
+  - '\.mobileprovision$'
+  - '\.p8$'
+  - '\.patch$'
+
+deny_test_data:
+  - '(^|/)fixtures/'
+  - '(^|/)__snapshots__/'
+  - '(^|/)testdata/'
+  - '(^|/)golden/'
+  - '(^|/)expected/'
+  - '(^|/)\.snap$'
+
+secret_content_patterns:
+  - '-----BEGIN [A-Z ]*PRIVATE KEY-----'
+  - '\bsk-[A-Za-z0-9_-]{16,}'
+  - '\bghp_[A-Za-z0-9]{20,}'
+  - '\bgithub_pat_[A-Za-z0-9_]{20,}'
+  - '\bxox[baprs]-[A-Za-z0-9-]{10,}'

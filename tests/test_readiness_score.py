@@ -13,7 +13,7 @@ from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.features import readiness as readiness_feature
 from strength_coach.features import readiness_score
 from strength_coach.prescribe import build_prescription, loads
-from strength_coach.store import db, importer, queries, repositories
+from strength_coach.store import db, hrv_recovery, importer, queries, repositories
 
 TODAY = dt.date.today().isoformat()
 ROWS = [
@@ -35,6 +35,34 @@ def store_with(readiness_rows=None, rows=ROWS):
             training_sha256=importer.sha256_frame(training),
             readiness_sha256=importer.sha256_frame(readiness),
         )
+        # Readiness HRV comes from the recovery series, not from an imported readiness row.
+        store.connection.execute(
+            "INSERT OR IGNORE INTO ios_device (device_id, label, token_hash, created_at) "
+            "VALUES (?, ?, ?, ?)",
+            ("test-device", "test", "hash", "2024-01-01T00:00:00+00:00"),
+        )
+        nights = []
+        for row in readiness.to_dict("records"):
+            try:
+                value = float(row.get("HRV") or 0)
+            except (TypeError, ValueError):
+                continue
+            if value <= 0:
+                continue
+            nights.append({
+                "sample_id": f"recovery-{row['Date']}",
+                "on_date": row["Date"],
+                "value": value,
+                "sample_at": f"{row['Date']}T07:00:00+00:00",
+                "source_name": "Apple Watch",
+                "source_class": "apple_watch",
+                "sample_count": 3,
+            })
+        if nights:
+            hrv_recovery.record_samples(
+                store.connection, device_id="test-device", samples=nights,
+                imported_at="2024-01-01T00:00:00+00:00",
+            )
         yield store
     finally:
         store.close()

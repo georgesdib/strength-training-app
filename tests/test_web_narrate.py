@@ -20,12 +20,14 @@ from strength_coach.web import server
 
 class FakeClient:
     model = "fake-model"
+    completions: list[str] = []
 
     @property
     def available(self):
         return True
 
     def complete(self, prompt, *, system=None):
+        type(self).completions.append(prompt)
         return LLMResponse(
             text=json.dumps(
                 {
@@ -43,7 +45,13 @@ class FakeClient:
 def web(tmp_path: Path, monkeypatch):
     path = tmp_path / "coach.db"
     db.Store(path).close()
-    monkeypatch.setattr(server, "load_settings", lambda: SimpleNamespace(enabled=True, daily_tokens=150_000))
+    FakeClient.completions = []
+    monkeypatch.setattr(
+        server, "load_settings",
+        lambda: SimpleNamespace(
+            enabled=True, daily_tokens=150_000, provider="deepseek", model="fake-model"
+        ),
+    )
     monkeypatch.setattr(server, "build_client", lambda settings=None: FakeClient())
     monkeypatch.setattr(
         intelligence_config, "load_config", lambda path=None: enabled_config()
@@ -75,11 +83,15 @@ def _post(base, body):
 
 def test_narrate_route_returns_narrative_and_traces(web):
     base, path = web
-    status, body = _post(base, {"capability": "get_weekly_review", "payload": {}})
+    # Weekly review is health-class, so it needs the explicit consent flag.
+    status, body = _post(
+        base, {"capability": "get_weekly_review", "payload": {}, "health_consent": True}
+    )
     assert status == 200, body
     assert body["headline"] == "No training data"
     assert body["model"] == "fake-model"
     assert "raw" in body
+    assert len(FakeClient.completions) == 1
     store = db.Store(path)
     try:
         row = store.connection.execute("SELECT COUNT(*) AS n FROM run").fetchone()
@@ -104,3 +116,45 @@ def test_narrate_requires_a_capability(web):
     status, body = _post(base, {"payload": {}})
     assert status == 400
     assert "capability" in body["error"]
+
+
+def _get(base, path):
+    with urllib.request.urlopen(base + path, timeout=20) as response:
+        return response.status, json.loads(response.read().decode())
+
+
+def test_narrate_health_capability_requires_explicit_consent(web):
+    base, _ = web
+    status, body = _post(base, {"capability": "get_longevity_assessment", "payload": {}})
+    assert status == 400
+    assert "consent" in body["error"].lower()
+    assert "deepseek" in body["error"].lower()
+    assert FakeClient.completions == []
+
+    # The deterministic assessment does not depend on narration and is still served.
+    status, summary = _get(base, "/api/cardio/summary?weeks=4")
+    assert status == 200
+    assert "assessment" in summary
+    assert "vo2max" in summary["assessment"]
+
+
+def test_narrate_health_consent_allows_narration(web):
+    base, _ = web
+    status, body = _post(
+        base,
+        {
+            "capability": "get_longevity_assessment",
+            "payload": {},
+            "health_consent": True,
+        },
+    )
+    assert status == 200, body
+    assert body["headline"] == "No training data"
+    assert len(FakeClient.completions) == 1
+
+
+def test_narrate_training_capability_needs_no_health_consent(web):
+    base, _ = web
+    status, body = _post(base, {"capability": "get_training_overview", "payload": {}})
+    assert status == 200, body
+    assert len(FakeClient.completions) == 1

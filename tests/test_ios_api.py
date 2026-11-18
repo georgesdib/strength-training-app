@@ -360,6 +360,7 @@ def test_bootstrap_contract(ios):
         "workout_write": True,
         "healthkit": False,
         "healthkit_readiness": True,
+        "healthkit_activity": True,
         "offline": False,
         "intelligence_read": True,
     }

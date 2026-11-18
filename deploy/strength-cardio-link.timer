@@ -1,0 +1,10 @@
+[Unit]
+Description=Periodic Strength Coach cardio linking
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

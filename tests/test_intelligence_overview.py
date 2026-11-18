@@ -249,7 +249,7 @@ def test_describe_lists_read_only_capabilities():
     store = seed_store()
     try:
         described = service(store.connection).describe()
-        assert len(described) == 10
+        assert len(described) == 11
         assert all(entry["read_only"] is True for entry in described)
     finally:
         store.close()

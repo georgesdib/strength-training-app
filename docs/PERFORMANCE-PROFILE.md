@@ -242,3 +242,47 @@ machine; the iMac completes that horizon in 29 s. The 26-week maximum takes over
 here, which is why the forecast is one background job and the horizon is clamped to 26 weeks
 rather than unbounded. These session builds use the fixed path; the resolver figures in §9.1 do
 not apply to them.
+## 10. Intelligence capability latency — ODROID direct run (2026-11-18)
+
+**Method.** `tools/intelligence_benchmark.py --db data/coach.db --runs 30`, direct (in-process)
+execution on the ODROID-C4, against the live production database opened with `mode=ro` and
+`PRAGMA query_only` (379 sessions, 8,009 clean sets, 231 MB). Five warm-ups and 30 measured
+requests per capability; all eleven capabilities returned `ok` 30/30 with no errors. The run
+overlapped one real write (the phone's recovery-HRV sync), so the figures include a live writer.
+p95 sat within 1–2 % of p50 everywhere: the work is CPU-bound and deterministic, not IO-jittery.
+
+| capability | p50 ms | p95 ms |
+|---|---:|---:|
+| `get_prescription` | 1.2 | 1.7 |
+| `get_exercise_progression` | 24.4 | 25.7 |
+| `get_vbt_analysis` | 33.6 | 37.1 |
+| `get_adherence_analysis` | 59.3 | 60.6 |
+| `compare_training_periods` | 137.7 | 143.7 |
+| `get_programme_block_summary` | 207.5 | 209.6 |
+| `get_longevity_assessment` | 433.4 | 437.2 |
+| `get_readiness_history` | 434.4 | 437.8 |
+| `get_training_overview` | 578.1 | 593.7 |
+| `get_weekly_review` | 595.3 | 600.7 |
+| `get_session_details` | 4,350.8 | 4,498.4 |
+
+**Where the longevity call goes** (same machine, ten requests each): `activity_summary` 98 ms,
+`latest_vo2max` 0.1 ms, `volume_budget.headroom` 319 ms, whole assessment with patterns 421 ms,
+time-in-zone alone 191 ms.
+
+**Findings and follow-ups.**
+
+1. **Time-in-zone was the defect and is fixed.** It loaded all 590,289 heart-rate samples to answer
+   a 28-day question (the window holds 25 workouts and 4,882 samples): 11,078 ms p95. Scoping the
+   sample query to the window took it to 191 ms (`66f48d9`). The per-year report still loads the
+   full corpus by design, because it spans every year.
+2. **`get_session_details` remains the only tool that makes a chat turn feel slow** (4.5 s; two
+   `RuleContext` builds plus `workout.summary`). Unchanged here and unrelated to longevity.
+3. **Three quarters of the longevity call is the weekly volume budget.** `BudgetConfig.load`
+   re-parses YAML on every call and `report()` builds a full future projection the advice never
+   reads. Not optimised: one call per Today open or chat turn does not justify it. The cheap lever
+   if that changes is a per-file-mtime config cache, then a lighter current-status query.
+4. **These are direct-mode figures.** The tool descriptions carry HTTP figures from 2026-11-14;
+   the 437 ms direct entry stays as recorded, because MCP has no consumer today and the HTTP
+   variant would refine a tool description nothing reads. Refresh it only if MCP acquires a client. The transport is named per row in `intelligence/latency.py`.
+5. HTTP adds 10–15 % on this hardware (readiness: 377 ms HTTP vs 434 ms direct), so the two
+   transports are not interchangeable when comparing.

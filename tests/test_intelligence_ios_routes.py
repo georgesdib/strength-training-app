@@ -14,7 +14,7 @@ from intelligence_support import enabled_config
 
 from strength_coach import workout
 from strength_coach.intelligence import api as intelligence_api
-from strength_coach.store import db, importer, ios_devices, repositories
+from strength_coach.store import db, hrv_recovery, importer, ios_devices, repositories
 from strength_coach.web.server import create_server
 
 DAYS = ("2026-09-28", "2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26", "2026-11-02")
@@ -47,6 +47,28 @@ def _seed(path: Path) -> str:
             conn, training, readiness,
             training_sha256=importer.sha256_frame(training),
             readiness_sha256=importer.sha256_frame(readiness),
+        )
+        # Readiness HRV comes from the recovery series; the imported HRV column is audit-only.
+        conn.execute(
+            "INSERT OR IGNORE INTO ios_device (device_id, label, token_hash, created_at) "
+            "VALUES (?, ?, ?, ?)",
+            ("seed-device", "seed", "hash", "2026-01-01T00:00:00+00:00"),
+        )
+        hrv_recovery.record_samples(
+            conn, device_id="seed-device",
+            samples=[
+                {
+                    "sample_id": f"recovery-{day}",
+                    "on_date": day,
+                    "value": 60.0,
+                    "sample_at": f"{day}T07:00:00+00:00",
+                    "source_name": "Apple Watch",
+                    "source_class": "apple_watch",
+                    "sample_count": 3,
+                }
+                for day in ("2026-11-02", "2026-11-04", "2026-11-06", "2026-11-08")
+            ],
+            imported_at="2026-01-01T00:00:00+00:00",
         )
         repositories.append_athlete_profile(
             conn, effective_from="2026-01-01", sessions_per_week_target=3

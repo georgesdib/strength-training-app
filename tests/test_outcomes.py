@@ -52,7 +52,8 @@ def test_outcome_review_reports_strength_and_coverage():
         assert report["coverage"]["strength_lifts"] == 2
         assert report["longevity"]["cardio"]["sessions"] == 0
         assert report["longevity"]["readiness"]["fields"]["sleep"]["n"] == 3
-        assert report["longevity"]["cardio"]["rolling_4w_average"] is None
+        # Empty weeks are real weeks with zero minutes, so the four-week average is 0, not None.
+        assert report["longevity"]["cardio"]["rolling_4w_average"] == 0.0
         assert report["note"].startswith("Descriptive")
     finally:
         store.close()

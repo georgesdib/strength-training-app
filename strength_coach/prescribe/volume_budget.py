@@ -1581,6 +1581,32 @@ def report(
 
 
 
+def headroom(conn, on_date: str) -> dict[str, Any]:
+    """Per-pattern headroom and sessions remaining, in the one shape the advice layer reads.
+
+    Shared by the web route and the intelligence capability so the Longevity prose can state these
+    numbers without recomputing them (DEC-LONGEVITY-05). Read-only.
+    """
+    budget = report(conn, on_date)
+    per_pattern = budget.get("per_pattern") or {}
+    profile = queries.athlete_profile(conn) or {}
+    target = int(profile.get("sessions_per_week_target") or 0)
+    sessions_remaining = (
+        max(0, target - completed_sessions(conn, on_date=on_date)) if target else None
+    )
+    return {
+        "per_pattern": {
+            key: {
+                "status": row.get("status"),
+                "short": row.get("short"),
+                "headroom_sets": (row.get("top_up_capacity") or {}).get("sets", 0),
+            }
+            for key, row in per_pattern.items()
+        },
+        "sessions_remaining": sessions_remaining,
+    }
+
+
 def week_panel(
     conn,
     on_date: str,

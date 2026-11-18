@@ -19,6 +19,7 @@ import math
 import mimetypes
 import os
 import sqlite3
+import sys
 import threading
 import time
 import traceback
@@ -60,6 +61,7 @@ from strength_coach.domain import athlete_state
 from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.features import (
     adherence_analytics,
+    cardio_metrics,
     config_inventory,
     continuity_calibration,
     heavy_spinal,
@@ -73,7 +75,6 @@ from strength_coach.features import (
     retrospective_validation,
 )
 from strength_coach.features import breaks as breaks_feature
-from strength_coach.features import cardio as cardio_feature
 from strength_coach.features import deload as deload_feature
 from strength_coach.features import demands as demands_feature
 from strength_coach.features import derived as derived_feature
@@ -124,9 +125,11 @@ from strength_coach.prescribe.config import Thresholds
 from strength_coach.prescribe.evaluator import EvaluationInputs
 from strength_coach.rules import RuleContext
 from strength_coach.store import (
+    cardio,
     db,
     exercise_admin,
     healthkit_readiness,
+    hrv_recovery,
     importer,
     ios_devices,
     ios_workflow,
@@ -158,6 +161,7 @@ IOS_BASE_CAPABILITIES = {
     "workout_write": False,
     "healthkit": False,
     "healthkit_readiness": False,
+    "healthkit_activity": False,
     "offline": False,
 }
 IOS_HISTORY_DEFAULT_LIMIT = 50
@@ -253,6 +257,7 @@ def _ios_capabilities() -> dict[str, bool]:
     capabilities["prescription"] = enabled
     capabilities["workout_write"] = enabled
     capabilities["healthkit_readiness"] = enabled
+    capabilities["healthkit_activity"] = enabled
     # Additive read route; advertised only because the route exists, per the contract.
     capabilities["intelligence_read"] = True
     return capabilities
@@ -953,6 +958,16 @@ class Handler(BaseHTTPRequestHandler):
         self._send(status, body, "application/json; charset=utf-8", headers=headers)
 
     def _error(self, status: int, message: str, fields: dict[str, str] | None = None) -> None:
+        # A 4xx is a client contract violation, and the phone cannot show us its request. Logging
+        # the message is what makes a rejected sync diagnosable from the server side.
+        if status >= 400:
+            # Straight to stderr: the root logger has an in-memory buffer handler for the UI and no
+            # stream handler, so LOGGER.warning never reaches the journal. Request lines are printed
+            # by log_message for the same reason.
+            print(
+                f"HTTP {status} {urlparse(self.path).path}: {message}",
+                file=sys.stderr, flush=True,
+            )
         payload: dict[str, Any] = {"error": message}
         if fields:
             payload["fields"] = fields
@@ -1058,8 +1073,25 @@ class Handler(BaseHTTPRequestHandler):
                     payload = intelligence_api.prescription(self.db_path, device, self.path)
                 elif path == "/api/ios/v1/intelligence/programme-summary":
                     payload = intelligence_api.programme_summary(self.db_path, device, self.path)
+                elif path == "/api/ios/v1/intelligence/longevity":
+                    payload = intelligence_api.longevity(self.db_path, device, self.path)
                 elif path == "/api/ios/v1/intelligence/adherence":
                     payload = intelligence_api.adherence(self.db_path, device, self.path)
+                elif path == "/api/ios/v1/healthkit/activity/summary":
+                    query = parse_qs(urlparse(self.path).query)
+                    weeks = int(query.get("weeks", ["12"])[0])
+                    as_of = query.get("as_of", [None])[0]
+                    include_tiz = query.get("tiz", ["0"])[0] not in ("0", "", "false")
+                    include_patterns = query.get("patterns", ["0"])[0] not in ("0", "", "false")
+                    # Assign, do not send: the route tail sends once. Sending here as well made
+                    # the tail raise UnboundLocalError after the response had already gone out.
+                    payload = self._with_conn(
+                        lambda c: self._ios_activity_summary(
+                            c, weeks, as_of,
+                            include_tiz=include_tiz,
+                            include_patterns=include_patterns,
+                        )
+                    )
                 elif path == "/api/ios/v1/today":
                     self._ios_idle_sweep(conn)
                     clock = _ios_clock()
@@ -1297,6 +1329,26 @@ class Handler(BaseHTTPRequestHandler):
                         conn, device, path, body, config,
                         self._ios_healthkit_readiness,
                     )
+                elif path == "/api/ios/v1/healthkit/hrv-recovery":
+                    config = self._ios_require_mutations()
+                    body = self._body()
+                    self._ios_mutation(
+                        conn, device, path, body, config, self._ios_hrv_recovery,
+                    )
+                elif path == "/api/ios/v1/healthkit/workouts":
+                    config = self._ios_require_mutations()
+                    body = self._body()
+                    self._ios_mutation(
+                        conn, device, path, body, config,
+                        self._ios_healthkit_workouts,
+                    )
+                elif path == "/api/ios/v1/healthkit/samples":
+                    config = self._ios_require_mutations()
+                    body = self._body()
+                    self._ios_mutation(
+                        conn, device, path, body, config,
+                        self._ios_healthkit_samples,
+                    )
                 elif path == "/api/ios/v1/prescriptions":
                     config = self._ios_require_mutations()
                     body = self._body()
@@ -1335,6 +1387,7 @@ class Handler(BaseHTTPRequestHandler):
                             "swap": self._ios_workout_plan_swap,
                             "remove": self._ios_workout_plan_remove,
                             "sets": self._ios_workout_plan_sets,
+                            "move": self._ios_workout_plan_move,
                         }
                         handler = handlers.get(parts[8])
                         if handler is None:
@@ -1410,6 +1463,10 @@ class Handler(BaseHTTPRequestHandler):
             payload["fields"] = exc.fields
         if exc.details:
             payload["details"] = exc.details
+        print(
+            f"HTTP {exc.status} {urlparse(self.path).path}: {exc.message} ({exc.code})",
+            file=sys.stderr, flush=True,
+        )
         self._json(exc.status, payload)
 
     def _ios_idle_sweep(self, conn) -> int:
@@ -1618,6 +1675,163 @@ class Handler(BaseHTTPRequestHandler):
             )
         return text
 
+
+    # --- HealthKit activity (C2) ------------------------------------------------------------
+    #
+    # Two routes, not one: a sample cannot be attached before its workout exists, and keeping them
+    # separate means each is idempotent on its own key even when the phone retries only the second
+    # half. Identity is the HealthKit UUID; the export path uses a content key instead, and the two
+    # never meet because nothing before history_cutoff is uploaded here.
+
+    IOS_ACTIVITY_MAX_WORKOUTS = 200
+    IOS_ACTIVITY_MAX_SAMPLES = 5000
+
+    def _ios_healthkit_workouts(self, conn, device: dict, body: dict) -> dict:
+        items = body.get("workouts")
+        if not isinstance(items, list) or not items:
+            raise FieldError("workouts must be a non-empty list")
+        if len(items) > self.IOS_ACTIVITY_MAX_WORKOUTS:
+            raise FieldError(
+                f"at most {self.IOS_ACTIVITY_MAX_WORKOUTS} workouts per request"
+            )
+        cutoff = cardio.get_sync_state(conn, "history_cutoff")
+        created = existing = rejected = 0
+        for item in items:
+            if not isinstance(item, dict):
+                raise FieldError("each workout must be an object")
+            key = self._ios_activity_key(item.get("key"))
+            # History is the export's business (DEC-CARDIO-18). A pre-cutoff workout sent here would
+            # duplicate an export row under a second key, which is what forced the rebuild.
+            if cutoff and str(item.get("started_at") or "") < cutoff:
+                rejected += 1
+                continue
+            _row, new = cardio.record_workout(
+                conn,
+                external_key=key,
+                origin="healthkit",
+                activity_type=str(item.get("activity_type") or ""),
+                started_at=item.get("started_at"),
+                ended_at=item.get("ended_at"),
+                duration_s=int(item.get("duration_s") or 0),
+                source_name=str(item.get("source_name") or "HealthKit"),
+                source_bundle_id=item.get("source_bundle_id"),
+                timezone=item.get("timezone"),
+                avg_heart_rate=item.get("avg_heart_rate"),
+                max_heart_rate=item.get("max_heart_rate"),
+                active_energy_kj=item.get("active_energy_kj"),
+                distance_m=item.get("distance_m"),
+                avg_mets=item.get("avg_mets"),
+                srpe=item.get("srpe"),
+                imported_at=datetime.datetime.now(datetime.UTC).isoformat(),
+            )
+            created += int(new)
+            existing += int(not new)
+        return {
+            "workouts": len(items),
+            "created": created,
+            "existing": existing,
+            "rejected": rejected,
+        }
+
+    def _ios_healthkit_samples(self, conn, device: dict, body: dict) -> dict:
+        """Samples and standalone metrics travel together: one call per sync.
+
+        They land in different tables -- samples beside their workout, metrics as periodic
+        measurements -- but the phone should not have to know that.
+        """
+        metrics = body.get("metrics")
+        metric_result = self._ios_healthkit_metrics(conn, metrics) if metrics is not None else {}
+        items = body.get("samples")
+        if not isinstance(items, list) or not items:
+            if metrics:
+                return {"samples": 0, "created": 0, "existing": 0, "metrics": metric_result}
+            raise FieldError("samples must be a non-empty list")
+        if len(items) > self.IOS_ACTIVITY_MAX_SAMPLES:
+            raise FieldError(f"at most {self.IOS_ACTIVITY_MAX_SAMPLES} samples per request")
+        created = existing = rejected = 0
+        for item in items:
+            if not isinstance(item, dict):
+                raise FieldError("each sample must be an object")
+            workout_key = self._ios_activity_key(item.get("workout_key"))
+            workout = cardio.get_workout(conn, workout_key)
+            if workout is None:
+                raise FieldError("upload the workout before its samples")
+            try:
+                _row, new = cardio.record_sample(
+                conn,
+                sample_key=self._ios_activity_key(item.get("key")),
+                kind=str(item.get("kind") or ""),
+                sampled_at=item.get("sampled_at"),
+                value=float(item.get("value")),
+                unit=str(item.get("unit") or ""),
+                source_name=str(item.get("source_name") or "HealthKit"),
+                source_bundle_id=item.get("source_bundle_id"),
+                imported_at=datetime.datetime.now(datetime.UTC).isoformat(),
+                external_workout_id=workout["external_workout_id"],
+                    association=str(item.get("association") or "workout"),
+                )
+            except cardio.CardioConflict:
+                # One conflicting sample must not cost the rest of the batch; the same defect class
+                # as a single bad metric value rejecting a whole sync.
+                rejected += 1
+                continue
+            created += int(new)
+            existing += int(not new)
+        payload = {
+            "samples": len(items),
+            "created": created,
+            "existing": existing,
+            "rejected": rejected,
+        }
+        if metric_result:
+            payload["metrics"] = metric_result
+        return payload
+
+    IOS_ACTIVITY_MAX_METRICS = 2000
+
+    def _ios_healthkit_metrics(self, conn, metrics: list) -> dict:
+        """Write standalone metrics; a single implausible value must not fail the whole sync.
+
+        The batch is per-item tolerant because the alternative is worse: one out-of-range reading
+        would reject months of heart-rate samples that travelled in the same request.
+        """
+        if not isinstance(metrics, list) or len(metrics) > self.IOS_ACTIVITY_MAX_METRICS:
+            raise FieldError(f"at most {self.IOS_ACTIVITY_MAX_METRICS} metrics per request")
+        written = skipped = 0
+        for item in metrics:
+            if not isinstance(item, dict):
+                raise FieldError("each metric must be an object")
+            kind = str(item.get("kind") or "")
+            if kind != "vo2max":
+                raise FieldError(f"unsupported metric kind {kind!r}")
+            try:
+                created = cardio.record_vo2max(
+                    conn,
+                    external_id=self._ios_activity_key(item.get("key")).hex(),
+                    measured_at=item.get("measured_at"),
+                    value=float(item.get("value")),
+                    method=str(item.get("method") or "HealthKit"),
+                    noted_at=datetime.datetime.now(datetime.UTC).isoformat(),
+                )
+            except cardio.CardioIngestError:
+                skipped += 1
+                continue
+            written += int(created)
+        return {"written": written, "skipped": skipped}
+
+    @staticmethod
+    def _ios_activity_key(value) -> bytes:
+        text = str(value or "").strip()
+        try:
+            key = bytes.fromhex(text)
+        except ValueError as exc:
+            raise FieldError("key must be hex") from exc
+        # 16 bytes is a HealthKit UUID (what the phone sends); 32 is a content digest (the export
+        # path). Both identify a workout or sample; the length says which regime produced it.
+        if len(key) not in (16, 32):
+            raise FieldError("key must be a 16-byte UUID or a 32-byte digest")
+        return key
+
     def _ios_healthkit_readiness(self, conn, device: dict, body: dict) -> dict:
         self._ios_closed_fields(body, {"date", "samples"})
         day = body.get("date")
@@ -1781,6 +1995,158 @@ class Handler(BaseHTTPRequestHandler):
                 409, "healthkit_sample_conflict", str(exc)
             ) from exc
         return self._readiness(conn, today)
+
+    def _ios_hrv_recovery(self, conn, device: dict, body: dict) -> dict:
+        """Store dated recovery-HRV nights.
+
+        The client computes one value per night from HealthKit and may send history, so this route
+        is deliberately not date-restricted the way the readiness sample route is. Each sample is
+        idempotent by `sample_id`; a different value for an existing id is a conflict rather than
+        an update, because the table is append-only.
+        """
+        self._ios_closed_fields(body, {"samples"})
+        samples = body.get("samples")
+        if not isinstance(samples, list) or not 1 <= len(samples) <= 500:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "samples must contain 1-500 nights",
+                fields={"samples": "must contain 1-500 nights"},
+            )
+        today = datetime.date.today()
+        now = datetime.datetime.now(datetime.UTC)
+        clean: list[dict] = []
+        seen: set[str] = set()
+        for index, sample in enumerate(samples):
+            if not isinstance(sample, dict):
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", f"samples[{index}] must be an object",
+                    fields={f"samples[{index}]": "must be an object"},
+                )
+            self._ios_closed_fields(
+                sample,
+                {"sample_id", "date", "value", "sample_at", "source_name",
+                 "source_class", "sample_count"},
+            )
+            sample_id = sample.get("sample_id")
+            if not isinstance(sample_id, str) or not 1 <= len(sample_id.strip()) <= 120:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", f"samples[{index}].sample_id is required",
+                    fields={f"samples[{index}].sample_id": "must be 1-120 characters"},
+                )
+            sample_id = sample_id.strip()
+            if sample_id in seen:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", "samples must not repeat a sample_id",
+                    fields={f"samples[{index}].sample_id": "duplicate sample_id"},
+                )
+            seen.add(sample_id)
+            day = sample.get("date")
+            try:
+                parsed_day = datetime.date.fromisoformat(str(day))
+            except (TypeError, ValueError) as exc:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", f"samples[{index}].date must be YYYY-MM-DD",
+                    fields={f"samples[{index}].date": "must be YYYY-MM-DD"},
+                ) from exc
+            if parsed_day > today:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", f"samples[{index}].date is in the future",
+                    fields={f"samples[{index}].date": "must not be in the future"},
+                )
+            if parsed_day.year < 2014:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed",
+                    f"samples[{index}].date predates HealthKit",
+                    fields={f"samples[{index}].date": "must be 2014 or later"},
+                )
+            value = sample.get("value")
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", f"samples[{index}].value must be a number",
+                    fields={f"samples[{index}].value": "must be a positive number"},
+                )
+            number = float(value)
+            if not math.isfinite(number) or not 0 < number <= 1000:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed",
+                    f"samples[{index}].value must be between 0 and 1000 ms",
+                    fields={f"samples[{index}].value": "must be between 0 and 1000 ms"},
+                )
+            sample_at = sample.get("sample_at")
+            try:
+                parsed_at = datetime.datetime.fromisoformat(str(sample_at))
+            except (TypeError, ValueError) as exc:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed",
+                    f"samples[{index}].sample_at must be ISO 8601",
+                    fields={f"samples[{index}].sample_at": "must be ISO 8601"},
+                ) from exc
+            if parsed_at.tzinfo is None:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed",
+                    f"samples[{index}].sample_at must include an offset",
+                    fields={f"samples[{index}].sample_at": "must include an offset"},
+                )
+            if parsed_at.astimezone(datetime.UTC) > now + datetime.timedelta(minutes=5):
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed",
+                    f"samples[{index}].sample_at is in the future",
+                    fields={f"samples[{index}].sample_at": "must not be in the future"},
+                )
+            if parsed_at.date() != parsed_day:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed",
+                    f"samples[{index}].sample_at must fall on its date",
+                    fields={f"samples[{index}].sample_at": "must fall on the sample date"},
+                )
+            source_name = sample.get("source_name")
+            if not isinstance(source_name, str) or not 1 <= len(source_name.strip()) <= 200:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", f"samples[{index}].source_name is required",
+                    fields={f"samples[{index}].source_name": "must be 1-200 characters"},
+                )
+            source_class = sample.get("source_class")
+            if source_class not in hrv_recovery.SOURCE_CLASSES:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed",
+                    f"samples[{index}].source_class is not supported",
+                    fields={f"samples[{index}].source_class": "must be apple_watch, "
+                    "non_apple_watch or unknown"},
+                )
+            count = sample.get("sample_count", 0)
+            if count is not None and (
+                isinstance(count, bool) or not isinstance(count, int) or count < 0
+            ):
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed",
+                    f"samples[{index}].sample_count must be a whole number",
+                    fields={f"samples[{index}].sample_count": "must be a whole number"},
+                )
+            clean.append({
+                "sample_id": sample_id,
+                "on_date": parsed_day.isoformat(),
+                "value": number,
+                "sample_at": str(sample_at),
+                "source_name": source_name.strip(),
+                "source_class": source_class,
+                "sample_count": int(count or 0),
+            })
+        try:
+            accepted, duplicates = hrv_recovery.record_samples(
+                conn,
+                device_id=device["device_id"],
+                samples=clean,
+                imported_at=ios_workflow.now_iso(),
+            )
+        except hrv_recovery.HRVRecoveryConflict as exc:
+            raise ios_workflow.IOSWorkflowError(
+                409, "hrv_recovery_conflict", str(exc)
+            ) from exc
+        return {
+            "date_from": clean[0]["on_date"],
+            "date_to": clean[-1]["on_date"],
+            "accepted": accepted,
+            "duplicates": duplicates,
+        }
 
     IOS_SESSION_TYPES = (
         "auto", "squat", "hinge", "bench_squat", "bench_hinge", "accessory"
@@ -2640,8 +3006,39 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError as exc:
             raise ios_workflow.IOSWorkflowError(400, "validation_failed", str(exc)) from exc
 
+    def _ios_workout_plan_move(self, conn, workout_id: str, item_index: int,
+                               body: dict) -> dict:
+        self._ios_closed_fields(body, {"to_index", "expected_exercise_id"})
+        data, _ = self._ios_plan_item(conn, workout_id, item_index, body)
+        try:
+            to_index = _integer(body.get("to_index"))
+        except (TypeError, ValueError) as exc:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", str(exc)
+            ) from exc
+        if to_index is None:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "to_index is required",
+                fields={"to_index": "required"},
+            )
+        items = (data.get("plan") or {}).get("items") or []
+        if not 0 <= to_index < len(items):
+            raise ios_workflow.IOSWorkflowError(
+                409, "plan_changed",
+                "the plan changed; refresh before moving this item",
+                details={"workout": data},
+            )
+        try:
+            return workout.move_exercise(conn, workout_id, item_index, to_index)
+        except workout.PlanEditConflict as exc:
+            self._ios_plan_conflict(exc, data)
+        except ValueError as exc:
+            raise ios_workflow.IOSWorkflowError(400, "validation_failed", str(exc)) from exc
+
     def _ios_workout_plan_add(self, conn, workout_id: str, body: dict) -> dict:
-        self._ios_closed_fields(body, {"exercise_id"})
+        self._ios_closed_fields(
+            body, {"exercise_id", "sets", "reps_low", "reps_high", "rir_target"}
+        )
         data = self._ios_workout(conn, workout_id)
         exercise_id = body.get("exercise_id")
         if not isinstance(exercise_id, str) or not exercise_id.strip():
@@ -2650,8 +3047,21 @@ class Handler(BaseHTTPRequestHandler):
                 fields={"exercise_id": "required"},
             )
         try:
+            sets = _integer(body.get("sets"))
+            reps_low = _integer(body.get("reps_low"))
+            reps_high = _integer(body.get("reps_high"))
+            rir_target = _integer(body.get("rir_target"))
+        except (TypeError, ValueError) as exc:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", str(exc)
+            ) from exc
+        try:
             return workout.add_exercise(
-                conn, workout_id, exercise_id=exercise_id.strip()
+                conn, workout_id, exercise_id=exercise_id.strip(),
+                sets=3 if sets is None else sets,
+                reps_low=8 if reps_low is None else reps_low,
+                reps_high=12 if reps_high is None else reps_high,
+                rir_target=2 if rir_target is None else rir_target,
             )
         except workout.PlanEditConflict as exc:
             self._ios_plan_conflict(exc, data)
@@ -2886,12 +3296,30 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/state":
                 self._json(200, self._with_conn(self._state))
             elif path == "/api/cardio":
+                self._error(410, "manual cardio logging was retired; use /api/cardio/summary")
+            elif path == "/api/cardio/workouts":
+                query = parse_qs(urlparse(self.path).query)
+                limit = min(int(query.get("limit", ["50"])[0]), 200)
+                self._json(200, self._with_conn(
+                    lambda c: self._recorded_workouts(c, limit)
+                ))
+            elif path == "/api/cardio/summary":
                 query = parse_qs(urlparse(self.path).query)
                 weeks = int(query.get("weeks", ["12"])[0])
-                on_date = query.get("date", [None])[0]
-                self._json(200, self._with_conn(
-                    lambda c: self._cardio(c, {"weeks": weeks, "date": on_date})
-                ))
+                as_of = query.get("as_of", [None])[0]
+                include_tiz = query.get("tiz", ["0"])[0] not in ("0", "", "false")
+                include_patterns = query.get("patterns", ["0"])[0] not in ("0", "", "false")
+
+                def _cardio_summary(c):
+                    payload = cardio_metrics.activity_summary(c, weeks=weeks, as_of=as_of)
+                    payload["assessment"] = self._longevity_assessment(
+                        c, as_of,
+                        include_tiz=include_tiz,
+                        include_patterns=include_patterns,
+                    )
+                    return payload
+
+                self._json(200, self._with_conn(_cardio_summary))
             elif path == "/api/breaks":
                 self._json(200, self._with_conn(self._breaks))
             elif path == "/api/measurements":
@@ -3195,6 +3623,15 @@ class Handler(BaseHTTPRequestHandler):
                     "docs": "docs/SESSION-TEMPLATES.md",
                     "summary_stale": current != programme_summary.render(),
                 })
+            elif path == "/api/intelligence/knowledge/status":
+                from strength_coach.intelligence.knowledge.allowlist import load_config as load_knowledge
+                from strength_coach.intelligence.knowledge.index import status as knowledge_status
+                config = load_knowledge()
+                self._json(200, knowledge_status(config.index_path, config))
+            elif path == "/api/intelligence/knowledge/settings":
+                from strength_coach.intelligence.knowledge.allowlist import load_config as load_knowledge
+                config = load_knowledge()
+                self._json(200, self._retrieval_settings(config))
             elif path == "/api/docs":
                 self._json(200, _docs())
             elif path.startswith("/api/docs/"):
@@ -3351,6 +3788,22 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._narrate(c, body)))
             elif path == "/api/intelligence/chat":
                 self._json(200, self._with_conn(lambda c: self._chat(c, body)))
+            elif path == "/api/intelligence/explain":
+                self._json(200, self._with_conn(lambda c: self._explain(c, body)))
+            elif path == "/api/intelligence/knowledge/settings":
+                from strength_coach.intelligence.knowledge.allowlist import (
+                    KnowledgeConfigError,
+                    save_retrieval_settings,
+                )
+                try:
+                    config = save_retrieval_settings(
+                        body.get("top_k"),
+                        body.get("max_context_chars"),
+                        body.get("max_answer_words"),
+                    )
+                except (TypeError, ValueError, KnowledgeConfigError) as exc:
+                    raise FieldError(str(exc), {"settings": str(exc)}) from exc
+                self._json(200, self._retrieval_settings(config))
             elif path == "/api/prescribe":
                 self._json(200, self._with_conn(lambda c: self._prescribe(c, body)))
             elif path == "/api/readiness/presets":
@@ -3382,7 +3835,11 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/programme":
                 self._json(200, self._with_conn(lambda c: self._programme(c, body)))
             elif path == "/api/cardio":
-                self._json(200, self._with_conn(lambda c: self._save_cardio(c, body)))
+                self._error(410, "manual cardio logging was retired; use /api/cardio/visibility")
+            elif path == "/api/cardio/visibility":
+                self._json(200, self._with_conn(
+                    lambda c: self._set_workout_visibility(c, body)
+                ))
             elif path == "/api/measurements":
                 self._json(200, self._with_conn(
                     lambda c: self._save_measurement(c, body)
@@ -3823,6 +4280,65 @@ class Handler(BaseHTTPRequestHandler):
             )
             raise FieldError(message, {field: message}) from exc
 
+    def _explain(self, conn, body: dict) -> dict:
+        import dataclasses
+        import hashlib
+
+        from strength_coach.intelligence.knowledge.allowlist import load_config as load_knowledge
+        from strength_coach.intelligence.knowledge.explain import run_explain
+        from strength_coach.intelligence.knowledge.index import status as knowledge_status
+        from strength_coach.intelligence.model import NarrativeBudgetError, ensure_daily_budget
+        from strength_coach.trace.run import RunTrace
+
+        question = str(body.get("question") or "").strip()
+        if not question:
+            raise FieldError("question is required", {"question": "ask a system question"})
+        if len(question) > 2000:
+            raise FieldError("question is too long", {"question": "max 2000 characters"})
+        knowledge = load_knowledge()
+        state = knowledge_status(knowledge.index_path)
+        if not state.get("exists") or not state.get("chunks"):
+            raise RequestError(503, "knowledge index is not ready")
+        settings = load_settings()
+        if not settings.enabled:
+            raise ValueError("LLM is disabled or incomplete; configure it in Settings")
+        client = build_client(settings)
+        try:
+            ensure_daily_budget(conn, settings.daily_tokens)
+        except NarrativeBudgetError as exc:
+            raise ValueError(str(exc)) from exc
+        question_hash = hashlib.sha256(question.encode("utf-8")).hexdigest()
+        trace = RunTrace.start(
+            conn,
+            input_hash=question_hash,
+            llm_model=client.model,
+        )
+        trace.event("input", {"question_sha256": question_hash, "chars": len(question)})
+        try:
+            result = run_explain(knowledge, client, question)
+        except Exception:
+            trace.finish(status="llm_failed")
+            conn.commit()
+            raise
+        trace.event("feature", {
+            "sources": [chunk.path for chunk in result.chunks],
+            "citations": len(result.citations),
+            "grounded": result.grounded,
+        })
+        trace.add_tokens(result.tokens or 0)
+        trace.finish(status="ok")
+        conn.commit()
+        return {
+            "answer": result.answer,
+            "citations": [dataclasses.asdict(citation) for citation in result.citations],
+            "warnings": list(result.warnings),
+            "grounded": result.grounded,
+            "sources": [chunk.path for chunk in result.chunks],
+            "tokens": result.tokens,
+            "model": client.model,
+            "index_commit": (state.get("meta") or {}).get("commit:backend"),
+        }
+
     def _chat(self, conn, body: dict) -> dict:
         import hashlib
 
@@ -3882,6 +4398,14 @@ class Handler(BaseHTTPRequestHandler):
             "model": client.model,
         }
 
+    @staticmethod
+    def _retrieval_settings(config) -> dict:
+        return {
+            "top_k": config.top_k,
+            "max_context_chars": config.max_context_chars,
+            "max_answer_words": config.max_answer_words,
+        }
+
     def _narrate(self, conn, body: dict) -> dict:
         import hashlib
 
@@ -3905,6 +4429,7 @@ class Handler(BaseHTTPRequestHandler):
             raise FieldError("capability is required", {"capability": "choose one"})
         if not isinstance(payload, dict):
             raise FieldError("payload must be a JSON object", {"payload": "JSON object"})
+        health_consent = _truth(body.get("health_consent"))
         settings = load_settings()
         if not settings.enabled:
             raise ValueError("LLM is disabled or incomplete; configure it in Settings")
@@ -3915,6 +4440,15 @@ class Handler(BaseHTTPRequestHandler):
             error = result.error
             raise ValueError(f"{error.code}: {error.message}")
         envelope = result.envelope
+        # The privacy boundary is enforced here, not only in the browser: a health-class
+        # envelope may not be handed to the remote model without an explicit confirmation.
+        # The deterministic facts were already returned to the caller; narration is optional.
+        if envelope.privacy.classification == "health" and not health_consent:
+            raise FieldError(
+                "health-data consent is required before sending these facts to "
+                f"{settings.provider} / {client.model}",
+                {"health_consent": "explicit consent is required for health capabilities"},
+            )
         try:
             ensure_daily_budget(conn, settings.daily_tokens)
         except NarrativeBudgetError as exc:
@@ -3997,13 +4531,16 @@ class Handler(BaseHTTPRequestHandler):
         signal = injury_signal.compute(
             conn, today, ramp_week=context.block_week_index
         ).as_dict()
+        # The Today card reads the compact fields; the summary alone no longer carries them.
+        cardio = cardio_metrics.activity_summary(conn, weeks=4)
+        cardio.update(cardio_metrics.dashboard_card(cardio))
         return {
             "today": today,
             "profile": dict(profile) if profile else None,
             "block_week": context.block_week_index,
             "readiness": readiness,
             "readiness_score": readiness_score.compute(conn, today).as_dict(),
-            "cardio": cardio_feature.compute(conn, weeks=4).as_dict(),
+            "cardio": cardio,
             "injury_signal": signal,
             "sessions": _session_rows(conn, 12),
             "form_evaluation": form_assessment_feature.followup(conn, as_of=today),
@@ -5019,82 +5556,115 @@ class Handler(BaseHTTPRequestHandler):
             "options": options_mod.canonical_options(),
         }
 
-    def _cardio(self, conn, body: dict | None = None) -> dict:
-        body = body or {}
-        weeks = int(body.get("weeks") or 12)
-        # `date` anchors the window like `cardio --show --date`; without it, today.
-        return cardio_feature.compute(
-            conn, weeks=weeks, on_date=body.get("date") or None
-        ).as_dict()
+    def _longevity_assessment(
+        self,
+        conn,
+        as_of: str | None = None,
+        *,
+        include_tiz: bool = False,
+        include_patterns: bool = False,
+    ) -> dict:
+        """The deterministic longevity block shared by the browser and phone routes.
 
-    def _save_cardio(self, conn, body: dict) -> dict:
-        """Log one cardio session through the same writer the CLI uses."""
-        def optional(name: str):
-            value = body.get(name)
-            return None if value in (None, "") else value
-
-        day = str(body.get("date") or datetime.date.today().isoformat())
-        try:
-            datetime.date.fromisoformat(day)
-        except ValueError as exc:
-            raise FieldError("date must be YYYY-MM-DD", {"date": "must be YYYY-MM-DD"}) from exc
-        modality = str(body.get("modality") or "").strip()
-        if not modality:
-            raise FieldError("modality is required", {"modality": "required"})
-        minutes = optional("minutes")
-        if minutes is None:
-            raise FieldError("minutes is required", {"minutes": "required"})
-        try:
-            minutes_value = float(minutes)
-        except (TypeError, ValueError) as exc:
-            raise FieldError("minutes must be a number", {"minutes": "must be a number"}) from exc
-        if minutes_value <= 0:
-            raise FieldError("minutes must be positive", {"minutes": "must be positive"})
-        avg_hr = optional("avg_hr")
-        max_hr = optional("max_hr")
-        distance_km = optional("distance_km")
-        srpe = optional("srpe")
-        for name, value, low, high in (
-            ("avg_hr", avg_hr, 30, 230),
-            ("max_hr", max_hr, 30, 250),
-            ("srpe", srpe, 1, 10),
-        ):
-            if value is None:
-                continue
+        The arithmetic lives in `features/cardio_metrics.adequacy`; this only supplies the two
+        blocks that belong to the programme rather than to cardio. A budget read that fails must
+        not take the cardio endpoint down, so the blocks are omitted and named as missing.
+        """
+        patterns = None
+        sessions_remaining = None
+        if include_patterns:
+            day = as_of or datetime.date.today().isoformat()
             try:
-                number = float(value)
-            except (TypeError, ValueError) as exc:
-                raise FieldError(f"{name} must be a number", {name: "must be a number"}) from exc
-            if not low <= number <= high:
-                raise FieldError(
-                    f"{name} must be between {low} and {high}",
-                    {name: f"must be between {low} and {high}"},
-                )
-        distance_value = None
-        if distance_km is not None:
-            try:
-                distance_value = float(distance_km)
-            except (TypeError, ValueError) as exc:
-                raise FieldError(
-                    "distance_km must be a number", {"distance_km": "must be a number"}
-                ) from exc
-            if distance_value < 0:
-                raise FieldError(
-                    "distance_km must be non-negative",
-                    {"distance_km": "must be non-negative"},
-                )
-        repositories.append_cardio(
+                headroom = volume_budget_mod.headroom(conn, day)
+                patterns = headroom
+                sessions_remaining = headroom.get("sessions_remaining")
+            except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                # The budget is a programme read; it must not take the cardio endpoint down.
+                # Not silent: the assessment reports no patterns, and the log names the reason.
+                LOGGER.warning("longevity patterns unavailable: %s", exc)
+                patterns = None
+                sessions_remaining = None
+        return cardio_metrics.assessment(
             conn,
-            performed_on=day,
-            modality=modality,
-            duration_s=round(minutes_value * 60),
-            avg_hr=avg_hr,
-            max_hr=max_hr,
-            distance_m=None if distance_value is None else distance_value * 1000,
-            srpe=srpe,
-            note=body.get("note") or None,
+            as_of=as_of,
+            include_tiz=include_tiz,
+            patterns=patterns,
+            sessions_remaining=sessions_remaining,
         )
-        return self._cardio(conn, body)
+
+    def _ios_activity_summary(
+        self,
+        conn,
+        weeks: int,
+        as_of: str | None = None,
+        *,
+        include_tiz: bool = False,
+        include_patterns: bool = False,
+    ) -> dict:
+        """The same numbers the web panel shows, behind device authentication.
+
+        The phone must not call the unauthenticated browser route, so this is a thin wrapper over
+        the same computation, plus the few recent workouts the overview lists.
+        """
+        return {
+            "summary": cardio_metrics.activity_summary(conn, weeks=weeks, as_of=as_of),
+            "assessment": self._longevity_assessment(
+                conn, as_of,
+                include_tiz=include_tiz,
+                include_patterns=include_patterns,
+            ),
+            "recent": self._recorded_workouts(conn, 5)["workouts"],
+        }
+
+    def _recorded_workouts(self, conn, limit: int) -> dict:
+        """Imported activity for the web panel, with its visibility state."""
+        hidden = cardio.hidden_workout_ids(conn)
+        rows = conn.execute(
+            """
+            SELECT w.external_workout_id, w.activity_type, w.started_at, w.duration_s,
+                   w.source_name, w.avg_mets, w.srpe,
+                   (SELECT l.session_id FROM workout_link l
+                     WHERE l.external_workout_id = w.external_workout_id AND l.action = 'link'
+                       AND NOT EXISTS (SELECT 1 FROM workout_link u WHERE u.action = 'unlink'
+                                       AND u.supersedes_id = l.link_id)
+                     ORDER BY l.rowid DESC LIMIT 1) AS session_id
+            FROM external_workout w
+            ORDER BY w.started_at DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+        return {
+            "workouts": [
+                {
+                    "id": row["external_workout_id"],
+                    "activity": (row["activity_type"] or "").replace(
+                        "HKWorkoutActivityType", ""
+                    ),
+                    "started_at": row["started_at"],
+                    "minutes": round(int(row["duration_s"]) / 60),
+                    "source": row["source_name"],
+                    "avg_mets": row["avg_mets"],
+                    "srpe": row["srpe"],
+                    "session_id": row["session_id"],
+                    "hidden": row["external_workout_id"] in hidden,
+                }
+                for row in rows
+            ]
+        }
+
+    def _set_workout_visibility(self, conn, body: dict) -> dict:
+        workout_id = str(body.get("workout_id") or "")
+        hidden = body.get("hidden")
+        if not isinstance(hidden, bool):
+            raise FieldError("hidden must be true or false")
+        cardio.set_visibility(
+            conn,
+            external_workout_id=workout_id,
+            hidden=hidden,
+            reason=body.get("reason"),
+        )
+        return {"workout_id": workout_id, "hidden": hidden}
 
     def _selection(self, conn, day: str, session_type: str | None,
                    include_different: bool = False) -> dict:
@@ -5610,6 +6180,12 @@ def create_server(db_path: str | Path | None = None, host: str = "127.0.0.1",
 def serve(db_path: str | Path | None = None, host: str = "0.0.0.0", port: int = 8000,
           open_browser: bool = False) -> None:
     server = create_server(db_path, host=host, port=port)
+    try:
+        from strength_coach.intelligence.knowledge.allowlist import load_config as load_knowledge
+        from strength_coach.intelligence.knowledge.index import start_background_index
+        start_background_index(load_knowledge())
+    except Exception:
+        LOGGER.exception("knowledge index did not start")
     port = server.server_address[1]
     display_host = "127.0.0.1" if host in {"0.0.0.0", "::"} else host
     url = f"http://{display_host}:{port}/"

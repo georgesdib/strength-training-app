@@ -27,7 +27,7 @@ const VIEW_LOADERS = {
   review: () => fillSessionSelect(),
   readiness: () => loadReadiness($("#readiness-date").value),
   exercises: () => loadExerciseCatalog(),
-  cardio: () => loadCardio(),
+  cardio: () => loadRecordedActivity(cardioWeeks()),
   measures: () => loadMeasurements(),
   prescribe: () => {
     loadFatigue(); loadContinuity(); loadVolume(); loadVolumeBudget(); loadExposure();
@@ -49,6 +49,7 @@ const VIEW_LOADERS = {
     loadTestCadence();
   },
   settings: () => loadSettings(),
+  explain: () => { loadExplainStatus(); loadExplainSettings(); },
   history: () => loadHistory(),
   progress: () => loadProgressOverview(),
   outcomes: () => loadOutcomes(),
@@ -224,9 +225,11 @@ async function loadOverview() {
         data.readiness_score?.status + (data.readiness_score?.basis ? " · " + data.readiness_score.basis : "")],
       ["Block week", data.block_week ?? "unknown", "erector ramp / DUP"],
       ["Injury signal", signal?.status ?? "unknown", signal?.summary ?? ""],
-      ["Cardio (4 wk avg)", data.cardio ? data.cardio.average_weekly_minutes + " min/wk" : "unknown",
-        data.cardio ? "reference " + data.cardio.reference_min + "-" + data.cardio.reference_max
-          + " · " + data.cardio.sessions + " session(s)" : "no entry"],
+      ["Cardio (4 wk avg)", data.cardio?.average_weekly_minutes != null
+        ? data.cardio.average_weekly_minutes + " min/wk" : "unknown",
+        data.cardio ? "reference " + (data.cardio.reference_min ?? "unknown") + "-"
+          + (data.cardio.reference_max ?? "unknown")
+          + " · " + (data.cardio.sessions ?? "unknown") + " session(s)" : "no entry"],
     ];
     $("#cards").innerHTML = cards.map(([label, value, sub]) => `
       <div class="card"><div class="label">${esc(label)}</div>
@@ -578,6 +581,7 @@ async function loadOutcomes() {
     const readinessFields = Object.entries(longevity.readiness?.fields || {}).map(([field, row]) => `
       <tr><td>${esc(field)}</td><td>${row.n}</td><td>${row.average ?? "—"}</td>
       <td>${row.first ?? "—"} → ${row.last ?? "—"}</td></tr>`).join("");
+    await loadOutcomesBodyweight(period);
     $("#outcomes-result").innerHTML = `
       <p class="muted">${esc(period.from ?? "unknown")} to ${esc(period.to ?? "unknown")} · ${period.weeks ?? "—"} weeks</p>
       <h3>Strength</h3>
@@ -601,6 +605,31 @@ async function loadOutcomes() {
     await loadProspective(weeks, day);
   } catch (error) {
     $("#outcomes-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
+
+async function loadOutcomesBodyweight(period) {
+  const host = $("#outcomes-bodyweight");
+  if (!host) return;
+  if (!period.from || !period.to) {
+    host.innerHTML = "";
+    return;
+  }
+  try {
+    const data = await api("/api/readiness/history?from=" + encodeURIComponent(period.from) +
+      "&to=" + encodeURIComponent(period.to) + "&fields=bodyweight_kg");
+    const points = (data && data.points) || [];
+    const rows = points.map((point) =>
+      "<tr><td>" + esc(point.date) + "</td><td>" + fmt(point.bodyweight_kg) + " kg</td><td>" +
+      esc(point.sources?.bodyweight_kg || "unknown") + "</td></tr>").join("");
+    host.innerHTML = "<h3>Bodyweight history</h3>" +
+      (rows ? "<table><thead><tr><th>Date</th><th>Bodyweight</th><th>Source</th></tr></thead><tbody>" +
+        rows + "</tbody></table>" : "<p class='empty'>No observed bodyweight values in this window.</p>") +
+      "<p class='muted'>Observed readiness dates only; missing dates are not filled. " +
+      points.length + " of " + (data?.coverage?.window_days ?? "unknown") +
+      " window days observed.</p>";
+  } catch (error) {
+    host.innerHTML = "<p class='warnbox'>" + esc(error.message) + "</p>";
   }
 }
 
@@ -679,112 +708,214 @@ async function loadProspective(weeks, day) {
   }
 }
 
+const HEALTH_CAPABILITIES = new Set([
+  "get_weekly_review",
+  "get_longevity_assessment",
+  "get_readiness_history",
+]);
+let narrateModelPromise = null;
+
+function narrateModelLabel() {
+  // One cache for the page: the disclosure names the configured provider and model.
+  if (!narrateModelPromise) {
+    narrateModelPromise = api("/api/settings")
+      .then((settings) => {
+        const llm = settings?.llm || {};
+        const provider = llm.provider || "the configured provider";
+        const model = llm.model || "the configured model";
+        return provider + " / " + model;
+      })
+      .catch(() => "the configured model");
+  }
+  return narrateModelPromise;
+}
+
+function longevityRelationText(assessment) {
+  if (!assessment) {
+    return "Assessment unavailable — the server returned no longevity assessment.";
+  }
+  const last = assessment.last_week;
+  if (!last) return "No completed week to assess yet.";
+  if (last.gate === "insufficient" || last.relation === "unknown") {
+    return "Last week's activity could not be classified well enough to compare with the reference.";
+  }
+  const minutes = fmt(last.equivalent_minutes, 0);
+  if (last.relation === "below") {
+    return minutes + " moderate-equivalent minutes last week — "
+      + fmt(last.remaining_minutes, 0) + " short of the 150-minute reference.";
+  }
+  if (last.relation === "above") {
+    return minutes + " moderate-equivalent minutes last week — above the 150–300 reference. "
+      + "The upper bound is context, not a maximum safe dose.";
+  }
+  return minutes + " moderate-equivalent minutes last week — within the 150–300 reference.";
+}
+
+function longevityVo2maxText(vo2) {
+  if (!vo2 || vo2.status === "absent" || vo2.value == null) {
+    return "No VO₂max measurement recorded. Missing is not evidence of poor fitness.";
+  }
+  const parts = [fmt(vo2.value, 1) + " " + (vo2.unit || "ml/kg/min")];
+  if (vo2.measured_on) parts.push(vo2.measured_on);
+  if (vo2.method) parts.push(vo2.method);
+  else if (vo2.source) parts.push(vo2.source);
+  parts.push(vo2.status === "stale" ? "stale" : "current");
+  return "VO₂max " + parts.join(" · ");
+}
+
 async function loadLongevity() {
-  const weeks = $("#longevity-weeks").value;
   const day = $("#longevity-date").value;
-  $("#longevity-summary").innerHTML = "<p class='empty'>Building longevity view…</p>";
+  const includeTiz = $("#longevity-tiz").checked;
+  const includePatterns = $("#longevity-patterns").checked;
+  $("#longevity-summary").innerHTML = "<p class='empty'>Building assessment…</p>";
   $("#longevity-details").innerHTML = "";
+  const query = new URLSearchParams({ weeks: "4" });
+  if (day) query.set("as_of", day);
+  if (includeTiz) query.set("tiz", "1");
+  if (includePatterns) query.set("patterns", "1");
+  let assessment = null;
   try {
-    const query = new URLSearchParams({ weeks });
-    if (day) query.set("date", day);
-    const data = (await api("/api/outcomes?" + query.toString())) || {};
-    const period = data.window || {};
-    const bodyweightHost = $("#longevity-bodyweight");
-    let bodyweight = null;
-    let bodyweightError = false;
-    if (bodyweightHost && period.from && period.to) {
-      try {
-        bodyweight = await api("/api/readiness/history?from=" + encodeURIComponent(period.from) +
-          "&to=" + encodeURIComponent(period.to) + "&fields=bodyweight_kg");
-      } catch (error) {
-        bodyweightError = true;
-        bodyweightHost.innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
-      }
-    }
-    const longevity = data.longevity || {};
-    const cardio = longevity.cardio || {};
-    const metrics = longevity.measurements || {};
-    const readiness = longevity.readiness || {};
-    const fields = readiness.fields || {};
-    const symptoms = (data.strength && data.strength.symptoms && data.strength.symptoms.regions) || {};
-    const attendance = (data.strength && data.strength.attendance) || {};
-    const cardioAvg = cardio.rolling_4w_average ?? cardio.average_weekly_minutes;
-    const refMin = cardio.reference_min ?? 150;
-    const refMax = cardio.reference_max ?? 300;
-    const metricCount = Object.values(metrics).filter((row) => Number(row.count || 0) > 0).length;
-    const readinessCount = Object.values(fields).filter((row) => row.n > 0).length;
-    const readinessTotal = Object.keys(fields).length;
-    const regions = Object.values(symptoms);
-    const symptomReadings = regions.reduce((sum, row) => sum + (row.readings || 0), 0);
-    const flares = regions.reduce((sum, row) => sum + (row.flares || 0), 0);
-    const contextNotes = [];
-    contextNotes.push(cardioAvg == null
-      ? "No cardio minutes recorded in this window."
-      : cardioAvg + " cardio minutes per week on average; the 150–300 minute WHO reference is general context, not an individualized goal.");
-    contextNotes.push(metricCount
-      ? metricCount + " configured measurement type(s) have recorded values; latest values below use available history, not only this window."
-      : "No configured measurement types have recorded values in available history.");
-    contextNotes.push("Readiness entries are present for " + readinessCount + " of " + readinessTotal + " subjective fields in this window; missing is unknown.");
-    contextNotes.push(symptomReadings === 0
-      ? "No symptom readings; flare status is unknown, not zero."
-      : flares + " symptom flare(s) among " + symptomReadings + " recorded reading(s); descriptive context only.");
-    contextNotes.push(attendance.pct == null
-      ? (attendance.completed ?? 0) + " training day(s) recorded; target is unknown and no planned-session calendar is stored."
-      : attendance.completed + " training day(s), " + attendance.pct + "% of the configured weekly target; this is not planned-date adherence.");
-    const metricRows = Object.entries(metrics).map(([key, row]) =>
-      "<tr><td>" + esc(key) + "</td><td>" + (row.count ?? 0) + "</td><td>" + (row.latest_value ?? "—") + "</td><td>" +
-      (row.change == null ? "—" : (row.change > 0 ? "+" : "") + row.change) +
-      "</td><td>" + esc(row.latest_on || "—") + "</td></tr>").join("");
-    const readinessRows = Object.entries(fields).map(([field, row]) =>
-      "<tr><td>" + esc(field) + "</td><td>" + row.n + "</td><td>" +
-      (row.average ?? "—") + "</td><td>" + (row.first ?? "—") + " → " +
-      (row.last ?? "—") + "</td></tr>").join("");
-    const symptomRows = Object.entries(symptoms).map(([region, row]) =>
-      "<tr><td>" + esc(region) + "</td><td>" + row.flares + "</td><td>" +
-      row.readings + "</td><td>" + esc(row.latest_on || "—") + " · level " +
-      (row.latest_level ?? "—") + "</td></tr>").join("");
-    const cardioWeeks = Object.entries(cardio.weekly_minutes || {}).map(([week, minutes]) =>
-      "<tr><td>" + esc(week) + "</td><td>" + fmt(minutes, 1) + " min</td></tr>").join("");
-    $("#longevity-summary").innerHTML =
-      "<p class='muted'>" + esc(period.from ?? "unknown") + " to " + esc(period.to ?? "unknown") +
-      " · " + esc(weeks) + " weeks.</p>" +
-      "<div class='cards'>" +
-      "<div class='card'><div class='label'>Cardio</div><div class='value'>" +
-      (cardioAvg == null ? "unknown" : cardioAvg + " min/wk") + "</div><div class='sub'>reference " +
-      refMin + "–" + refMax + " · context only</div></div>" +
-      "<div class='card'><div class='label'>Measurements</div><div class='value'>" +
-      metricCount + "</div><div class='sub'>recorded metric types</div></div>" +
-      "<div class='card'><div class='label'>Readiness</div><div class='value'>" +
-      readinessCount + "/" + readinessTotal + "</div><div class='sub'>subjective fields with data</div></div>" +
-      "<div class='card'><div class='label'>Symptoms</div><div class='value'>" +
-      (symptomReadings ? flares + " flare(s)" : "unknown") + "</div><div class='sub'>" +
-      symptomReadings + " reading(s)</div></div></div>" +
-      "<h3>Recorded context and coverage</h3><ul class='list'>" +
-      contextNotes.map((x) => "<li>" + esc(x) + "</li>").join("") +
-      "</ul><p class='muted'>Descriptive records only; no medical interpretation or prescription change.</p>";
-    $("#longevity-details").innerHTML =
-      "<h3>Cardio weeks</h3><table><thead><tr><th>Week</th><th>minutes</th></tr></thead><tbody>" +
-      (cardioWeeks || "<tr><td colspan='2' class='muted'>no cardio entries</td></tr>") + "</tbody></table>" +
-      "<h3>Measurements (latest available history)</h3><table><thead><tr><th>Metric</th><th>n</th><th>latest</th><th>change</th><th>date</th></tr></thead><tbody>" +
-      (metricRows || "<tr><td colspan='5' class='muted'>no recorded measurements</td></tr>") + "</tbody></table>" +
-      "<h3>Readiness fields</h3><table><thead><tr><th>Field</th><th>n</th><th>average</th><th>first → last</th></tr></thead><tbody>" +
-      (readinessRows || "<tr><td colspan='4' class='muted'>no readiness fields</td></tr>") + "</tbody></table>" +
-      "<h3>Symptoms</h3><table><thead><tr><th>Region</th><th>flares</th><th>readings</th><th>latest</th></tr></thead><tbody>" +
-      (symptomRows || "<tr><td colspan='4' class='muted'>no symptom entries — unknown, not “no flare”</td></tr>") + "</tbody></table>" +
-      "<p class='muted'>" + esc(longevity.note || "") + "</p>";
-    if (bodyweightHost && !bodyweightError) {
-      const points = (bodyweight && bodyweight.points) || [];
-      const rows = points.map((point) =>
-        `<tr><td>${esc(point.date)}</td><td>${fmt(point.bodyweight_kg)} kg</td><td>${esc(point.sources?.bodyweight_kg || "unknown")}</td></tr>`
-      ).join("");
-      bodyweightHost.innerHTML = "<h3>Bodyweight history</h3>" +
-        (rows ? `<table><thead><tr><th>Date</th><th>Bodyweight</th><th>Source</th></tr></thead><tbody>${rows}</tbody></table>` :
-          "<p class='empty'>No observed bodyweight values in this window.</p>") +
-        `<p class='muted'>Observed readiness dates only; missing dates are not filled. ${points.length} of ${bodyweight?.coverage?.window_days ?? "unknown"} window days observed.</p>`;
-    }
+    const payload = await api("/api/cardio/summary?" + query.toString());
+    assessment = payload.assessment || null;
   } catch (error) {
     $("#longevity-summary").innerHTML = "<p class='warnbox'>" + esc(error.message) + "</p>";
+    return;
   }
+  if (!assessment) {
+    $("#longevity-summary").innerHTML =
+      "<p class='warnbox'>Assessment unavailable — the server returned no longevity assessment.</p>";
+    return;
+  }
+  const last = assessment.last_week;
+  const current = assessment.current_week || {};
+  const vo2 = assessment.vo2max || {};
+  const reference = assessment.reference || {};
+  const relation = longevityRelationText(assessment);
+  const lastLabel = last
+    ? "Completed week · " + esc(last.start) + " to " + esc(last.end)
+    : "Completed week · unavailable";
+  const lastMinutes = last ? fmt(last.equivalent_minutes, 0) + " min" : "unknown";
+  const currentSub = current.days_remaining == null
+    ? "progress this week; no completed-week verdict"
+    : fmt(current.equivalent_minutes ?? 0, 0) + " min so far · "
+      + current.days_remaining + " day(s) remaining"
+      + (assessment.sessions_remaining == null ? "" : " · "
+        + assessment.sessions_remaining + " session(s) remaining")
+      + "; no completed-week verdict";
+  const classified = last ? Math.round((last.classified_share || 0) * 100) + "%" : "unknown";
+  const unclassified = last ? fmt(last.unclassified_minutes || 0, 0) : "unknown";
+  const notes = [relation];
+  if (last && last.relation === "below" && last.remaining_minutes != null) {
+    notes.push(fmt(last.remaining_minutes, 0) + " additional moderate-equivalent minutes would "
+      + "reach the 150-minute reference; this is context, not a prescription.");
+  }
+  if (last && last.relation === "above") {
+    notes.push("Above 300 minutes is reported as above the reference band; the band has no "
+      + "maximum safe dose and this is not a warning.");
+  }
+  if (last && Number(last.unclassified_minutes || 0) > 0) {
+    notes.push(fmt(last.unclassified_minutes, 0) + " minutes last week were unclassified and are "
+      + "not counted as zero.");
+  }
+  notes.push("The WHO 150–300 minute band is population context, not an individualized target.");
+  $("#longevity-summary").innerHTML =
+    "<p class='muted'>As of " + esc(assessment.as_of || day || "today") + "</p>" +
+    "<div class='cards'>" +
+    "<div class='card'><div class='label'>" + lastLabel + "</div><div class='value'>" +
+    lastMinutes + "</div><div class='sub'>" + esc(relation) + "</div></div>" +
+    "<div class='card'><div class='label'>Current week</div><div class='value'>" +
+    fmt(current.equivalent_minutes ?? 0, 0) + " min</div><div class='sub'>" +
+    esc(currentSub) + "</div></div>" +
+    "<div class='card'><div class='label'>Classification</div><div class='value'>" +
+    classified + "</div><div class='sub'>" + unclassified +
+    " min unclassified</div></div>" +
+    "<div class='card'><div class='label'>VO₂max</div><div class='value'>" +
+    (vo2.value == null ? "unknown" : fmt(vo2.value, 1)) + "</div><div class='sub'>" +
+    esc(longevityVo2maxText(vo2)) + "</div></div></div>" +
+    "<h3>What the assessment says</h3><ul class='list'>" +
+    notes.map((x) => "<li>" + esc(x) + "</li>").join("") + "</ul>" +
+    "<p class='muted'>Reference " + fmt(reference.min_minutes ?? 150, 0) + "–" +
+    fmt(reference.max_minutes ?? 300, 0) + " moderate-equivalent minutes per week. " +
+    esc(reference.role || "context, not a target") + ".</p>";
+  $("#longevity-narrative")?.remove();
+  const narrativeHost = document.createElement("div");
+  narrativeHost.id = "longevity-narrative";
+  const modelLabel = await narrateModelLabel();
+  narrativeHost.innerHTML = "<p>" + esc(relation) + "</p>" +
+    "<p class='muted'>Writing the summary sends the assessment facts above to " +
+    esc(modelLabel) + " over the network. The deterministic facts stay available without it.</p>" +
+    "<label class='check'><input type='checkbox' id='longevity-narrative-consent'> " +
+    "I understand and want to send these health facts.</label>" +
+    "<div class='form-row'><button id='longevity-write' type='button' disabled>" +
+    "Write the summary</button></div>" +
+    "<p id='longevity-narrative-text' class='muted'></p>";
+  $("#longevity-summary").appendChild(narrativeHost);
+  const consent = document.querySelector("#longevity-narrative-consent");
+  const write = document.querySelector("#longevity-write");
+  const text = document.querySelector("#longevity-narrative-text");
+  consent.addEventListener("change", () => { write.disabled = !consent.checked; });
+  write.addEventListener("click", async () => {
+    if (!consent.checked) {
+      text.textContent = "Confirm the health-data disclosure before writing the summary.";
+      return;
+    }
+    text.textContent = "Writing…";
+    write.disabled = true;
+    try {
+      const payload = {
+        include_time_in_zone: includeTiz,
+        include_patterns: includePatterns,
+      };
+      if (day) payload.as_of = day;
+      const result = await api("/api/intelligence/narrate", {
+        method: "POST",
+        body: JSON.stringify({
+          capability: "get_longevity_assessment",
+          payload: payload,
+          health_consent: true,
+        }),
+      });
+      const parts = [result.headline].concat(result.observations || []).filter(Boolean);
+      text.textContent = parts.join(" ")
+        + (result.model ? " — written by " + result.model : " — server text");
+    } catch (error) {
+      text.textContent = "No summary was written: " + error.message
+        + ". The numbers above are the assessment.";
+    } finally {
+      write.disabled = !consent.checked;
+    }
+  });
+  const details = [];
+  if (includeTiz) {
+    const tiz = assessment.time_in_zone;
+    if (!tiz || !tiz.eligible_workouts) {
+      details.push("<h3>Time in zone</h3><p class='empty'>No continuity-eligible "
+        + "time-in-zone data in this window.</p>");
+    } else {
+      details.push("<h3>Time in zone</h3><p>" +
+        fmt(tiz.minutes?.moderate ?? 0) + " moderate and " +
+        fmt(tiz.minutes?.vigorous ?? 0) + " vigorous minutes across " +
+        esc(tiz.eligible_workouts) + " eligible workout(s).</p>" +
+        "<p class='muted'>" + fmt(tiz.covered_minutes ?? 0) + " of " +
+        fmt(tiz.workout_minutes ?? 0) + " workout minutes had usable samples (" +
+        Math.round((tiz.temporal_coverage_share || 0) * 100) + "% temporal coverage); " +
+        fmt(tiz.unobserved_minutes ?? 0) + " minutes are unobserved. " +
+        esc(tiz.method || "") + ".</p>");
+    }
+  }
+  if (includePatterns) {
+    const patterns = assessment.patterns;
+    const rows = Object.entries(patterns?.per_pattern || {}).map(([key, row]) =>
+      "<tr><td>" + esc(key) + "</td><td>" + esc(row.status || "unknown") + "</td><td>" +
+      esc(row.short ?? "—") + "</td><td>" + esc(row.headroom_sets ?? 0) + "</td></tr>").join("");
+    details.push("<h3>Volume headroom</h3>" +
+      (rows ? "<table><thead><tr><th>Pattern</th><th>status</th><th>short</th>" +
+        "<th>headroom sets</th></tr></thead><tbody>" + rows + "</tbody></table>"
+        : "<p class='empty'>No per-pattern headroom is available.</p>") +
+      "<p class='muted'>Training-volume context from the configured budget; it is not a "
+      + "strength-preservation claim.</p>");
+  }
+  $("#longevity-details").innerHTML = details.join("");
 }
 
 async function loadReadinessFeedback(weeks, day) {
@@ -3231,77 +3362,105 @@ function cardioWeeklyChart(data) {
   });
 }
 
-function renderCardio(data) {
-  const weeks = Object.entries(data.weekly_minutes || {}).map(([week, minutes]) =>
-    `<tr><td>${esc(week)}</td><td>${minutes}</td></tr>`).join("");
-  const modalities = Object.entries(data.by_modality || {}).map(([name, count]) =>
-    `<tr><td>${esc(name)}</td><td>${count}</td></tr>`).join("");
-  $("#cardio-result").innerHTML = `
-    <div class="panel"><div class="panel-head"><h2>Summary</h2>
-      <span class="muted">${esc(data.from_date)} to ${esc(data.to_date)}</span></div>
-      <p><strong>${data.total_minutes}</strong> min across <strong>${data.sessions}</strong>
-        session(s) · <strong>${data.average_weekly_minutes}</strong> min/week average</p>
-      <p class="muted">Reference: ${data.reference_min}-${data.reference_max} min/week.
-        ${esc(data.reference_note)}</p>
-      <div class="health-trend-chart"><h3>Weekly logged minutes</h3>${cardioWeeklyChart(data)}</div>
-      ${weeks ? `<table><thead><tr><th>Week</th><th>Minutes</th></tr></thead>
-        <tbody>${weeks}</tbody></table>` : "<p class='empty'>No cardio logged in this window.</p>"}
-      ${modalities ? `<table><thead><tr><th>Modality</th><th>Sessions</th></tr></thead>
-        <tbody>${modalities}</tbody></table>` : ""}
-    </div>`;
-}
-
 function cardioWeeks() {
   return Number($("#cardio-weeks")?.value || 12);
 }
 
-async function loadCardio(weeks = null) {
+/**
+ * Recorded activity is imported, not logged: it is classified by the backend cascade and shown
+ * read-only. Unclassified minutes are printed as their own number so a missing MET or heart rate
+ * never reads as a zero-activity day.
+ */
+async function loadRecordedActivity(weeks) {
+  const target = $("#cardio-hk-result");
+  if (!target) return;
   try {
-    const params = new URLSearchParams({ weeks: weeks || cardioWeeks() });
-    const asOf = $("#cardio-asof")?.value;
-    if (asOf) params.set("date", asOf);
-    const data = await api("/api/cardio?" + params.toString());
-    renderCardio(data);
+    const data = await api("/api/cardio/summary?weeks=" + encodeURIComponent(weeks));
+    const policy = data.policy || {};
+    const rolling = data.rolling || {};
+    const week28 = rolling["28d"] || {};
+    const week7 = rolling["7d"] || {};
+    const pct = (share) => (share == null ? "unknown" : Math.round(share * 100) + "%");
+    const resistanceShare = week28.equivalent_minutes
+      ? Math.round(((data.years?.[new Date().getFullYear()]?.resistance_classified_minutes ?? 0) /
+          (data.years?.[new Date().getFullYear()]?.equivalent_minutes || 1)) * 100) + "%"
+      : "unknown";
+
+    const weekRows = (data.weeks || []).slice().reverse().map((week) =>
+      "<tr><td>" + esc(week.iso_week) + "</td>" +
+      "<td>" + Math.round(week.equivalent_minutes) + "</td>" +
+      "<td>" + Math.round(week.moderate_minutes) + "</td>" +
+      "<td>" + Math.round(week.vigorous_minutes) + "</td>" +
+      "<td>" + Math.round(week.resistance_minutes) + "</td>" +
+      "<td>" + Math.round(week.unclassified_minutes) + "</td></tr>").join("");
+
+    const yearRows = Object.entries(data.years || {}).map(([year, value]) =>
+      "<tr><td>" + esc(year) + "</td>" +
+      "<td>" + Math.round(value.equivalent_minutes) + "</td>" +
+      "<td>" + Math.round(value.resistance_minutes) + "</td>" +
+      "<td>" + pct(value.classified_share) + "</td>" +
+      "<td>" + Math.round(value.unclassified_minutes) + "</td></tr>").join("");
+
+    const workouts = await api("/api/cardio/workouts?limit=25");
+    const workoutRows = (workouts.workouts || []).map((workout) =>
+      "<tr" + (workout.hidden ? " class='muted'" : "") + "><td>" + esc(workout.started_at.slice(0, 10)) +
+      "</td><td>" + esc(workout.activity) + "</td><td>" + workout.minutes + " min</td><td>" +
+      esc(workout.source || "") + "</td><td>" +
+      (workout.session_id ? "linked" : "&mdash;") + "</td><td>" +
+      (workout.hidden ? "hidden" : "") + "</td><td>" +
+      "<button class='link' data-workout='" + esc(workout.id) + "' data-hidden='" +
+      (workout.hidden ? "false" : "true") + "'>" +
+      (workout.hidden ? "Show" : "Hide") + "</button></td></tr>").join("");
+
+    target.innerHTML =
+      "<div class='cards'>" +
+      "<div class='card'><div class='label'>Last 7 days</div><div class='value'>" +
+        Math.round(week7.equivalent_minutes || 0) + " min</div><div class='sub'>WHO-equivalent</div></div>" +
+      "<div class='card'><div class='label'>Last 28 days</div><div class='value'>" +
+        Math.round(week28.equivalent_minutes || 0) + " min</div><div class='sub'>WHO-equivalent</div></div>" +
+      "<div class='card'><div class='label'>Resistance share</div><div class='value'>" +
+        resistanceShare + "</div><div class='sub'>this calendar year</div></div>" +
+      "</div>" +
+      "<h3>Weeks</h3><table class='table'><thead><tr><th>Week</th><th>Equiv</th><th>Mod</th>" +
+      "<th>Vig</th><th>Resist</th><th>Unclassified</th></tr></thead><tbody>" +
+      (weekRows || "<tr><td colspan='6' class='muted'>no weeks</td></tr>") + "</tbody></table>" +
+      "<h3>Years</h3><table class='table'><thead><tr><th>Year</th><th>Equiv</th><th>Resist</th>" +
+      "<th>Classified</th><th>Unclassified</th></tr></thead><tbody>" +
+      (yearRows || "<tr><td colspan='5' class='muted'>no years</td></tr>") + "</tbody></table>" +
+      "<p class='muted'>Max HR " + esc(policy.max_hr_bpm) + " bpm · MET bands " +
+      esc((policy.met_bands || []).join("–")) + " · " + esc(policy.equivalent_rule || "") +
+      ". Unclassified minutes are not zero: they mean the workout had neither a MET value nor a heart rate.</p>" +
+      "<h3>Recent workouts</h3><p class='muted'>Hiding removes a workout from every metric without " +
+      "deleting it; the record stays and Show restores it.</p>" +
+      "<table><thead><tr><th>Date</th><th>Activity</th><th>Duration</th><th>Source</th>" +
+      "<th>Session</th><th></th><th></th></tr></thead><tbody>" +
+      (workoutRows || "<tr><td colspan='7' class='muted'>no workouts</td></tr>") +
+      "</tbody></table>";
+
+    target.querySelectorAll("button[data-workout]").forEach(function (button) {
+      button.addEventListener("click", async function () {
+        button.disabled = true;
+        try {
+          await api("/api/cardio/visibility", {
+            method: "POST",
+            body: {
+              workout_id: button.dataset.workout,
+              hidden: button.dataset.hidden === "true",
+            },
+          });
+          await loadRecordedActivity(weeks);
+        } catch (error) {
+          button.disabled = false;
+          button.textContent = "error";
+        }
+      });
+    });
   } catch (error) {
-    $("#cardio-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+    target.innerHTML = "<p class='warnbox'>" + esc(error.message) + "</p>";
   }
 }
 
-$("#cardio-weeks").addEventListener("change", () => loadCardio());
-$("#cardio-asof").addEventListener("change", () => loadCardio());
-
-$("#cardio-form").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const payload = {
-    date: $("#cardio-date").value || null,
-    modality: $("#cardio-modality").value,
-    minutes: $("#cardio-minutes").value,
-    avg_hr: $("#cardio-avg-hr").value || null,
-    max_hr: $("#cardio-max-hr").value || null,
-    distance_km: $("#cardio-distance").value || null,
-    srpe: $("#cardio-srpe").value || null,
-    note: $("#cardio-note").value || null,
-  };
-  const button = $("#cardio-form button[type='submit']");
-  button.disabled = true;
-  try {
-    await api("/api/cardio", { method: "POST", body: JSON.stringify(payload) });
-    await loadCardio();
-    $("#cardio-form").reset();
-  } catch (error) {
-    applyFieldErrors(error, $("#cardio-result"), {
-      date: "#cardio-date",
-      modality: "#cardio-modality",
-      minutes: "#cardio-minutes",
-      avg_hr: "#cardio-avg-hr",
-      max_hr: "#cardio-max-hr",
-      distance_km: "#cardio-distance",
-      srpe: "#cardio-srpe",
-    });
-  } finally {
-    button.disabled = false;
-  }
-});
+$("#cardio-weeks").addEventListener("change", () => loadRecordedActivity(cardioWeeks()));
 
 /* --- measurements ------------------------------------------------------- */
 let lastMeasurements = null;
@@ -3738,6 +3897,11 @@ const NARRATE_GUIDE = {
     usage: "Payload: {} for the last four weeks, or {\"as_of\":\"YYYY-MM-DD\",\"window_weeks\":4}.",
     example: {},
   },
+  get_longevity_assessment: {
+    text: "Explain the longevity assessment: the last completed week's moderate-equivalent minutes against the WHO reference as context, the current week's progress, VO2max status, and optional time-in-zone and per-pattern volume headroom. Facts only; no advice.",
+    usage: "Payload: {} for today, or {\"as_of\":\"YYYY-MM-DD\"}; optional include_time_in_zone and include_patterns booleans.",
+    example: {},
+  },
   get_exercise_progression: {
     text: "Explain one exercise's e1RM progression, its confidence interval and whether the trend is comparable.",
     usage: "Required: exercise_id. Payload: {\"exercise_id\":\"trap_bar_deadlift\",\"window_days\":84}.",
@@ -3792,8 +3956,26 @@ function syncNarrateCapability() {
   if (help) help.textContent = guide.text || "";
   if (usage) usage.textContent = guide.usage || "";
   if (payload) payload.value = JSON.stringify(guide.example || {}, null, 2);
+  // Health-class capabilities need an explicit disclosure before their facts leave the server.
+  const isHealth = HEALTH_CAPABILITIES.has(capability);
+  const consentBox = $("#narrate-consent");
+  if (consentBox) consentBox.hidden = !isHealth;
+  const consent = $("#narrate-health-consent");
+  if (consent) consent.checked = false;
+  const button = $("#narrate-submit");
+  if (button) button.disabled = isHealth;
+  if (isHealth) {
+    narrateModelLabel().then((label) => {
+      const host = $("#narrate-model");
+      if (host) host.textContent = label;
+    });
+  }
 }
 $("#narrate-capability")?.addEventListener("change", syncNarrateCapability);
+$("#narrate-health-consent")?.addEventListener("change", (event) => {
+  const button = $("#narrate-submit");
+  if (button) button.disabled = !event.target.checked;
+});
 if ($("#narrate-capability")) syncNarrateCapability();
 
 $("#narrate-form")?.addEventListener("submit", async (event) => {
@@ -3816,9 +3998,18 @@ $("#narrate-form")?.addEventListener("submit", async (event) => {
     if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
       throw new Error("Request payload must be a JSON object.");
     }
+    const isHealth = HEALTH_CAPABILITIES.has(capability);
+    const consent = $("#narrate-health-consent");
+    if (isHealth && !consent?.checked) {
+      throw new Error("Confirm the health-data disclosure before narrating.");
+    }
     const data = await api("/api/intelligence/narrate", {
       method: "POST",
-      body: JSON.stringify({ capability, payload }),
+      body: JSON.stringify({
+        capability: capability,
+        payload: payload,
+        ...(isHealth ? { health_consent: true } : {}),
+      }),
     });
     const observations = (data.observations || [])
       .map((item) => "<li>" + esc(item) + "</li>").join("");
@@ -3896,5 +4087,82 @@ $("#chat-form")?.addEventListener("submit", async (event) => {
   } finally {
     button.disabled = false;
     renderChat();
+  }
+});
+
+/* --- Explain the system -------------------------------------------------- */
+async function loadExplainSettings() {
+  try {
+    const data = await api("/api/intelligence/knowledge/settings");
+    $("#explain-top-k").value = data.top_k;
+    $("#explain-max-context").value = data.max_context_chars;
+    $("#explain-max-words").value = data.max_answer_words;
+  } catch (error) {
+    $("#explain-settings-msg").textContent = error.message;
+  }
+}
+$("#explain-settings-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const message = $("#explain-settings-msg");
+  message.textContent = "Saving…";
+  try {
+    const data = await api("/api/intelligence/knowledge/settings", {
+      method: "POST",
+      body: JSON.stringify({
+        top_k: Number($("#explain-top-k").value),
+        max_context_chars: Number($("#explain-max-context").value),
+        max_answer_words: Number($("#explain-max-words").value),
+      }),
+    });
+    message.textContent = "Saved: " + data.top_k + " chunks, " + data.max_context_chars +
+      " chars, " + data.max_answer_words + " words.";
+  } catch (error) {
+    message.textContent = error.message;
+  }
+});
+
+async function loadExplainStatus() {
+  const target = $("#explain-status");
+  if (!target) return;
+  try {
+    const data = await api("/api/intelligence/knowledge/status");
+    if (!data.exists) target.textContent = "Knowledge index not built yet.";
+    else target.textContent = "Index: " + data.files + " files, " + data.chunks + " chunks · " + ((data.sources || []).map((source) => source.name + ":" + (source.present ? (source.commit || "unknown").slice(0, 7) + (source.dirty ? "*" : "") : "missing")).join(" · ")) + " · " + ((data.meta || {}).state || "ready");
+  } catch (error) {
+    target.textContent = "Index status unavailable: " + error.message;
+  }
+}
+$("#explain-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const question = $("#explain-question").value.trim();
+  const message = $("#explain-msg");
+  const target = $("#explain-result");
+  const button = $("#explain-submit");
+  if (!question) return;
+  message.textContent = "Searching project sources…";
+  button.disabled = true;
+  target.innerHTML = "";
+  try {
+    const data = await api("/api/intelligence/explain", {
+      method: "POST", body: JSON.stringify({ question }),
+    });
+    const citations = (data.citations || []).map((citation) => {
+      const label = esc(citation.source) + ":" + esc(citation.path) + ":" + citation.line_start +
+        (citation.line_end !== citation.line_start ? "-" + citation.line_end : "");
+      const link = citation.url ? '<a href="' + esc(citation.url) + '" target="_blank" rel="noopener">' + label + "</a>" : label;
+      return "<li>" + link + (citation.verified ? "" : " <span class='muted'>(unverified: " + esc(citation.warning || "citation check failed") + ")</span>") + "</li>";
+    }).join("");
+    const warnings = (data.warnings || []).map((warning) => "<li>" + esc(warning) + "</li>").join("");
+    target.innerHTML = '<div class="panel"><div class="panel-head"><h2>Answer</h2><span class="muted">' +
+      (data.grounded ? "grounded" : "ungrounded") + "</span></div>" +
+      "<p>" + esc(data.answer).replaceAll("\n", "<br>") + "</p>" +
+      (citations ? "<h3>Sources</h3><ul>" + citations + "</ul>" : "") +
+      (warnings ? '<div class="warnbox"><strong>Checks</strong><ul>' + warnings + "</ul></div>" : "") +
+      '<p class="muted">' + data.sources.length + " source chunks · " + (data.tokens || 0) + " tokens</p></div>";
+    message.textContent = "";
+  } catch (error) {
+    message.textContent = error.message || "Explain failed.";
+  } finally {
+    button.disabled = false;
   }
 });

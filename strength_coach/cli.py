@@ -25,17 +25,14 @@ import yaml
 
 from strength_coach import __version__, modalities, settings_profile, workout
 from strength_coach.agents import (
-    LLMError,
     build_client,
     explain_prescription,
     load_settings,
 )
-from strength_coach.agents import proposal as proposal_mod
 from strength_coach.analytics import core as derived_core
 from strength_coach.critique import UnknownSessionError
 from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.features import breaks as breaks_feature
-from strength_coach.features import cardio as cardio_feature
 from strength_coach.features import (
     continuity_calibration,
     heavy_spinal,
@@ -77,12 +74,11 @@ from strength_coach.prescribe import (
 from strength_coach.prescribe import config as prescribe_config
 from strength_coach.prescribe import deload as deload_mod
 from strength_coach.prescribe import schedule as schedule_mod
-from strength_coach.prescribe import schemes as schemes_mod
 from strength_coach.prescribe import selection as selection_mod
 from strength_coach.prescribe import shadow as shadow_feature
 from strength_coach.prescribe import volume_budget as volume_budget_mod
 from strength_coach.prescribe.evaluator import EvaluationInputs
-from strength_coach.rules import RuleContext, evaluate, load_document
+from strength_coach.rules import RuleContext
 from strength_coach.store import (
     db,
     exercise_admin,
@@ -126,14 +122,10 @@ def main(argv: list[str] | None = None) -> int:
                      help="regenerate even if this date was already prescribed")
     run.add_argument("--deload", choices=("ask", "yes", "no"), default="ask",
                      help="scheduled deload: ask (interactive, default no), yes, or no")
-    run.add_argument("--propose", action="store_true",
-                     help="ask the model for a structural proposal (requires --llm on)")
     run.add_argument("--apply-selection", action="store_true",
                      help="apply the shadow selector's exercise substitutions")
     run.add_argument("--selection-confirm", action="store_true",
                      help="confirm a near-comparable (class B) substitution; class C is never automatic")
-    run.add_argument("--yes", action="store_true",
-                     help="apply an accepted proposal without asking")
     run.add_argument("--minimum-session", action="store_true",
                      help="user-selected volume-only minimum session (MOD-MIN-001)")
     run.add_argument("--target-minutes", type=int, choices=(30, 45, 60), default=None,
@@ -363,20 +355,6 @@ def main(argv: list[str] | None = None) -> int:
     readiness.add_argument("--wearable-weight", type=float, default=None)
     readiness.add_argument("--setting-note", default=None)
 
-    cardio = sub.add_parser("cardio", help="log or summarise cardio sessions")
-    cardio.add_argument("--date", default=None, help="YYYY-MM-DD (default: today)")
-    cardio.add_argument("--modality", default=None,
-                        help="e.g. walk, run, bike, row, intervals, swim")
-    cardio.add_argument("--minutes", type=float, default=None, help="session duration")
-    cardio.add_argument("--avg-hr", type=int, default=None, help="average heart rate")
-    cardio.add_argument("--max-hr", type=int, default=None, help="maximum heart rate")
-    cardio.add_argument("--distance-km", type=float, default=None)
-    cardio.add_argument("--srpe", type=int, default=None, help="session RPE, 1-10")
-    cardio.add_argument("--note", default=None)
-    cardio.add_argument("--show", action="store_true", help="show the summary")
-    cardio.add_argument("--weeks", type=int, default=12,
-                        help="summary window in weeks (default 12)")
-
     workout_parser = sub.add_parser("workout", help="inspect or finish the active live workout")
     workout_sub = workout_parser.add_subparsers(dest="action", required=True)
     workout_sub.add_parser("status", help="show the active workout")
@@ -570,6 +548,23 @@ def main(argv: list[str] | None = None) -> int:
     intelligence_narrate.add_argument(
         "--no-trace", action="store_true", help="do not write a run/run_event trace"
     )
+    intelligence_knowledge = intelligence_sub.add_parser(
+        "knowledge", help="build or inspect the local Explain knowledge index"
+    )
+    knowledge_sub = intelligence_knowledge.add_subparsers(
+        dest="knowledge_command", required=True
+    )
+    knowledge_build = knowledge_sub.add_parser("build", help="incrementally build the index")
+    knowledge_build.add_argument("--config", default=None, help="knowledge config path")
+    knowledge_build.add_argument("--dry-run", action="store_true", help="list only, no write")
+    knowledge_build.add_argument("--json", action="store_true")
+    knowledge_list = knowledge_sub.add_parser("list", help="show included and excluded files")
+    knowledge_list.add_argument("--config", default=None, help="knowledge config path")
+    knowledge_list.add_argument("--json", action="store_true")
+    knowledge_list.add_argument("--excluded", action="store_true", help="show exclusions too")
+    knowledge_status = knowledge_sub.add_parser("status", help="show index counts and commits")
+    knowledge_status.add_argument("--config", default=None, help="knowledge config path")
+    knowledge_status.add_argument("--json", action="store_true")
     intelligence_token = intelligence_sub.add_parser(
         "token", help="create, list, rotate or revoke MCP client tokens"
     )
@@ -617,7 +612,6 @@ def main(argv: list[str] | None = None) -> int:
         "e1rm": _cmd_e1rm,
         "test": _cmd_test,
         "symptom": _cmd_symptom,
-        "cardio": _cmd_cardio,
         "measure": _cmd_measure,
         "volume": _cmd_volume,
         "continuity": _cmd_continuity,
@@ -755,11 +749,6 @@ def _cmd_run(args) -> int:
         with RunTrace.start(conn, input_hash=f"{session_id}:{args.date}",
                             window_end=args.date) as trace:
             approved_by = "deterministic"
-            if args.propose:
-                if args.llm != "on":
-                    print("--propose requires --llm on")
-                    return 2
-                prescription, approved_by = _propose(conn, trace, prescription, args)
             prescription_id = repositories.append_prescription(
                 conn,
                 prescription_id=_new_id(),
@@ -1340,6 +1329,66 @@ def _cmd_ios(args) -> int:
         store.close()
 
 
+def _cmd_intelligence_knowledge(args) -> int:
+    """Build or inspect the local knowledge index; no server or model call."""
+    import json as json_mod
+
+    from strength_coach.intelligence.knowledge.allowlist import (
+        KnowledgeConfigError,
+        load_config,
+    )
+    from strength_coach.intelligence.knowledge.index import (
+        build,
+        list_candidates,
+        status,
+    )
+
+    try:
+        config = load_config(args.config)
+    except (KnowledgeConfigError, ValueError) as exc:
+        print(f"knowledge config: {exc}")
+        return 2
+    if args.knowledge_command == "build":
+        try:
+            result = build(config, dry_run=args.dry_run)
+        except Exception as exc:
+            print(f"knowledge index: {exc}")
+            return 2
+        if args.json:
+            print(json_mod.dumps(result.__dict__, default=str, sort_keys=True))
+        else:
+            print(f"index: {result.index_path}")
+            print(f"included: {result.included_files} files, {result.chunks} chunks")
+            print(f"skipped: {result.skipped}; removed: {result.removed}; "
+                  f"secret-skipped: {result.secret_skipped}; unreadable: {result.unreadable}; "
+                  f"excluded: {result.excluded}")
+        return 0
+    if args.knowledge_command == "list":
+        listing = list_candidates(config)
+        if args.json:
+            print(json_mod.dumps(listing, sort_keys=True))
+            return 0
+        for item in listing["included"]:
+            print(f"include {item['source']}:{item['path']}")
+        if args.excluded:
+            for item in listing["excluded"]:
+                print(f"exclude {item['source']}:{item['path']} ({item['reason']})")
+        return 0
+    result = status(config.index_path)
+    if args.json:
+        print(json_mod.dumps(result, default=str, sort_keys=True))
+        return 0
+    if not result.get("exists"):
+        print(f"index: {config.index_path} (missing)")
+        return 1
+    print(f"index: {result['index_path']}")
+    print(f"files: {result['files']}; chunks: {result['chunks']}")
+    meta = result.get("meta") or {}
+    for key in sorted(meta):
+        print(f"{key}: {meta[key]}")
+    return 0
+
+
 def _cmd_intelligence(args) -> int:
     """Run the read-only MCP server or manage its client tokens.
 
@@ -1362,6 +1411,9 @@ def _cmd_intelligence(args) -> int:
 
     if args.intelligence_command == "narrate":
         return _cmd_intelligence_narrate(args)
+
+    if args.intelligence_command == "knowledge":
+        return _cmd_intelligence_knowledge(args)
 
     path = Path(args.tokens) if args.tokens else local_config_path()
     try:
@@ -1825,60 +1877,6 @@ def _print_symptoms(conn, *, region: str | None = None) -> None:
               f"{row['level']:>6}  {settled:<8} "
               f"{attribution + (' · ' if attribution and row['note'] else '')}"
               f"{row['note'] or ''}")
-
-
-def _cmd_cardio(args) -> int:
-    store = db.Store(args.db)
-    try:
-        conn = store.connection
-        logging = args.modality is not None or args.minutes is not None
-        if args.show or not logging:
-            _print_cardio(conn, weeks=args.weeks, on_date=args.date)
-            return 0
-        if not args.modality:
-            raise SystemExit("--modality is required when logging a cardio session")
-        if args.minutes is None:
-            raise SystemExit("--minutes is required when logging a cardio session")
-        on_date = args.date or datetime.date.today().isoformat()
-        repositories.append_cardio(
-            conn,
-            performed_on=on_date,
-            modality=args.modality,
-            duration_s=round(float(args.minutes) * 60),
-            avg_hr=args.avg_hr,
-            max_hr=args.max_hr,
-            distance_m=(None if args.distance_km is None else args.distance_km * 1000),
-            srpe=args.srpe,
-            note=args.note,
-        )
-        print(f"logged {args.modality} {args.minutes:g} min on {on_date}")
-        summary = cardio_feature.compute(conn, weeks=args.weeks, on_date=on_date)
-        print(f"last {args.weeks} weeks: {summary.total_minutes:g} min across "
-              f"{summary.sessions} sessions "
-              f"({summary.average_weekly_minutes:g} min/week)")
-        return 0
-    finally:
-        store.close()
-
-
-def _print_cardio(conn, *, weeks: int = 12, on_date: str | None = None) -> None:
-    summary = cardio_feature.compute(conn, weeks=weeks, on_date=on_date)
-    print(f"cardio, last {weeks} weeks ({summary.from_date} to {summary.to_date})")
-    print(f"  sessions        {summary.sessions}")
-    print(f"  total minutes   {summary.total_minutes:g}")
-    print(f"  average/week    {summary.average_weekly_minutes:g}")
-    if summary.average_srpe is not None:
-        print(f"  average sRPE    {summary.average_srpe:g}/10")
-    if summary.by_modality:
-        print("  modalities      " + ", ".join(
-            f"{name} x{count}" for name, count in summary.by_modality.items()
-        ))
-    if summary.weekly_minutes:
-        print("  weekly minutes")
-        for week, minutes in summary.weekly_minutes.items():
-            print(f"    {week}  {minutes:g}")
-    print(f"  reference       {summary.reference_min}-{summary.reference_max} min/week")
-    print(f"  {summary.reference_note}")
 
 
 def _cmd_exercise_demands(args) -> int:
@@ -2997,96 +2995,6 @@ def _import_export(conn):
         training_sha256=importer.sha256_file(training_path),
         readiness_sha256=importer.sha256_file(readiness_path),
     )
-
-
-def _propose(conn, trace, prescription, args):
-    """Ask for a structured proposal and decide it. Returns (prescription, approved_by).
-
-    Every rejection path keeps the deterministic prescription: the model may propose, the
-    validator decides, and a failure never leaves the athlete without a session.
-    """
-    settings = load_settings()
-    client = build_client(settings)
-    if not client.available:
-        print("\n(proposal skipped: no model configured)")
-        return prescription, "deterministic"
-
-    context = RuleContext.from_store(conn, end=prescription.for_date)
-    if prescription.fallback_level != "full" or context.symptom_flare:
-        print("\n(proposal skipped: the session was already modified by a safety rule)")
-        return prescription, "deterministic"
-
-    allowed = proposal_mod.allowed_substitutes(conn, context, prescription)
-    document = load_document()
-    options = proposal_mod.menu(prescription, document)
-    reps = proposal_mod.scheme_options(prescription, schemes_mod.Schemes.load())
-    try:
-        response = client.complete(
-            proposal_mod.prompt_for(prescription, allowed, options, reps),
-            system=proposal_mod.SYSTEM,
-        )
-    except LLMError as exc:
-        print(f"\nproposal unavailable: {exc}")
-        trace.finish(status="llm_failed")
-        return prescription, "deterministic"
-
-    trace.add_tokens(response.tokens)
-    trace.event("llm_output", {
-        "kind": "proposal", "text": response.text, "model": response.model,
-    })
-
-    try:
-        parsed = proposal_mod.parse(response.text)
-    except proposal_mod.ProposalError as exc:
-        print(f"\nproposal rejected: {exc}")
-        trace.event("policy_verdict", {"proposal": "rejected", "reasons": [str(exc)]})
-        trace.finish(status="llm_downgraded")
-        return prescription, "deterministic"
-
-    thresholds = prescribe_config.Thresholds.load()
-    decisions = evaluate(document, context).verdict("PRG-DP-001").details.get("decisions", {})
-    outcome = proposal_mod.assess(
-        conn, prescription, parsed, context=context, document=document,
-        thresholds=thresholds, decisions=decisions,
-    )
-
-    print("\nproposal")
-    print("  " + proposal_mod.describe(parsed))
-    if parsed.summary:
-        print(f"  why: {parsed.summary}")
-
-    if not outcome.accepted:
-        print("  rejected: " + "; ".join(outcome.reasons))
-        trace.event("policy_verdict", {
-            "proposal": "rejected", "reasons": list(outcome.reasons),
-        })
-        trace.finish(status="llm_downgraded")
-        return prescription, "deterministic"
-
-    essential_ids = {item.exercise_id for item in prescription.items if item.essential}
-    main_change = any(
-        change.action == "substitute" and change.exercise in essential_ids
-        for change in parsed.changes
-    )
-    if main_change:
-        # A main-lift swap is never applied silently, even with --yes.
-        answer = input("  this replaces an essential lift; apply? [y/N] ").strip().lower()
-    elif not args.yes:
-        answer = input("  apply this proposal? [y/N] ").strip().lower()
-    else:
-        answer = "yes"
-    if answer not in ("y", "yes"):
-        print("  declined: keeping the deterministic prescription")
-        trace.event("policy_verdict", {"proposal": "declined"})
-        return prescription, "deterministic"
-
-    trace.event("policy_verdict", {
-        "proposal": "accepted",
-        "changes": proposal_mod.describe(parsed),
-        "main_substitution": main_change,
-    })
-    print("  accepted")
-    return outcome.prescription, "llm+policy"
 
 
 def _narrate(conn, trace, prescription) -> None:

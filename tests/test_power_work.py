@@ -12,12 +12,10 @@ import pandas as pd
 import pytest
 from conftest import make_readiness, make_training
 
-from strength_coach.agents import proposal
 from strength_coach.features import derived
 from strength_coach.features.deload import DeloadDecision
 from strength_coach.prescribe import build_prescription, templates
 from strength_coach.prescribe.persistence import _rows
-from strength_coach.rules import load_document
 from strength_coach.store import db, importer
 from strength_coach.web import server
 
@@ -153,18 +151,3 @@ def test_readiness_and_a_deload_do_not_try_to_change_a_quality_rir():
     assert box.rir_target is None
     assert box.effort_model == "quality"
     assert prescription.executable is True
-
-
-def test_the_proposal_offers_only_keep_for_quality_work():
-    with store_with(SQUAT_ROWS) as store:
-        prescription = build_prescription(
-            store.connection, for_date="2024-01-08", session_type="squat",
-        )
-    document = load_document()
-    menus = proposal.menu(prescription, document)
-    assert list(menus["box_jump"]) == ["keep"]
-    from strength_coach.prescribe import schemes
-    assert proposal.scheme_options(prescription, schemes.Schemes.load())["box_jump"] == []
-    prompt = proposal.prompt_for(prescription, allowed={}, options=menus)
-    assert "quality stop" in prompt
-    assert "RIR None" not in prompt

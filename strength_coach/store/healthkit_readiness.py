@@ -99,11 +99,20 @@ def record_observations(
         if row is None:
             continue
         existing = dict(row)
-        if existing["on_date"] != str(on_date) or any(
-            existing[name] != sample[name] for name in _IMMUTABLE_FIELDS
-        ):
+        changed = [
+            name for name in _IMMUTABLE_FIELDS if existing[name] != sample[name]
+        ]
+        if existing["on_date"] != str(on_date):
+            # The same immutable HealthKit sample can be selected again after midnight. It
+            # belongs to the date it was first imported; skip it rather than reassigning history.
+            if not changed:
+                existing_by_key[(field, str(sample["sample_id"]))] = existing
+                continue
+            changed.append("date")
+        if changed:
             raise HealthKitObservationConflict(
-                f"HealthKit sample {sample['sample_id']} conflicts with its stored observation"
+                f"HealthKit sample {sample['sample_id']} conflicts with its stored observation "
+                f"on {', '.join(changed)}"
             )
         existing_by_key[(field, str(sample["sample_id"]))] = existing
 

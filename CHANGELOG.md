@@ -2,7 +2,88 @@
 
 ## [Unreleased]
 
-Nothing yet.
+- Nothing yet.
+
+## [1.7.0] — 2026-11-18
+
+Longevity assessment end to end: aerobic adequacy against the WHO 150–300 reference as context,
+VO₂max status with its date and currency, per-pattern volume headroom, sample-based time-in-zone, a
+separate health-data consent on the phone, and advisory prose from the configured model. No
+migration, no notification, no cardio impulse.
+
+### Added
+
+- **Longevity assessment on the cardio summary.** `GET /api/cardio/summary` and the phone's
+  authenticated activity route now carry an `assessment` block: the last completed week's
+  moderate-equivalent minutes against the WHO 150–300 reference **as context**, the current week's
+  progress with the days left, and the latest VO₂max with `current`/`stale`/`absent`. It abstains
+  (relation `unknown`) when fewer than half the week's minutes are classified, and nothing reads
+  cardio to change a prescription (`DEC-LONGEVITY-01`). Optional `tiz=1` and `patterns=1` add
+  sample-based zone minutes and per-pattern volume headroom. No migration, no notification, no model.
+- **The web Longevity panel now leads with the assessment.** The 4-week average sentence is
+  replaced by the completed week against the reference, with unclassified minutes named, and a
+  **Write the summary** button that calls `/api/intelligence/narrate` on demand and labels the
+  model that wrote it. Nothing is generated until asked.
+- **`get_longevity_assessment` capability** (MCP tool 11, `GET /api/ios/v1/intelligence/longevity`,
+  and the chat/ `training_data` catalogue): the same facts as a versioned envelope with
+  `privacy.class: health`, abstaining to `insufficient` when classification is thin and `no_data`
+  when the week is empty. It returns no advice and no prose.
+
+### Fixed
+
+- **Time-in-zone loads only the workouts in its window.** It read all 590,000 heart-rate samples
+  to answer a 28-day question; scoping the query to the 25 workouts in the window took the ODROID
+  figure from 11,078 ms p95 to 191 ms, and the block is now cheap enough for the panel it was
+  built for.
+- **The readiness recovery series prefers a complete night over a newer partial one.**
+  A query window that started or ended mid-day computed a valid-looking median from part of the
+  night, and the value-keyed sample id let it supersede the complete night; the series now
+  prefers the row computed from more samples before recency.
+- **Pre-cutover manual and imported HRV no longer override the recovery night.** A manual HRV
+  entered before 2026-11-18 measured the old newest-sample definition, and the imported
+  readiness HRV column is that same definition; readiness now takes HRV only from the recovery
+  series or from a manual entry recorded after the cutover, and a day with neither has no HRV.
+  Manual precedence for every other readiness field is unchanged.
+- **The 7- and 28-day cardio windows end at an explicit `as_of`.** The windows hung off the
+  last workout, so "last 7 days" excluded every day since the last session; they now end at
+  `as_of` (default today, Europe/London), empty weeks are present at zero, and the reference
+  date is injectable for determinism.
+
+## [1.6.0] — 2026-11-17
+
+### Added
+
+- Cardio stage: Apple Health history is promoted offline (1,430 workouts, 599,927 samples, 399
+  VO2max estimates), the phone syncs incrementally afterwards, and workouts are linked to training
+  sessions in two tiers. 326 sessions carry heart rate, active energy and true duration.
+- Analytics and dashboards: WHO-equivalent minutes under a MET-then-HR cascade, coverage by year,
+  resistance share reported separately, time-in-zone for the 275 continuity-eligible workouts,
+  /api/cardio/summary, an activity panel with per-workout Hide, and an iOS overview behind an
+  authenticated route.
+- cardio_exclusion, external_workout.srpe, and the corpus tables (migrations 0064-0068).
+
+### Changed
+
+- The longevity review reads the imported corpus instead of cardio_log.
+- Per-item tolerance on both activity routes: one bad sample or metric no longer rejects a batch,
+  and rejected counts make a partial write visible.
+- Workouts dated before history_cutoff are rejected server-side rather than trusted to the client.
+- idx_health_sample_kind dropped after the query plan showed it chosen for the per-workout lookup
+  and then filtering ~590k rows (0070).
+
+### Removed
+
+- cardio_log, the Cardio entry form, GET/POST /api/cardio (now 410), the cardio CLI command and
+  append_cardio (0069, DEC-CARDIO-19).
+
+### Changed
+
+- **A one-step readiness drop no longer removes the top set** (`DEC-RESOLVER-14`). The top-set
+  RIR is capped at `resolver.top_set.fallback_above_rir` instead of falling back to straight
+  sets, so a low score or a sleep/energy trigger keeps one top set at the ceiling and hands the
+  raised RIR to the back-off sets. A two-step readiness drop, a continuity gap or a back flare
+  still falls back, and deload, taper, eligibility and set-count/load vetoes are unchanged.
+  Settings now labels the key "Top-set RIR ceiling".
 
 ## [1.5.0] — 2026-11-15
 

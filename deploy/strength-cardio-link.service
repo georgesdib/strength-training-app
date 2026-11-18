@@ -1,0 +1,26 @@
+# Cardio linker, one run.
+#
+# Installed as /etc/systemd/system/strength-cardio-link.service and started by
+# strength-cardio-link.timer. Linking is idempotent and never rewrites an existing link, so running
+# it repeatedly is safe; the exit code is 1 when the queue is non-empty, which is information rather
+# than failure (hence SuccessExitStatus).
+
+[Unit]
+Description=Strength Coach cardio linker (one run)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=dsh
+Group=dsh
+WorkingDirectory=/home/dsh/strength-app/strength-training-app
+Environment=HOME=/home/dsh
+Environment=PATH=/home/dsh/strength-app/strength-training-app/.venv/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONUNBUFFERED=1
+Environment=TZ=Europe/London
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=300
+ExecStart=/home/dsh/strength-app/strength-training-app/.venv/bin/python tools/cardio_link.py --db data/coach.db --apply
+SuccessExitStatus=1

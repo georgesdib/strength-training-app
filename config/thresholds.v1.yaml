@@ -78,13 +78,6 @@ prescription:
   # target, not a hard ceiling. Recorded because the prescription row stores a time target even
   # when it cannot be measured (no timestamps in the export).
   session_time_cap_s: 5400
-  # A proposal may change set counts but never loads, RIR or the exercise taxonomy. These bounds
-  # are the whole of its licence: anything outside them is rejected, not clamped.
-  proposal_max_set_change: 2
-  proposal_max_sets: 8
-  # Replacing an essential lift is a programme change, not a convenience. At most one per
-  # proposal, only for a rated primary compound, and no more often than this.
-  proposal_main_substitution_min_interval_days: 42
 
 continuity:
   # Detraining evidence: two weeks of cessation already reduces fast/eccentric strength, and

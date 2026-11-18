@@ -316,7 +316,7 @@ document version.
 |---|---|
 | item_id PK | |
 | prescription_id FK | |
-| order_index | stable plan-item identity within a prescription/workout; live R8 edits preserve it and add assigns the next value |
+| order_index | stable plan-item identity within a prescription/workout; live R8 edits preserve it (move changes only the list position) and add assigns the next value |
 | exercise_id | |
 | sets, reps_low, reps_high | |
 | load_kg, load_basis, rounding_increment | |
@@ -822,6 +822,53 @@ replays it. A receipt uniqueness race is rolled back and re-read rather than ret
 A device cannot see another device's plan or receipt. The client keeps its operation UUID and body
 only in memory; a lost response cannot be replayed after app termination until a durable
 pending-mutation journal is added (ROADMAP §4.30 R1).
+
+## 21. Cardio corpus — `external_workout`, `health_sample`, `workout_link`, `external_status_event`
+
+Machine-observed activity from Apple Health and HealthKit. Deliberately separate from both
+`session` (what was trained): a HealthKit
+workout is an external source record, not a training session. The design decisions behind this
+domain are recorded in the portfolio plan, `docs/plans/CARDIO-STAGE.md`; this section documents the
+schema only.
+
+| Table | Holds | Notes |
+|---|---|---|
+| `external_workout` | One imported workout: activity type, interval, summary statistics, provenance | Append-only. Identity is `external_key`, never device-scoped |
+| `health_sample` | Heart-rate and power samples associated with a workout or its 10-minute recovery tail | Append-only. `association` and `external_workout_id` must agree |
+| `workout_link` | Append-only link/unlink events between a workout and a session | Current state is the latest event per pair; `unlink` names what it retires |
+| `external_status_event` | Absence, unavailability, confirmed deletion, reappearance | Deletion is an event, never a delete |
+| `cardio_sync_state` | Ingestion checkpoints: `history_cutoff` and anchor state | The only mutable row set in this domain |
+
+**Identity.** One column, two sources: the HealthKit object UUID for rows from the app, a `sha256`
+content key for rows promoted from an export (which carries no sample UUIDs). The timeline is split
+at `history_cutoff`, so the two regimes never need to reconcile. Keys are stored as the 32-byte
+digest (BLOB), not as hex text: hex doubles the key in the row and again in every index over it,
+which measured ~41 MB on the first real corpus for no benefit. Hex appears in logs and messages only.
+
+`measurement.external_id` stays TEXT because it sits in an existing text-keyed table; the import
+writes that one as hex.
+
+**Units.** Seconds, metres, kilojoules, beats per minute. `timezone` retains `HKTimeZone` where
+present so local-day attribution does not silently use the server's zone.
+
+**Effort and hiding.** `external_workout.srpe` (migration `0067`) holds Apple's per-workout effort
+score, 1–10, the same scale as session RPE and written by the watch app. `cardio_exclusion` (`0068`)
+records hide/show as append-only events, latest wins; every read path and the linker filter on the
+current state, so hiding removes a workout from metrics without deleting it.
+
+**Manual entry is retired (2026-11-17).** `cardio_log` was dropped by migration `0069` after its
+write paths — the web form, `POST /api/cardio`, the `cardio` CLI command and `append_cardio` — were
+removed. This corpus is the only activity history, and a session recorded without a device is
+absent rather than unclassified. Hiding (`cardio_exclusion`) is the correction path.
+
+**Statistics, not duplicate sets.** The summary columns (average/max heart rate, active energy,
+distance, `avg_mets`) are what the metrics read; the raw series lives in `health_sample`. Nothing
+here creates, edits or voids a `session`.
+
+**Measurement columns.** VO₂max is a periodic outcome, not daily state, so it belongs in
+`measurement` beside body-fat and steps rather than in a cardio table.
+`measurement.external_id` (with a partial unique index) makes a re-import idempotent, and
+`measured_at` keeps the sample timestamp that `measured_on` cannot express.
 
 ## Related
 

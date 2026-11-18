@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Export the complete repository tree to a tar archive.
 
-This is a literal export, not the restorable backup in `tools/backup_app.py`. It includes
-tracked files, ignored private files (`private/`, `data/`), local secret overlays, SQLite
-files and `.git`, unless `--no-git` is given. It excludes only reproducible build, cache and
-virtual-environment data. The resulting archive can contain health data and API keys; it is
-unencrypted and is written mode 600.
+This is a literal export, not the portfolio's restorable backup in `scripts/backup_app.py`. It
+includes tracked files, ignored private files (`private/`, `data/`), local secret overlays,
+SQLite files and `.git`, unless `--no-git` is given. It excludes only reproducible build,
+cache and virtual-environment data. The resulting archive can contain health data and API keys;
+it is unencrypted and is written mode 600.
 
 Usage:
     python3 tools/export_repo.py

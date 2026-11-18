@@ -9,6 +9,7 @@ from __future__ import annotations
 from strength_coach.intelligence.capabilities import (
     adherence,
     compare,
+    longevity,
     overview,
     prescription,
     programme,
@@ -22,6 +23,7 @@ from strength_coach.intelligence.capabilities import (
 __all__ = [
     "adherence",
     "compare",
+    "longevity",
     "overview",
     "prescription",
     "programme",

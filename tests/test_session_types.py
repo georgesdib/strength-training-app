@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from strength_coach.prescribe import schedule, templates
+from strength_coach.store import db
 
 
 def test_every_session_has_an_upper_body_push_and_a_row():
@@ -25,6 +26,29 @@ def test_rolling_schedule_keeps_the_three_emphases_balanced():
     # No history: the first choice is squat. Then a fresh two-week cycle alternates.
     assert schedule.next_session_type.__module__
     assert schedule.SESSION_TYPES == ("squat", "hinge", "bench_squat", "bench_hinge")
+
+
+def test_schedule_choice_is_cached_across_connections(tmp_path, monkeypatch):
+    path = tmp_path / "coach.db"
+    first = db.connect(path)
+    db.migrate(first)
+    second = db.connect(path)
+    try:
+        schedule._SCHEDULE_CACHE.clear()
+        calls = []
+        original = schedule._next_session_type_uncached
+
+        def counted(conn, before, **kwargs):
+            calls.append(1)
+            return original(conn, before, **kwargs)
+
+        monkeypatch.setattr(schedule, "_next_session_type_uncached", counted)
+        choice = schedule.next_session_type(first.connection if hasattr(first, "connection") else first, "2024-01-10")
+        assert schedule.next_session_type(second, "2024-01-10") == choice
+        assert len(calls) == 1  # a new request connection reuses the stored choice
+    finally:
+        first.close()
+        second.close()
 
 
 def test_plan_a_restores_squat_and_raises_hinge_volume():

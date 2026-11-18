@@ -118,7 +118,66 @@ def test_top_set_falls_back_when_resolved_rir_is_too_high() -> None:
         requested=True,
     )
     assert plan.applied is False
-    assert "fallback threshold" in plan.reason
+    assert "RIR ceiling" in plan.reason
+
+
+def test_readiness_step_is_absorbed_by_the_ceiling() -> None:
+    # 56% readiness plus a bad-sleep floor is one RIR step: the top set stays the hardest set
+    # at the ceiling and the back-offs take the raised RIR (DEC-RESOLVER-14).
+    plan = top_set.plan_top_set(
+        _item(rir_target=3),
+        settings=_settings(**{"resolver.top_set.mode": "on"}),
+        eligible_lifts=("ssb_squat",),
+        primary_exercise="ssb_squat",
+        scheme="strength",
+        competition_date=None,
+        for_date="2026-11-01",
+        deload=False,
+        requested=True,
+        readiness_bump=1,
+    )
+    assert plan.applied is True
+    assert plan.top_set_rir == 2
+    assert [group.role for group in plan.groups] == ["top_set", "back_off"]
+    assert plan.groups[0].rir_target == 2
+    assert plan.groups[1].rir_target == 3
+    assert plan.groups[0].load_kg > plan.groups[1].load_kg
+    assert "absorbed by the ceiling" in plan.reason
+
+
+def test_two_step_readiness_drop_uses_straight_sets() -> None:
+    plan = top_set.plan_top_set(
+        _item(rir_target=4),
+        settings=_settings(**{"resolver.top_set.mode": "on"}),
+        eligible_lifts=("ssb_squat",),
+        primary_exercise="ssb_squat",
+        scheme="strength",
+        competition_date=None,
+        for_date="2026-11-01",
+        deload=False,
+        requested=True,
+        readiness_bump=2,
+    )
+    assert plan.applied is False
+    assert "2 steps" in plan.reason
+
+
+def test_non_readiness_caution_keeps_the_straight_set_fallback() -> None:
+    plan = top_set.plan_top_set(
+        _item(rir_target=3),
+        settings=_settings(**{"resolver.top_set.mode": "on"}),
+        eligible_lifts=("ssb_squat",),
+        primary_exercise="ssb_squat",
+        scheme="strength",
+        competition_date=None,
+        for_date="2026-11-01",
+        deload=False,
+        requested=True,
+        readiness_bump=1,
+        blocked_reason="back flare held the primary lift; straight sets",
+    )
+    assert plan.applied is False
+    assert "back flare" in plan.reason
 
 
 def test_top_set_is_disabled_on_deload_and_for_ineligible_lifts() -> None:

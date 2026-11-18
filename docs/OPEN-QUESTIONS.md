@@ -7,18 +7,12 @@ produces an `unknown` verdict rather than a silent guess.
 > Quantitative evidence for each question is kept out of this public repository. The
 > questions themselves are methodology questions and apply to any athlete using the system.
 
-**Live register (2026-10-30):** one open question (Q14), one deferred decision (Q22) and the Phase 5A evidence gate (Q30).
+**Live register (2026-11-18):** no open question in this register; one deferred decision (Q22) and the
+Phase 5A evidence gate (Q30). Q14 (the cardio load model) closed on 2026-11-18: the corpus answered the
+data half and the model half was retired as product direction (`DEC-LONGEVITY-03`).
 The 22 questions decided since the register was created were removed from the live text on
 2026-10-25; each outcome and decision record is indexed under
 [Closed](#closed--index-only). Reopening a closed question is a new decision, not an edit.
-
----
-
-## Q14. What cardio load and fatigue model should the app use?
-
-Planned in ROADMAP §4.13. Open: which modalities, whether TRIMP or sRPE is the impulse,
-two vs three fatigue systems, whether cardio modifies load or only readiness context, and how
-many weeks of individual data are needed before showing a time constant. No implementation.
 
 ---
 
@@ -66,6 +60,7 @@ enforced; the reasoning lives in the decision record and the linked document.
 | Q10, Q11 | Is the sumo deadlift an accessory? | replacement for the trap-bar hinge only; its 2.5 spinal cost is an accepted ordinal choice, not recalibrated | `DEC-TRAPBAR-03`, `DEC-SPINE-01` |
 | Q12 | Can re-entry be calibrated from returns? | calibrated factor rejected (MAE 0.150 vs 0.128); fixed 14/28/56-day bands, +1 RIR, −5%/−10% remain | `DEC-CONTINUITY-02/03`, `docs/RETROSPECTIVE-VALIDATION.md` |
 | Q13 | Is four weeks the right back-signal window? | window scales with prior flares (28 d + 14/flare, cap 84); "tolerated" needs a clean reading; region-specific lift links | `DEC-INJURY-01/02/03`, `docs/INJURY-SIGNAL.md` |
+| Q14 | What cardio load and fatigue model should the app use? | **closed 2026-11-18: no model.** TRIMP, sRPE impulse, acute:chronic ratios and unified fatigue scores are retired as product direction; cardio contributes sample-based time-in-zone to the longevity assessment and nothing reads it to change a prescription | `DEC-LONGEVITY-03`; [longevity assessment](https://github.com/georgesdib/strength-app/blob/development/docs/plans/LONGEVITY-ASSESSMENT.md) |
 | Q15 | Dedicated core work, and at what dose? | two reps-based slots; both in `accessories_and_back_extension` so `PRG-DP-001` progresses them | `DEC-CORE-01`, `docs/CORE-TRAINING.md` |
 | Q16 | Why was `PRG-DP-001` never assessable? | rep ranges pool across all templates (`all_rep_ranges`), so every scoped accessory is assessable | answered 2026-10-20; `docs/CORE-TRAINING.md` §5.4 |
 | Q17 | Pulling and power slots? | vertical-pull variant slot and `box_jump` power slot added | `DEC-PULL-01/02`, `DEC-POWER-01` |

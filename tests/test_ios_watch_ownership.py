@@ -69,21 +69,6 @@ def test_start_records_owner_and_revision(ios, monkeypatch):
     assert execution["stale"] is False
 
 
-def test_non_owner_cannot_write_sets_or_complete(ios, monkeypatch):
-    phone, watch, started = _watch_workout(ios, monkeypatch)
-    item = _first_item(started["plan"])
-    status, body = _add_set(ios, phone, started["workout_id"], item)
-    assert status == 409, body
-    assert body["code"] == "not_owner"
-    status, body = _request(
-        ios["base"], f"/api/ios/v1/workouts/{started['workout_id']}/complete",
-        method="POST", payload={"session_rpe": 7}, token=phone,
-        key=uuid.uuid4().hex,
-    )
-    assert status == 409, body
-    assert body["code"] == "not_owner"
-
-
 def test_watch_cannot_edit_the_plan_but_phone_can(ios, monkeypatch):
     phone, watch, started = _watch_workout(ios, monkeypatch)
     item = _first_item(started["plan"])

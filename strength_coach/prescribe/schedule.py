@@ -11,8 +11,9 @@ how three consecutive squat sessions were produced.
 
 from __future__ import annotations
 
-from collections import Counter
-from functools import lru_cache
+import threading
+from collections import Counter, OrderedDict
+from typing import Any
 
 from strength_coach.features import training_day
 from strength_coach.prescribe import session_identity
@@ -115,27 +116,80 @@ def _schedule_stamp(conn) -> tuple[int, int, tuple[int, ...]]:
     return data_version, changes, tuple(mtimes)
 
 
-@lru_cache(maxsize=32)
-def _cached_next_session_type(
-    conn, before: str, prior: tuple[str, ...], data_version: int, changes: int,
-    config_stamp: tuple[int, ...],
-) -> str:
-    return _next_session_type_uncached(conn, before, prior_types=prior)
+#: Choices are shared across connections by database identity and the same stamp that guarded
+#: the old per-connection cache. Keying on the connection made every HTTP request (each opens
+#: a new one) recompute the full history scan, which is seconds on the production database.
+_SCHEDULE_CACHE: OrderedDict[tuple[Any, ...], str] = OrderedDict()
+_SCHEDULE_CACHE_LOCK = threading.Lock()
+_SCHEDULE_CACHE_MAX = 64
+
+
+def _database_key(conn) -> str:
+    try:
+        rows = conn.execute("PRAGMA database_list").fetchall()
+    except Exception:
+        return ""
+    if rows and rows[0][2]:
+        return str(rows[0][2])
+    # In-memory databases have no stable identity across connections; cache per call instead.
+    return ""
+
+
+_AVAILABILITY_CACHE: OrderedDict[tuple[Any, ...], dict[str, bool]] = OrderedDict()
+_AVAILABILITY_CACHE_LOCK = threading.Lock()
+_AVAILABILITY_CACHE_MAX = 64
+
+
+def _availability_cached(conn, before: str | None) -> dict[str, bool]:
+    """Availability per database revision and date.
+
+    A report asks for the next type once per projected session, and every date-key miss rebuilt
+    the full rule context. One computation per revision and date is enough; a writer or config
+    edit changes the stamp. In-memory databases have no cross-connection identity and stay
+    uncached.
+    """
+    database = _database_key(conn)
+    if not database or before is None:
+        return _availability(conn, before)
+    data_version, changes, config_stamp = _schedule_stamp(conn)
+    key = (database, before, data_version, changes, config_stamp)
+    with _AVAILABILITY_CACHE_LOCK:
+        cached = _AVAILABILITY_CACHE.get(key)
+        if cached is not None:
+            _AVAILABILITY_CACHE.move_to_end(key)
+            return cached
+        value = _availability(conn, before)
+        _AVAILABILITY_CACHE[key] = value
+        _AVAILABILITY_CACHE.move_to_end(key)
+        while len(_AVAILABILITY_CACHE) > _AVAILABILITY_CACHE_MAX:
+            _AVAILABILITY_CACHE.popitem(last=False)
+        return value
 
 
 def next_session_type(conn, before: str, *, prior_types=()) -> str:
     """Choose the next type from recent training days plus any forecast choices.
 
-    The result is memoised per connection and invalidated by SQLite's data version,
-    the connection's write count and the template/policy file mtimes. This removes the
-    repeated forecast calculations inside one resolver build without sharing mutable state
-    between requests or database writers.
+    Results are memoised across connections by database identity, SQLite's data version, the
+    connection's write count and the template/policy file mtimes. A writer or config edit
+    changes the key; within one database revision every request reuses the same choice.
     """
     prior = tuple(str(item) for item in prior_types)
+    database = _database_key(conn)
+    if not database:
+        return _next_session_type_uncached(conn, before, prior_types=prior)
     data_version, changes, config_stamp = _schedule_stamp(conn)
-    return _cached_next_session_type(
-        conn, before, prior, data_version, changes, config_stamp,
-    )
+    key = (database, before, prior, data_version, changes, config_stamp)
+    with _SCHEDULE_CACHE_LOCK:
+        cached = _SCHEDULE_CACHE.get(key)
+        if cached is not None:
+            _SCHEDULE_CACHE.move_to_end(key)
+            return cached
+        value = _next_session_type_uncached(conn, before, prior_types=prior)
+        _SCHEDULE_CACHE[key] = value
+        _SCHEDULE_CACHE.move_to_end(key)
+        while len(_SCHEDULE_CACHE) > _SCHEDULE_CACHE_MAX:
+            _SCHEDULE_CACHE.popitem(last=False)
+        return value
 
 
 def _next_session_type_uncached(conn, before: str, *, prior_types=()) -> str:
@@ -147,7 +201,7 @@ def _next_session_type_uncached(conn, before: str, *, prior_types=()) -> str:
     ][-WINDOW:]
     recent.extend(str(item) for item in prior_types)
 
-    availability = _availability(conn, before)
+    availability = _availability_cached(conn, before)
     available_families = {
         family for family in TARGETS
         if any(availability.get(session_type) for session_type in SESSION_TYPES

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from pathlib import Path
 
 import pytest
 
@@ -41,12 +42,21 @@ def _spec(**overrides):
 
 
 def test_shipped_registry_lists_the_read_only_capabilities():
-    assert CAPABILITIES.names() == ("compare_training_periods", "get_adherence_analysis", "get_exercise_progression", "get_prescription", "get_programme_block_summary", "get_readiness_history", "get_session_details", "get_training_overview", "get_vbt_analysis", "get_weekly_review")
+    assert CAPABILITIES.names() == ("compare_training_periods", "get_adherence_analysis", "get_exercise_progression", "get_longevity_assessment", "get_prescription", "get_programme_block_summary", "get_readiness_history", "get_session_details", "get_training_overview", "get_vbt_analysis", "get_weekly_review")
+
+
+def test_web_narrate_offers_every_registered_capability():
+    page = (
+        Path(__file__).resolve().parents[1]
+        / "strength_coach/web/static/index.html"
+    ).read_text(encoding="utf-8")
+    for name in CAPABILITIES.names():
+        assert f'<option value="{name}"' in page, name
 
 
 def test_describe_reports_version_summary_and_read_only():
     described = CAPABILITIES.describe()
-    assert len(described) == 10
+    assert len(described) == 11
     entry = next(item for item in described if item["name"] == "get_training_overview")
     assert entry["name"] == "get_training_overview"
     assert entry["version"] == "1.0.0"

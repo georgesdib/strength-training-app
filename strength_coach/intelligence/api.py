@@ -176,6 +176,26 @@ def weekly_review(
         return run(conn, device, "get_weekly_review", payload, config=config, clock=clock)
 
 
+def longevity(
+    db_path: str | Path,
+    device: dict[str, Any],
+    raw_path: str,
+    *,
+    config=None,
+    clock=None,
+) -> dict[str, Any]:
+    """Aerobic adequacy, VO2max status and pattern headroom; facts only, no advice."""
+    query = _query(raw_path, {"as_of", "include_time_in_zone", "include_patterns"})
+    payload: dict[str, Any] = {}
+    if "as_of" in query:
+        payload["as_of"] = query["as_of"]
+    for key in ("include_time_in_zone", "include_patterns"):
+        if key in query:
+            payload[key] = _bool_query(query, key)
+    with readonly_connection(db_path) as conn:
+        return run(conn, device, "get_longevity_assessment", payload, config=config, clock=clock)
+
+
 def prescription(
     db_path: str | Path, device: dict[str, Any], raw_path: str, *, config=None, clock=None
 ) -> dict[str, Any]:

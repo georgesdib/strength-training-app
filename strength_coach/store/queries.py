@@ -24,7 +24,7 @@ from contextvars import ContextVar
 import pandas as pd
 
 from strength_coach.domain import rir as rir_mod
-from strength_coach.store import healthkit_readiness
+from strength_coach.store import healthkit_readiness, hrv_recovery
 from strength_coach.utils import readiness as readiness_utils
 
 _SET_COLUMNS = {
@@ -403,12 +403,30 @@ def latest_rubric_marks(conn) -> list[dict]:
     return [dict(row) for row in rows]
 
 
+# Manual HRV entered before this instant measured the old definition ("newest SDNN sample"),
+# not a recovery night. It must not override the recovery series; a manual HRV recorded from
+# here on is a recovery value and keeps its usual precedence over HealthKit.
+RECOVERY_HRV_CUTOVER = "2026-11-18T00:00:00+00:00"
+
+
+def _after_recovery_cutover(recorded_at: object) -> bool:
+    try:
+        stamp = dt.datetime.fromisoformat(str(recorded_at).replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return stamp >= dt.datetime.fromisoformat(RECOVERY_HRV_CUTOVER)
+
+
 def _effective_readiness_rows(conn, start: str, end: str) -> dict[str, dict]:
     """Merge imported readiness, HealthKit observations and manual/preset entries.
 
     Precedence is manual/preset > HealthKit > imported. Every readiness consumer must use this
     helper (directly or through readiness_day/readiness_series/readiness_history) so a HealthKit
     value cannot be interpreted differently in Today, history, scoring or baseline eligibility.
+
+    HRV is the exception: it comes only from the hrv_recovery series (a night's median), or from a
+    manual entry recorded after RECOVERY_HRV_CUTOVER. The raw newest-sample HRV and imported HRV
+    never reach readiness, because they measured a different quantity.
     """
     base_rows = {
         str(row["on_date"]): dict(row)
@@ -431,6 +449,7 @@ def _effective_readiness_rows(conn, start: str, end: str) -> dict[str, dict]:
         (str(start), str(end)),
     ).fetchall()
     healthkit = healthkit_readiness.latest_observations(conn, str(start), str(end))
+    recovery = hrv_recovery.latest_by_date(conn, str(start), str(end))
 
     days = set(base_rows) | set(healthkit) | {str(entry["on_date"]) for entry in entries}
     merged_by_day: dict[str, dict] = {}
@@ -445,6 +464,11 @@ def _effective_readiness_rows(conn, start: str, end: str) -> dict[str, dict]:
 
         healthkit_provenance: dict[str, dict] = {}
         for field in healthkit_readiness.FIELDS:
+            # Readiness reads the recovery series for HRV, never the newest raw sample. The raw
+            # series stays in healthkit_readiness for audit; an imported or manually entered
+            # HRV is explicit user data and keeps its existing precedence.
+            if field == "hrv_ms":
+                continue
             observation = healthkit.get(day, {}).get(field)
             if observation is None:
                 continue
@@ -452,12 +476,28 @@ def _effective_readiness_rows(conn, start: str, end: str) -> dict[str, dict]:
             sources[field] = "healthkit"
             healthkit_provenance[field] = healthkit_readiness.provenance(observation)
 
+        # A recovery night replaces whatever imported value the day carried, so one definition
+        # drives the baseline. The manual loop below may still override it, but only with a
+        # recovery-era entry; old manual and imported values are removed here and cannot return.
+        recovered = recovery.get(day)
+        if recovered is not None:
+            merged["hrv_ms"] = recovered["value"]
+            sources["hrv_ms"] = "hrv_recovery"
+            healthkit_provenance["hrv_ms"] = hrv_recovery.provenance(recovered)
+        else:
+            merged["hrv_ms"] = None
+            sources.pop("hrv_ms", None)
+            healthkit_provenance.pop("hrv_ms", None)
+
         manual_note: dict[str, dict] = {}
         manual_fields: list[str] = []
         for entry in entries:
             if str(entry["on_date"]) != day:
                 continue
             field = str(entry["field"])
+            if (field == "hrv_ms" and str(entry["source"]) == "manual"
+                    and not _after_recovery_cutover(entry["recorded_at"])):
+                continue
             if str(entry["source"]) == "manual" and base is not None:
                 manual_note[field] = {
                     "imported": base.get(field),
@@ -610,28 +650,6 @@ def _flags_to_ingest_form(raw: str) -> str:
     except (TypeError, ValueError):
         return str(raw or "")
     return ";".join(str(v) for v in values)
-
-
-def cardio_entries(
-    conn,
-    *,
-    since: str | None = None,
-    until: str | None = None,
-) -> list[dict]:
-    """Cardio sessions in date order. Append-only, so a correction is a later row."""
-    clauses: list[str] = []
-    params: list[object] = []
-    if since is not None:
-        clauses.append("performed_on >= ?")
-        params.append(since)
-    if until is not None:
-        clauses.append("performed_on <= ?")
-        params.append(until)
-    sql = "SELECT * FROM cardio_log"
-    if clauses:
-        sql += " WHERE " + " AND ".join(clauses)
-    sql += " ORDER BY performed_on, created_at, entry_id"
-    return [dict(row) for row in conn.execute(sql, params)]
 
 
 def metric_definitions(conn) -> dict[str, dict]:

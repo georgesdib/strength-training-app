@@ -53,6 +53,7 @@ def envelope(
     evidence: Sequence[Mapping[str, object]] = (),
     observations: Sequence[Mapping[str, object]] = (),
     quality_flags: Sequence[str] = (),
+    units: Mapping[str, str] | None = None,
 ) -> Envelope:
     return Envelope(
         capability=capability,
@@ -60,7 +61,7 @@ def envelope(
         status=status,
         as_of=as_of,
         period=period,
-        units=UNITS,
+        units=dict(UNITS) if units is None else dict(units),
         facts=facts,
         evidence=tuple(evidence),
         observations=tuple(observations),

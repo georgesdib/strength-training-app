@@ -155,6 +155,11 @@ def test_the_page_and_overview_are_served(server):
     data = json.loads(body)
     assert data["sessions"][0]["session_id"] == "2024-01-01"
     assert data["form_evaluation"]["target_events"] == 10
+    # The Today card reads these compact fields; the raw summary does not carry them.
+    cardio = data["cardio"]
+    assert cardio["average_weekly_minutes"] is not None
+    assert isinstance(cardio["sessions"], int)
+    assert (cardio["reference_min"], cardio["reference_max"]) == (150, 300)
 
 
 def test_every_ui_doc_link_resolves_through_the_api(server):
@@ -475,7 +480,6 @@ def test_validation_errors_name_the_field(server):
                 "display": "Bad Pattern", "log_names": ["Bad Pattern"], "pattern": "sqaut",
             },
         }, "pattern"),
-        ("/api/cardio", {"modality": "walk", "minutes": 0}, "minutes"),
         ("/api/measurements", {"metric": "not_a_metric", "value": 1}, "metric"),
         ("/api/state/symptom", {"region": "low_back", "level": 9}, "level"),
         ("/api/state/break", {
@@ -781,28 +785,18 @@ def test_readiness_settings_and_shadow_endpoints(server):
     assert "SHADOW BASELINE" in json.loads(body)["text"]
 
 
-def test_cardio_round_trip_and_overview(server):
-    today = date.today().isoformat()
-    data = post(server, "/api/cardio", {
-        "date": today, "modality": "walk", "minutes": 30,
-        "avg_hr": 110, "max_hr": 130, "srpe": 3,
-    })
-    assert data["sessions"] == 1
-    assert data["total_minutes"] == 30.0
-    assert data["by_modality"] == {"walk": 1}
-
-    status, body = get(server, "/api/cardio?weeks=4")
+def test_cardio_summary_endpoint_is_served(server):
+    status, body = get(server, "/api/cardio/summary?weeks=4")
     assert status == 200
-    assert json.loads(body)["sessions"] == 1
+    payload = json.loads(body)
+    assert payload["policy"]["equivalent_rule"] == "moderate + 2 * vigorous"
+    assert len(payload["weeks"]) == 4  # empty weeks are present, not omitted
+    assert all(week["equivalent_minutes"] == 0 for week in payload["weeks"])
+    assert payload["years"] == {}
 
-    # The API accepts the same window anchor as `cardio --show --date`.
-    status, body = get(server, f"/api/cardio?weeks=4&date={today}")
+    status, body = get(server, "/api/cardio/summary")
     assert status == 200
-    assert json.loads(body)["to_date"] == today
-
-    overview = json.loads(get(server, "/api/overview")[1])
-    assert overview["cardio"]["sessions"] == 1
-    assert overview["cardio"]["reference_min"] == 150
+    assert len(json.loads(body)["weeks"]) == 12
 
 
 def test_measurements_round_trip(server):

@@ -969,3 +969,45 @@ def test_end_failure_rolls_back_the_completion(conn, monkeypatch):
         "SELECT COUNT(*) AS c FROM session WHERE session_id = ?",
         (started["workout_id"],),
     ).fetchone()["c"] == 0
+
+
+
+def test_move_exercise_changes_display_order_but_keeps_identity(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    before = started["plan"]["items"]
+    moved = workout.move_exercise(conn, started["workout_id"], 0, 1)
+    items = moved["plan"]["items"]
+    assert [item["exercise_id"] for item in items] == [
+        before[1]["exercise_id"], before[0]["exercise_id"],
+    ]
+    # Identity travels with the item; display position changes only.
+    assert items[1].get("order_index", 0) == before[0].get("order_index", 0)
+    assert moved["original_plan"]["items"][0]["exercise_id"] == before[0]["exercise_id"]
+    event = conn.execute(
+        "SELECT payload_json FROM workout_event "
+        "WHERE workout_id = ? AND event_type = 'move_exercise'",
+        (started["workout_id"],),
+    ).fetchone()
+    assert event is not None
+    assert '"to_index":1' in event["payload_json"].replace(" ", "")
+
+
+def test_move_to_the_same_position_records_no_event(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    revision = started.get("plan_revision")
+    same = workout.move_exercise(conn, started["workout_id"], 0, 0)
+    assert same["plan"]["items"][0]["exercise_id"] == (
+        started["plan"]["items"][0]["exercise_id"]
+    )
+    assert same.get("plan_revision") == revision
+    assert conn.execute(
+        "SELECT COUNT(*) AS c FROM workout_event "
+        "WHERE workout_id = ? AND event_type = 'move_exercise'",
+        (started["workout_id"],),
+    ).fetchone()["c"] == 0
+
+
+def test_move_rejects_an_out_of_range_position(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    with pytest.raises(ValueError, match="to_index out of range"):
+        workout.move_exercise(conn, started["workout_id"], 0, 5)

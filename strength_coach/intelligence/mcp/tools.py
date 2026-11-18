@@ -415,3 +415,33 @@ def register_tools(
             db_path, config, "get_weekly_review", payload,
             principal=current_principal(),
         )
+
+    @server.tool(
+        name="get_longevity_assessment",
+        description=(
+            "Read-only longevity facts, use only when the athlete asks about aerobic activity, "
+            "cardio fitness, VO2max, or what to add this week: the last completed week's "
+            "moderate-equivalent minutes against the WHO reference as context (never a pass/fail), "
+            "the current week's progress with the days left, the latest VO2max with "
+            "current/stale/absent, optional sample-based time-in-zone, and per-pattern volume "
+            "headroom. It returns no advice and no prose; recommend nothing that changes a load, "
+            "set, RIR or prescription."
+            + latency.description("get_longevity_assessment")
+        ),
+        annotations=READ_ONLY,
+    )
+    async def get_longevity_assessment(
+        as_of: str | None = None,
+        include_time_in_zone: bool = False,
+        include_patterns: bool = True,
+    ) -> EnvelopePayload:
+        payload: dict[str, object] = {
+            "include_time_in_zone": include_time_in_zone,
+            "include_patterns": include_patterns,
+        }
+        if as_of is not None:
+            payload["as_of"] = as_of
+        return await _run(
+            db_path, config, "get_longevity_assessment", payload,
+            principal=current_principal(),
+        )

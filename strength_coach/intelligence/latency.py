@@ -16,7 +16,7 @@ SOURCE = (
     "real MCP HTTP, 30 measured requests and 5 warm-ups; weekly review measured 2026-11-15"
 )
 
-#: capability name -> (HTTP p95 in milliseconds, classification)
+#: capability name -> (p95 in milliseconds over the transport named below, classification)
 MEASURED: dict[str, tuple[int, str]] = {
     "get_exercise_progression": (45, "fast"),
     "get_prescription": (46, "fast"),
@@ -31,10 +31,23 @@ MEASURED: dict[str, tuple[int, str]] = {
     # (221-session synthetic database, 12 measured requests) and provisional until the next
     # ODROID HTTP benchmark.
     "get_weekly_review": (571, "slow"),
+    # Measured 2026-11-18 on the ODROID in direct (in-process) mode — see DIRECT. Slower than the
+    # HTTP figures above because each call also reads the monthly volume budget.
+    "get_longevity_assessment": (437, "slow"),
 }
 
 #: Capabilities whose figure comes from a different run than SOURCE.
 PROVISIONAL: dict[str, str] = {}
+
+#: Entries measured outside the HTTP benchmark: name -> (date, how it was measured).
+#: Kept separate so the tool description never calls an in-process figure an HTTP one.
+DIRECT: dict[str, tuple[str, str]] = {
+    "get_longevity_assessment": (
+        "2026-11-18",
+        "in-process capability service on the ODROID, production database "
+        "(379 sessions, 231 MB), 30 measured requests after 5 warm-ups; not an MCP HTTP measurement",
+    ),
+}
 
 _GUIDANCE = {
     "fast": "Prefer this capability when it supplies sufficient evidence.",
@@ -62,6 +75,13 @@ def description(name: str) -> str:
     if name not in MEASURED:
         raise KeyError(f"no latency measurement for {name!r}")
     p95, kind = MEASURED[name]
+    if name in DIRECT:
+        measured_on, how = DIRECT[name]
+        return (
+            f"\n\nMeasured latency: {kind} (p95 {p95:,} ms on {measured_on}; {how}). "
+            "This is a historical benchmark, not a runtime guarantee. "
+            f"{_GUIDANCE[kind]} Never omit or alter required evidence merely to avoid latency."
+        )
     source = PROVISIONAL.get(name, SOURCE)
     return (
         f"\n\nMeasured latency: {kind} (HTTP p95 {p95:,} ms on {MEASURED_ON}; {source}). "
@@ -72,6 +92,12 @@ def description(name: str) -> str:
 
 def catalogue() -> list[dict[str, object]]:
     return [
-        {"capability": name, "http_p95_ms": p95, "classification": kind}
+        {
+            "capability": name,
+            "p95_ms": p95,
+            "classification": kind,
+            "measured_on": DIRECT[name][0] if name in DIRECT else MEASURED_ON,
+            "transport": "direct" if name in DIRECT else "http",
+        }
         for name, (p95, kind) in sorted(MEASURED.items())
     ]

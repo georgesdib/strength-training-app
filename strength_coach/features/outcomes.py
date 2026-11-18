@@ -14,14 +14,47 @@ import pandas as pd
 
 from strength_coach.domain.symptoms import flare_from
 from strength_coach.features import attendance as attendance_feature
-from strength_coach.features import cardio as cardio_feature
+from strength_coach.features import cardio_metrics, readiness_score, strength_trend, training_day
 from strength_coach.features import measurements as measurements_feature
-from strength_coach.features import readiness_score, strength_trend, training_day
 from strength_coach.rules import RuleContext, evaluate, load_document
 from strength_coach.store import queries
 from strength_coach.utils import exercises
 
 WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
+
+def _cardio_context(conn, weeks: int, end: dt.date) -> dict:
+    """Cardio context for the longevity review, read from the imported corpus.
+
+    Manual logging was retired: there is one activity history, and it is what HealthKit recorded.
+    Coverage travels with the numbers so imported minutes are never presented as uniformly measured.
+    """
+    summary = cardio_metrics.activity_summary(conn, weeks=weeks, as_of=end.isoformat())
+    weekly = {week["iso_week"]: week["equivalent_minutes"] for week in summary["weeks"]}
+    totals = summary["years"]
+    card = cardio_metrics.dashboard_card(summary)
+    return {
+        "weekly_minutes": weekly,
+        "rolling_4w_average": card["average_weekly_minutes"],
+        "weeks_with_data": len(weekly),
+        "sessions": card["sessions"],
+        "total_minutes": round(sum(week["total_minutes"] for week in summary["weeks"]), 1),
+        "equivalent_minutes": round(sum(week["equivalent_minutes"] for week in summary["weeks"]), 1),
+        "resistance_minutes": round(
+            sum(week["resistance_minutes"] for week in summary["weeks"]), 1
+        ),
+        "unclassified_minutes": round(
+            sum(week["unclassified_minutes"] for week in summary["weeks"]), 1
+        ),
+        "classified_share": (
+            round(1 - sum(week["unclassified_minutes"] for week in summary["weeks"])
+                  / max(sum(week["total_minutes"] for week in summary["weeks"]), 1), 3)
+        ),
+        "reference_min": card["reference_min"],
+        "reference_max": card["reference_max"],
+        "source": "recorded activity (HealthKit import and phone sync)",
+        "coverage_years": {year: totals[year]["classified_share"] for year in totals},
+    }
 MEASUREMENT_KEYS = (
     "steps_per_day", "sitting_hours_per_day", "bodyweight_kg", "body_fat_pct",
     "grip_strength_kg", "vo2max", "sit_to_stand_5_s",
@@ -284,11 +317,7 @@ def report(conn, *, weeks: int = 8, on_date: str | None = None) -> dict:
     symptoms = _symptoms(conn, start, end)
     spinal = _spinal(conn, start, end)
     deloads = _deloads(conn, start, end)
-    cardio = cardio_feature.compute(conn, on_date=end.isoformat(), weeks=weeks).as_dict()
-    weekly = sorted(cardio.get("weekly_minutes", {}).items())
-    last_four = [float(value) for _, value in weekly[-4:]]
-    cardio["rolling_4w_average"] = round(statistics.mean(last_four), 1) if last_four else None
-    cardio["weeks_with_data"] = len(weekly)
+    cardio = _cardio_context(conn, weeks, end)
     measured = measurements_feature.summary(conn)
     metrics = {row["key"]: row for row in measured if row["key"] in MEASUREMENT_KEYS}
 
