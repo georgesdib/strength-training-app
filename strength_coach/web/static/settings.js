@@ -936,7 +936,17 @@ async function runResolverPreview() {
   }
 }
 
+let resolverRatingRunning = false;
+
 async function rateResolverSuggestion(button) {
+  // The preview rebuild is slow enough that a second click is likely, and a repeat posts the
+  // same (exercise, day) rating twice. Keep the rating single-flight and say what is happening.
+  if (resolverRatingRunning) return;
+  resolverRatingRunning = true;
+  const buttons = [...document.querySelectorAll("[data-resolver-rate]")];
+  buttons.forEach((node) => { node.disabled = true; });
+  const label = button.textContent;
+  button.textContent = "Saving…";
   const exerciseId = button.dataset.resolverRate;
   const kind = button.dataset.resolverRateKind;
   const date = button.dataset.resolverRateDate;
@@ -954,6 +964,10 @@ async function rateResolverSuggestion(button) {
     await runResolverPreview();
   } catch (error) {
     notify(error.message, "error");
+  } finally {
+    resolverRatingRunning = false;
+    button.textContent = label;
+    buttons.forEach((node) => { node.disabled = false; });
   }
 }
 

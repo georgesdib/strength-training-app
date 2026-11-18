@@ -449,6 +449,11 @@ Deliberate distinction: `feels_bad` is a preference the prescription may work ar
 `constraint.severity = hard_exclude` is a safety rule that vetoes. Conflating them would let
 a preference masquerade as a medical restriction, or the reverse.
 
+`rated_on` is a `YYYY-MM-DD` day and part of the primary key, so the table keeps at most one
+rating per exercise per day. The web write path makes an identical repeated write a no-op;
+a *different* rating for a day that already has one is refused with a field error and must be
+recorded on a later date, because the append-only table cannot replace the earlier row.
+
 ### 11.4 `metric_definition` — declared measurement direction
 
 `metric_definition` stores the metadata needed to interpret a periodic measurement:

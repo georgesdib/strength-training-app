@@ -5920,15 +5920,58 @@ class Handler(BaseHTTPRequestHandler):
         exercise_id = _field_call(
             validation.exercise_id, "exercise_id", body.get("exercise_id")
         )
-        repositories.append_exercise_suitability(
-            conn,
-            exercise_id=exercise_id,
-            rated_on=str(body.get("rated_on") or datetime.date.today().isoformat()),
-            can_do=_truth(body.get("can_do", True)),
-            will_do=_truth(body.get("will_do", True)),
-            feels_bad=_truth(body.get("feels_bad", False)),
-            note=body.get("note") or None,
-        )
+        rated_on = str(body.get("rated_on") or datetime.date.today().isoformat())
+        try:
+            datetime.date.fromisoformat(rated_on)
+        except ValueError as exc:
+            raise FieldError(
+                "rated_on must be YYYY-MM-DD", {"rated_on": "must be YYYY-MM-DD"}
+            ) from exc
+        can_do = _truth(body.get("can_do", True))
+        will_do = _truth(body.get("will_do", True))
+        feels_bad = _truth(body.get("feels_bad", False))
+        note = body.get("note") or None
+
+        def same_rating(row: dict) -> bool:
+            return (
+                (bool(row["can_do"]), bool(row["will_do"]), bool(row["feels_bad"]))
+                == (can_do, will_do, feels_bad)
+                and (row.get("note") or None) == note
+            )
+
+        def conflict() -> FieldError:
+            # One row per exercise/day is the schema and the append-only history rule; the
+            # resolver preview's inline buttons can otherwise send the same rating twice (a
+            # double click) or try to change the day's record. Neither may be a 500.
+            return FieldError(
+                f"{exercise_id} is already rated for {rated_on}; "
+                "exercise suitability keeps one rating per day, so this change was not "
+                "saved. Record a different rating on a later date.",
+                {"rated_on": "already rated on this date"},
+            )
+
+        existing = queries.suitability_on(conn, exercise_id, rated_on)
+        if existing is not None:
+            if same_rating(existing):
+                return self._state(conn)
+            raise conflict()
+        try:
+            repositories.append_exercise_suitability(
+                conn,
+                exercise_id=exercise_id,
+                rated_on=rated_on,
+                can_do=can_do,
+                will_do=will_do,
+                feels_bad=feels_bad,
+                note=note,
+            )
+        except sqlite3.IntegrityError as exc:
+            # Two requests can race between the read above and the insert. Re-read the
+            # winner: an identical repeat is a success, a different one is the same conflict.
+            existing = queries.suitability_on(conn, exercise_id, rated_on)
+            if existing is not None and same_rating(existing):
+                return self._state(conn)
+            raise conflict() from exc
         return self._state(conn)
 
     def _breaks(self, conn, body: dict | None = None) -> dict:

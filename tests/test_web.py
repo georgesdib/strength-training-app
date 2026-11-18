@@ -538,6 +538,60 @@ def test_state_can_be_edited(server):
     assert any(row["source"] == "measured" for row in state["e1rm_overrides"])
     assert state["symptoms"]
 
+
+def test_same_day_suitability_repeat_is_idempotent(server, tmp_path):
+    payload = {
+        "exercise_id": "ssb_squat", "rated_on": "2024-01-01",
+        "can_do": True, "will_do": False, "feels_bad": False,
+        "note": "resolver preview inline rating",
+    }
+    first = post(server, "/api/state/suitability", payload)
+    assert first["suitability"]["ssb_squat"]["will_do"] == 0
+    # A double click must not become a SQLite UNIQUE error (the resolver preview rebuild is
+    # slow enough that a second click is easy).
+    repeated = post(server, "/api/state/suitability", payload)
+    assert repeated["suitability"]["ssb_squat"]["will_do"] == 0
+    conn = sqlite3.connect(tmp_path / "coach.db")
+    try:
+        rows = conn.execute(
+            "SELECT COUNT(*) FROM exercise_suitability "
+            "WHERE exercise_id = 'ssb_squat' AND rated_on = '2024-01-01'"
+        ).fetchone()[0]
+    finally:
+        conn.close()
+    assert rows == 1
+
+
+def test_same_day_suitability_change_is_rejected_with_a_message(server):
+    post(server, "/api/state/suitability", {
+        "exercise_id": "ssb_squat", "rated_on": "2024-01-01",
+        "can_do": True, "will_do": False, "feels_bad": False,
+    })
+    code, body = post_status(server, "/api/state/suitability", {
+        "exercise_id": "ssb_squat", "rated_on": "2024-01-01",
+        "can_do": True, "will_do": True, "feels_bad": False,
+    })
+    assert code == 400
+    data = json.loads(body)
+    assert "already rated for 2024-01-01" in data["error"]
+    assert "rated_on" in data["fields"]
+
+
+def test_suitability_rejects_a_malformed_rating_date(server):
+    code, body = post_status(server, "/api/state/suitability", {
+        "exercise_id": "ssb_squat", "rated_on": "not-a-date",
+    })
+    assert code == 400
+    assert "rated_on" in json.loads(body)["fields"]
+
+
+def test_resolver_preview_inline_rating_is_single_flight(server):
+    _status, js = get(server, "/static/settings.js")
+    assert "let resolverRatingRunning = false;" in js
+    assert "if (resolverRatingRunning) return;" in js
+    assert 'button.textContent = "Saving…";' in js
+
+
 def test_exercise_catalogue_is_served(server):
     status, body = get(server, "/api/exercises")
     assert status == 200
