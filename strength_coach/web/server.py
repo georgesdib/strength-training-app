@@ -1676,11 +1676,17 @@ class Handler(BaseHTTPRequestHandler):
             raise FieldError(
                 f"at most {self.IOS_ACTIVITY_MAX_WORKOUTS} workouts per request"
             )
-        created = existing = 0
+        cutoff = cardio.get_sync_state(conn, "history_cutoff")
+        created = existing = rejected = 0
         for item in items:
             if not isinstance(item, dict):
                 raise FieldError("each workout must be an object")
             key = self._ios_activity_key(item.get("key"))
+            # History is the export's business (DEC-CARDIO-18). A pre-cutoff workout sent here would
+            # duplicate an export row under a second key, which is what forced the rebuild.
+            if cutoff and str(item.get("started_at") or "") < cutoff:
+                rejected += 1
+                continue
             _row, new = cardio.record_workout(
                 conn,
                 external_key=key,
@@ -1702,7 +1708,12 @@ class Handler(BaseHTTPRequestHandler):
             )
             created += int(new)
             existing += int(not new)
-        return {"workouts": len(items), "created": created, "existing": existing}
+        return {
+            "workouts": len(items),
+            "created": created,
+            "existing": existing,
+            "rejected": rejected,
+        }
 
     def _ios_healthkit_samples(self, conn, device: dict, body: dict) -> dict:
         """Samples and standalone metrics travel together: one call per sync.
@@ -1719,7 +1730,7 @@ class Handler(BaseHTTPRequestHandler):
             raise FieldError("samples must be a non-empty list")
         if len(items) > self.IOS_ACTIVITY_MAX_SAMPLES:
             raise FieldError(f"at most {self.IOS_ACTIVITY_MAX_SAMPLES} samples per request")
-        created = existing = 0
+        created = existing = rejected = 0
         for item in items:
             if not isinstance(item, dict):
                 raise FieldError("each sample must be an object")
@@ -1727,7 +1738,8 @@ class Handler(BaseHTTPRequestHandler):
             workout = cardio.get_workout(conn, workout_key)
             if workout is None:
                 raise FieldError("upload the workout before its samples")
-            _row, new = cardio.record_sample(
+            try:
+                _row, new = cardio.record_sample(
                 conn,
                 sample_key=self._ios_activity_key(item.get("key")),
                 kind=str(item.get("kind") or ""),
@@ -1738,11 +1750,21 @@ class Handler(BaseHTTPRequestHandler):
                 source_bundle_id=item.get("source_bundle_id"),
                 imported_at=datetime.datetime.now(datetime.UTC).isoformat(),
                 external_workout_id=workout["external_workout_id"],
-                association=str(item.get("association") or "workout"),
-            )
+                    association=str(item.get("association") or "workout"),
+                )
+            except cardio.CardioConflict:
+                # One conflicting sample must not cost the rest of the batch; the same defect class
+                # as a single bad metric value rejecting a whole sync.
+                rejected += 1
+                continue
             created += int(new)
             existing += int(not new)
-        payload = {"samples": len(items), "created": created, "existing": existing}
+        payload = {
+            "samples": len(items),
+            "created": created,
+            "existing": existing,
+            "rejected": rejected,
+        }
         if metric_result:
             payload["metrics"] = metric_result
         return payload
@@ -3103,7 +3125,7 @@ class Handler(BaseHTTPRequestHandler):
                 ))
             elif path == "/api/state":
                 self._json(200, self._with_conn(self._state))
-            elif path == "/api/cardio/legacy":
+            elif path == "/api/cardio":
                 self._error(410, "manual cardio logging was retired; use /api/cardio/summary")
             elif path == "/api/cardio/workouts":
                 query = parse_qs(urlparse(self.path).query)
@@ -3631,6 +3653,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(202, job)
             elif path == "/api/programme":
                 self._json(200, self._with_conn(lambda c: self._programme(c, body)))
+            elif path == "/api/cardio":
+                self._error(410, "manual cardio logging was retired; use /api/cardio/visibility")
             elif path == "/api/cardio/visibility":
                 self._json(200, self._with_conn(
                     lambda c: self._set_workout_visibility(c, body)
