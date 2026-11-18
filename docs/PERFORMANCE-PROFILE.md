@@ -367,6 +367,24 @@ commit before this work; `e826867` is the current `development`.
 The prescribed items were identical in both runs (`box_jump, ssb_squat, bench_press,
 back_extension, dumbbell_row, lying_leg_curls, ab_wheel`).
 
+A second round took the same harness on the same database after four more changes (look up
+group means in a dict instead of `Series.get` on a MultiIndex; eleven more config loaders through
+`utils/yaml_files`; the e1RM calibration report memoised per database state; `prior_to` views
+memoised on the context):
+
+| Run | before (`e826867`) | after (`3e4ca8e`) | Change |
+|---|---:|---:|---:|
+| Resolver build, p50 | 23.71 s | **16.64 s** | **−30 %** |
+| Forecast, 2 weeks / 6 sessions, p50 | 40.16 s | **22.06 s** | **−45 %** |
+
+Cumulative against the pre-work commit `d7181d6`: resolver **27.77 s → 16.64 s (−40 %, 1.67×)**,
+two-week forecast **43.54 s → 22.06 s (−49 %, 1.97×)**, same seven items throughout.
+
+`resolver.full_evaluations` (default 4, range 1–4, settings-profile) now exposes how many beam
+finalists are evaluated; the beam width is unchanged and the value is recorded in
+`generated_session.beam_config`. Lowering it trades selection coverage for speed and is a
+coaching decision, not an optimisation; the default keeps the behaviour measured above.
+
 Two notes on the numbers:
 
 1. Both are below §2's 35.41 s because the harness warms the process caches with one unmeasured
