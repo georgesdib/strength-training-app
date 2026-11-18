@@ -3374,40 +3374,6 @@ async function loadRecordedActivity(weeks) {
 
 $("#cardio-weeks").addEventListener("change", () => loadRecordedActivity(cardioWeeks()));
 
-
-$("#cardio-form").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const payload = {
-    date: $("#cardio-date").value || null,
-    modality: $("#cardio-modality").value,
-    minutes: $("#cardio-minutes").value,
-    avg_hr: $("#cardio-avg-hr").value || null,
-    max_hr: $("#cardio-max-hr").value || null,
-    distance_km: $("#cardio-distance").value || null,
-    srpe: $("#cardio-srpe").value || null,
-    note: $("#cardio-note").value || null,
-  };
-  const button = $("#cardio-form button[type='submit']");
-  button.disabled = true;
-  try {
-    await api("/api/cardio", { method: "POST", body: JSON.stringify(payload) });
-    await loadRecordedActivity(cardioWeeks());
-    $("#cardio-form").reset();
-  } catch (error) {
-    applyFieldErrors(error, $("#cardio-result"), {
-      date: "#cardio-date",
-      modality: "#cardio-modality",
-      minutes: "#cardio-minutes",
-      avg_hr: "#cardio-avg-hr",
-      max_hr: "#cardio-max-hr",
-      distance_km: "#cardio-distance",
-      srpe: "#cardio-srpe",
-    });
-  } finally {
-    button.disabled = false;
-  }
-});
-
 /* --- measurements ------------------------------------------------------- */
 let lastMeasurements = null;
 

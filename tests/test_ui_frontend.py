@@ -60,6 +60,30 @@ def test_every_referenced_script_exists() -> None:
         assert src.startswith("/static/"), src
         assert (STATIC / src.removeprefix("/static/")).is_file(), src
 
+
+def test_top_level_script_selectors_exist_in_the_page() -> None:
+    """A renamed or removed element must not abort app.js before the boot listener.
+
+    Every selector attached at top level runs during script evaluation. A missing id throws
+    there, so later declarations (and the DOMContentLoaded boot) never execute and the page
+    stays on its loading state.
+    """
+    page = INDEX.read_text(encoding="utf-8")
+    ids = set(re.findall(r'id="([^"]+)"', page))
+    missing = []
+    for number, line in enumerate((STATIC / "app.js").read_text(encoding="utf-8").splitlines(), 1):
+        if not line or line[0].isspace() or line.startswith(("//", "/*", "*", "}")):
+            continue
+        if not line.startswith(("$(", "document.")):
+            continue
+        missing.extend(
+            (number, selector)
+            for selector in re.findall(r'\$\("#([^"]+)"\)', line)
+            if selector not in ids
+        )
+    assert not missing, missing
+
+
 def test_workout_exercise_history_is_wired() -> None:
     page = INDEX.read_text(encoding="utf-8")
     source = (STATIC / "workout.js").read_text(encoding="utf-8")
@@ -479,7 +503,7 @@ def test_remaining_forms_use_field_errors() -> None:
     assert "applyFieldErrors(error, $(" in settings
     for marker in (
         '[data-symptom="region"]', '[data-block="date"]', '[data-break="starts_on"]',
-        '#cardio-modality', '#measure-metric',
+        '#measure-metric',
     ):
         assert marker in app, marker
     for marker in (
@@ -790,6 +814,10 @@ const els = {
 global.$ = function (selector) { return els[selector]; };
 global.esc = function (value) { return String(value == null ? "" : value); };
 global.fmt = function (value) { return Number(value).toFixed(1).replace(/\.0+$/, ""); };
+global.document = {
+  createElement: function () { return {id: "", innerHTML: ""}; },
+  querySelector: function () { return {appendChild: function () {}, addEventListener: function () {}}; }
+};
 global.api = function () { return Promise.resolve({
   window: {from: "2023-12-07", to: "2024-01-31"},
   longevity: {cardio: {average_weekly_minutes: null, reference_min: 150, reference_max: 300, weekly_minutes: {}},
