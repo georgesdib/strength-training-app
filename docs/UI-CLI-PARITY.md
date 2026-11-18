@@ -43,7 +43,6 @@ This is deliberate: the UI is a planning surface until the athlete starts the wo
 | Programme forecast | `programme` | Programme page | same forecast |
 | Outcomes | `outcomes` | Outcomes page | same report |
 | Readiness feedback | `readiness feedback` | Outcomes panel | same report; workout snapshots included |
-| Cardio | `cardio` | Cardio page | same summary/write |
 | Measurements | `measure` | Measures page | same metric service |
 | Exercise catalogue | `exercise list/set` | Exercises page | same catalogue/admin |
 | Athlete profile/constraints/suitability | `state` | Athlete forms | individual edits only; see gaps |

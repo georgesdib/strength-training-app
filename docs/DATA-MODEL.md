@@ -826,7 +826,7 @@ pending-mutation journal is added (ROADMAP §4.30 R1).
 ## 21. Cardio corpus — `external_workout`, `health_sample`, `workout_link`, `external_status_event`
 
 Machine-observed activity from Apple Health and HealthKit. Deliberately separate from both
-`session` (what was trained) and `cardio_log` (a manual note that cardio happened): a HealthKit
+`session` (what was trained): a HealthKit
 workout is an external source record, not a training session. The design decisions behind this
 domain are recorded in the portfolio plan, `docs/plans/CARDIO-STAGE.md`; this section documents the
 schema only.
@@ -850,6 +850,11 @@ writes that one as hex.
 
 **Units.** Seconds, metres, kilojoules, beats per minute. `timezone` retains `HKTimeZone` where
 present so local-day attribution does not silently use the server's zone.
+
+**Manual entry is retired (2026-11-17).** `cardio_log` was dropped by migration `0069` after its
+write paths — the web form, `POST /api/cardio`, the `cardio` CLI command and `append_cardio` — were
+removed. This corpus is the only activity history, and a session recorded without a device is
+absent rather than unclassified. Hiding (`cardio_exclusion`) is the correction path.
 
 **Statistics, not duplicate sets.** The summary columns (average/max heart rate, active energy,
 distance, `avg_mets`) are what the metrics read; the raw series lives in `health_sample`. Nothing
