@@ -91,7 +91,7 @@ asks or in the release workflow:
     .venv/bin/python -m pytest -m "integration or regression or slow" --dist loadfile
 
 A change is done when:
-1. Relevant tests pass, and new behaviour has a test that fails without it.
+1. Relevant tests pass.
 2. Measured-fact changes still match private/docs/EVIDENCE.md, or both are updated.
 3. Config changes carry a domain reason.
 4. Judgement calls are recorded as assumptions/open questions.

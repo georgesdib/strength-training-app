@@ -41,7 +41,7 @@ must not define training policy.
 
 ## Definition of done — short form
 
-1. Narrowest relevant tests pass; add a test that fails without the behaviour.
+1. Narrowest relevant tests pass.
 2. ruff check passes for the changed area.
 3. New config has a domain-reason comment; judgement calls become assumptions.
 4. Documentation is updated where behaviour changed; docs-consistency checks pass if docs changed.
