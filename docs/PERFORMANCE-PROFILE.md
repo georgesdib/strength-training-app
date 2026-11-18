@@ -291,9 +291,8 @@ time-in-zone alone 191 ms.
 
 ## 11. Python hot-path work (2026-11-18)
 
-**Status:** implemented on `development`; no ODROID-C4 confirmation yet.
-**Not the deployment target.** Every figure below is from the MacBook coding host and is used
-for ratios and for locating the work, not as a latency claim.
+**Status:** implemented and confirmed on the ODROID-C4 on 2026-11-18 (§11.5).
+The MacBook figures in §11.2–§11.4 located the work; §11.5 is the deployment result.
 
 ### 11.1 Method
 
@@ -302,9 +301,11 @@ checked-in taxonomy and session templates: **407 sessions and 9,160 clean sets**
 close to the production shape in §10 (379 / 8,009). Same inputs as §2–§9: date 2026-11-04,
 squat emphasis, `minimum_target_minutes=30`, `top_set_requested=False`, resolver enabled.
 
-Calibration: the baseline build is **2.47 s p50** here against 6.84 s on the iMac (§9.1) and
-35.41 s on the ODROID-C4 (§2). The MacBook is therefore about **14×** the C4, so a 36 % local
-reduction is expected to be a 36 % reduction there, pending the run in §11.6.
+Calibration: the baseline build is **2.47 s p50** here against 27.77 s p50 for the same build
+on the ODROID-C4 (§11.5), so this host is about **11×** the C4 for the untouched path. The
+synthetic database over-weights the two cached paths, and §11.5 shows the deployed gain is
+smaller than the local one. The local figures are used for locating the work, not as a
+latency claim.
 
 ### 11.2 Where one build went (baseline)
 
@@ -334,7 +335,7 @@ Deterministic counts inside those four builds:
 | `1b14e71` | `spinal_exposures` groups in column space. Every working row still counts as a set, intensity still averages only rows carrying load and e1RM, and `skipna=False` keeps one missing ratio poisoning its group mean. |
 | `0cb8d7a` | `utils/yaml_files` caches a parsed config document per (path, mtime, size); each loader still builds its own frozen dataclass from it. The constitution was already content-hash cached and is unchanged. |
 
-### 11.4 Measured effect on the resolver build
+### 11.4 Measured effect on the coding host
 
 | Tree | p50 | Change |
 |---|---:|---:|
@@ -351,7 +352,32 @@ build versus 129); its effect is per request in a long-lived process, see §11.5
 Output was identical at every step: the same seven items in the same order, the same set counts,
 spinal cost/headroom and warnings on 2026-11-04, 2026-06-10 and 2025-12-03.
 
-### 11.5 Effect on the capabilities
+### 11.5 On the ODROID-C4 (deployment target)
+
+Same harness, same live database (379 sessions), same inputs, two measured runs each, against
+the source database opened read-only and backed up with SQLite's backup API. `d7181d6` is the
+commit before this work; `e826867` is the current `development`.
+
+| Run | `d7181d6` | `e826867` | Change |
+|---|---:|---:|---:|
+| Resolver build, p50 | 27.77 s | **23.71 s** | **−14.6 % (1.17×)** |
+| Resolver build, min | 27.72 s | 23.67 s | −14.6 % |
+| Forecast, 2 weeks / 6 sessions, p50 | 43.54 s | 40.16 s | −7.8 % |
+
+The prescribed items were identical in both runs (`box_jump, ssb_squat, bench_press,
+back_extension, dumbbell_row, lying_leg_curls, ab_wheel`).
+
+Two notes on the numbers:
+
+1. Both are below §2's 35.41 s because the harness warms the process caches with one unmeasured
+   build and the input date has moved on; the comparable pair is this table's two columns, not
+   this column and §2.
+2. The deployed gain is smaller than the 36 % measured locally. The synthetic database is 9 MB
+   and carries only training and readiness rows; the live one is 241 MB with app-tracked
+   workouts, symptom rows and heart-rate samples, so the work this change does not touch is a
+   larger share of the build. The local percentage was a ceiling, not a forecast.
+
+### 11.6 Effect on the capabilities
 
 Warm YAML parses per request, before → after `0cb8d7a`:
 
@@ -366,7 +392,7 @@ The largest single parse removed was the exercise taxonomy at **67.7 ms per call
 End-to-end capability timings were not recorded at a quiet enough moment to publish; they are to
 be taken with the ODROID run below. The remaining parses are small files and were left alone.
 
-### 11.6 Reproduce
+### 11.7 Reproduce
 
 ```text
 python tools/resolver_benchmark.py --db /path/to/copied/coach.db --runs 5 --forecast-weeks 2
@@ -375,7 +401,7 @@ python tools/resolver_benchmark.py --db /path/to/copied/coach.db --runs 5 --fore
 The tool copies the database to a temporary directory, enables the resolver on the copy, and
 prints min/p50/max plus the prescribed items. Report the machine with the result.
 
-### 11.7 Rejected
+### 11.8 Rejected
 
 1. **Rust / PyO3 rewrite.** Only 5 ms of a 2.47 s build is in C (`sqlite3`); the cost is
    redundant work (899 parses, 5 history loads, 16 whole-record scans) that a port would still
