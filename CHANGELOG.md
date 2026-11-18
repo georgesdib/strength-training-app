@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+- Nothing yet.
+
+## [1.7.0] — 2026-11-18
+
+Longevity assessment end to end: aerobic adequacy against the WHO 150–300 reference as context,
+VO₂max status with its date and currency, per-pattern volume headroom, sample-based time-in-zone, a
+separate health-data consent on the phone, and advisory prose from the configured model. No
+migration, no notification, no cardio impulse.
+
 ### Added
 
 - **Longevity assessment on the cardio summary.** `GET /api/cardio/summary` and the phone's
