@@ -7,7 +7,9 @@ produces an `unknown` verdict rather than a silent guess.
 > Quantitative evidence for each question is kept out of this public repository. The
 > questions themselves are methodology questions and apply to any athlete using the system.
 
-**Live register (2026-10-30):** one open question (Q14), one deferred decision (Q22) and the Phase 5A evidence gate (Q30).
+**Live register (2026-11-18):** one open question (Q14), one deferred decision (Q22) and the Phase 5A
+evidence gate (Q30). The cardio stage closed on 2026-11-18 and narrowed Q14: the *data* question is
+answered (the imported corpus), only the model remains.
 The 22 questions decided since the register was created were removed from the live text on
 2026-10-25; each outcome and decision record is indexed under
 [Closed](#closed--index-only). Reopening a closed question is a new decision, not an edit.
@@ -16,9 +18,12 @@ The 22 questions decided since the register was created were removed from the li
 
 ## Q14. What cardio load and fatigue model should the app use?
 
-Planned in ROADMAP §4.13. Open: which modalities, whether TRIMP or sRPE is the impulse,
-two vs three fatigue systems, whether cardio modifies load or only readiness context, and how
-many weeks of individual data are needed before showing a time constant. No implementation.
+Planned in ROADMAP §4.13. **Data is no longer the blocker:** the cardio stage (portfolio plan,
+closed 2026-11-18) imports the corpus, classifies minutes by a MET-then-HR cascade with tier labels,
+and links 326 sessions. What remains open is the model itself: whether TRIMP or sRPE is the impulse,
+two vs three fatigue systems, whether cardio modifies load or only readiness context, and how many
+weeks of individual data are needed before showing a time constant. No implementation, and no
+prescription reads cardio data.
 
 ---
 

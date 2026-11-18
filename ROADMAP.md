@@ -96,7 +96,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v1.3 | UI closure, measurement/readiness cleanup and documentation infrastructure | **released 2026-11-06; stable** |
 | v1.4 | VBT target metadata, active/historical target feedback and longitudinal target analysis | **released 2026-11-13; stable** |
 | v1.5 | read-only training intelligence: capability layer, MCP server, REST facade, narration and chat | **released 2026-11-15; stable** |
-| v1.6 | cardio depth and reproducible cardio impulse/shadow load | **planned; see §4.13a** |
+| v1.6 | cardio depth and reproducible cardio impulse/shadow load | **partly delivered (1.6.0): corpus, linking, analytics, dashboards; impulse planned; see §4.13a** |
 | — | training-day session fragments | **done 2026-11-01** (see §4.27) |
 | — | post-workout form assessment | **done 2026-10-25** |
 | future | LLM integration: read-only intelligence delivered; constrained proposer withdrawn | **read-only delivered; no write path (§4.24)** |
@@ -888,11 +888,11 @@ The app currently measures resistance training only. Cardio is a separate exposu
 different fatigue signature, and a single "fatigue score" would hide that. This item adds the
 data and a model, initially advisory and in shadow mode.
 
-**Delivered 2026-10-20 (`DEC-CARDIO-01`):** append-only `cardio_log` with modality, duration,
-average/max HR, distance and sRPE; `strength-coach cardio` (log with `--date`, `--minutes`,
-`--avg-hr`, `--max-hr`, `--distance-km`, `--srpe`; `--show --weeks`); a Cardio page and
-`GET/POST /api/cardio`; a weekly summary with the WHO reference as context. No prescription
-reads it and no fatigue model exists yet.
+**Delivered 2026-10-20 and superseded 2026-11-17.** The first cut was an append-only `cardio_log`
+with a `cardio` CLI command and `GET/POST /api/cardio`. It never held a row, and the imported
+corpus replaced it: `cardio_log`, the command, the routes and the form are gone (`0069`), the
+longevity review reads the corpus, and hiding a workout replaces manual correction. The model below
+is still unbuilt, and no prescription reads cardio data.
 
 **Priority:** the longevity review ranks cardio capture as the largest gap between the
 programme and the primary goal — cardiorespiratory fitness is the strongest modifiable
