@@ -24,7 +24,7 @@ from contextvars import ContextVar
 import pandas as pd
 
 from strength_coach.domain import rir as rir_mod
-from strength_coach.store import healthkit_readiness
+from strength_coach.store import healthkit_readiness, hrv_recovery
 from strength_coach.utils import readiness as readiness_utils
 
 _SET_COLUMNS = {
@@ -431,6 +431,7 @@ def _effective_readiness_rows(conn, start: str, end: str) -> dict[str, dict]:
         (str(start), str(end)),
     ).fetchall()
     healthkit = healthkit_readiness.latest_observations(conn, str(start), str(end))
+    recovery = hrv_recovery.latest_by_date(conn, str(start), str(end))
 
     days = set(base_rows) | set(healthkit) | {str(entry["on_date"]) for entry in entries}
     merged_by_day: dict[str, dict] = {}
@@ -445,12 +446,26 @@ def _effective_readiness_rows(conn, start: str, end: str) -> dict[str, dict]:
 
         healthkit_provenance: dict[str, dict] = {}
         for field in healthkit_readiness.FIELDS:
+            # Readiness reads the recovery series for HRV, never the newest raw sample. The raw
+            # series stays in healthkit_readiness for audit; an imported or manually entered
+            # HRV is explicit user data and keeps its existing precedence.
+            if field == "hrv_ms":
+                continue
             observation = healthkit.get(day, {}).get(field)
             if observation is None:
                 continue
             merged[field] = observation["value"]
             sources[field] = "healthkit"
             healthkit_provenance[field] = healthkit_readiness.provenance(observation)
+
+        # A recovery night replaces whatever imported value the day carried, so one definition
+        # drives the baseline. A day without one keeps only explicit user data (manual entries
+        # still win below); it never falls back to the raw newest-sample reading.
+        recovered = recovery.get(day)
+        if recovered is not None:
+            merged["hrv_ms"] = recovered["value"]
+            sources["hrv_ms"] = "hrv_recovery"
+            healthkit_provenance["hrv_ms"] = hrv_recovery.provenance(recovered)
 
         manual_note: dict[str, dict] = {}
         manual_fields: list[str] = []

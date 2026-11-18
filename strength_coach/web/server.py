@@ -129,6 +129,7 @@ from strength_coach.store import (
     db,
     exercise_admin,
     healthkit_readiness,
+    hrv_recovery,
     importer,
     ios_devices,
     ios_workflow,
@@ -1317,6 +1318,12 @@ class Handler(BaseHTTPRequestHandler):
                         conn, device, path, body, config,
                         self._ios_healthkit_readiness,
                     )
+                elif path == "/api/ios/v1/healthkit/hrv-recovery":
+                    config = self._ios_require_mutations()
+                    body = self._body()
+                    self._ios_mutation(
+                        conn, device, path, body, config, self._ios_hrv_recovery,
+                    )
                 elif path == "/api/ios/v1/healthkit/workouts":
                     config = self._ios_require_mutations()
                     body = self._body()
@@ -1977,6 +1984,158 @@ class Handler(BaseHTTPRequestHandler):
                 409, "healthkit_sample_conflict", str(exc)
             ) from exc
         return self._readiness(conn, today)
+
+    def _ios_hrv_recovery(self, conn, device: dict, body: dict) -> dict:
+        """Store dated recovery-HRV nights.
+
+        The client computes one value per night from HealthKit and may send history, so this route
+        is deliberately not date-restricted the way the readiness sample route is. Each sample is
+        idempotent by `sample_id`; a different value for an existing id is a conflict rather than
+        an update, because the table is append-only.
+        """
+        self._ios_closed_fields(body, {"samples"})
+        samples = body.get("samples")
+        if not isinstance(samples, list) or not 1 <= len(samples) <= 500:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "samples must contain 1-500 nights",
+                fields={"samples": "must contain 1-500 nights"},
+            )
+        today = datetime.date.today()
+        now = datetime.datetime.now(datetime.UTC)
+        clean: list[dict] = []
+        seen: set[str] = set()
+        for index, sample in enumerate(samples):
+            if not isinstance(sample, dict):
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", f"samples[{index}] must be an object",
+                    fields={f"samples[{index}]": "must be an object"},
+                )
+            self._ios_closed_fields(
+                sample,
+                {"sample_id", "date", "value", "sample_at", "source_name",
+                 "source_class", "sample_count"},
+            )
+            sample_id = sample.get("sample_id")
+            if not isinstance(sample_id, str) or not 1 <= len(sample_id.strip()) <= 120:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", f"samples[{index}].sample_id is required",
+                    fields={f"samples[{index}].sample_id": "must be 1-120 characters"},
+                )
+            sample_id = sample_id.strip()
+            if sample_id in seen:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", "samples must not repeat a sample_id",
+                    fields={f"samples[{index}].sample_id": "duplicate sample_id"},
+                )
+            seen.add(sample_id)
+            day = sample.get("date")
+            try:
+                parsed_day = datetime.date.fromisoformat(str(day))
+            except (TypeError, ValueError) as exc:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", f"samples[{index}].date must be YYYY-MM-DD",
+                    fields={f"samples[{index}].date": "must be YYYY-MM-DD"},
+                ) from exc
+            if parsed_day > today:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", f"samples[{index}].date is in the future",
+                    fields={f"samples[{index}].date": "must not be in the future"},
+                )
+            if parsed_day.year < 2014:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed",
+                    f"samples[{index}].date predates HealthKit",
+                    fields={f"samples[{index}].date": "must be 2014 or later"},
+                )
+            value = sample.get("value")
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", f"samples[{index}].value must be a number",
+                    fields={f"samples[{index}].value": "must be a positive number"},
+                )
+            number = float(value)
+            if not math.isfinite(number) or not 0 < number <= 1000:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed",
+                    f"samples[{index}].value must be between 0 and 1000 ms",
+                    fields={f"samples[{index}].value": "must be between 0 and 1000 ms"},
+                )
+            sample_at = sample.get("sample_at")
+            try:
+                parsed_at = datetime.datetime.fromisoformat(str(sample_at))
+            except (TypeError, ValueError) as exc:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed",
+                    f"samples[{index}].sample_at must be ISO 8601",
+                    fields={f"samples[{index}].sample_at": "must be ISO 8601"},
+                ) from exc
+            if parsed_at.tzinfo is None:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed",
+                    f"samples[{index}].sample_at must include an offset",
+                    fields={f"samples[{index}].sample_at": "must include an offset"},
+                )
+            if parsed_at.astimezone(datetime.UTC) > now + datetime.timedelta(minutes=5):
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed",
+                    f"samples[{index}].sample_at is in the future",
+                    fields={f"samples[{index}].sample_at": "must not be in the future"},
+                )
+            if parsed_at.date() != parsed_day:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed",
+                    f"samples[{index}].sample_at must fall on its date",
+                    fields={f"samples[{index}].sample_at": "must fall on the sample date"},
+                )
+            source_name = sample.get("source_name")
+            if not isinstance(source_name, str) or not 1 <= len(source_name.strip()) <= 200:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", f"samples[{index}].source_name is required",
+                    fields={f"samples[{index}].source_name": "must be 1-200 characters"},
+                )
+            source_class = sample.get("source_class")
+            if source_class not in hrv_recovery.SOURCE_CLASSES:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed",
+                    f"samples[{index}].source_class is not supported",
+                    fields={f"samples[{index}].source_class": "must be apple_watch, "
+                    "non_apple_watch or unknown"},
+                )
+            count = sample.get("sample_count", 0)
+            if count is not None and (
+                isinstance(count, bool) or not isinstance(count, int) or count < 0
+            ):
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed",
+                    f"samples[{index}].sample_count must be a whole number",
+                    fields={f"samples[{index}].sample_count": "must be a whole number"},
+                )
+            clean.append({
+                "sample_id": sample_id,
+                "on_date": parsed_day.isoformat(),
+                "value": number,
+                "sample_at": str(sample_at),
+                "source_name": source_name.strip(),
+                "source_class": source_class,
+                "sample_count": int(count or 0),
+            })
+        try:
+            accepted, duplicates = hrv_recovery.record_samples(
+                conn,
+                device_id=device["device_id"],
+                samples=clean,
+                imported_at=ios_workflow.now_iso(),
+            )
+        except hrv_recovery.HRVRecoveryConflict as exc:
+            raise ios_workflow.IOSWorkflowError(
+                409, "hrv_recovery_conflict", str(exc)
+            ) from exc
+        return {
+            "date_from": clean[0]["on_date"],
+            "date_to": clean[-1]["on_date"],
+            "accepted": accepted,
+            "duplicates": duplicates,
+        }
 
     IOS_SESSION_TYPES = (
         "auto", "squat", "hinge", "bench_squat", "bench_hinge", "accessory"
