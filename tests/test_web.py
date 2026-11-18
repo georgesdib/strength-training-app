@@ -1261,6 +1261,21 @@ def test_settings_profile_endpoint(server):
 
 
 def test_resolver_policy_and_preview_endpoints(server):
+    status, body = get(server, "/api/resolver/dwell")
+    assert status == 200
+    dwell_state = json.loads(body)
+    assert dwell_state["target"] == 7
+    assert isinstance(dwell_state["counts"], dict)
+
+    saved = post(server, "/api/resolver/dwell", {
+        "exercise_id": "bench_press", "count": 3,
+    })
+    assert saved["counts"]["bench_press"] == 3
+    status, _invalid = post_status(server, "/api/resolver/dwell", {
+        "exercise_id": "bench_press", "count": -1,
+    })
+    assert status == 400
+
     status, body = get(server, "/api/resolver/policy")
     assert status == 200
     policy = json.loads(body)

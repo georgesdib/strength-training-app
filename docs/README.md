@@ -34,6 +34,8 @@ for current status and next actions. [`AGENTS.md`](../AGENTS.md) holds the engin
 - [METHODOLOGY.md](METHODOLOGY.md) — versioned decision flow, limitations, never-do list
 - [RULES-FORMAT.md](RULES-FORMAT.md) — the constitution format and rule IDs
 - [SESSION-TEMPLATES.md](SESSION-TEMPLATES.md) — template/slot field guide
+- [RESOLVER-ALGORITHM.md](RESOLVER-ALGORITHM.md) — the full selection algorithm, step by step, with formulas and failure modes
+- [DWELL-AND-ROTATION.md](DWELL-AND-ROTATION.md) — how the resolver rotates exercises: counters, factor, probability, cap and reset
 - [WORKOUT-GENERATION.md](WORKOUT-GENERATION.md) — how a prescription is built
 - [VOLUME-MANAGEMENT.md](VOLUME-MANAGEMENT.md) / [VOLUME-BUDGET.md](VOLUME-BUDGET.md) — landmarks and operator guide
 - [FREQUENCY-AND-VOLUME.md](FREQUENCY-AND-VOLUME.md) — sessions-per-week behaviour

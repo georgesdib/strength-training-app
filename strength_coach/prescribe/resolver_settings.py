@@ -17,10 +17,9 @@ from strength_coach import settings_profile
 @dataclass(frozen=True)
 class ResolverSettings:
     enabled: bool
-    rotation_main: float
-    rotation_accessory: float
-    rotation_default: float
-    max_dwell: int
+    dwell_target: int
+    dwell_tau: float
+    dwell_probability: float
     full_evaluations: int
     require_can_do: bool
     unrated_mode: str
@@ -54,14 +53,13 @@ class ResolverSettings:
     def from_values(cls, values: Mapping[str, object]) -> ResolverSettings:
         weights = {
             key: float(values[f"resolver.weights.{key}"])
-            for key in ("readiness", "fatigue", "spinal", "injury")
+            for key in ("readiness", "fatigue", "spinal", "injury", "dwell")
         }
         return cls(
             enabled=bool(values["resolver.enabled"]),
-            rotation_main=float(values["resolver.rotation.main"]),
-            rotation_accessory=float(values["resolver.rotation.accessory"]),
-            rotation_default=float(values["resolver.rotation.default"]),
-            max_dwell=int(values["resolver.rotation.max_dwell"]),
+            dwell_target=int(values["resolver.dwell.target"]),
+            dwell_tau=float(values["resolver.dwell.tau"]),
+            dwell_probability=float(values["resolver.dwell.probability"]),
             full_evaluations=int(values["resolver.full_evaluations"]),
             require_can_do=bool(values["resolver.eligibility.auto_requires_can_do"]),
             unrated_mode=str(values["resolver.eligibility.unrated_mode"]),
@@ -85,18 +83,4 @@ class ResolverSettings:
             competition_taper_days=int(values["resolver.competition.taper_days"]),
         )
 
-    def rotation_for(self, *, role: str) -> float:
-        """Rotation for a slot role; the default is the secondary/unclassified fallback."""
-        if role == "main":
-            return self.rotation_main
-        if role == "accessory":
-            return self.rotation_accessory
-        return self.rotation_default
 
-    def rotation_dwell(self, rotation: float) -> int | None:
-        """Sessions before a voluntary change. None means never (rotation 0)."""
-        if rotation <= 0.0:
-            return None
-        if rotation >= 1.0:
-            return 1
-        return 1 + round((1.0 - rotation) * (self.max_dwell - 1))

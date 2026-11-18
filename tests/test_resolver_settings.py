@@ -13,9 +13,9 @@ from strength_coach.store import db, repositories
 def test_resolver_defaults_are_registered_and_neutral() -> None:
     snapshot = settings_registry.snapshot()
     assert snapshot.get("resolver.enabled") is False
-    assert snapshot.get("resolver.rotation.main") == 0.2
-    assert snapshot.get("resolver.rotation.accessory") == 0.5
-    assert snapshot.get("resolver.rotation.default") == 0.2
+    assert snapshot.get("resolver.dwell.target") == 7
+    assert snapshot.get("resolver.dwell.tau") == pytest.approx(0.5)
+    assert snapshot.get("resolver.dwell.probability") == pytest.approx(0.1)
     assert snapshot.get("resolver.eligibility.auto_requires_can_do") is True
     assert snapshot.get("resolver.top_set.mode") == "ask"
     assert snapshot.get("resolver.top_set.fallback_above_rir") == 2
@@ -25,8 +25,9 @@ def test_resolver_defaults_are_registered_and_neutral() -> None:
         snapshot.get("resolver.weights.fatigue"),
         snapshot.get("resolver.weights.spinal"),
         snapshot.get("resolver.weights.injury"),
+        snapshot.get("resolver.weights.dwell"),
     ]
-    assert abs(sum(weights) - 0.70) < 1e-9
+    assert abs(sum(weights) - 0.80) < 1e-9
     assert "resolver.weights.rotation" not in snapshot.values
     assert "resolver.weights.preference" not in snapshot.values
 
@@ -49,7 +50,7 @@ def test_resolver_enable_requires_shared_confirmation() -> None:
         assert state["resolved"]["resolver.enabled"] is True
         state = settings_profile.save(
             store.connection,
-            set_values={"resolver.rotation.main": 0.3},
+            set_values={"resolver.dwell.target": 5},
             effective_from="2024-01-02",
         )
         assert state["resolved"]["resolver.enabled"] is True
@@ -63,14 +64,14 @@ def test_resolver_settings_are_profile_backed() -> None:
         state = settings_profile.save(
             store.connection,
             set_values={
-                "resolver.rotation.main": 0.4,
+                "resolver.dwell.tau": 0.8,
                 "resolver.top_set.mode": "on",
             },
             effective_from="2026-11-01",
         )
-        assert state["resolved"]["resolver.rotation.main"] == 0.4
+        assert state["resolved"]["resolver.dwell.tau"] == 0.8
         assert state["resolved"]["resolver.top_set.mode"] == "on"
-        assert state["overrides"]["resolver.rotation.main"] == 0.4
+        assert state["overrides"]["resolver.dwell.tau"] == 0.8
     finally:
         store.close()
 

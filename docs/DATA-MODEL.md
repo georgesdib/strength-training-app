@@ -408,10 +408,13 @@ until the step-5 confirmation flow. The snapshot freezes what a prescription act
 existing prescriptions without a row are not rewritten.
 
 Historical profiles may contain the retired resolver weights
-`resolver.weights.rotation` and `resolver.weights.preference`. Reading ignores exactly those
-keys and leaves the historical row untouched; saving an unrelated setting strips inherited
-retired keys before appending the new complete map. They are not active registry keys, defaults,
-snapshot values or UI controls, and an explicit new write of either key is rejected.
+`resolver.weights.rotation` and `resolver.weights.preference`, or the four retired rotation
+keys `resolver.rotation.main`, `resolver.rotation.accessory`, `resolver.rotation.default`
+and `resolver.rotation.max_dwell`. Reading ignores exactly those keys and leaves the historical
+row untouched; saving an unrelated setting strips inherited retired keys before appending the
+new complete map. They are not active registry keys, defaults, snapshot values or UI controls,
+and an explicit new write of any of them is rejected. The dwell model that replaced the rotation
+keys is documented in [DWELL-AND-ROTATION.md](DWELL-AND-ROTATION.md).
 
 ### 11.2 `athlete_constraint` — injuries, contraindications, mobility limits
 
@@ -453,6 +456,24 @@ a preference masquerade as a medical restriction, or the reverse.
 rating per exercise per day. The web write path makes an identical repeated write a no-op;
 a *different* rating for a day that already has one is refused with a field error and must be
 recorded on a later date, because the append-only table cannot replace the earlier row.
+
+### 11.3a `exercise_dwell_state` — mutable resolver cycle counter
+
+The resolver's dwell model keeps one counter per exercise: how many completed training days
+with at least one working set of that exercise the athlete has logged since the cycle started
+(DEC-RESOLVER-15).
+
+| column | notes |
+|---|---|
+| exercise_id PK | |
+| done_count | completed exposures in the current cycle; wraps to 0 at `resolver.dwell.target` |
+| updated_at | last write, the audit marker |
+
+This table is **deliberately mutable**, unlike the append-only prescription and workout
+tables. It is a cycle state, not a record: the counter is advanced by workout completion and
+by the settings reconcile pass, and can be corrected from the Settings -> Resolver dwell
+counters panel. The resolver only reads it. Migration 0072 creates it empty, so every exercise starts at 0. Full model, formulas
+and rollback are in [DWELL-AND-ROTATION.md](DWELL-AND-ROTATION.md).
 
 ### 11.4 `metric_definition` — declared measurement direction
 

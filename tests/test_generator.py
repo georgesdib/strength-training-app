@@ -9,6 +9,7 @@ import pytest
 import yaml
 
 from strength_coach import settings_registry
+from strength_coach.features import dwell
 from strength_coach.prescribe import generator, resolver_policy, templates
 from strength_coach.prescribe.resolver_settings import ResolverSettings
 from strength_coach.rules import RuleContext, loader
@@ -255,58 +256,49 @@ def test_unrated_main_alternative_is_suggested_for_rating() -> None:
         store.close()
 
 
-def test_rotation_zero_keeps_the_last_choice_and_one_rotates() -> None:
+def test_dwell_factor_keeps_the_lift_and_rotation_changes_it() -> None:
     store = db.Store(":memory:")
     try:
         _rate_defaults(store.connection, "squat")
         _rate(store.connection, "competition_squat")
         _history(store.connection, "squat", "ssb_squat")
-        zero = _settings(**{"resolver.rotation.main": 0.0})
-        one = _settings(**{"resolver.rotation.main": 1.0})
+        dwell.set_count(store.connection, "ssb_squat", 2)
         kept = generator.generate(
             store.connection,
             for_date="2026-11-01",
             session_type="squat",
-            settings=zero,
+            settings=_settings(**{"resolver.dwell.probability": 0.0}),
         )
         rotated = generator.generate(
             store.connection,
             for_date="2026-11-01",
             session_type="squat",
-            settings=one,
+            settings=_settings(**{"resolver.dwell.probability": 1.0}),
         )
         assert kept.template.primary_exercise == "ssb_squat"
         assert rotated.template.primary_exercise == "competition_squat"
         kept_main = next(slot for slot in kept.slots if slot.slot_id == "squat_main")
-        assert "dwell" in kept_main.reasons[0]
+        assert any("dwell" in reason for reason in kept_main.reasons)
         assert any("injury" in reason for reason in kept_main.reasons)
     finally:
         store.close()
 
 
-def test_rotation_warning_reports_the_configured_value() -> None:
+def test_rotation_draw_is_reported_in_the_reasons() -> None:
     store = db.Store(":memory:")
     try:
         _rate_defaults(store.connection, "squat")
-        _rate(store.connection, "competition_squat", can_do=False)
+        _rate(store.connection, "competition_squat")
         _history(store.connection, "squat", "ssb_squat")
         session = generator.generate(
             store.connection,
             for_date="2026-11-01",
             session_type="squat",
-            settings=_settings(
-                **{
-                    "resolver.rotation.main": 0.5,
-                    "resolver.rotation.max_dwell": 1,
-                }
-            ),
+            settings=_settings(**{"resolver.dwell.probability": 1.0}),
         )
-        assert session.template.primary_exercise == "ssb_squat"
-        warning = next(
-            item for item in session.warnings if "no eligible alternative" in item
-        )
-        assert "rotation 0.50" in warning
-        assert "rotation 1" not in warning
+        assert session.template.primary_exercise == "competition_squat"
+        main = next(slot for slot in session.slots if slot.slot_id == "squat_main")
+        assert any("rotation draw" in reason for reason in main.reasons)
     finally:
         store.close()
 
@@ -321,7 +313,7 @@ def test_hinge_main_pool_includes_sumo() -> None:
             store.connection,
             for_date="2026-11-01",
             session_type="hinge",
-            settings=_settings(**{"resolver.rotation.main": 1.0}),
+            settings=_settings(**{"resolver.dwell.probability": 1.0}),
         )
         assert session.template.primary_exercise == "sumo_deadlift"
     finally:
@@ -349,7 +341,7 @@ def test_bench_hinge_support_can_choose_the_trap_bar() -> None:
             store.connection,
             for_date="2026-11-01",
             session_type="bench_hinge",
-            settings=_settings(**{"resolver.rotation.main": 1.0}),
+            settings=_settings(**{"resolver.dwell.probability": 1.0}),
         )
         support = next(
             slot for slot in session.slots if slot.slot_id == "hinge_support"
@@ -627,11 +619,11 @@ def test_catalogue_digest_tracks_validated_content() -> None:
     )
 
 
-def test_rotation_default_is_used_for_secondary_slots() -> None:
-    settings = _settings(**{"resolver.rotation.default": 0.0})
-    assert settings.rotation_for(role="main") == 0.2
-    assert settings.rotation_for(role="secondary") == 0.0
-    assert settings.rotation_for(role="accessory") == 0.5
+def test_dwell_defaults_are_resolved_from_the_registry() -> None:
+    settings = _settings()
+    assert settings.dwell_target == 7
+    assert settings.dwell_tau == pytest.approx(0.5)
+    assert settings.dwell_probability == pytest.approx(0.1)
 
 
 def test_pattern_level_injury_exclusions_match_candidates() -> None:
@@ -963,7 +955,7 @@ def test_scheduler_required_patterns_use_slot_matching() -> None:
         store.close()
 
 
-def test_candidate_pools_are_deterministic_and_rotation_ordered(monkeypatch) -> None:
+def test_candidate_pools_are_deterministic_and_apply_the_dwell_cap() -> None:
     store = _auto_store()
     try:
         settings = _settings(
@@ -978,24 +970,20 @@ def test_candidate_pools_are_deterministic_and_rotation_ordered(monkeypatch) -> 
             settings=settings,
         )
         assert first.pools == second.pools
-        main_index = next(
-            index for index, slot in enumerate(first.template.slots)
-            if slot.id == "squat_main"
-        )
         retained = first.pools["squat_main"][0]
-        monkeypatch.setattr(
-            generator,
-            "_last_choice",
-            lambda history, index: (retained, 99) if index == main_index else (None, 0),
-        )
-        rotated = generator.candidate_pools(
+        dwell.set_count(store.connection, retained, settings.dwell_target)
+        capped = generator.candidate_pools(
             store.connection, for_date="2026-11-01", session_type="squat",
             settings=settings,
         )
-        assert rotated.pools["squat_main"][-1] == retained
+        assert retained not in capped.pools["squat_main"]
     finally:
         store.close()
 
 
-def test_registry_rotation_default_is_used_for_secondary() -> None:
-    assert settings_registry.snapshot().get("resolver.rotation.default") == 0.2
+def test_registry_dwell_defaults_are_shipped() -> None:
+    snapshot = settings_registry.snapshot()
+    assert snapshot.get("resolver.dwell.target") == 7
+    assert snapshot.get("resolver.dwell.tau") == pytest.approx(0.5)
+    assert snapshot.get("resolver.dwell.probability") == pytest.approx(0.1)
+    assert snapshot.get("resolver.weights.dwell") == pytest.approx(0.1)

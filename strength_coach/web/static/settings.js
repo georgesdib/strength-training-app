@@ -1046,6 +1046,15 @@ const resolverPolicySave = $("#settings-resolver-policy-save");
 if (resolverPolicySave) resolverPolicySave.addEventListener("click", saveResolverPolicy);
 const resolverPolicyRestore = $("#settings-resolver-policy-restore");
 if (resolverPolicyRestore) resolverPolicyRestore.addEventListener("click", restoreResolverPolicy);
+const dwellAdd = $("#settings-dwell-add-save");
+if (dwellAdd) dwellAdd.addEventListener("click", () => {
+  const exerciseId = $("#settings-dwell-add-id").value.trim();
+  if (!exerciseId) {
+    $("#settings-dwell-msg").textContent = "Exercise id is required.";
+    return;
+  }
+  saveDwellCount(exerciseId, $("#settings-dwell-add-count").value);
+});
 const resolverPreviewForm = $("#settings-resolver-preview-form");
 if (resolverPreviewForm) resolverPreviewForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -1332,6 +1341,55 @@ function applyMonitoringFilter() {
   if (empty) empty.hidden = totalVisible > 0;
 }
 
+async function loadDwellCounters() {
+  const box = $("#settings-dwell-counters");
+  if (!box) return;
+  try {
+    renderDwellCounters(await api("/api/resolver/dwell"));
+  } catch (error) {
+    box.innerHTML = "<p class='muted'>Dwell counters failed: " + esc(error.message) + "</p>";
+  }
+}
+
+function renderDwellCounters(data) {
+  const box = $("#settings-dwell-counters");
+  if (!box) return;
+  const meta = $("#settings-dwell-meta");
+  if (meta) meta.textContent = "target " + data.target;
+  const rows = Object.entries(data.counts || {}).sort((a, b) => a[0].localeCompare(b[0]));
+  box.innerHTML = rows.length
+    ? rows.map(([exerciseId, count]) =>
+        "<div class='form-row'><span class='grow'><code>" + esc(exerciseId) + "</code></span>" +
+        "<input type='number' min='0' value='" + esc(count) + "' data-dwell-id='" + esc(exerciseId) + "'>" +
+        "<button class='ghost' type='button' data-dwell-save='" + esc(exerciseId) + "'>Save</button></div>"
+      ).join("")
+    : "<p class='muted'>No counters yet; a completed workout creates one.</p>";
+  box.querySelectorAll("[data-dwell-save]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const input = button.parentElement.querySelector("input");
+      saveDwellCount(button.getAttribute("data-dwell-save"), input.value);
+    });
+  });
+}
+
+async function saveDwellCount(exerciseId, value) {
+  const msg = $("#settings-dwell-msg");
+  const count = Number(value);
+  if (!Number.isInteger(count) || count < 0) {
+    if (msg) msg.textContent = "Count must be a non-negative integer.";
+    return;
+  }
+  try {
+    renderDwellCounters(await api("/api/resolver/dwell", {
+      method: "POST",
+      body: JSON.stringify({ exercise_id: exerciseId, count }),
+    }));
+    if (msg) msg.textContent = "Saved " + exerciseId + " = " + count + ".";
+  } catch (error) {
+    if (msg) msg.textContent = error.message;
+  }
+}
+
 async function loadSettings() {
   let data;
   try {
@@ -1357,6 +1415,7 @@ async function loadSettings() {
   } catch (error) {
     $("#settings-resolver-policy-msg").textContent = "Resolver policy failed: " + error.message;
   }
+  await loadDwellCounters();
   try {
     renderVolumeSettings(await api("/api/settings/volume"));
   } catch (error) {

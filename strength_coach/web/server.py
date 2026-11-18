@@ -3155,6 +3155,8 @@ class Handler(BaseHTTPRequestHandler):
                     self._json(200, resolver_admin.policy_state())
                 except resolver_policy.ResolverPolicyError as exc:
                     raise FieldError(str(exc), {"policy": str(exc)}) from exc
+            elif path == "/api/resolver/dwell":
+                self._json(200, self._with_conn(self._resolver_dwell))
             elif path == "/api/regime":
                 query = parse_qs(urlparse(self.path).query)
                 self._json(200, self._with_conn(lambda c: regime_feature.detect(
@@ -3773,6 +3775,8 @@ class Handler(BaseHTTPRequestHandler):
                     self._json(200, resolver_admin.restore_latest())
                 except resolver_policy.ResolverPolicyError as exc:
                     raise FieldError(str(exc), {"policy": str(exc)}) from exc
+            elif path == "/api/resolver/dwell":
+                self._json(200, self._with_conn(lambda c: self._save_resolver_dwell(c, body)))
             elif path == "/api/resolver/preview/jobs":
                 job = start_resolver_preview_job(self.db_path, body)
                 self._json(202, job)
@@ -5924,6 +5928,35 @@ class Handler(BaseHTTPRequestHandler):
             evidence=body.get("evidence") or None,
         )
         return self._state(conn)
+
+    def _resolver_dwell(self, conn) -> dict:
+        """The mutable dwell counters plus the target in force (DEC-RESOLVER-15)."""
+        from strength_coach.features import dwell
+        from strength_coach.prescribe.resolver_settings import ResolverSettings
+
+        settings = ResolverSettings.load(conn, datetime.date.today().isoformat())
+        return {"counts": dwell.counts(conn), "target": settings.dwell_target}
+
+    def _save_resolver_dwell(self, conn, body: dict) -> dict:
+        from strength_coach.features import dwell
+
+        exercise_id = _field_call(
+            validation.exercise_id, "exercise_id", body.get("exercise_id")
+        )
+        try:
+            count = int(body.get("count"))
+        except (TypeError, ValueError) as exc:
+            raise FieldError(
+                "count must be a non-negative integer",
+                {"count": "must be a non-negative integer"},
+            ) from exc
+        if count < 0:
+            raise FieldError(
+                "count must be a non-negative integer",
+                {"count": "must be a non-negative integer"},
+            )
+        dwell.set_count(conn, exercise_id, count)
+        return self._resolver_dwell(conn)
 
     def _save_suitability(self, conn, body: dict) -> dict:
         exercise_id = _field_call(

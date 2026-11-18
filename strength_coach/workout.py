@@ -18,7 +18,7 @@ from typing import Any
 
 import pandas as pd
 
-from strength_coach import adherence
+from strength_coach import adherence, settings_profile
 from strength_coach.analytics import core as derived_core
 from strength_coach.analytics import revision as analytics_revision
 from strength_coach.domain import load as load_mod
@@ -26,6 +26,7 @@ from strength_coach.domain.plan_identity import item_identity as _item_identity
 from strength_coach.domain.plan_identity import row_plan_identity
 from strength_coach.features import comparisons as comparisons_feature
 from strength_coach.features import demands as demands_feature
+from strength_coach.features import dwell as dwell_feature
 from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
 from strength_coach.features import e1rm_decay as e1rm_decay_feature
 from strength_coach.features import e1rm_source as e1rm_source_feature
@@ -2414,6 +2415,18 @@ def end(
             conn, workout, ended=ended, duration=duration, duration_source=source,
             session_rpe=rpe, session_rpe_recorded=not not_recorded, notes=notes,
             productivity=productivity,
+        )
+        # The dwell counter advances with the durable clean_set rows the materialise step just
+        # wrote, once per exercise per training day. See docs/DWELL-AND-ROTATION.md.
+        profile = settings_profile.latest(conn, str(workout["for_date"]))
+        resolved = settings_profile.resolved_registry(
+            profile["overrides"] if profile else {}
+        )
+        dwell_feature.record_completion(
+            conn,
+            session_id=workout_id,
+            for_date=str(workout["for_date"]),
+            target=int(resolved["resolver.dwell.target"]),
         )
         # No critique is computed at completion: the rubric is a retired diagnostic
         # (DEC-EVAL-09), and ending a workout must not depend on it.

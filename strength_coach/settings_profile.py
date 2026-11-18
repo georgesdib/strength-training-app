@@ -30,6 +30,13 @@ from strength_coach.store import repositories
 RETIRED_OVERRIDE_KEYS = frozenset({
     "resolver.weights.rotation",
     "resolver.weights.preference",
+    # The deterministic rotation dwell (rotation 0-1 scaled onto a session count) was replaced
+    # by the done-exposure dwell model in DEC-RESOLVER-15. Historical profiles keep loading;
+    # the four keys stop having any effect and cannot be set again.
+    "resolver.rotation.default",
+    "resolver.rotation.main",
+    "resolver.rotation.accessory",
+    "resolver.rotation.max_dwell",
     # Top-set preservation is now an invariant, not a setting. Historical false values are
     # intentionally ignored rather than left as a hidden way to change set arithmetic.
     "resolver.top_set.preserve_total_sets",
@@ -196,6 +203,14 @@ def save(
     repositories.append_settings_profile(
         conn, effective_from=day, overrides=merged, reason=(reason or None),
     )
+    # A lowered dwell target must not strand every over-cap lift outside automatic selection;
+    # the pass is part of the same effective-dated save. See docs/DWELL-AND-ROTATION.md.
+    before_target = int(before.get("resolver.dwell.target", 0) or 0)
+    after_target = int(after.get("resolver.dwell.target", 0) or 0)
+    if after_target > 0 and after_target != before_target:
+        from strength_coach.features import dwell as dwell_feature
+
+        dwell_feature.reconcile(conn, after_target)
     return state(conn, day)
 
 

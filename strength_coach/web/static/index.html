@@ -1272,11 +1272,24 @@
         <div class="panel-head"><h2>Resolver</h2>
           <span class="badge" id="resolver-status">loading…</span></div>
         <p class="section-help"><span>Opt-in deterministic exercise generation. Settings are append-only profile versions; structural policy is a versioned local YAML file with validated backups.</span>
-          <a class="doc-link" href="#docs?doc=docs/archive/PROGRAMME-BUILDER-PLAN.md">Resolver plan</a></p>
+          <a class="doc-link" href="#docs?doc=docs/RESOLVER-ALGORITHM.md">Resolver algorithm, step by step</a></p>
         <div id="settings-resolver-warning" class="warnbox" hidden>
           Resolver mode is enabled. Preview and start paths use generated exercise pools; the fixed-template path remains available when it is disabled.
         </div>
         <div id="settings-resolver-fields"><p class="empty">Loading resolver settings…</p></div>
+        <div class="panel-head"><h3>Dwell counters</h3>
+          <span class="badge" id="settings-dwell-meta">loading…</span></div>
+        <p class="section-help">One mutable counter per exercise: completed exposures in the current
+          cycle. A counter wraps to 0 at the target. Editing a counter is a manual override; to stop
+          prescribing a lift use its suitability rating instead.
+          <a class="doc-link" href="#docs?doc=docs/DWELL-AND-ROTATION.md">Dwell model</a></p>
+        <div id="settings-dwell-counters"></div>
+        <div class="form-row">
+          <label class="grow">Exercise id <input id="settings-dwell-add-id" placeholder="bench_press"></label>
+          <label>Count <input id="settings-dwell-add-count" type="number" min="0" value="0"></label>
+          <button class="ghost" type="button" id="settings-dwell-add-save">Set counter</button>
+          <span class="muted" id="settings-dwell-msg"></span>
+        </div>
         <div class="form-row">
           <label class="grow">Reason <input id="settings-resolver-reason" placeholder="required for guarded settings"></label>
           <label><input type="checkbox" id="settings-resolver-enable-confirm"> Confirm resolver enable</label>
@@ -1337,7 +1350,8 @@
       <div class="panel">
         <div class="panel-head"><h2>Settings profile</h2>
           <span class="badge" id="settings-profile-meta">loading…</span></div>
-        <p class="section-help"><span>Profile-backed settings; a save appends a version and never edits history.</span> <a class="doc-link" href="#docs?doc=docs/archive/VOLUME-MODULATION-PLAN.md">Settings plan</a></p>
+        <p class="section-help"><span>Profile-backed settings; a save appends a version and never edits history.</span>
+          <a class="doc-link" href="#docs?doc=docs/archive/VOLUME-MODULATION-PLAN.md">Settings plan</a></p>
         <div id="settings-profile-fields"></div>
         <div class="form-row">
           <label class="grow">Reason <input id="settings-profile-reason" placeholder="required for guarded settings"></label>
