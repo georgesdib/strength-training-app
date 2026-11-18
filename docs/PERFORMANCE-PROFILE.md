@@ -282,7 +282,7 @@ time-in-zone alone 191 ms.
    reads. Not optimised: one call per Today open or chat turn does not justify it. The cheap lever
    if that changes is a per-file-mtime config cache, then a lighter current-status query.
 4. **These are direct-mode figures.** The tool descriptions carry HTTP figures from 2026-11-14;
-   the next HTTP run after a redeploy should replace `get_longevity_assessment`'s 437 ms direct
-   entry with an HTTP one. The transport is named per row in `intelligence/latency.py`.
+   the 437 ms direct entry stays as recorded, because MCP has no consumer today and the HTTP
+   variant would refine a tool description nothing reads. Refresh it only if MCP acquires a client. The transport is named per row in `intelligence/latency.py`.
 5. HTTP adds 10–15 % on this hardware (readiness: 377 ms HTTP vs 434 ms direct), so the two
    transports are not interchangeable when comparing.

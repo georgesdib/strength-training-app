@@ -41,7 +41,7 @@ them: delivered work is marked delivered, and later phases are not advanced by t
 | INT-2 catalogue: seven further tools (INT-2) | implemented |
 | INT-2 resources: `strength://programme/current`, `strength://overview/current` (INT-2) | implemented |
 | `get_weekly_review` capability (INT-3) | implemented; INT-3 closed 2026-11-15 |
-| `get_longevity_assessment` capability (longevity plan step 2) | implemented 2026-11-18; iOS Today rendering, consent toggle and web panel pending |
+| `get_longevity_assessment` capability | implemented 2026-11-18; iPhone Today section, consent toggle, time-in-zone panel and web panel released in 1.7.0 |
 | `GET /api/ios/v1/intelligence/weekly-review` (INT-3) | implemented; INT-3 closed 2026-11-15 |
 | iOS weekly-review screen and adapter (INT-3) | implemented 2026-11-15 |
 | Baseline context package (shared compact context) | implemented for narration as the envelope fact projection; no separate package |
