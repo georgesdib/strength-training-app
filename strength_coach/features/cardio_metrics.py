@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import datetime as dt
 import statistics
+import threading
 from collections import Counter, defaultdict
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -215,6 +216,21 @@ def cache_is_stale(conn) -> bool:
     return cached != live
 
 
+#: One rebuild at a time per process. Without this, every request that sees a stale cache
+#: builds its own copy: the expensive classification runs before the write transaction, so
+#: concurrent readers multiply the work instead of waiting for the first rebuild to finish.
+_REBUILD_LOCK = threading.Lock()
+
+
+def ensure_classification(conn) -> None:
+    """Rebuild the cache at most once when several requests observe the same stale corpus."""
+    if not cache_is_stale(conn):
+        return
+    with _REBUILD_LOCK:
+        if cache_is_stale(conn):
+            rebuild_classification(conn)
+
+
 def _as_of_date(as_of: str | None) -> dt.date:
     """Anchor for calendar windows: explicit when given, otherwise today in the reporting zone."""
     if as_of:
@@ -242,8 +258,7 @@ def activity_summary(
     separate, slower path.
     """
     anchor = _as_of_date(as_of)
-    if cache_is_stale(conn):
-        rebuild_classification(conn)
+    ensure_classification(conn)
     hidden = hidden_workout_ids(conn)
     rows = [
         dict(row)

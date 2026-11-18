@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import threading
 
 import pytest
 
@@ -125,6 +126,46 @@ def test_dashboard_card_averages_the_last_four_equivalent_weeks():
     assert card["average_weekly_minutes"] == 112.5  # last four: 0, 150, 210, 90
     assert card["sessions"] == 12
     assert (card["reference_min"], card["reference_max"]) == (150, 300)
+
+
+def test_concurrent_stale_readers_rebuild_the_cache_once(tmp_path, monkeypatch):
+    first = db.connect(tmp_path / "coach.db")
+    db.migrate(first)
+    _workout(first, "2026-05-04T08:00:00+00:00", 30, mets=5.0)
+    metrics.activity_summary(first, weeks=4, as_of="2026-05-10")  # warm the cache
+    _workout(first, "2026-05-05T08:00:00+00:00", 30, mets=5.0)  # make it stale
+
+    calls = []
+    original = metrics.rebuild_classification
+
+    def counted(conn):
+        calls.append(1)
+        return original(conn)
+
+    monkeypatch.setattr(metrics, "rebuild_classification", counted)
+    barrier = threading.Barrier(2)
+    errors = []
+
+    def worker():
+        conn = db.connect(tmp_path / "coach.db")
+        try:
+            barrier.wait(timeout=5)
+            metrics.ensure_classification(conn)
+        except Exception as exc:  # pragma: no cover - asserted below
+            errors.append(exc)
+        finally:
+            conn.close()
+
+    threads = [threading.Thread(target=worker) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=30)
+
+    assert not errors
+    assert len(calls) == 1  # one rebuild, not one per reader
+    assert metrics.cache_is_stale(first) is False
+    first.close()
 
 
 def test_rolling_windows_end_at_as_of_not_at_the_last_workout(conn):
