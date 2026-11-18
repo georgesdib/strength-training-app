@@ -851,6 +851,11 @@ writes that one as hex.
 **Units.** Seconds, metres, kilojoules, beats per minute. `timezone` retains `HKTimeZone` where
 present so local-day attribution does not silently use the server's zone.
 
+**Effort and hiding.** `external_workout.srpe` (migration `0067`) holds Apple's per-workout effort
+score, 1–10, the same scale as session RPE and written by the watch app. `cardio_exclusion` (`0068`)
+records hide/show as append-only events, latest wins; every read path and the linker filter on the
+current state, so hiding removes a workout from metrics without deleting it.
+
 **Manual entry is retired (2026-11-17).** `cardio_log` was dropped by migration `0069` after its
 write paths — the web form, `POST /api/cardio`, the `cardio` CLI command and `append_cardio` — were
 removed. This corpus is the only activity history, and a session recorded without a device is
