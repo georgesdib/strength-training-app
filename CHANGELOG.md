@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Longevity assessment on the cardio summary.** `GET /api/cardio/summary` and the phone's
+  authenticated activity route now carry an `assessment` block: the last completed week's
+  moderate-equivalent minutes against the WHO 150–300 reference **as context**, the current week's
+  progress with the days left, and the latest VO₂max with `current`/`stale`/`absent`. It abstains
+  (relation `unknown`) when fewer than half the week's minutes are classified, and nothing reads
+  cardio to change a prescription (`DEC-LONGEVITY-01`). Optional `tiz=1` and `patterns=1` add
+  sample-based zone minutes and per-pattern volume headroom. No migration, no notification, no model.
+
 ### Fixed
 
 - **The readiness recovery series prefers a complete night over a newer partial one.**

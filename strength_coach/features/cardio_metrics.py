@@ -324,16 +324,12 @@ def report(conn, *, since: str | None = None, weeks_limit: int = 104) -> dict[st
                 if zone is not None:
                     bucket["resistance_classified_min"] += minutes
 
-        if series:
-            ok, _median = continuity([t for t, _bpm in series], duration)
-            if ok:
-                eligible += 1
-                eligible_by_year[str(started.year)] += 1
-                per_sample_min = minutes / len(series)
-                for _t, bpm in series:
-                    sample_zone = classify_hr(bpm)
-                    if sample_zone is not None:
-                        zone_minutes[str(started.year)][sample_zone] += per_sample_min
+        zones = sample_zone_minutes(series, duration_s=duration, minutes=minutes)
+        if zones is not None:
+            eligible += 1
+            eligible_by_year[str(started.year)] += 1
+            for zone_name, value in zones.items():
+                zone_minutes[str(started.year)][zone_name] += value
 
     ordered_weeks = sorted(weeks)
     rolling: dict[str, Any] = {}
@@ -390,3 +386,250 @@ def report(conn, *, since: str | None = None, weeks_limit: int = 104) -> dict[st
             },
         },
     }
+
+# --- Longevity assessment -------------------------------------------------
+#
+# The three questions the Today card and the web Longevity panel answer (is the aerobic
+# reference met, is the stored VO2max readable, what volume headroom remains) are computed here
+# and nowhere else, so the phone, the browser and the intelligence capability cannot disagree.
+# Everything is deterministic: no model, no randomness, and the anchor date is injectable.
+
+REFERENCE_MINUTES = (150.0, 300.0)  # WHO 2020: 150-300 moderate (75-150 vigorous) per week
+CLASSIFIED_FLOOR = 0.5  # below half the week classified, the weekly relation stays unknown
+VO2MAX_STALE_DAYS = 90  # Apple writes VO2max weekly-ish; a season-old estimate is not current
+
+
+def sample_zone_minutes(
+    series: list[tuple[float, float]], *, duration_s: int, minutes: float
+) -> Counter | None:
+    """Per-sample zone minutes for one workout, or None when its series is not eligible.
+
+    One implementation for both consumers: the per-year time-in-zone report and the longevity
+    panel. Whole-workout classification is a different (and more generous) estimate.
+    """
+    if not series:
+        return None
+    ok, _median = continuity([t for t, _bpm in series], duration_s)
+    if not ok:
+        return None
+    out: Counter = Counter()
+    per_sample = minutes / len(series)
+    for _t, bpm in series:
+        zone = classify_hr(bpm)
+        if zone is not None:
+            out[zone] += per_sample
+    return out
+
+
+def time_in_zone(conn, *, on_date: str | None = None, days: int = 28) -> dict[str, Any]:
+    """Sample-based zone minutes over a calendar window, with its own coverage.
+
+    This covers only continuity-eligible workouts, so it is reported as its own block and never
+    merged into the weekly total. Hidden workouts are excluded like everywhere else.
+    """
+    anchor = _as_of_date(on_date)
+    first = anchor - dt.timedelta(days=days - 1)
+    hidden = hidden_workout_ids(conn)
+    series_by_workout = _hr_values(conn)
+    totals: Counter = Counter()
+    covered = 0
+    eligible = 0
+    for row in conn.execute("SELECT * FROM external_workout"):
+        workout = dict(row)
+        if workout["external_workout_id"] in hidden:
+            continue
+        ended = dt.datetime.fromisoformat(workout["ended_at"]).astimezone(
+            ZoneInfo("Europe/London")
+        ).date()
+        if not first <= ended <= anchor:
+            continue
+        series = series_by_workout.get(workout["external_workout_id"], [])
+        if not series:
+            continue
+        covered += 1
+        minutes = round(int(workout["duration_s"]) / 60.0, 1)
+        zones = sample_zone_minutes(
+            series, duration_s=int(workout["duration_s"]), minutes=minutes
+        )
+        if zones is None:
+            continue
+        eligible += 1
+        totals.update(zones)
+    return {
+        "window": {"start": first.isoformat(), "end": anchor.isoformat(), "days": days},
+        "workouts_with_series": covered,
+        "eligible_workouts": eligible,
+        "coverage_share": round(eligible / covered, 3) if covered else 0.0,
+        "minutes": {zone: round(totals[zone], 1) for zone in ZONES},
+        "equivalent_minutes": round(totals["moderate"] + 2 * totals["vigorous"], 1),
+        "source": "heart-rate samples of continuity-eligible workouts",
+    }
+
+
+def _latest_vo2max(conn) -> dict[str, Any] | None:
+    row = conn.execute(
+        """
+        SELECT m.*, d.unit AS unit
+          FROM measurement m
+          JOIN metric_definition d ON d.metric_key = m.metric_key
+         WHERE m.metric_key = 'vo2max'
+         ORDER BY m.measured_on DESC, m.created_at DESC
+         LIMIT 1
+        """
+    ).fetchone()
+    return dict(row) if row is not None else None
+
+
+def vo2max_assessment(
+    row: dict[str, Any] | None, today: dt.date, *, stale_days: int = VO2MAX_STALE_DAYS
+) -> dict[str, Any]:
+    """The stored estimate as it may be read: value, date, source, currency.
+
+    No reference category: age and sex are not stored, and a consumer estimate does not support
+    a banded verdict (DEC-LONGEVITY-04). Absence is reported as absent, never as poor fitness.
+    """
+    if row is None:
+        return {
+            "status": "absent",
+            "value": None,
+            "unit": "ml/kg/min",
+            "measured_on": None,
+            "source": None,
+            "age_days": None,
+        }
+    measured = dt.date.fromisoformat(str(row["measured_on"]))
+    age_days = (today - measured).days
+    return {
+        "status": "stale" if age_days > stale_days else "current",
+        "value": round(float(row["value"]), 1),
+        "unit": str(row.get("unit") or "ml/kg/min"),
+        "measured_on": measured.isoformat(),
+        "source": row.get("source"),
+        "age_days": age_days,
+    }
+
+
+def adequacy(
+    summary: dict[str, Any],
+    *,
+    today: dt.date,
+    vo2max_row: dict[str, Any] | None = None,
+    patterns: dict[str, Any] | None = None,
+    sessions_remaining: int | None = None,
+    time_in_zone_block: dict[str, Any] | None = None,
+    stale_days: int = VO2MAX_STALE_DAYS,
+    classified_floor: float = CLASSIFIED_FLOOR,
+) -> dict[str, Any]:
+    """The deterministic longevity assessment over three frames.
+
+    The relation to the WHO reference is stated for the **last completed week** only: a
+    week-to-date reading would report "below" every Monday. The current week reports progress and
+    what is left, and the coming week is where the advice points.
+
+    Pure: takes an already-built activity summary, the latest VO2max row, the optional pattern
+    headroom and the optional time-in-zone block. No database access, no clock.
+    """
+    ref_min, ref_max = REFERENCE_MINUTES
+    missing: list[str] = []
+    by_week = {str(row.get("iso_week")): row for row in summary.get("weeks", [])}
+    current_start = today - dt.timedelta(days=today.weekday())
+    current_end = current_start + dt.timedelta(days=6)
+    last_start = current_start - dt.timedelta(days=7)
+    last_end = current_start - dt.timedelta(days=1)
+
+    current_row = by_week.get(_iso_week_key(current_start))
+    if current_row is None:
+        missing.append(f"no classification rows for {_iso_week_key(current_start)}")
+        current_row = {}
+    current_week = {
+        "iso_week": _iso_week_key(current_start),
+        "start": current_start.isoformat(),
+        "end": current_end.isoformat(),
+        "days_elapsed": (today - current_start).days + 1,
+        "days_remaining": (current_end - today).days,
+        "moderate_minutes": round(float(current_row.get("moderate_minutes") or 0.0), 1),
+        "vigorous_minutes": round(float(current_row.get("vigorous_minutes") or 0.0), 1),
+        "equivalent_minutes": round(float(current_row.get("equivalent_minutes") or 0.0), 1),
+        "unclassified_minutes": round(float(current_row.get("unclassified_minutes") or 0.0), 1),
+    }
+
+    last_row = by_week.get(_iso_week_key(last_start))
+    if last_row is None:
+        missing.append(f"no completed week to assess (missing {_iso_week_key(last_start)})")
+        last_week = None
+    else:
+        equivalent = float(last_row.get("equivalent_minutes") or 0.0)
+        share = float(last_row.get("classified_share") or 0.0)
+        gate = "signal" if share >= classified_floor else "insufficient"
+        if gate == "insufficient":
+            relation = "unknown"
+            remaining_minutes = None
+        elif equivalent >= ref_min:
+            relation = "inside"
+            remaining_minutes = None
+        else:
+            relation = "below"
+            remaining_minutes = round(ref_min - equivalent, 1)
+        last_week = {
+            "iso_week": _iso_week_key(last_start),
+            "start": last_start.isoformat(),
+            "end": last_end.isoformat(),
+            "moderate_minutes": round(float(last_row.get("moderate_minutes") or 0.0), 1),
+            "vigorous_minutes": round(float(last_row.get("vigorous_minutes") or 0.0), 1),
+            "equivalent_minutes": round(equivalent, 1),
+            "unclassified_minutes": round(float(last_row.get("unclassified_minutes") or 0.0), 1),
+            "resistance_minutes": round(float(last_row.get("resistance_minutes") or 0.0), 1),
+            "resistance_classified_minutes": round(
+                float(last_row.get("resistance_classified_minutes") or 0.0), 1
+            ),
+            "classified_share": share,
+            "gate": gate,
+            "relation": relation,
+            "above_upper": None if gate == "insufficient" else equivalent > ref_max,
+            "remaining_minutes": remaining_minutes,
+            "tier_minutes": dict(last_row.get("tier_minutes") or {}),
+        }
+
+    return {
+        "as_of": today.isoformat(),
+        "reference": {
+            "min_minutes": ref_min,
+            "max_minutes": ref_max,
+            "equivalence": "moderate + 2 * vigorous",
+            "role": "context, not a target",
+            "source": "WHO 2020 aerobic activity guideline",
+        },
+        "last_week": last_week,
+        "current_week": current_week,
+        "sessions_remaining": sessions_remaining,
+        "vo2max": vo2max_assessment(vo2max_row, today, stale_days=stale_days),
+        "time_in_zone": time_in_zone_block,
+        "patterns": patterns,
+        "missing": missing,
+    }
+
+
+def assessment(
+    conn,
+    *,
+    as_of: str | None = None,
+    include_tiz: bool = False,
+    patterns: dict[str, Any] | None = None,
+    sessions_remaining: int | None = None,
+) -> dict[str, Any]:
+    """Compose the assessment from one summary read, the VO2max row and the caller's extra blocks.
+
+    `patterns` (per-pattern volume headroom) and `sessions_remaining` are supplied by the caller
+    because they belong to the programme, not to cardio; the cardio module must not read the
+    programme itself.
+    """
+    day = _as_of_date(as_of)
+    summary = activity_summary(conn, weeks=2, as_of=day.isoformat())
+    return adequacy(
+        summary,
+        today=day,
+        vo2max_row=_latest_vo2max(conn),
+        patterns=patterns,
+        sessions_remaining=sessions_remaining,
+        time_in_zone_block=time_in_zone(conn, on_date=day.isoformat()) if include_tiz else None,
+    )

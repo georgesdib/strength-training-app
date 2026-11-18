@@ -1079,9 +1079,17 @@ class Handler(BaseHTTPRequestHandler):
                     query = parse_qs(urlparse(self.path).query)
                     weeks = int(query.get("weeks", ["12"])[0])
                     as_of = query.get("as_of", [None])[0]
-                    self._json(200, self._with_conn(
-                        lambda c: self._ios_activity_summary(c, weeks, as_of)
-                    ))
+                    include_tiz = query.get("tiz", ["0"])[0] not in ("0", "", "false")
+                    include_patterns = query.get("patterns", ["0"])[0] not in ("0", "", "false")
+                    # Assign, do not send: the route tail sends once. Sending here as well made
+                    # the tail raise UnboundLocalError after the response had already gone out.
+                    payload = self._with_conn(
+                        lambda c: self._ios_activity_summary(
+                            c, weeks, as_of,
+                            include_tiz=include_tiz,
+                            include_patterns=include_patterns,
+                        )
+                    )
                 elif path == "/api/ios/v1/today":
                     self._ios_idle_sweep(conn)
                     clock = _ios_clock()
@@ -3297,9 +3305,19 @@ class Handler(BaseHTTPRequestHandler):
                 query = parse_qs(urlparse(self.path).query)
                 weeks = int(query.get("weeks", ["12"])[0])
                 as_of = query.get("as_of", [None])[0]
-                self._json(200, self._with_conn(
-                    lambda c: cardio_metrics.activity_summary(c, weeks=weeks, as_of=as_of)
-                ))
+                include_tiz = query.get("tiz", ["0"])[0] not in ("0", "", "false")
+                include_patterns = query.get("patterns", ["0"])[0] not in ("0", "", "false")
+
+                def _cardio_summary(c):
+                    payload = cardio_metrics.activity_summary(c, weeks=weeks, as_of=as_of)
+                    payload["assessment"] = self._longevity_assessment(
+                        c, as_of,
+                        include_tiz=include_tiz,
+                        include_patterns=include_patterns,
+                    )
+                    return payload
+
+                self._json(200, self._with_conn(_cardio_summary))
             elif path == "/api/breaks":
                 self._json(200, self._with_conn(self._breaks))
             elif path == "/api/measurements":
@@ -5523,7 +5541,65 @@ class Handler(BaseHTTPRequestHandler):
             "options": options_mod.canonical_options(),
         }
 
-    def _ios_activity_summary(self, conn, weeks: int, as_of: str | None = None) -> dict:
+    def _longevity_assessment(
+        self,
+        conn,
+        as_of: str | None = None,
+        *,
+        include_tiz: bool = False,
+        include_patterns: bool = False,
+    ) -> dict:
+        """The deterministic longevity block shared by the browser and phone routes.
+
+        The arithmetic lives in `features/cardio_metrics.adequacy`; this only supplies the two
+        blocks that belong to the programme rather than to cardio. A budget read that fails must
+        not take the cardio endpoint down, so the blocks are omitted and named as missing.
+        """
+        patterns = None
+        sessions_remaining = None
+        if include_patterns:
+            day = as_of or datetime.date.today().isoformat()
+            try:
+                budget = volume_budget_mod.report(conn, day)
+                per_pattern = budget.get("per_pattern") or {}
+                patterns = {
+                    "per_pattern": {
+                        key: {
+                            "status": row.get("status"),
+                            "short": row.get("short"),
+                            "headroom_sets": (row.get("top_up_capacity") or {}).get("sets", 0),
+                        }
+                        for key, row in per_pattern.items()
+                    }
+                }
+                profile = dict(queries.athlete_profile(conn) or {})
+                target = int(profile.get("sessions_per_week_target") or 0)
+                if target:
+                    done = volume_budget_mod.completed_sessions(conn, on_date=day)
+                    sessions_remaining = max(0, target - done)
+            except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                # The budget is a programme read; it must not take the cardio endpoint down.
+                # Not silent: the assessment reports no patterns, and the log names the reason.
+                LOGGER.warning("longevity patterns unavailable: %s", exc)
+                patterns = None
+                sessions_remaining = None
+        return cardio_metrics.assessment(
+            conn,
+            as_of=as_of,
+            include_tiz=include_tiz,
+            patterns=patterns,
+            sessions_remaining=sessions_remaining,
+        )
+
+    def _ios_activity_summary(
+        self,
+        conn,
+        weeks: int,
+        as_of: str | None = None,
+        *,
+        include_tiz: bool = False,
+        include_patterns: bool = False,
+    ) -> dict:
         """The same numbers the web panel shows, behind device authentication.
 
         The phone must not call the unauthenticated browser route, so this is a thin wrapper over
@@ -5531,6 +5607,11 @@ class Handler(BaseHTTPRequestHandler):
         """
         return {
             "summary": cardio_metrics.activity_summary(conn, weeks=weeks, as_of=as_of),
+            "assessment": self._longevity_assessment(
+                conn, as_of,
+                include_tiz=include_tiz,
+                include_patterns=include_patterns,
+            ),
             "recent": self._recorded_workouts(conn, 5)["workouts"],
         }
 

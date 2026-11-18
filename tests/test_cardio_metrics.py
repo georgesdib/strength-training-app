@@ -185,3 +185,99 @@ def test_continuity_admits_dense_series_and_rejects_sparse(conn):
     assert payload["time_in_zone"]["eligible_workouts"] == 1
     assert payload["time_in_zone"]["eligible_by_year"] == {"2026": 1}
     assert payload["time_in_zone"]["minutes_by_year"]["2026"]["moderate"] == 10
+
+# --- Longevity assessment -------------------------------------------------
+
+TODAY = "2026-11-18"  # Wednesday; the completed week is 2026-11-09..15
+
+
+def _assessment(conn, **kwargs):
+    return metrics.assessment(conn, as_of=TODAY, **kwargs)
+
+
+def _vo2max(conn, *, measured_at="2026-11-12T08:00:00+00:00", value=48.0):
+    cardio.record_vo2max(
+        conn,
+        external_id=f"vo2-{measured_at}",
+        measured_at=measured_at,
+        value=value,
+        method="Apple Watch",
+        noted_at=measured_at,
+    )
+
+
+def test_adequacy_moderate_week_is_inside_the_reference(conn):
+    for day in ("10", "11", "12"):
+        _workout(conn, f"2026-11-{day}T08:00:00+00:00", 60, mets=4.0)
+    last_week = _assessment(conn)["last_week"]
+    assert last_week["equivalent_minutes"] == 180.0
+    assert last_week["relation"] == "inside"
+    assert last_week["remaining_minutes"] is None
+    assert last_week["gate"] == "signal"
+
+
+def test_adequacy_vigorous_week_reports_the_gap(conn):
+    _workout(conn, "2026-11-10T08:00:00+00:00", 40, mets=9.0)
+    last_week = _assessment(conn)["last_week"]
+    assert last_week["equivalent_minutes"] == 80.0
+    assert last_week["relation"] == "below"
+    assert last_week["remaining_minutes"] == 70.0
+
+
+def test_adequacy_combined_week_weights_vigorous_double(conn):
+    _workout(conn, "2026-11-10T08:00:00+00:00", 100, mets=4.0)
+    _workout(conn, "2026-11-12T08:00:00+00:00", 30, mets=9.0)
+    last_week = _assessment(conn)["last_week"]
+    assert last_week["moderate_minutes"] == 100.0
+    assert last_week["vigorous_minutes"] == 30.0
+    assert last_week["equivalent_minutes"] == 160.0
+    assert last_week["relation"] == "inside"
+
+
+def test_adequacy_boundary_is_inclusive(conn):
+    _workout(conn, "2026-11-10T08:00:00+00:00", 150, mets=4.0)
+    last_week = _assessment(conn)["last_week"]
+    assert last_week["equivalent_minutes"] == 150.0
+    assert last_week["relation"] == "inside"
+    assert last_week["remaining_minutes"] is None
+
+
+def test_adequacy_abstains_when_classification_is_incomplete(conn):
+    _workout(conn, "2026-11-10T08:00:00+00:00", 20, mets=4.0)
+    _workout(conn, "2026-11-11T08:00:00+00:00", 200)
+    last_week = _assessment(conn)["last_week"]
+    assert last_week["classified_share"] < metrics.CLASSIFIED_FLOOR
+    assert last_week["gate"] == "insufficient"
+    assert last_week["relation"] == "unknown"
+    assert last_week["remaining_minutes"] is None
+
+
+def test_current_week_reports_progress_without_a_relation(conn):
+    _workout(conn, "2026-11-10T08:00:00+00:00", 60, mets=4.0)
+    _workout(conn, "2026-11-17T08:00:00+00:00", 30, mets=4.0)
+    assessment = _assessment(conn)
+    assert "relation" not in assessment["current_week"]
+    assert assessment["current_week"]["equivalent_minutes"] == 30.0
+    assert assessment["current_week"]["days_remaining"] == 4
+    assert assessment["last_week"]["relation"] == "below"
+
+
+def test_vo2max_stale_readings_are_not_current_fitness(conn):
+    _vo2max(conn, measured_at="2026-06-01T08:00:00+00:00")
+    vo2max = _assessment(conn)["vo2max"]
+    assert vo2max["status"] == "stale"
+    assert vo2max["age_days"] > metrics.VO2MAX_STALE_DAYS
+
+
+def test_vo2max_absent_is_not_poor_fitness(conn):
+    vo2max = _assessment(conn)["vo2max"]
+    assert vo2max["status"] == "absent"
+    assert vo2max["value"] is None
+    assert vo2max["measured_on"] is None
+
+
+def test_optional_blocks_are_absent_unless_requested(conn):
+    _vo2max(conn)
+    assessment = _assessment(conn)
+    assert assessment["time_in_zone"] is None
+    assert assessment["patterns"] is None

@@ -2516,11 +2516,21 @@ def test_ios_activity_summary_is_authenticated_and_shaped(ios):
         ios["base"], "/api/ios/v1/healthkit/activity/summary?weeks=4", token=token
     )
     assert status == 200, body
-    assert set(body) == {"summary", "recent"}
+    assert set(body) == {"summary", "assessment", "recent"}
     assert body["summary"]["policy"]["equivalent_rule"] == "moderate + 2 * vigorous"
     assert len(body["summary"]["weeks"]) == 4  # empty weeks are present, not omitted
     assert all(week["equivalent_minutes"] == 0 for week in body["summary"]["weeks"])
     assert body["recent"] == []
+
+    # The longevity block ships with the same payload, so the phone and the web panel cannot
+    # disagree about the week. Optional blocks stay off unless requested.
+    assessment = body["assessment"]
+    assert assessment["reference"]["min_minutes"] == 150.0
+    assert assessment["reference"]["role"] == "context, not a target"
+    assert assessment["current_week"]["equivalent_minutes"] == 0
+    assert assessment["vo2max"]["status"] == "absent"
+    assert assessment["time_in_zone"] is None
+    assert assessment["patterns"] is None
 
     status, _ = _request(ios["base"], "/api/ios/v1/healthkit/activity/summary", token="nope")
     assert status == 401
