@@ -55,12 +55,12 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v1.4 | VBT target analytics | **released 2026-11-13** | structured/frozen target metadata; Prescribe and Active Workout target visibility and feedback; completed-workout and History target comparisons; Performance longitudinal cohorts with band/RIR evidence and within-set drift; no migration, prescription change or iOS model change |
 | v1.4.1 | Patch: native-summary performance and portability test | **released 2026-11-14** | completed-workout summary reads one snapshot and skips unused ratios (native report ~13.3 s → ~7.0 s); the portability test no longer calls the retired review/calibrate CLI; no metric, schema or prescription change |
 | v1.5 | Read-only training intelligence | **released 2026-11-15** | capability layer, MCP server (ten tools, three resources), REST facade, deterministic weekly review, server narration, web/CLI narrate, server and web chat with the deterministic dossier, plan-aware tools, token budgets, selector retirement and the evaluation harness; no training-decision, prescription or schema change; the iOS client renders the same envelopes |
-| v1.6 | Cardio depth | **partly delivered (1.6.0)** | v1.6.0 ships the imported cardio corpus, linking, analytics and dashboards (portfolio cardio stage plan); the reproducible cardio impulse/shadow load (§4.13a) remains planned for 1.6.x; the deeper labelled calibration set is retired (`DEC-EVAL-09`, §4.14) |
+| v1.6 | Cardio depth | **delivered (1.6.0), impulse retired** | v1.6.0 ships the imported cardio corpus, linking, analytics and dashboards (portfolio cardio stage plan); the reproducible cardio impulse/shadow load (§4.13a) was retired 2026-11-18 as product direction (`DEC-LONGEVITY-03`), so it is no longer planned; the deeper labelled calibration set is retired (`DEC-EVAL-09`, §4.14) |
 | v1.7 | Longevity assessment | **released 2026-11-18** | `assessment` block on the cardio summary and the phone route, `get_longevity_assessment` capability (MCP tool 11, iOS route, chat dossier), iPhone Today section with a separate health-data consent, time-in-zone panel, web panel with on-demand prose; no migration (§4.36, portfolio plan) |
 | v1.7.1 | Longevity corrective release | **released 2026-11-18** | execution-time health/plan tool allowlist, recovery-tail exclusion, elapsed-time time-in-zone with explicit coverage, three-state adequacy above 300 minutes, HR-ingestion cache invalidation, canonical web panel, VO₂max provenance, remote-narration consent; no migration (§4.36) |
 | — | Training-day session fragments | **done 2026-11-01** | one local training day may contain multiple session fragments; attendance and budget use days, volume/spinal use combined sets, e1RM uses one day-level observation; no schema migration; see [`docs/TRAINING-DAY-MODEL.md`](docs/TRAINING-DAY-MODEL.md) |
 | — | Deterministic dynamic template resolver | **Steps 0–6 complete 2026-11-01/03; merged to `development` 2026-11-03; released in v1.2.0 as opt-in (`resolver.enabled` default false)** | plan and confirmed decisions at [`docs/archive/PROGRAMME-BUILDER-PLAN.md`](docs/archive/PROGRAMME-BUILDER-PLAN.md) and [`docs/DECISIONS.md`](docs/DECISIONS.md) (`DEC-RESOLVER-01`–`12`); Step 1 delivered policy/settings/provenance; Step 2 delivered and remediated the internal deterministic generator core (`generator.py`, `resolver_settings.py`, accepted pattern-flexibility mapping); remediation covers shared injury/constraint eligibility, power-slot safety, require_can_do/unrated/rotation-default semantics, fallback repair, structural availability, whole-session/duplicate-aggregated authoritative spinal scoring, completed-workout precedence, history merge, retired redundant rotation/preference weights and policy/catalogue digests; Step 3 adds the opt-in top-set/back-off structure, top-set persistence and role-aware workout logging, and the hinge maximal-week programme change; Step 4C wires the flag-on resolver path through candidate pools, bounded beam and read-only evaluator, adds pool-aware scheduler availability, rejects selection overrides, and records generated-session provenance; the 4C audit remediation enforces required patterns on final assignments, separates evaluator failure stages, fingerprints beam configuration and DataFrame schemas, and uses the same auto-candidate/slot matching in scheduling; Step 5 adds the dedicated Settings -> Resolver panel, append-only scalar settings, validated policy YAML with atomic writes and 20 timestamped backups, read-only preview with choices/alternatives/suggestions, inline suitability rating, top-set preview, regenerate/diff and a start handoff; the Step 5 remediation adds shared CLI/web readiness enforcement, atomic backup creation, shared resolver-enable confirmation, deterministic restore with a reported pre-restore snapshot, and a full-prescription preview diff; Step 6 adds generated-slot snapshot provenance for critique/exemption reads with a legacy-null fallback, top-set role-aware critique coverage, a real-database copy smoke test, flag/policy rollback verification and the rollout documentation; forecast remains fixed option (c); the flag remains off |
-| v1.5 | LLM integration: read-only intelligence delivered | **released 2026-11-15; constrained proposer withdrawn 2026-11-17** | phased workstream at §4.24; capability layer, MCP server, REST facade, narration and chat delivered; the constrained proposer (`DEC-LLM-09`) stays deferred and needs its own gated plan |
+| v1.5 | LLM integration: read-only intelligence delivered | **released 2026-11-15; constrained proposer withdrawn 2026-11-17** | phased workstream at §4.24; capability layer, MCP server, REST facade, narration and chat delivered; the constrained proposer (`DEC-LLM-09`) was withdrawn 2026-11-17 and any write capability needs a new decision, not a revived plan |
 | future | Derived analytics layer | **Milestones A, B and C implemented 2026-11-14; all planned consumers migrated; C-1 maintenance worker deployed 2026-11-15** | §4.35; shared versioned, rebuildable analytics (per-set, session/exercise, weekly; snapshots optional and deferred) owned by the existing analytical modules; motivated by the ODROID overview (2.7 s p50) and monitoring (49 s) measurements |
 | future | Athlete Feedback & Coaching (AFC) | **AFC-2, AFC-2i, AFC-3 and AFC-4 implemented 2026-11-13; physical iPhone acceptance owner-confirmed 2026-11-14; AFC-5 scoped (docs only); backend, web and native iOS presentation** | §4.33; canonical plan [`AFC plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md); composes the existing adherence, VBT, readiness, feedback and volume services; AFC-1 dissolved and planned-session compliance excluded by `DEC-W7-01`; Phase 5A instruments frozen; AFC-2i renders the same report contract in the iPhone app (`DEC-AFC-03`) |
 | — | Symptom attribution and injury-signal verification | **done 2026-11-01** | Phases 1–2 closed: verification hygiene and optional session/lift attribution with required onset/confidence, migration `0047`, CLI/API/web and display-only views. Phase 3 was split into a separate roadmap phase (§4.28) |
@@ -901,7 +901,8 @@ data and a model, initially advisory and in shadow mode.
 with a `cardio` CLI command and `GET/POST /api/cardio`. It never held a row, and the imported
 corpus replaced it: `cardio_log`, the command, the routes and the form are gone (`0069`), the
 longevity review reads the corpus, and hiding a workout replaces manual correction. The model below
-is still unbuilt, and no prescription reads cardio data.
+was never built and was retired on 2026-11-18 (`DEC-LONGEVITY-03`); no prescription reads cardio
+data.
 
 **Priority:** the longevity review ranks cardio capture as the largest gap between the
 programme and the primary goal — cardiorespiratory fitness is the strongest modifiable
@@ -945,7 +946,7 @@ model exists; the model stays shadow-mode until there is data.
 - Fitness-fatigue models need longitudinal individual data; a generic parameter set is a
   prior, not a measurement ([Wang 2025](https://doi.org/10.1371/journal.pone.0337824)).
 
-**Open questions**
+**Open questions (historical — the item was retired 2026-11-18; none of these is live)**
 
 1. Which cardio modalities are in scope (walking, cycling, rowing, running, intervals)?
 2. Is TRIMP available from the athlete's devices, or is sRPE the only usable impulse?
@@ -1395,8 +1396,8 @@ not the cardio release and does not implement weakness targeting.
 parent-ratio implementation, and any new model load effect. Those move to v1.5 or remain
 unscheduled.
 
-**v1.5:** see §4.13a. First actions are the cardio data audit, capture completion, impulse
-contract, and comparable workout data collection.
+**v1.5:** see §4.13a. Delivered: the cardio data audit, capture completion and comparable workout data
+collection. The impulse contract was retired 2026-11-18 (`DEC-LONGEVITY-03`).
 
 ### 4.23 Nicer UI, adherence encouragement and KPIs  (retired 2026-11-13; scope moved to §4.33)
 
@@ -2324,7 +2325,8 @@ work lives in §4.19 and the v1.5 plan in §4.13a. The table that used to sit he
 that register on 2026-10-26 — `LIM-45`–`LIM-49` are its new rows, and the rest already existed
 (`LIM-07`/`LIM-10` duration and timestamps, `LIM-14` spinal cost, `LIM-24`/`LIM-43` e1RM bias).
 Two rows that described *planned work* were not limitations and did not move: calibration
-comparability is tracked in §4.14 and the cardio impulse in §4.13a A2/A3.
+comparability is tracked in §4.14, and the cardio impulse (§4.13a A2/A3) was retired on 2026-11-18
+(`DEC-LONGEVITY-03`).
 
 ## 6. Idea backlog (not approved, not scheduled)
 
