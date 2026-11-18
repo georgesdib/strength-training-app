@@ -3811,6 +3811,11 @@ const NARRATE_GUIDE = {
     usage: "Payload: {} for the last four weeks, or {\"as_of\":\"YYYY-MM-DD\",\"window_weeks\":4}.",
     example: {},
   },
+  get_longevity_assessment: {
+    text: "Explain the longevity assessment: the last completed week's moderate-equivalent minutes against the WHO reference as context, the current week's progress, VO2max status, and optional time-in-zone and per-pattern volume headroom. Facts only; no advice.",
+    usage: "Payload: {} for today, or {\"as_of\":\"YYYY-MM-DD\"}; optional include_time_in_zone and include_patterns booleans.",
+    example: {},
+  },
   get_exercise_progression: {
     text: "Explain one exercise's e1RM progression, its confidence interval and whether the trend is comparable.",
     usage: "Required: exercise_id. Payload: {\"exercise_id\":\"trap_bar_deadlift\",\"window_days\":84}.",
