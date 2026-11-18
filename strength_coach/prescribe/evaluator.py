@@ -11,10 +11,13 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from strength_coach.prescribe import build_prescription, templates
 from strength_coach.prescribe.models import Prescription
+
+if TYPE_CHECKING:  # pragma: no cover - import cycle guard, annotations only
+    from strength_coach.rules import History
 
 # Heuristic ordering weights, not calibrated utility. Hard feasibility is separate in
 # AssignmentEvaluation.feasible; these terms only rank otherwise valid candidates.
@@ -370,12 +373,18 @@ def evaluate_assignment(
     assignment: Mapping[str, str],
     candidate_pools: Mapping[str, Sequence[str]],
     inputs: EvaluationInputs | None = None,
+    history: History | None = None,
 ) -> AssignmentEvaluation:
     """Run one complete, validated assignment through the real engine read-only.
 
     The normal build applies readiness, continuity, deload, spinal, volume, time and validation.
     No engine function in this path writes to the store; the caller may use the returned
     prescription for preview/selection but must not persist it from the evaluator.
+
+    `history` lets a caller that evaluates several assignments from the same past (the resolver
+    beam) load the enriched frame once; it is passed to the engine beside `inputs` rather than
+    inside it, so the prescription input fingerprint keeps describing the request, not the
+    history snapshot.
     """
     validated = validate_assignment(base_template, assignment, candidate_pools)
     build_inputs = inputs or EvaluationInputs()
@@ -390,13 +399,16 @@ def evaluate_assignment(
         build_inputs.resolver_policy or resolver_policy.ResolverPolicy.load(),
         exercises.taxonomy().entities,
     )
+    build_kwargs = build_inputs.as_build_kwargs()
+    if history is not None:
+        build_kwargs["history"] = history
     prescription = build_prescription(
         conn,
         for_date=for_date,
         session_type=base_template.session_type,
         template=template,
         use_resolver=False,
-        **build_inputs.as_build_kwargs(),
+        **build_kwargs,
     )
     components = _components(prescription)
     score, reasons = score_components(components)

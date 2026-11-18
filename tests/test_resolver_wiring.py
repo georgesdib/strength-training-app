@@ -22,6 +22,7 @@ from strength_coach.prescribe import (
     persistence as prescription_persistence,
 )
 from strength_coach.prescribe.evaluator import EvaluationInputs
+from strength_coach.rules import History
 from strength_coach.store import db, importer, repositories
 from strength_coach.web import server
 
@@ -231,6 +232,48 @@ def test_enabled_resolver_rejects_selection_override(monkeypatch) -> None:
             assert "cannot apply selection" in str(exc)
         else:
             raise AssertionError("resolver must reject selection override")
+
+
+def test_build_resolved_loads_history_once_for_every_evaluation(monkeypatch) -> None:
+    """Four candidate builds share one enriched history frame."""
+    _without_required_patterns(monkeypatch)
+    loads: list[int] = []
+    real_load = History.load.__func__
+
+    @classmethod
+    def counting_load(cls, conn, **kwargs):
+        loads.append(1)
+        return real_load(cls, conn, **kwargs)
+
+    monkeypatch.setattr(History, "load", counting_load)
+    with store() as instance:
+        settings_profile.save(
+            instance.connection,
+            set_values={"resolver.enabled": True},
+            resolver_enable_confirmed=True,
+            effective_from="2024-01-01",
+        )
+        wide = replace(
+            _pools(),
+            pools={
+                "power": ("box_jump",),
+                "squat_main": (
+                    "ssb_squat", "competition_squat", "belt_squat", "split_squat",
+                ),
+            },
+        )
+        monkeypatch.setattr(
+            resolver.generator, "candidate_pools", lambda *args, **kwargs: wide
+        )
+        resolved = resolver.build_resolved(
+            instance.connection,
+            for_date="2024-01-15",
+            session_type="squat",
+            inputs=EvaluationInputs(minimum_target_minutes=30, top_set_requested=False),
+        )
+
+    assert resolved.beam.as_dict()["evaluated"] == 4
+    assert len(loads) == 1
 
 
 def test_preview_payload_freezes_into_workout_start(monkeypatch) -> None:

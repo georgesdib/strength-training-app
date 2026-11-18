@@ -26,6 +26,7 @@ from strength_coach.prescribe import generator, minimum_session, resolver_policy
 from strength_coach.prescribe.evaluator import EvaluationInputs, evaluate_assignment
 from strength_coach.prescribe.models import Prescription
 from strength_coach.prescribe.resolver_settings import ResolverSettings
+from strength_coach.rules import History
 from strength_coach.store import queries
 from strength_coach.utils import exercises
 
@@ -449,6 +450,10 @@ def _build_resolved(
             "pool_generation", f"candidate pool generation failed: {exc}", cause=exc,
             details={"for_date": for_date, "session_type": session_type},
         ) from exc
+    # The beam evaluates four complete assignments over the same past. Loading the enriched
+    # history once and handing it to every evaluation replaces four independent queries plus
+    # four re-enrichments of the same frame; the engine slices it to `for_date` itself.
+    history = History.load(conn)
     try:
         result = beam_mod.search(
             conn,
@@ -462,6 +467,7 @@ def _build_resolved(
             ),
             inputs=inputs,
             evaluator=_stage_evaluator,
+            evaluator_kwargs={"history": history},
         )
     except _PrescriptionEvaluationError as exc:
         raise ResolverBuildError(
