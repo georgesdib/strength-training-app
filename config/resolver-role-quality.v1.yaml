@@ -17,7 +17,6 @@ role_priority:
 criteria:
   main:
     - specificity
-    - continuity
     - exposure
     - suitability
   secondary:
@@ -39,13 +38,9 @@ specificity:
     same_pattern: 1
     other_permitted_pattern: 0
 
-continuity:
-  # Based on last used; dwell remains a generator eligibility cap, not a second score.
-  last_used_days:
-    class_3: 7
-    class_2: 28
-    class_1: null        # any older history
-  no_history: 0
+# Repetition and variation are owned by the dwell model (resolver.dwell.*), not by role
+# quality: the cap, the deterministic exploration draw and the bounded factor order the pool
+# before the beam. Role quality does not score dwell counts or last used (D20, DEC-RESOLVER-22).
 
 exposure:
   # A binary band check, not a point-estimate objective.

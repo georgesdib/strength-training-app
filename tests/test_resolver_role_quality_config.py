@@ -26,18 +26,14 @@ def test_role_quality_config_records_the_wp0_decisions() -> None:
     assert raw["schema_version"] == "1.0.0"
     assert raw["role_priority"] == ["main", "secondary", "accessory"]
     assert raw["criteria"]["main"] == [
-        "specificity", "continuity", "exposure", "suitability",
+        "specificity", "exposure", "suitability",
     ]
+    assert "continuity" not in raw
     assert raw["specificity"]["classes"] == {
         "same_lift": 3,
         "same_lift_group": 2,
         "same_pattern": 1,
         "other_permitted_pattern": 0,
-    }
-    assert raw["continuity"]["last_used_days"] == {
-        "class_3": 7,
-        "class_2": 28,
-        "class_1": None,
     }
     assert raw["exposure"]["heavy_band"] == 0.80
     assert raw["exposure"]["e1rm_age_days"] == {"full": 14, "partial": 45}

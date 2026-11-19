@@ -6,6 +6,13 @@ probabilistic exploration (DEC-RESOLVER-15).
 **Settings:** Settings -> Resolver and Settings profile (group Resolver).
 **Supersedes:** the deterministic seven-session rotation schedule of DEC-RESOLVER-02.
 
+**Resolver wiring status (2026-11-19).** The cap is live in the resolver's `candidate_pools`.
+The factor and the exploration draw are implemented in `prescribe/generator.py::generate`, whose
+only callers are tests; the production resolver does not call it. WP7a of the [resolver
+prescription structure plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/RESOLVER-PRESCRIPTION-STRUCTURE.md)
+wires the cap, draw and a bounded factor into the resolver's pre-build ordering. Until that ships,
+do not describe the factor or draw as live resolver behaviour.
+
 ## 1. The problem this solves
 
 The first resolver kept a per-slot dwell: each slot remembered its last exercise and a

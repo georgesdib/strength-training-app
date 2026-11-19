@@ -957,7 +957,9 @@ reopen any completed phase.
 
 **Scope.** Ordered planned set groups over a frozen plan; execution substitutions and additions instead of plan editing; one top-set tri-state with default `off`; a server-computed programme header reused by Today and intelligence facts; a deterministic role-aware evaluator hierarchy; order-based actual-sequence analysis without stored set roles; a deterministic candidate shortlist; and a later phone gateway for offline watch execution.
 
-**Work packages.** WP0 decisions and fixtures (done 2026-11-19); WP1a server ordered groups; WP1b frozen plan, execution substitutions and migration `0058`; WP2 iPhone, Watch and web groups, prefill and execution view; WP3 tri-state intent; WP4 programme header and intelligence facts; WP5 actual data and derived structure; WP6 evaluator hierarchy; WP7 candidate ordering; WP8 phone gateway. The full dependencies and exit gates are in the plan §6.1.
+**Work packages.** WP0 decisions and fixtures (done 2026-11-19); WP1a server ordered groups; WP1b frozen plan, execution substitutions and migration `0058`; WP2 iPhone, Watch and web groups, prefill and execution view; WP3 tri-state intent; WP4 programme header and intelligence facts; WP5 actual data and derived structure; WP6 evaluator hierarchy (no continuity); WP7a resolver dwell completion; WP7b structural ordering and measurement; WP8 phone gateway. The full dependencies and exit gates are in the plan §6.1.
+
+**Dwell wiring gap.** The cap is live in `candidate_pools`; the dwell factor and exploration draw are implemented in `generator.generate()` with no production caller. WP7a completes the resolver wiring; until then they are not live resolver behaviour.
 
 **Release trains.** Release A is the coordinated cutover (WP1a, WP1b, WP2, WP3, WP4; finish or abandon in-flight workouts first). Release B is server-only actual data and evaluation (WP5, WP6, WP7; WP6/7 gated on the fixed-history comparison and owner review). Release C is the additive phone gateway (WP8).
 
