@@ -30,6 +30,9 @@ near the expected duration, then inspect once.
 - Unexpected web exceptions return a generic 500 and are logged with method, path and
   traceback; never return exception classes, filesystem paths or DB details.
 - Expected 400/404/409 messages stay useful and are safe to expose.
+- Per-item HealthKit activity rejections return 200 with `rejected_keys`, and the handler also
+  prints `HTTP 200 <path>: rejected workout|sample <key>: <reason>` to stderr. The reason names
+  the conflicting field or validation rule; payload values are never logged.
 - Request bodies respect MAX_BODY_BYTES; never read an unbounded Content-Length.
 - The web UI is home-network only and unauthenticated. Do not expose it publicly.
 - Use the local server log tail and targeted curl requests for diagnosis; redact tokens,
