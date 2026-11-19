@@ -1700,6 +1700,7 @@ class Handler(BaseHTTPRequestHandler):
             )
         cutoff = cardio.get_sync_state(conn, "history_cutoff")
         created = existing = rejected = 0
+        rejected_keys: list[str] = []
         for item in items:
             if not isinstance(item, dict):
                 raise FieldError("each workout must be an object")
@@ -1708,26 +1709,35 @@ class Handler(BaseHTTPRequestHandler):
             # duplicate an export row under a second key, which is what forced the rebuild.
             if cutoff and str(item.get("started_at") or "") < cutoff:
                 rejected += 1
+                rejected_keys.append(key.hex())
                 continue
-            _row, new = cardio.record_workout(
-                conn,
-                external_key=key,
-                origin="healthkit",
-                activity_type=str(item.get("activity_type") or ""),
-                started_at=item.get("started_at"),
-                ended_at=item.get("ended_at"),
-                duration_s=int(item.get("duration_s") or 0),
-                source_name=str(item.get("source_name") or "HealthKit"),
-                source_bundle_id=item.get("source_bundle_id"),
-                timezone=item.get("timezone"),
-                avg_heart_rate=item.get("avg_heart_rate"),
-                max_heart_rate=item.get("max_heart_rate"),
-                active_energy_kj=item.get("active_energy_kj"),
-                distance_m=item.get("distance_m"),
-                avg_mets=item.get("avg_mets"),
-                srpe=item.get("srpe"),
-                imported_at=datetime.datetime.now(datetime.UTC).isoformat(),
-            )
+            try:
+                _row, new = cardio.record_workout(
+                    conn,
+                    external_key=key,
+                    origin="healthkit",
+                    activity_type=str(item.get("activity_type") or ""),
+                    started_at=item.get("started_at"),
+                    ended_at=item.get("ended_at"),
+                    duration_s=int(item.get("duration_s") or 0),
+                    source_name=str(item.get("source_name") or "HealthKit"),
+                    source_bundle_id=item.get("source_bundle_id"),
+                    timezone=item.get("timezone"),
+                    avg_heart_rate=item.get("avg_heart_rate"),
+                    max_heart_rate=item.get("max_heart_rate"),
+                    active_energy_kj=item.get("active_energy_kj"),
+                    distance_m=item.get("distance_m"),
+                    avg_mets=item.get("avg_mets"),
+                    srpe=item.get("srpe"),
+                    imported_at=datetime.datetime.now(datetime.UTC).isoformat(),
+                )
+            except (cardio.CardioConflict, cardio.CardioIngestError):
+                # Same per-item contract as samples: one immutable conflict or malformed workout
+                # must not fail the rest of the batch. The key is returned so the phone can
+                # quarantine it instead of re-sending it forever.
+                rejected += 1
+                rejected_keys.append(key.hex())
+                continue
             created += int(new)
             existing += int(not new)
         return {
@@ -1735,6 +1745,7 @@ class Handler(BaseHTTPRequestHandler):
             "created": created,
             "existing": existing,
             "rejected": rejected,
+            "rejected_keys": rejected_keys,
         }
 
     def _ios_healthkit_samples(self, conn, device: dict, body: dict) -> dict:
@@ -1748,36 +1759,47 @@ class Handler(BaseHTTPRequestHandler):
         items = body.get("samples")
         if not isinstance(items, list) or not items:
             if metrics:
-                return {"samples": 0, "created": 0, "existing": 0, "metrics": metric_result}
+                return {
+                    "samples": 0,
+                    "created": 0,
+                    "existing": 0,
+                    "rejected": 0,
+                    "rejected_keys": [],
+                    "metrics": metric_result,
+                }
             raise FieldError("samples must be a non-empty list")
         if len(items) > self.IOS_ACTIVITY_MAX_SAMPLES:
             raise FieldError(f"at most {self.IOS_ACTIVITY_MAX_SAMPLES} samples per request")
         created = existing = rejected = 0
+        rejected_keys: list[str] = []
         for item in items:
             if not isinstance(item, dict):
                 raise FieldError("each sample must be an object")
+            sample_key = self._ios_activity_key(item.get("key"))
             workout_key = self._ios_activity_key(item.get("workout_key"))
             workout = cardio.get_workout(conn, workout_key)
             if workout is None:
                 raise FieldError("upload the workout before its samples")
             try:
                 _row, new = cardio.record_sample(
-                conn,
-                sample_key=self._ios_activity_key(item.get("key")),
-                kind=str(item.get("kind") or ""),
-                sampled_at=item.get("sampled_at"),
-                value=float(item.get("value")),
-                unit=str(item.get("unit") or ""),
-                source_name=str(item.get("source_name") or "HealthKit"),
-                source_bundle_id=item.get("source_bundle_id"),
-                imported_at=datetime.datetime.now(datetime.UTC).isoformat(),
-                external_workout_id=workout["external_workout_id"],
+                    conn,
+                    sample_key=sample_key,
+                    kind=str(item.get("kind") or ""),
+                    sampled_at=item.get("sampled_at"),
+                    value=float(item.get("value")),
+                    unit=str(item.get("unit") or ""),
+                    source_name=str(item.get("source_name") or "HealthKit"),
+                    source_bundle_id=item.get("source_bundle_id"),
+                    imported_at=datetime.datetime.now(datetime.UTC).isoformat(),
+                    external_workout_id=workout["external_workout_id"],
                     association=str(item.get("association") or "workout"),
                 )
             except cardio.CardioConflict:
                 # One conflicting sample must not cost the rest of the batch; the same defect class
-                # as a single bad metric value rejecting a whole sync.
+                # as a single bad metric value rejecting a whole sync. Return the key so the phone
+                # can quarantine it rather than holding the cursor and re-sending it forever.
                 rejected += 1
+                rejected_keys.append(sample_key.hex())
                 continue
             created += int(new)
             existing += int(not new)
@@ -1786,6 +1808,7 @@ class Handler(BaseHTTPRequestHandler):
             "created": created,
             "existing": existing,
             "rejected": rejected,
+            "rejected_keys": rejected_keys,
         }
         if metric_result:
             payload["metrics"] = metric_result

@@ -2464,6 +2464,51 @@ def test_activity_batch_survives_one_conflicting_sample(ios):
     assert status == 200, body
     assert body["created"] == 1
     assert body["rejected"] == 1
+    assert body["rejected_keys"] == [first["key"]]
+
+
+def test_workout_identity_conflict_is_rejected_per_item(ios):
+    token, _ = _paired(ios)
+    conflict_key = _activity_key("conflict-workout")
+    first = _workout_payload(conflict_key)
+    status, _ = _request(
+        ios["base"], "/api/ios/v1/healthkit/workouts", method="POST",
+        payload={"workouts": [first]}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200
+
+    conflicting = dict(first, duration_s=1800)  # same key, different immutable field
+    fresh = _workout_payload(_activity_key("fresh-workout"), day="2026-11-19")
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/workouts", method="POST",
+        payload={"workouts": [conflicting, fresh]}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, body
+    assert body["created"] == 1
+    assert body["rejected"] == 1
+    assert body["rejected_keys"] == [conflict_key]
+    assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM external_workout")) == 2
+    assert int(_scalar(
+        ios["path"],
+        "SELECT duration_s FROM external_workout WHERE external_key = ?",
+        (bytes.fromhex(conflict_key),),
+    )) == 3600
+
+
+def test_malformed_workout_is_rejected_per_item(ios):
+    token, _ = _paired(ios)
+    bad_key = _activity_key("malformed-workout")
+    bad = dict(_workout_payload(bad_key), duration_s=0)
+    fresh = _workout_payload(_activity_key("valid-after-bad"), day="2026-11-19")
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/workouts", method="POST",
+        payload={"workouts": [bad, fresh]}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, body
+    assert body["created"] == 1
+    assert body["rejected"] == 1
+    assert body["rejected_keys"] == [bad_key]
+    assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM external_workout")) == 1
 
 
 def test_pre_cutoff_workout_is_rejected_server_side(ios):
@@ -2482,6 +2527,7 @@ def test_pre_cutoff_workout_is_rejected_server_side(ios):
     )
     assert status == 200, body
     assert body["rejected"] == 1
+    assert body["rejected_keys"] == [old["key"]]
     assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM external_workout")) == 0
 
 
