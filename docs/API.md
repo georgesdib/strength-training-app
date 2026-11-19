@@ -370,6 +370,12 @@ Phase 3A, Phase 4, R7, R8 and the watch companion. The phase rules and client be
 the [iOS client plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/IOS-CLIENT-PLAN.md)
 in the StrengthApp repository.
 
+> **2026-11-19 target amendment (not yet implemented).** The [resolver prescription
+> structure plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/RESOLVER-PRESCRIPTION-STRUCTURE.md)
+> retires the five `plan/items/...` routes below, replaces the request `top_set` boolean with
+> `top_set_intent`, adds `programme_header` to Today and execution substitutions/additions to
+> `GET .../execution`. This table describes current behaviour until that slice ships.
+
 | route | auth | payload |
 |---|---|---|
 | `POST /api/ios/v1/pair` | none | `{code, label?}` -> `{api_version, device, token, server_date, server_time, utc_offset_minutes, server_timezone}`; the token is shown once |

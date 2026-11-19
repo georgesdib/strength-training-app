@@ -55,6 +55,12 @@ highest-ranked open question.
 **Action:** `domain.rir.classify` maps 6 to class `warmup`, sets `is_working_set = False`, and
 records `rir_source = logged_warmup`. The value itself is preserved.
 
+**2026-11-19 target amendment (not yet implemented).** The equivalence is enforced: every warm-up
+is logged at RIR 6, an RIR-6 row is never working volume, and a stored working flag that disagrees
+is a data-quality anomaly. An import must not map a working set to RIR 6; the current RPE path
+turns RPE 4 into RIR 6, so such a row is rejected with a field error, and an ambiguous source is
+flagged for review (plan D18, `DEC-RIR-05`).
+
 ### DQ-RIR-02 — `RIR 0–1` remain suspect but in scope  `NEEDS CONFIRMATION`
 These are genuine effort ratings (unlike the warm-up marker), so they are **not** excluded —
 the hard "no RIR 0–1 on main lifts" rule must be able to see them. They are flagged

@@ -1,13 +1,16 @@
 # Top set + back-off sets — evidence review
 
 **Date:** 2026-10-24  
+**Revised:** 2026-11-19 — the resolver control is now the tri-state `off`, `preferred` or
+`required`; the opt-in default and this review's conclusion are unchanged.  
 **Question:** Is a top set followed by back-off sets more effective than the current programme
 for strength, hypertrophy and longevity?  
 **Decision:** No default programme change. Keep the current straight-set prescription. The
 evidence is more supportive than an earlier version of this note implied, but it is still
 indirect and does not establish superiority over the current prescription. The structure exists
-only as an opt-in resolver feature (`resolver.top_set.mode`, default "ask"); this review does
-not recommend promoting it to the default.
+only as an opt-in resolver feature: the tri-state `resolver.top_set.mode`, default `off`.
+`preferred` requests it and accepts a straight-set fallback; `required` makes an unexpected
+fallback explicit. Neither is evidence that a top set is superior.
 
 ---
 
@@ -200,8 +203,10 @@ Reasonable uses that do **not** require a programme change:
 3. If the athlete specifically wants a top-set experiment, run it as a single-lift N-of-1,
    with the current safety rules intact.
 
-No default prescription change is proposed. The opt-in resolver structure already exists; this
-review does not recommend promoting it or replacing the straight-set default.
+No default prescription change is proposed, and the default stays `off`. The opt-in resolver
+structure already exists; this review does not recommend promoting it or replacing the
+straight-set default. `preferred` is the engine's eligibility and safety policy, not evidence
+that a top set is superior.
 
 ---
 

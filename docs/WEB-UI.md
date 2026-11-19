@@ -120,6 +120,13 @@ the same lift.
   back extension/hyperextension), excludes warm-ups, voided sessions and superseded sets, respects
   the workout date, and is read-only; current workout sets are not part of it and corrections stay
   in History. The *Plan and plan edits* section is open by default so the toggle is visible.
+
+> **2026-11-19 target amendment (not yet implemented).** The [resolver prescription structure
+> plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/RESOLVER-PRESCRIPTION-STRUCTURE.md)
+> retires plan editing and the set-role picker. A plan is frozen at start; substitutions and
+> additions are execution events, and the plan view renders ordered set groups. The description
+> above is current behaviour until that slice ships.
+
 - **Programme** — rolling session-type forecast; choose weeks, sessions/week, optional start
   date and first session type (`auto` or a specific type).
   Every session is a projection rebuilt on the day; no future plan is persisted or promised.

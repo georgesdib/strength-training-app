@@ -202,6 +202,13 @@ The symptom/injury signal summarises recorded symptoms and loading history. It i
 
 The resolver is **off by default**. When enabled in **Settings → Resolver**, Python chooses exercises for the existing four session identities from the candidate pool and policy. The fixed template remains the blueprint and fallback. Enabling requires an explicit confirmation; disabling it restores the fixed path without changing already stored prescriptions. The generation preview is read-only until **Start** hands the displayed prescription to the workout workflow. Rating a suggested exercise in the preview records suitability immediately, but the preview itself is rebuilt only when you press **Build preview**. A generated prescription stores its assignment, original slot specifications and policy/template digests, so later critique and volume accounting explain the session from that snapshot rather than today's policy. Older prescriptions without a snapshot continue to use the blueprint. Top sets are graded against their own 1–2 RIR role, not the normal working-set window. The programme forecast remains the blueprint/expected pattern (option c); it does not run the generator.
 
+> **2026-11-19 target amendment (not yet implemented).** Top-set intent is one tri-state —
+> `off` (default), `preferred` (use it when eligible, with a straight-set fallback) and
+> `required` (an unexpected fallback is reported). A plan is frozen once started: the athlete
+> logs what was performed, and a substitution or addition is an execution event rather than a
+> plan edit. See the [resolver prescription structure
+> plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/RESOLVER-PRESCRIPTION-STRUCTURE.md).
+
 ### LLM explanations
 
 The model is optional. Without it, deterministic prescriptions and reports still work. The model can narrate results or select among permitted alternatives; it cannot calculate or change loads, RIR or velocity targets, and cannot veto a rule. A narrative should never be treated as more authoritative than the underlying prescription and its cited rules.

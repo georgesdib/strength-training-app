@@ -618,6 +618,12 @@ until completion.
 adds `clean_set.set_role`, copied on materialisation; it is nullable so imported and historical
 straight sets need no backfill.
 
+**2026-11-19 target amendment (not yet implemented).** The [resolver prescription structure
+plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/RESOLVER-PRESCRIPTION-STRUCTURE.md)
+adds a nullable `substitutes_plan_item_index` to `workout_set` and `clean_set`, copied on
+materialisation, and stops writing `set_role` for new sets; legacy role values stay read-only
+provenance and are not used for matching or decisions (plan D11/D18).
+
 | column | notes |
 |---|---|
 | set_id | autoincrement |

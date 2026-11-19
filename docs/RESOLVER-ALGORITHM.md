@@ -192,6 +192,14 @@ with clamp(x) = max(0, min(1, x)). Defaults: readiness 0.30, fatigue 0.10, spina
 injury 0.15, dwell 0.10; the weights normalise over their own total, so adding the dwell
 weight redistributes the others rather than changing the scale.
 
+> **2026-11-19 target amendment (not yet implemented).** The score described in this section is
+> the fixed-path `generate()` score. The production resolver evaluator is replaced by the
+> role-aware hierarchy in the [resolver prescription structure
+> plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/RESOLVER-PRESCRIPTION-STRUCTURE.md):
+> feasibility, programme consistency with the volume band as a gate, role-specific quality for
+> main, secondary and accessory, volume distribution, recovery and tie-break. It is not a
+> composite and does not change the fixed path.
+
 ### 10.1 Readiness R
 
 The per-exercise readiness value in [0, 1] from the readiness score, capped by any
