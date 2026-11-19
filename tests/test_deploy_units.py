@@ -21,8 +21,10 @@ def _unit(name: str) -> configparser.ConfigParser:
 
 def test_maintenance_worker_uses_the_backend_checkout_and_venv():
     service = _unit("strength-analytics-maintenance.service")["Service"]
-    assert service["WorkingDirectory"] == "/home/dsh/strength-training-app"
-    assert service["ExecStart"].startswith("/home/dsh/strength-training-app/.venv/bin/python")
+    assert service["WorkingDirectory"] == "/home/dsh/strength-app/strength-training-app"
+    assert service["ExecStart"].startswith(
+        "/home/dsh/strength-app/strength-training-app/.venv/bin/python"
+    )
     assert "strength_coach.cli" in service["ExecStart"]
     assert "--db data/coach.db" in service["ExecStart"]
     assert service["ExecStart"].endswith("analytics build")

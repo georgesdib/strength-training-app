@@ -4,6 +4,10 @@ Status: executed on the home host on 2026-11-15 for Derived Analytics Milestones
 renumbered migrations, the C-1 units and the MCP service. The MCP unit was installed with the
 host-adapted installer (§8) and is enabled.
 
+Host-specific checkout and backup paths are deliberately not repeated in this public document.
+Read them from the private backend quirks on the deployment host and export `APP_ROOT` and
+`BACKUP_DIR` before running the commands below.
+
 ## 1. Scope and decisions
 
 - Release branch: `development` for the derived-analytics cutover. llm-integration was merged into
@@ -17,16 +21,16 @@ host-adapted installer (§8) and is enabled.
 ## 2. Preconditions
 
 - SSH access and sudo for service installation/restart.
-- Web checkout: /home/dsh/strength-training-app.
+- Web checkout: `$APP_ROOT`.
 - Verified database backup and a quiet training window.
 - Optional intelligence dependencies in the release venv:
 
-    cd /home/dsh/strength-training-app
+    cd "$APP_ROOT"
     .venv/bin/pip install -e ".[intelligence]"
 
 ## 3. Backup (required)
 
-    cd /home/dsh/strength-training-app
+    cd "$APP_ROOT"
     mkdir -p backups
     python3 - <<'PY'
     import sqlite3
@@ -41,7 +45,7 @@ Keep it until the build and a few reads are verified.
 
 ## 4. Deploy the code
 
-    cd /home/dsh/strength-training-app
+    cd "$APP_ROOT"
     git fetch --prune
     git checkout <release-branch>
     git pull --ff-only
@@ -77,7 +81,7 @@ stop and restore the backup; never edit migration history.
 
 Run while the web service is idle, ideally stopped:
 
-    cd /home/dsh/strength-training-app
+    cd "$APP_ROOT"
     sudo systemctl stop strength-coach-web.service
     .venv/bin/python -m strength_coach.cli --db data/coach.db analytics build
     sudo systemctl start strength-coach-web.service
@@ -104,7 +108,7 @@ system units it is a no-op and the 15-minute timer is authoritative.
 ## 8. Enable the MCP service
 
 The repository unit targets /opt/strength-training-app and user strength-intel. On this host the
-checkout is /home/dsh/strength-training-app; `sudo deploy/install-intelligence-mcp.sh` renders the
+checkout is `$APP_ROOT`; `sudo deploy/install-intelligence-mcp.sh` renders the
 unit with the real paths, checks the preconditions, stops a manual listener and installs it. The
 manual steps below remain the reference for a dedicated-user deployment.
 
@@ -112,7 +116,7 @@ manual steps below remain the reference for a dedicated-user deployment.
    trusted network. Loopback-only is the safe default.
 2. Create a token once, where the unit expects it:
 
-    sudo -u <service-user> /home/dsh/strength-training-app/.venv/bin/strength-coach       intelligence token create --label "Claude Desktop"       --tokens /etc/strength-coach/intelligence.local.yaml
+    sudo -u <service-user> $APP_ROOT/.venv/bin/strength-coach       intelligence token create --label "Claude Desktop"       --tokens /etc/strength-coach/intelligence.local.yaml
 
 3. Install and start:
 
@@ -123,7 +127,7 @@ manual steps below remain the reference for a dedicated-user deployment.
 
 4. Smoke-test through the real transport, token only in the environment:
 
-    cd /home/dsh/strength-training-app
+    cd "$APP_ROOT"
     STRENGTH_MCP_TOKEN=... .venv/bin/python tools/intelligence_benchmark.py       --mode http --url http://127.0.0.1:8765/mcp --db data/coach.db --runs 5 --warmup 1
 
 Do not put the token on the command line or in shell history.
@@ -174,7 +178,7 @@ the host-adapted unit and is the repeatable path for this host.
 The intelligence workstream ships as v1.5.0 from `main`. The host checkout moves from
 `development` to `main` for the first time; that branch decision is recorded here.
 
-    cd /home/dsh/strength-training-app
+    cd "$APP_ROOT"
     mkdir -p backups
     .venv/bin/python - <<'PY'
     import sqlite3

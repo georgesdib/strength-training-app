@@ -7,11 +7,11 @@ Wants=network-online.target
 Type=simple
 User=dsh
 Group=dsh
-WorkingDirectory=/home/dsh/strength-training-app
+WorkingDirectory=/home/dsh/strength-app/strength-training-app
 Environment=HOME=/home/dsh
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
 Environment=PYTHONUNBUFFERED=1
-ExecStart=/home/dsh/strength-training-app/tools/start_web.sh
+ExecStart=/home/dsh/strength-app/strength-training-app/tools/start_web.sh
 # C-1: after a backend deployment/restart, reconcile derived analytics once with the new code.
 # The leading dash keeps the web service healthy if the maintenance unit is not installed.
 ExecStartPost=-/bin/systemctl --no-block start strength-analytics-maintenance.service
