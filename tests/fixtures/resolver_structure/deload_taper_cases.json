@@ -1,0 +1,43 @@
+{
+  "name": "deload_taper_structure_status",
+  "source": "structure-status classes for blocked-by-design and unexpected blockers",
+  "cases": [
+    {
+      "name": "deload",
+      "inputs": {
+        "deload": true,
+        "competition_window": "none",
+        "readiness_bump": 0
+      },
+      "expected": {
+        "structure_status": "not_applicable",
+        "reason_class": "blocked_by_design"
+      }
+    },
+    {
+      "name": "taper",
+      "inputs": {
+        "deload": false,
+        "competition_window": "taper",
+        "readiness_bump": 0
+      },
+      "expected": {
+        "structure_status": "not_applicable",
+        "reason_class": "blocked_by_design"
+      }
+    },
+    {
+      "name": "unexpected",
+      "inputs": {
+        "deload": false,
+        "competition_window": "none",
+        "readiness_bump": 0,
+        "has_usable_load": false
+      },
+      "expected": {
+        "structure_status": "unsatisfied",
+        "reason_class": "unexpected"
+      }
+    }
+  ]
+}

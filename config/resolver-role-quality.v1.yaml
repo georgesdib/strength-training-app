@@ -1,0 +1,91 @@
+# Role-quality evaluator configuration — WP0 decisions, unwired.
+#
+# This file records the owner-approved class values for the resolver's role-specific
+# quality level (DEC-RESOLVER-19, DEC-RESOLVER-21). Nothing loads it yet: WP6 wires it,
+# and a change here does not alter a prescription before that.
+#
+# The classes are ordinal, not weights. Within a role the criteria are compared in the
+# order listed in `criteria`; across roles, `role_priority` decides first. Missing data
+# is neutral, never a guess. No value here is a percentage-of-e1RM optimisation target.
+schema_version: "1.0.0"
+
+role_priority:
+  - main
+  - secondary
+  - accessory
+
+criteria:
+  main:
+    - specificity
+    - continuity
+    - exposure
+    - suitability
+  secondary:
+    - complementarity
+    - volume_usefulness
+    - redundancy
+  accessory:
+    - coverage
+    - productive_volume
+    - stimulus_to_fatigue
+
+specificity:
+  # Family membership uses the existing review groups, not a new map.
+  family_source: strength_coach.prescribe.summary.LIFT_GROUPS
+  pattern_source: taxonomy.pattern
+  classes:
+    same_lift: 3
+    same_lift_group: 2
+    same_pattern: 1
+    other_permitted_pattern: 0
+
+continuity:
+  # Based on last used; dwell remains a generator eligibility cap, not a second score.
+  last_used_days:
+    class_3: 7
+    class_2: 28
+    class_1: null        # any older history
+  no_history: 0
+
+exposure:
+  # A binary band check, not a point-estimate objective.
+  heavy_band: 0.80        # features.monitoring.relative_bands.heavy
+  e1rm_quality: ok
+  e1rm_age_days:
+    full: 14
+    partial: 45
+  missing: unknown
+
+suitability:
+  # will_do=0 and feels_bad=1 remain eligibility filters, never scores.
+  explicit_positive: 3
+  unrated: 2
+  eligible_with_caution: 1
+  filters:
+    - injury
+    - can_do
+    - will_do
+    - feels_bad
+    - pattern
+
+tax:
+  source: config/selection-tax.v1.yaml
+  lower_is_better: true
+  mandatory_axes:
+    essential:
+      - axial
+      - systemic
+      - skill
+    accessory:
+      - axial
+      - skill
+  missing: neutral
+  rom: reported_not_ranked
+
+programme_header:
+  # One fact method for the envelope; the helpers are internal inputs.
+  method: strength_coach.features.programme.header
+  helpers:
+    - strength_coach.prescribe.undulation.for_week
+    - strength_coach.prescribe.top_set.competition_window
+    - strength_coach.rules.context.trained_week_index
