@@ -188,6 +188,16 @@ documents:
   status: canonical
   audience: public
   nav: true
+- id: resolver-main-lifts-vs-accessories
+  path: docs/RESOLVER-MAIN-LIFTS-VS-ACCESSORIES.md
+  title: Resolver — main lifts vs accessories
+  description: 'production joint resolver: slot roles, pattern freedom, candidate pools, hard eligibility,
+    required patterns, bounded beam, full prescription evaluation, feasibility, provenance and the
+    main/support/accessory distinction'
+  category: methodology
+  status: canonical
+  audience: public
+  nav: true
 - id: rir-evidence
   path: docs/RIR-EVIDENCE.md
   title: RIR EVIDENCE — why the effort window is 1-4 with a 2-3 target

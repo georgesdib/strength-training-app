@@ -4,6 +4,10 @@
 **Code:** strength_coach/prescribe/generator.py (entry point: generate).
 **Model:** [DWELL-AND-ROTATION.md](DWELL-AND-ROTATION.md) explains the exposure-based preference and probabilistic exploration.
 **Settings:** Settings -> Resolver and Settings profile (group Resolver).
+**Production path:** [RESOLVER-MAIN-LIFTS-VS-ACCESSORIES.md](RESOLVER-MAIN-LIFTS-VS-ACCESSORIES.md)
+documents the joint resolver used in production. This page documents the standalone generator
+(`generate()`) whose individual score and rotation draw are diagnostic; production uses
+`candidate_pools()` with the bounded beam and full prescription evaluator instead.
 
 The selector is best described as **exposure-based preference with probabilistic exploration**:
 the score carries a preference built from completed exposures, and a seeded draw occasionally
@@ -366,6 +370,7 @@ exploration model, and the shapes it rejected.
 
 ## Related
 
+- **Production joint resolver:** [RESOLVER-MAIN-LIFTS-VS-ACCESSORIES.md](RESOLVER-MAIN-LIFTS-VS-ACCESSORIES.md) — candidate pools, beam, evaluator and the main/accessory distinction.
 - **Dwell model:** [DWELL-AND-ROTATION.md](DWELL-AND-ROTATION.md) — counters, factor, probability, cap and reset.
 - **Generation pipeline:** [WORKOUT-GENERATION.md](WORKOUT-GENERATION.md) — how selection fits the wider prescription.
 - **Session templates:** [SESSION-TEMPLATES.md](SESSION-TEMPLATES.md) — slots, variants and candidate pools.
