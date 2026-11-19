@@ -1,4 +1,4 @@
-"""Exercise dwell model: done-exposure counters, the dwell factor and the rotation draw.
+"""Exercise dwell model: done-exposure counters, the dwell factor and the exploration draw.
 
 The model and its worked examples live in docs/DWELL-AND-ROTATION.md; the policy decision is
 DEC-RESOLVER-15 (which supersedes the deterministic dwell of DEC-RESOLVER-02).
@@ -13,7 +13,7 @@ In short:
   an incumbent sticky without making the counter a hard pin. f(c >= target) is never scored:
   the lift is excluded from automatic selection (reachable only after the target is lowered or
   a counter is edited) and the next completion resets it.
-* Rotation is probabilistic: each slot draws a deterministic pseudo-random number keyed on
+* Exploration is probabilistic: each slot draws a deterministic pseudo-random number keyed on
   (date, session type, slot id) and changes to the best-ranked alternative when the draw is
   below the configured probability. The seed makes the draw reproducible for a preview and the
   prescription built from it, without making the generator random.

@@ -1,9 +1,10 @@
-# Dwell and rotation
+# Dwell — exposure-based preference with probabilistic exploration
 
-**Status:** canonical model for resolver exercise rotation (DEC-RESOLVER-15).
+**Status:** canonical model for resolver exercise selection: exposure-based preference with
+probabilistic exploration (DEC-RESOLVER-15).
 **Code:** strength_coach/features/dwell.py, strength_coach/prescribe/generator.py.
 **Settings:** Settings -> Resolver and Settings profile (group Resolver).
-**Supersedes:** the deterministic rotation dwell of DEC-RESOLVER-02.
+**Supersedes:** the deterministic seven-session rotation schedule of DEC-RESOLVER-02.
 
 ## 1. The problem this solves
 
@@ -22,9 +23,15 @@ in practice:
    lift could be re-selected by another family while the first family's clock ran.
 
 The owner's requirement was simple: count what was actually done, across the programme, and
-rotate on a reproducible schedule rather than a random one.
+express the result as a preference with a reproducible element of exploration — not as a fixed
+seven-exposure rotation schedule.
 
 ## 2. The model in one page
+
+The model is best described as **exposure-based preference with probabilistic exploration**.
+The score carries a preference built from completed exposures, and a seeded draw occasionally
+explores an alternative. The dwell target T is a cap, not a schedule: it says when a lift has
+had enough exposure in the current cycle, not that the lift must change on a fixed cadence.
 
 There is one mutable counter per exercise. It counts completed exposures of that exercise,
 not sessions of a slot.
@@ -52,15 +59,15 @@ not sessions of a slot.
   safety net for a lowered target or an edited counter; normal completions wrap to 0, so a
   candidate is not normally at the cap. If every candidate is at or above T, the pool is
   kept and the generator picks the best remainder, with a warning.
-* **Rotation.** Each slot draws a deterministic pseudo-random value between 0 and 1, keyed
+* **Exploration.** Each slot draws a deterministic pseudo-random value between 0 and 1, keyed
   on (date, session type, slot id), and with probability p = resolver.dwell.probability
   excludes its own last choice from the ranking. The replacement is the best-ranked
   alternative, not a random exercise. The draw is reproducible, so a preview and the
-  prescription saved from it make the same decision.
+  prescription saved from it make the same decision; exploration is a decision, not noise.
 * **No pin.** The old "keep the last choice and skip scoring" branch is gone. The dwell
   factor is a strong preference, not a lock: the current lift usually wins because its
   factor is near 1 while never-done lifts are at 0, but a lift with a much better base
-  score can take over, and the rotation draw can force a change.
+  score can take over, and the exploration draw can force a change.
 
 ## 3. Worked example (the bench)
 
@@ -78,12 +85,12 @@ stress window, and after the stress fix a missing entry scores 1.00. Weights nor
     bench_press:  0.1875 + 0.125*1.00 + 0.1875*0.86 + 0.1875 + 0.125*0.000
                   + 0.15*(1.00-0.50) = 0.736
 
-Narrow wins because it is in its cycle; that is the intended stickiness. After its seventh
-exposure the counter wraps to 0, narrow drops to 0.721 (same formula, dwell term 0) and
+Narrow wins because it is in its cycle; that is the intended stickiness. After the counter
+reaches the cap (T = 7) it wraps to 0, narrow drops to 0.721 (same formula, dwell term 0) and
 bench_press's higher fatigue component wins. The next completion sets bench_press to 1 and it
 becomes the incumbent.
 
-A rotation draw of 0.043 with p = 0.10 removes narrow from the ranking for that session only;
+An exploration draw of 0.043 with p = 0.10 removes narrow from the ranking for that session only;
 the highest-scoring alternative wins. If the alternative is not done, its counter stays 0 and
 the next session can return to narrow — exploration only sticks when it is performed.
 
@@ -101,10 +108,10 @@ completion then resets that counter.
 |---|---|---|---|
 | resolver.dwell.target | 7 | 1-52 | Completed exposures in one cycle. The counter wraps to 0 at this value. |
 | resolver.dwell.tau | 0.5 | 0.05-10 | Scale in f(c) = 1 - exp(-c / tau). Larger values make the counter matter for longer; 0.5 makes the factor nearly a step at c = 1. |
-| resolver.dwell.probability | 0.10 | 0-1 | Chance that a slot changes away from its last choice. 0 disables probabilistic rotation; 1 forces a change every session. |
+| resolver.dwell.probability | 0.10 | 0-1 | Chance that a slot explores its best alternative instead of keeping its last choice. 0 disables exploration; 1 explores every session. |
 | resolver.weights.dwell | 0.10 | 0-1 | Weight of the dwell factor in the score. Higher values make the current lift stickier (the factor is a preference, not a lock). |
 
-The three retired keys (resolver.rotation.main, resolver.rotation.accessory,
+The four retired keys (resolver.rotation.main, resolver.rotation.accessory,
 resolver.rotation.default, resolver.rotation.max_dwell) no longer have any effect. Historical
 profiles still load; the keys cannot be set again.
 
@@ -155,8 +162,8 @@ The resolver only reads the table.
   work), but it means a deliberate skip freezes that lift's cycle.
 * Accessory use counts the same as a main-slot use. If that proves too strong, the next change
   is a per-role weight, not a return to per-slot counters.
-* One rotation draw per slot per session date. The draw is deterministic but not secret; it is
-  not a privacy mechanism.
+* One exploration draw per slot per session date. The draw is deterministic but not secret; it
+  is not a privacy mechanism.
 * The cap excludes a lift from automatic selection, not from manual substitution. Suitability
   (will_do = 0) remains the way to say "never prescribe this".
 
@@ -165,7 +172,7 @@ The resolver only reads the table.
 Settings -> Resolver, or the Resolver group in Settings profile. A save appends a profile
 version; a target change also reconciles the counters in the same transaction. Preview a
 session and read the slot reasons: the dwell component prints the counter and the target, and
-a rotation prints the draw and the previous choice.
+an exploration prints the draw and the previous choice.
 
 Rollback: revert the resolver code and drop exercise_dwell_state. Historical profiles that
 contain the retired keys keep loading (DEC-RESOLVER-11 precedent).
@@ -177,5 +184,5 @@ contain the retired keys keep loading (DEC-RESOLVER-11 precedent).
 - **Workout generation:** [WORKOUT-GENERATION.md](WORKOUT-GENERATION.md) — the pipeline that calls the resolver.
 - **Exercise variants:** [EXERCISE-VARIANTS.md](EXERCISE-VARIANTS.md) — how the catalogue feeds the pools.
 - **Decisions:** [DECISIONS.md](DECISIONS.md) — DEC-RESOLVER-15 and the superseded DEC-RESOLVER-02.
-- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) — rotation and dwell questions.
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) — exposure preference and exploration questions.
 - **Roadmap:** [ROADMAP.md](../ROADMAP.md) — resolver implementation status.

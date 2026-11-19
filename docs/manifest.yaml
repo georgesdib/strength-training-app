@@ -139,8 +139,8 @@ documents:
   nav: true
 - id: dwell-and-rotation
   path: docs/DWELL-AND-ROTATION.md
-  title: Dwell and rotation — resolver exercise rotation model
-  description: 'done-exposure counters, the dwell factor, the rotation probability, the cap and reset,
+  title: Dwell — exposure-based preference with probabilistic exploration
+  description: 'done-exposure counters, the dwell factor, the exploration probability, the cap and reset,
     the rejected alternatives and the worked example'
   category: methodology
   status: canonical
@@ -182,7 +182,7 @@ documents:
 - id: resolver-algorithm
   path: docs/RESOLVER-ALGORITHM.md
   title: Resolver algorithm — step by step
-  description: 'the full exercise-selection algorithm: inputs, pools, eligibility, dwell cap, rotation
+  description: 'the full exercise-selection algorithm: inputs, pools, eligibility, dwell cap, exploration
     draw, score formulas, tie-breaks, repair, validation and failure modes'
   category: methodology
   status: canonical

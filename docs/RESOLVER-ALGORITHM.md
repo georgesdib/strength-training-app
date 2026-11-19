@@ -2,8 +2,12 @@
 
 **Status:** canonical implementation reference for resolver exercise selection.
 **Code:** strength_coach/prescribe/generator.py (entry point: generate).
-**Model:** [DWELL-AND-ROTATION.md](DWELL-AND-ROTATION.md) explains why rotation is done this way.
+**Model:** [DWELL-AND-ROTATION.md](DWELL-AND-ROTATION.md) explains the exposure-based preference and probabilistic exploration.
 **Settings:** Settings -> Resolver and Settings profile (group Resolver).
+
+The selector is best described as **exposure-based preference with probabilistic exploration**:
+the score carries a preference built from completed exposures, and a seeded draw occasionally
+explores an alternative. The dwell target is a cap, not a rotation schedule.
 
 This document walks the whole selection algorithm in the order the code runs it, with the
 formulas it uses. It selects exercises only: loads, reps, RIR, top sets and volume modifiers
@@ -41,7 +45,7 @@ template, warnings, suggestions and the policy/catalogue digests.
     3. build each slot's raw candidate pool (template + catalogue)
     4. apply hard eligibility (patterns, vetoes, injury, suitability)
     5. apply the dwell cap (count >= target is excluded, unless all are)
-    6. per slot: fixed power slot, or a rotation draw
+    6. per slot: fixed power slot, or an exploration draw
     7. per slot: score every remaining candidate
     8. per slot: pick the highest score, break ties deterministically
     9. repair any required movement pattern that the greedy pass missed
@@ -149,7 +153,7 @@ still pass eligibility; if it does not, generation fails rather than substitutin
         score  = 1.0
         reasons = ("fixed power slot",)
 
-## 9. Step 6 — the rotation draw
+## 9. Step 6 — the exploration draw
 
 Rotation is probabilistic and reproducible. The draw is a pure function of the date, session
 type and slot id:
@@ -302,7 +306,7 @@ a ranking approximation cannot let an unsafe session through.
     )
 
 Each slot carries its exercise, pattern, score, reasons (including the dwell counter/target
-and any rotation draw), up to five alternatives and pending_rating. The reasons are the audit
+and any exploration draw), up to five alternatives and pending_rating. The reasons are the audit
 trail: a session can be explained without re-running the resolver.
 
 ## 15. Availability and preview
@@ -331,7 +335,7 @@ narrow 0.88, bench_press 1.00 (no entry in the stress window). Weights normalise
                = 0.736
 
 narrow wins because it is in its cycle. After its 7th exposure the counter wraps to 0, narrow
-scores 0.721 and bench_press wins. A rotation draw below 0.10 would remove narrow for one
+scores 0.721 and bench_press wins. An exploration draw below 0.10 would remove narrow for one
 session even while it is incumbent; if the replacement is not performed, its counter stays 0
 and the next session can return to narrow.
 
@@ -351,14 +355,14 @@ and the next session can return to narrow.
 |---|---|---|
 | resolver.dwell.target | 7 | Exposures per cycle before the counter wraps |
 | resolver.dwell.tau | 0.5 | Scale of the dwell factor; larger keeps the counter relevant longer |
-| resolver.dwell.probability | 0.10 | Chance a slot rotates to its best alternative |
+| resolver.dwell.probability | 0.10 | Chance a slot explores its best alternative instead of keeping its last choice |
 | resolver.weights.dwell | 0.10 | Weight of the dwell factor in the score |
 | resolver.weights.readiness / fatigue / spinal / injury | 0.30 / 0.10 / 0.15 / 0.15 | The other score weights |
 | resolver.coverage.priority | balanced | Coverage factor 0.15 / 0.25 / 0.35 |
 | resolver.tie_break | least_recent | Final ordering after the score |
 
-See [DWELL-AND-ROTATION.md](DWELL-AND-ROTATION.md) for the rotation model and its rejected
-alternatives.
+See [DWELL-AND-ROTATION.md](DWELL-AND-ROTATION.md) for the exposure-based preference and
+exploration model, and the shapes it rejected.
 
 ## Related
 
@@ -366,5 +370,5 @@ alternatives.
 - **Generation pipeline:** [WORKOUT-GENERATION.md](WORKOUT-GENERATION.md) — how selection fits the wider prescription.
 - **Session templates:** [SESSION-TEMPLATES.md](SESSION-TEMPLATES.md) — slots, variants and candidate pools.
 - **Decisions:** [DECISIONS.md](DECISIONS.md) — DEC-RESOLVER-15 and the resolver decisions it amends.
-- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) — resolver selection and rotation questions.
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) — resolver selection and exploration questions.
 - **Roadmap:** [ROADMAP.md](../ROADMAP.md) — implementation status.

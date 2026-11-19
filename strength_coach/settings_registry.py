@@ -317,9 +317,9 @@ def _definitions() -> tuple[SettingDefinition, ...]:
            "Scale in f(c) = 1 - exp(-c / tau); larger values make the counter matter for "
            "longer. See docs/DWELL-AND-ROTATION.md.",
            minimum=0.05, maximum=10.0),
-        _d("resolver.dwell.probability", "Resolver", "Rotation probability per session", "float",
+        _d("resolver.dwell.probability", "Resolver", "Exploration probability per session", "float",
            0.1, "settings profile (registry defaults)", "prescription_policy",
-           "Chance that a slot changes to its best alternative instead of keeping its last "
+           "Chance that a slot explores its best alternative instead of keeping its last "
            "choice. See docs/DWELL-AND-ROTATION.md.",
            minimum=0.0, maximum=1.0),
         _d("resolver.eligibility.auto_requires_can_do", "Resolver", "Require can_do", "bool", True,
