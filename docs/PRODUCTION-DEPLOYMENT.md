@@ -94,16 +94,23 @@ The core family must show ready: true, readiness: verified.
 
 ## 7. Install the C-1 maintenance worker
 
+    sudo apt-get install -y polkitd
     sudo install -m 0644 deploy/strength-analytics-maintenance.service /etc/systemd/system/
     sudo install -m 0644 deploy/strength-analytics-maintenance.timer /etc/systemd/system/
+    sudo install -d -m 0750 -o root -g polkitd /etc/polkit-1/rules.d
+    sudo install -m 0644 -o root -g polkitd \
+        deploy/10-strength-coach-maintenance.rules /etc/polkit-1/rules.d/
     sudo systemctl daemon-reload
+    sudo systemctl restart polkit.service
     sudo systemctl enable --now strength-analytics-maintenance.timer
     systemctl list-timers strength-analytics-maintenance.timer
     sudo systemctl start strength-analytics-maintenance.service
     journalctl -u strength-analytics-maintenance.service -n 50 --no-pager
 
-The web unit already contains the optional ExecStartPost run; if the service account cannot start
-system units it is a no-op and the 15-minute timer is authoritative.
+The web unit's optional ExecStartPost runs as the service user. Without the polkit rule it logs
+`Access denied` and only the 15-minute timer runs the worker; with the rule it reconciles once
+immediately after a restart. The rule permits only the service user, only that one unit and only
+the `start` verb.
 
 ## 8. Enable the MCP service
 

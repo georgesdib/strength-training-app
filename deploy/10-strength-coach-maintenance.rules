@@ -1,0 +1,14 @@
+// Allow the Strength Coach web service user to start only the C-1 maintenance unit.
+//
+// The web unit's ExecStartPost runs as dsh. Without this rule systemd logs
+// "Failed to start strength-analytics-maintenance.service: Access denied"; the
+// 15-minute timer still runs the worker, but the post-restart reconciliation
+// cannot. Keep this least-privilege: one unit, one verb, one user.
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.systemd1.manage-units" &&
+        subject.user == "dsh" &&
+        action.lookup("unit") == "strength-analytics-maintenance.service" &&
+        action.lookup("verb") == "start") {
+        return polkit.Result.YES;
+    }
+});
