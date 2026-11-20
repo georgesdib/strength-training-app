@@ -1402,7 +1402,7 @@ function renderPrescription(p, options = {}) {
   const vbtNoteBox = vbtPrescriptionNote(p.notes?.vbt);
   const topSet = p.top_set || p.notes?.top_set;
   const topSetApplied = topSet?.status === "applied";
-  const topSetBox = topSet?.reason
+  const topSetBox = topSet?.reason && topSet.reason_code !== "intent_off"
     ? `<p class="muted"><strong>${topSetApplied ? "Top set" : "Top set not applied"}${
         topSet.status ? " [" + esc(topSet.status) + "]" : ""
       }:</strong> ${esc(topSet.reason)}</p>`
