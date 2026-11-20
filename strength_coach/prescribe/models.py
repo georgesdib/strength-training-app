@@ -6,6 +6,7 @@ place; a correction is a new prescription with a pointer back (AGENTS.md §3.7).
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
@@ -99,6 +100,10 @@ def validate_plan_set_groups(item: Mapping[str, Any], *, where: str = "plan item
         load = group.get("load_kg")
         if isinstance(load, bool) or not isinstance(load, (int, float)):
             raise ValueError(f"{group_where}: load_kg must be a number")
+        if not math.isfinite(float(load)) or float(load) < 0:
+            raise ValueError(
+                f"{group_where}: load_kg must be finite and non-negative"
+            )
         rir = group.get("rir_target")
         if rir is not None:
             _plan_int(rir, "rir_target", where=group_where, low=0, high=10)

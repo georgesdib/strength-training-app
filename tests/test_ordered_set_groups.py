@@ -85,6 +85,24 @@ def test_a_single_full_item_group_is_accepted() -> None:
                               "set_groups": [_group(0, 4, 100.0)]})
 
 
+@pytest.mark.parametrize("load", [-1.0, float("nan"), float("inf")])
+def test_a_group_load_must_be_finite_and_non_negative(load: float) -> None:
+    with pytest.raises(ValueError, match="finite and non-negative"):
+        validate_plan_set_groups({
+            "exercise_id": "ssb_squat",
+            "sets": 1,
+            "set_groups": [_group(0, 1, load)],
+        })
+
+
+def test_a_zero_group_load_is_valid_for_bodyweight_work() -> None:
+    validate_plan_set_groups({
+        "exercise_id": "pull_up",
+        "sets": 1,
+        "set_groups": [_group(0, 1, 0.0)],
+    })
+
+
 @pytest.mark.parametrize(
     "indexes", [(0, 0), (1, 0), (0, 2), ("0", 1), (True, 1)],
 )

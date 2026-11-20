@@ -1370,14 +1370,31 @@ def add_set(
             raise ValueError("performed_at must not be in the future")
     with db.transaction(conn):
         existing = conn.execute(
-            "SELECT set_id FROM workout_set WHERE workout_id = ? AND exercise_id = ? "
+            "SELECT * FROM workout_set WHERE workout_id = ? AND exercise_id = ? "
             "AND set_index = ?",
             (workout_id, exercise_id, set_index),
         ).fetchone()
         if existing is not None:
-            # A retry after a lost response must not append a second set. The client sends
-            # the next index it knows; an existing row means this request already landed.
-            return get(conn, workout_id)
+            # A retry after a lost response must not append a second set, but a matching
+            # index alone is not proof of a replay: compare the payload so a different set
+            # is rejected instead of being silently discarded.
+            def same_number(left, right) -> bool:
+                if left is None or right is None:
+                    return left is None and right is None
+                return abs(float(left) - float(right)) < 1e-9
+
+            if (
+                same_number(existing["load_kg"], load_kg)
+                and existing["reps"] == reps
+                and existing["rir"] == rir
+                and same_number(existing["velocity"], velocity)
+                and existing["prescription_item_index"] == item_index
+                and existing["substitutes_plan_item_index"] == substitutes_index
+            ):
+                return get(conn, workout_id)
+            raise ValueError(
+                "set_index_conflict: a different set already uses this exercise and index"
+            )
         cursor = conn.execute(
             """
             INSERT INTO workout_set
@@ -1571,6 +1588,26 @@ def _change_prefill(
     }
 
 
+def _change_matches_payload(
+    stored: Mapping[str, Any],
+    *,
+    kind: str,
+    exercise_id: str,
+    reps_low: int,
+    reps_high: int,
+    rir_target: int | None,
+    slot_key: Mapping[str, Any],
+) -> bool:
+    """Compare the canonical request fields, never the server-solved prefill."""
+    return (
+        stored.get("exercise_id") == exercise_id
+        and stored.get("reps_low") == reps_low
+        and stored.get("reps_high") == reps_high
+        and stored.get("rir_target") == rir_target
+        and all(stored.get(key) == value for key, value in slot_key.items())
+    )
+
+
 def record_execution_change(
     conn,
     workout_id: str,
@@ -1650,14 +1687,30 @@ def record_execution_change(
         stored = json.loads(existing["payload_json"] or "{}")
         if (
             str(existing["event_type"]) != kind
-            or stored.get("exercise_id") != exercise_id
-            or stored.get("reps_low") != low
-            or stored.get("reps_high") != high
-            or stored.get("rir_target") != effective_rir
-            or {key: stored.get(key) for key in slot_key} != slot_key
+            or not _change_matches_payload(
+                stored,
+                kind=kind,
+                exercise_id=exercise_id,
+                reps_low=low,
+                reps_high=high,
+                rir_target=effective_rir,
+                slot_key=slot_key,
+            )
         ):
             raise ValueError("event_id was already used for a different change")
         return execution_view(conn, workout_id)
+
+    if kind == "substitution":
+        performed = conn.execute(
+            "SELECT 1 FROM workout_set WHERE workout_id = ? AND "
+            "(prescription_item_index = ? OR substitutes_plan_item_index = ?) "
+            "LIMIT 1",
+            (workout_id, identity, identity),
+        ).fetchone()
+        if performed is not None:
+            raise ValueError(
+                "cannot substitute a plan item after sets have been logged"
+            )
 
     prefill = _change_prefill(
         conn,
@@ -1687,8 +1740,33 @@ def record_execution_change(
         with db.transaction(conn):
             _event(conn, workout_id, kind, payload)
             _touch(conn, workout_id)
-    except sqlite3.IntegrityError:
-        # A concurrent replay won the unique client-id index; the stored change is canonical.
+    except sqlite3.IntegrityError as exc:
+        # A concurrent request won the unique client-id index. Reload it and compare the
+        # request content: only a true replay returns the view; a conflicting payload is
+        # rejected instead of being mistaken for a successful retry.
+        stored_row = conn.execute(
+            "SELECT event_type, payload_json FROM workout_event "
+            "WHERE workout_id = ? AND json_extract(payload_json, '$.client_event_id') = ?",
+            (workout_id, parsed),
+        ).fetchone()
+        if stored_row is None:
+            raise
+        stored = json.loads(stored_row["payload_json"] or "{}")
+        if (
+            str(stored_row["event_type"]) != kind
+            or not _change_matches_payload(
+                stored,
+                kind=kind,
+                exercise_id=exercise_id,
+                reps_low=low,
+                reps_high=high,
+                rir_target=effective_rir,
+                slot_key=slot_key,
+            )
+        ):
+            raise ValueError(
+                "event_id was already used for a different change"
+            ) from exc
         return execution_view(conn, workout_id)
     return execution_view(conn, workout_id)
 
