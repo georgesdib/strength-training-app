@@ -231,23 +231,23 @@ def test_an_unplanned_exercise_is_reported_as_unmatched(conn):
     assert {row["reason"] for row in result["quality"]["unmatched"]} == {"unattributed"}
 
 
-def test_warm_ups_and_contradictory_roles_are_excluded_and_visible(conn):
+def test_rir6_is_a_warm_up_even_with_a_legacy_role(conn):
     started = start(conn, item(sets=3))
     log(conn, started, load=50, reps=10, rir=6)                     # logged warm-up
-    log_legacy_role(conn, started, role="top_set", load=100, reps=5, rir=6)  # contradictory
+    log_legacy_role(conn, started, role="top_set", load=100, reps=5, rir=6)  # still warm-up
     for _ in range(2):
         log(conn, started)
     data = finish(conn, started)
     result = adherence.analyse(data)
 
     assert len(data["sets"]) == 4
-    assert result["quality"]["warm_up_sets_excluded"] == 1
-    assert result["quality"]["ambiguous_status_sets"] == 1
+    assert result["quality"]["warm_up_sets_excluded"] == 2
+    assert result["quality"]["ambiguous_status_sets"] == 0
     original = result["original"]
     assert original["performed_sets"] == 2
     assert original["matched_sets"] == 2
     assert original["missing_sets"] == 1
-    assert original["warm_up_sets_excluded"] == 1
+    assert original["warm_up_sets_excluded"] == 2
     assert len(original["exercises"][0]["sets"]) == 2
     assert all(row["matched"] for row in original["exercises"][0]["sets"])
 
@@ -368,21 +368,25 @@ def test_top_set_and_back_off_targets_come_from_the_set_group(conn):
     assert result["rir"]["at_target"] == 2
 
 
-def test_a_missing_set_role_leaves_group_load_and_rir_unavailable(conn):
-    top = {"role": "top_set", "sets": 1, "load_kg": 110, "reps_low": 3,
-           "reps_high": 5, "rir_target": 1, "percent_of_top": None}
-    back = {"role": "back_off", "sets": 1, "load_kg": 90, "reps_low": 3,
-            "reps_high": 5, "rir_target": 2, "percent_of_top": 0.82}
+def test_groups_are_selected_by_working_set_order(conn):
+    top = {"group_index": 0, "sets": 1, "load_kg": 110, "reps_low": 3,
+           "reps_high": 5, "rir_target": 1}
+    back = {"group_index": 1, "sets": 1, "load_kg": 90, "reps_low": 3,
+            "reps_high": 5, "rir_target": 2}
     started = start(conn, item(sets=2, reps_low=3, load_kg=90, load_basis="external",
                                set_groups=[top, back]))
     log(conn, started, load=110, reps=3, rir=1)
     log(conn, started, load=90, reps=5, rir=2)
     result = adherence.analyse(finish(conn, started))["original"]
 
-    assert result["load"]["evaluated_sets"] == 0
-    assert result["rir"]["evaluated_sets"] == 0
-    assert result["reps"]["evaluated_sets"] == 2      # groups share the rep range
-    assert "ambiguous_set_role" in result["quality"]["unavailable_metrics"]
+    assert result["load"]["evaluated_sets"] == 2
+    assert result["rir"]["evaluated_sets"] == 2
+    assert result["reps"]["evaluated_sets"] == 2
+    assert "ambiguous_set_role" not in result["quality"]["unavailable_metrics"]
+    targets = [
+        row["load_target_kg"] for row in result["exercises"][0]["sets"]
+    ]
+    assert targets == [110.0, 90.0]
 
 
 def test_legacy_plan_and_legacy_set_attribution_stay_explicit(conn):

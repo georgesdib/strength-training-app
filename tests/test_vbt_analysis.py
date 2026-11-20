@@ -103,22 +103,19 @@ def test_unknown_load_basis_and_warmups_are_excluded():
     assert warmup["comparable"] is False and "warm_up" in warmup["reasons"]
 
 
-def test_set_group_rep_mismatch_and_ambiguous_role_are_explicit():
+def test_set_group_rep_mismatch_is_explicit():
     groups = [
-        {"role": "top_set", "sets": 1, "reps_low": 5, "reps_high": 5,
+        {"group_index": 0, "sets": 1, "reps_low": 5, "reps_high": 5,
          "load_kg": 110, "rir_target": 1},
-        {"role": "back_off", "sets": 2, "reps_low": 3, "reps_high": 5,
+        {"group_index": 1, "sets": 2, "reps_low": 3, "reps_high": 5,
          "load_kg": 95, "rir_target": 2},
     ]
     mismatch = vbt_analysis.compare_set(
-        [item(set_groups=groups)], row(set_role="top_set", reps=5, rir=1),
-    )
-    ambiguous = vbt_analysis.compare_set(
-        [item(set_groups=groups)], row(set_role=None),
+        [item(set_groups=groups)], row(reps=5, rir=1),
     )
     assert "group_rep_mismatch" in mismatch["reasons"]
-    assert "ambiguous_set_role" in ambiguous["reasons"]
-    assert mismatch["comparable"] is False and ambiguous["comparable"] is False
+    assert "ambiguous_set_role" not in mismatch["reasons"]
+    assert mismatch["comparable"] is False
 
 
 def test_unattributed_or_wrong_exercise_sets_cannot_borrow_a_target():

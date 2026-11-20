@@ -1,0 +1,15 @@
+# Derived actual structure — descriptive only.
+#
+# This file holds the thresholds for the post-workout description of a recorded sequence.
+# Nothing here changes a prescription, working volume, e1RM or fatigue. The owner approved
+# these defaults on 2026-11-20; change them by versioned config, never by a code constant.
+version: 1
+domain_reason: >-
+  A recorded sequence can look like a top set plus back-offs even when the plan prescribed
+  straight sets. The description is evidence for the athlete and the report, not training policy.
+load_tolerance_increments: 1
+rir_tolerance: 1
+top_set:
+  min_load_gap_increments: 2
+  min_back_off_sets: 2
+

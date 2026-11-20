@@ -201,7 +201,11 @@ def detail(conn, session_id: str) -> dict:
         data["adherence"] = adherence.unavailable(unavailable_reason)
         data["vbt"] = vbt_analysis.unavailable(unavailable_reason)
     else:
-        data["adherence"] = adherence.analyse({**source, "sets": full_sets})
+        data["adherence"] = adherence.analyse({
+            **source,
+            "sets": full_sets,
+            "execution": workout.execution_view(conn, str(data["workout_id"])),
+        })
         data["vbt"] = source.get("vbt") or vbt_analysis.unavailable("vbt_unavailable")
     return data
 

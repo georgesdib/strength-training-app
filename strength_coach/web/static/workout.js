@@ -257,7 +257,7 @@ function updateWorkoutSetTarget() {
   target.innerHTML = "Planned <strong>" + esc(planned) + "</strong>. Logging set <strong>" +
     nextWorkoutSetNumber(exerciseId) + "</strong>.<br>" +
     vbtApplicabilityHtml(
-      item, "",
+      item, Math.max(0, nextWorkoutSetNumber(exerciseId) - 1),
       $("#workout-set-reps") ? $("#workout-set-reps").value : "",
       $("#workout-set-rir") ? $("#workout-set-rir").value : ""
     );
@@ -561,7 +561,7 @@ function renderWorkout(w) {
   var setRows = (w.sets || []).map(function (set) {
     return '<article class="workout-set-card"><div class="workout-set-card-head">' +
       '<strong>' + esc(workoutExerciseLabel(set.exercise_id)) + '</strong><span class="badge">Set ' +
-      set.set_index + (set.set_role ? ' · ' + esc(set.set_role.replace(/_/g, ' ')) : '') +
+      set.set_index +
       '</span></div><p class="workout-set-values">' +
       (set.load_kg == null ? "load —" : fmt(set.load_kg) + " kg") + " · " +
       (set.reps == null ? "reps —" : set.reps + " reps") + " · RIR " +

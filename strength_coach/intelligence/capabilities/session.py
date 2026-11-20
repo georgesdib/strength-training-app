@@ -60,7 +60,6 @@ SET_KEYS = (
     "reps",
     "rir",
     "velocity_mps",
-    "set_role",
     "prescription_item_index",
     "vbt_mean",
 )

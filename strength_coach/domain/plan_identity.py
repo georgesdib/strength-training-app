@@ -28,6 +28,16 @@ def row_plan_identity(
     names the same exercise. Anything else returns None and stays unmatched rather than
     being guessed into the first same-name item.
     """
+    substituted = row.get("substitutes_plan_item_index")
+    if substituted is not None:
+        try:
+            slot = int(substituted)
+        except (TypeError, ValueError):
+            slot = None
+        if slot is not None:
+            for position, item in enumerate(items):
+                if item_identity(item, position) == slot:
+                    return slot
     value = row.get("prescription_item_index")
     if value is None:
         return None

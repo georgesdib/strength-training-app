@@ -901,6 +901,7 @@ def _summary_payload(
         adherence_payload = adherence.analyse({
             **data,
             "sets": queries.session_clean_sets(conn, session_id),
+            "execution": execution_view(conn, session_id),
         })
         vbt_payload = data.get("vbt") or vbt_analysis.unavailable("vbt_unavailable")
     feedback = _summary_feedback(conn, data, session_id)

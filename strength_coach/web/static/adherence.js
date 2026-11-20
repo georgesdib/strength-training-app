@@ -26,8 +26,8 @@ var ADHERENCE_REASON_TEXT = {
   missing_actual_reps: "No actual repetitions were recorded.",
   missing_prescribed_rir: "No RIR target was recorded.",
   missing_actual_rir: "No actual RIR was recorded.",
-  ambiguous_set_role: "The set role is unknown, so the top-set/back-off target cannot be chosen.",
-  unknown_set_role: "The set role does not match this item's set groups.",
+  ambiguous_group: "The set group could not be resolved from the plan order.",
+  substituted_prefill_unavailable: "The substitute has no saved prefill, so load quality is not scored.",
   non_rir_effort_model: "This item is not RIR-scored.",
   ambiguous_attribution: "The exercise appears more than once and the set has no plan-item identity.",
   mismatched_exercise: "The stored plan-item identity names a different exercise.",
@@ -236,7 +236,7 @@ function adherenceExercise(exercise) {
   }
   var rows = (exercise.sets || []).map(function (row) {
     var setLabel = (row.set_index == null ? "—" : row.set_index) +
-      (row.set_role ? " · " + esc(row.set_role).replace(/_/g, " ") : "") +
+      (row.substituted ? " · <span class='badge'>changed</span>" : "") +
       (row.extra ? " <span class='badge warn'>extra</span>" : "");
     var limitations = adherenceLimitationText(row);
     return "<tr><td>" + setLabel + "</td><td>" + adherenceRepsCell(row) + "</td><td>" +
@@ -254,14 +254,20 @@ function adherenceExercise(exercise) {
   var limitations = (exercise.limitations || []).map(adherenceReason);
   var limitationBlock = limitations.length
     ? "<p class='adherence-note'>Unavailable: " + esc(limitations.join(" · ")) + "</p>" : "";
+  var structure = exercise.structure
+    ? "<p class='adherence-note'><strong>Actual structure:</strong> " +
+      esc(String(exercise.structure.structure || "unknown").replace(/_/g, " ")) +
+      " <span class='muted'>(" + esc(exercise.structure.confidence || "unknown") +
+      " confidence)</span></p>"
+    : "";
   var table = rows
     ? "<div class='table-scroll'><table class='adherence-set-table' aria-label='Per-set targets for " +
       esc(name) + "'><thead><tr><th scope='col'>Set</th><th scope='col'>Reps (actual vs target)</th>" +
       "<th scope='col'>Load (actual vs target)</th><th scope='col'>RIR (actual vs target)</th>" +
       "<th scope='col'>Notes</th></tr></thead><tbody>" + rows + "</tbody></table></div>"
     : "<p class='muted'>No attributed sets.</p>";
-  return "<details class='adherence-exercise'>" + summary + facts + limitationBlock + table +
-    "</details>";
+  return "<details class='adherence-exercise'>" + summary + facts + limitationBlock +
+    structure + table + "</details>";
 }
 
 function adherenceExercises(exercises) {

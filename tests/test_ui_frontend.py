@@ -2249,28 +2249,28 @@ if (details.indexOf("RIR 2–3") < 0 || details.indexOf("squat") < 0) throw new 
 if (details.indexOf("18 sets / 3 sessions") < 0 || details.indexOf("1.0.0") < 0) throw new Error("sample/method");
 if (details.indexOf("vbt-test") < 0) throw new Error("calibration id");
 
-var ok = vbtApplicability(item, "", 3, 2);
+var ok = vbtApplicability(item, 0, 3, 2);
 if (ok.status !== "applicable") throw new Error("applicable target");
-var reps = vbtApplicability(item, "", 5, 2);
+var reps = vbtApplicability(item, 0, 5, 2);
 if (reps.reason !== "rep_mismatch") throw new Error("rep mismatch");
-var effort = vbtApplicability(item, "", 3, 1);
+var effort = vbtApplicability(item, 0, 3, 1);
 if (effort.reason !== "actual_rir_outside_band") throw new Error("rir band");
-var missingEffort = vbtApplicability(item, "", 3, "");
+var missingEffort = vbtApplicability(item, 0, 3, "");
 if (missingEffort.reason !== "actual_rir_missing") throw new Error("rir missing");
-var noTarget = vbtApplicability({exercise_id: "ssb_squat", vbt: null}, "", 3, 2);
+var noTarget = vbtApplicability({exercise_id: "ssb_squat", vbt: null}, 0, 3, 2);
 if (noTarget.reason !== "no_target") throw new Error("no target");
-var legacy = vbtApplicability({exercise_id: "ssb_squat", vbt: null, velocity_target: 0.4}, "", 3, 2);
+var legacy = vbtApplicability({exercise_id: "ssb_squat", vbt: null, velocity_target: 0.4}, 0, 3, 2);
 if (legacy.reason !== "legacy_target") throw new Error("legacy target");
 
 var groups = [
-  {role: "top_set", sets: 1, reps_low: 5, reps_high: 5, load_kg: 110, rir_target: 1},
-  {role: "back_off", sets: 2, reps_low: 3, reps_high: 5, load_kg: 95, rir_target: 2}
+  {group_index: 0, sets: 1, reps_low: 5, reps_high: 5, load_kg: 110, rir_target: 1},
+  {group_index: 1, sets: 2, reps_low: 3, reps_high: 5, load_kg: 95, rir_target: 2}
 ];
 var groupItem = {exercise_id: "ssb_squat", reps_low: 3, reps_high: 5, set_groups: groups, vbt: target};
-var groupMismatch = vbtApplicability(groupItem, "top_set", 5, 1);
+var groupMismatch = vbtApplicability(groupItem, 0, 5, 1);
 if (groupMismatch.reason !== "group_rep_mismatch") throw new Error("group reps");
-var ambiguous = vbtApplicability(groupItem, "", 3, 2);
-if (ambiguous.reason !== "ambiguous_set_role") throw new Error("ambiguous role");
+var orderGroup = vbtApplicability(groupItem, 1, 3, 2);
+if (orderGroup.status !== "applicable" || orderGroup.group.group_index !== 1) throw new Error("ordered group");
 
 var comparable = vbtFeedbackHtml({
   target_mps: 0.42, actual_velocity_mps: 0.44, delta_mps: 0.02,

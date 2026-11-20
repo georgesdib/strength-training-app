@@ -17,6 +17,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from strength_coach.domain.plan_identity import item_identity, row_plan_identity
+from strength_coach.features import set_matching
 from strength_coach.utils import exercises as exercises_mod
 from strength_coach.utils import stats
 
@@ -30,7 +31,7 @@ _REASON_TEXT = {
     "warm_up": "Warm-up sets are not target comparisons.",
     "rep_mismatch": "The actual rep count differs from the target's calibration rep count.",
     "group_rep_mismatch": "The selected set group's rep count differs from the target's rep count.",
-    "ambiguous_set_role": "The set group could not be resolved; choose a set role.",
+    "ambiguous_group": "The set group could not be resolved from the plan's order.",
     "actual_rir_missing": "Actual RIR is missing, so effort comparability cannot be established.",
     "actual_rir_outside_band": "Actual RIR is outside the target's calibration band.",
     "load_basis_unknown": "The actual or prescribed load basis is unknown.",
@@ -42,7 +43,7 @@ _REASON_TEXT = {
 _HARD_REASONS = {
     "legacy_target", "unattributed_set", "exercise_mismatch", "missing_velocity",
     "invalid_velocity", "warm_up", "rep_mismatch", "group_rep_mismatch",
-    "ambiguous_set_role", "actual_rir_missing", "actual_rir_outside_band",
+    "ambiguous_group", "actual_rir_missing", "actual_rir_outside_band",
     "load_basis_unknown", "load_basis_mismatch", "time_based", "data_quality_flag",
 }
 
@@ -126,16 +127,11 @@ def _target_for_item(item: Mapping[str, Any]) -> dict[str, Any] | None:
     return None
 
 
-def _group_for_set(item: Mapping[str, Any], set_role: Any) -> tuple[Mapping[str, Any] | None, str | None]:
-    groups = [group for group in (item.get("set_groups") or []) if isinstance(group, Mapping)]
-    if not groups:
-        return None, None
-    if set_role in (None, ""):
-        return (groups[0], None) if len(groups) == 1 else (None, "ambiguous_set_role")
-    for group in groups:
-        if group.get("role") == set_role:
-            return group, None
-    return None, "ambiguous_set_role"
+def _group_for_set(
+    item: Mapping[str, Any], ordinal: int
+) -> tuple[Mapping[str, Any] | None, str | None]:
+    """Resolve the target group by working-set order; no legacy role is read."""
+    return set_matching.group_for_ordinal(item, ordinal), None
 
 
 def _base_result(
@@ -163,7 +159,6 @@ def _base_result(
         "set_index": row.get("set_index"),
         "exercise_id": row.get("exercise_id"),
         "session_id": row.get("session_id"),
-        "set_role": row.get("set_role"),
         "reps": _integer(row.get("reps")),
         "load_kg": _number(row.get("load_kg")),
         "load_basis": actual_load_basis or prescribed_load_basis,
@@ -210,8 +205,15 @@ def _compare_item(
     actual_load_basis: str | None = None,
     velocity_override: float | None = None,
     flags: Sequence[str] = (),
+    ordinal: int = 0,
 ) -> dict[str, Any]:
     reasons: list[str] = []
+    if row.get("substitutes_plan_item_index") is not None:
+        return _missing_result(
+            row,
+            ["substituted_exercise_target_unavailable"],
+            target_source=target_source,
+        )
     target = _target_for_item(item)
     prescribed_basis = str(item.get("load_basis") or "unknown")
     actual_basis = actual_load_basis if actual_load_basis is not None else prescribed_basis
@@ -253,7 +255,7 @@ def _compare_item(
     reps = _integer(row.get("reps"))
     if reps is None or (target.get("rep_count") is not None and reps != target["rep_count"]):
         reasons.append("rep_mismatch")
-    group, group_error = _group_for_set(item, row.get("set_role"))
+    group, group_error = _group_for_set(item, ordinal)
     if group_error:
         reasons.append(group_error)
     elif (
@@ -475,6 +477,23 @@ def completed_sets(
     final_items = list((data.get("plan") or {}).get("items") or [])
     original_items = list((data.get("original_plan") or {}).get("items") or [])
     overrides = overrides or {}
+    ordinals: dict[int, int] = {}
+    seen: dict[int, int] = {}
+    for row in sorted(
+        rows,
+        key=lambda item: (
+            _integer(item.get("set_index")) or 0,
+            _integer(item.get("set_id")) or 0,
+        ),
+    ):
+        if set_matching.is_warm_up(row):
+            continue
+        item, _, _ = _resolve_completed_item(final_items, original_items, row)
+        if item is None or row.get("set_id") is None:
+            continue
+        identity = int(item.get("order_index") or 0)
+        ordinals[int(row["set_id"])] = seen.get(identity, 0)
+        seen[identity] = seen.get(identity, 0) + 1
     comparisons: list[dict[str, Any]] = []
     for row in rows:
         item, source, reasons = _resolve_completed_item(final_items, original_items, row)
@@ -489,6 +508,10 @@ def completed_sets(
                 actual_load_basis=row.get("load_basis"),
                 velocity_override=_number(override.get("velocity_mps")) if override else None,
                 flags=_flags(row.get("flags")),
+                ordinal=(
+                    ordinals.get(int(row["set_id"]), 0)
+                    if row.get("set_id") is not None else 0
+                ),
             )
         comparison["workout_id"] = data.get("workout_id")
         comparison["exercise_name"] = str(_entity(row.get("exercise_id")).get("display") or row.get("exercise_id"))
