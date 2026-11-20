@@ -235,7 +235,8 @@ prescribed slots, and VBT cohorts whose residuals fall outside their calibration
 AFC-3 observation. A nudge carries its family, statement, gate, `n`, `evidence_id` and the
 full evidence envelope; it has no notification channel and never changes a prescription.
 Programme nudges carry `family: "programme"` and the programme header's method; the evidence id
-is the programme state (deload block week, or competition date/window).
+is the programme state (deload block week, or competition date/window). The iPhone Today reads
+this route too, so the same one card appears on the phone and the web.
 
 Suppression is append-only (`maintenance_review`): `POST /api/nudge` with `action: dismiss`
 records a completed review (`not_applicable`) whose note is the observation/evidence identity, so
