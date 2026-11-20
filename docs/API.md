@@ -329,6 +329,27 @@ context, but it is not a valid target observation. Imported sessions report
 `no_prescription_snapshot`; voided sessions report `session_voided`. No cross-exercise
 composite score is produced.
 
+### Planned set groups
+
+A prescription item may carry an ordered `set_groups` list; an empty list is straight sets.
+Order is the only identity: the server writes `group_index` as the list position, and no role
+or back-off ratio is sent.
+
+```json
+"set_groups": [
+  {"group_index": 0, "sets": 1, "load_kg": 120.0, "reps_low": 3, "reps_high": 5, "rir_target": 1},
+  {"group_index": 1, "sets": 3, "load_kg": 102.5, "reps_low": 3, "reps_high": 5, "rir_target": 3}
+]
+```
+
+Invariants: the group sets sum to `item.sets`, every group carries a numeric load, and
+`item.load_kg` stays the summary (back-off) load, never the source for per-set display. The
+warm-up ramp follows the heaviest group. The server validates a supplied plan at start:
+`group_index` is optional on read but must restate its list position when present, a stored
+`role` is ignored, and a group total that disagrees with `item.sets` is a `400`. The plan is
+frozen into `workout_session.plan_json` at start, so a client renders the groups it was given
+and never recomputes one (`DEC-RESOLVER-18`).
+
 ### Longitudinal VBT performance
 
 `GET /api/performance/vbt` is the read-only Performance dashboard feed. It reuses the completed

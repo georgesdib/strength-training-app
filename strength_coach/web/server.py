@@ -123,6 +123,7 @@ from strength_coach.prescribe import summary as programme_summary
 from strength_coach.prescribe import volume_budget as volume_budget_mod
 from strength_coach.prescribe.config import Thresholds
 from strength_coach.prescribe.evaluator import EvaluationInputs
+from strength_coach.prescribe.models import group_payload
 from strength_coach.rules import RuleContext
 from strength_coach.store import (
     cardio,
@@ -382,16 +383,8 @@ def _item_dict(item) -> dict:
             for w in item.warmup
         ],
         "set_groups": [
-            {
-                "role": group.role,
-                "sets": group.sets,
-                "load_kg": group.load_kg,
-                "reps_low": group.reps_low,
-                "reps_high": group.reps_high,
-                "rir_target": group.rir_target,
-                "percent_of_top": group.percent_of_top,
-            }
-            for group in item.set_groups
+            group_payload(group, index)
+            for index, group in enumerate(item.set_groups)
         ],
     }
 

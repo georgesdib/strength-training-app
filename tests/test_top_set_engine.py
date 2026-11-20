@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 
+import pytest
 from conftest import make_readiness, make_training
 
 from strength_coach.features.deload import DeloadDecision
@@ -69,6 +70,24 @@ def test_top_set_applies_to_the_session_main_and_preserves_sets() -> None:
     assert main.set_groups[0].rir_target == 1
     assert main.set_groups[0].load_kg > main.set_groups[1].load_kg
     assert main.warmup[0].load_kg < main.load_kg
+
+
+def test_structured_intensity_is_the_set_weighted_mean() -> None:
+    with store_with() as store:
+        prescription = build_prescription(
+            store.connection,
+            for_date="2024-01-15",
+            session_type="squat",
+            top_set_requested=True,
+        )
+    main = _item(prescription, "ssb_squat")
+    assert main.set_groups
+    weighted = sum(
+        group.sets * group.load_kg for group in main.set_groups
+    ) / main.sets
+    assert main.intensity == pytest.approx(weighted / main.e1rm_kg)
+    # The stored item load is the back-off load, so its ratio alone would understate the day.
+    assert main.intensity > main.load_kg / main.e1rm_kg
 
 
 def test_deload_suppresses_top_set_and_keeps_the_plan_executable() -> None:

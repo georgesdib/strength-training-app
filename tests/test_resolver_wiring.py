@@ -374,7 +374,8 @@ def test_resolver_top_set_executes_and_materialises_roles(monkeypatch) -> None:
         payload = server.prescription_dict(resolved.prescription)
         main = next(item for item in payload["items"] if item["exercise_id"] == "ssb_squat")
         groups = main["set_groups"]
-        assert [group["role"] for group in groups] == ["top_set", "back_off"]
+        assert [group["group_index"] for group in groups] == [0, 1]
+        assert all("role" not in group for group in groups)
         assert sum(group["sets"] for group in groups) == main["sets"]
         prescription_id = prescription_persistence.store_plan(
             instance.connection, payload

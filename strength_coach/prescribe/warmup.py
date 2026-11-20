@@ -55,13 +55,21 @@ class WarmupConfig:
 def for_item(
     item: PrescriptionItem, config: WarmupConfig | None = None,
 ) -> tuple[WarmupSet, ...]:
-    """Build ramp sets from the heaviest planned set."""
+    """Build ramp sets from the heaviest planned set.
+
+    A structured item's summary load is its back-off load, so the ramp cannot follow it, and
+    the heaviest group is not necessarily the first one. Order and roles are not read here:
+    the ramp is the same whichever way a future structure is ordered (DEC-RESOLVER-18).
+    """
     cfg = config or WarmupConfig.load()
     reference_load = item.load_kg
     if item.set_groups:
-        top = next((group for group in item.set_groups if group.role == "top_set"), None)
-        if top is not None:
-            reference_load = top.load_kg
+        group_loads = [
+            float(group.load_kg) for group in item.set_groups
+            if group.load_kg is not None
+        ]
+        if group_loads:
+            reference_load = max(group_loads)
     if not cfg.enabled or reference_load is None or reference_load <= 0:
         return ()
     if cfg.apply_to_essential and not item.essential:

@@ -82,6 +82,22 @@ def apply_items(
                 changed_loads += 1
                 new_load = candidate
                 applied_ratio = ratio
+        groups = item.set_groups
+        if groups and applied_ratio < 1.0:
+            # The groups are the execution targets, so the planned reduction scales every
+            # group by the same ratio and leaves the per-item arithmetic intact. A deload
+            # withholds the structure (the planner refuses one on a deload week), so this
+            # keeps the invariant honest if that ever changes (DEC-RESOLVER-18).
+            groups = tuple(
+                replace(
+                    group,
+                    load_kg=loads.round_down(
+                        group.load_kg * applied_ratio, item.rounding_increment_kg
+                    ),
+                )
+                if group.load_kg not in (None, 0.0) else group
+                for group in groups
+            )
         new_rir = (
             item.rir_target
             if item.effort_model == "quality" or item.rir_target is None
@@ -97,6 +113,7 @@ def apply_items(
             sets=new_sets,
             load_kg=new_load,
             rir_target=new_rir,
+            set_groups=groups,
             rationale_refs=item.rationale_refs + refs,
             load_factor=item.load_factor * applied_ratio,
         ))

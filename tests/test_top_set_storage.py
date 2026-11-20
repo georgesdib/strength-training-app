@@ -53,24 +53,23 @@ def test_top_set_columns_and_prescription_round_trip() -> None:
         assert "set_groups_json" in item_columns
         assert "set_role" in set_columns
         assert "set_role" in clean_columns
+        # The stored shape is ordered: no role and no back-off ratio (DEC-RESOLVER-18).
         groups = [
             {
-                "role": "top_set",
+                "group_index": 0,
                 "sets": 1,
                 "load_kg": 120.0,
                 "reps_low": 5,
                 "reps_high": 5,
                 "rir_target": 1,
-                "percent_of_top": None,
             },
             {
-                "role": "back_off",
+                "group_index": 1,
                 "sets": 3,
                 "load_kg": 100.0,
                 "reps_low": 5,
                 "reps_high": 5,
                 "rir_target": 2,
-                "percent_of_top": 0.85,
             },
         ]
         _prescription(conn, set_groups=groups)

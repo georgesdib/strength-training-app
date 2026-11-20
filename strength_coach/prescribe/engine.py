@@ -706,6 +706,17 @@ def build_prescription(
         tuple(items), protect=resolver_cfg.top_set_protect_top_set
     )
     warnings.extend(top_resize_warnings)
+    # A structured item's summary load is the back-off load, so dividing it by e1RM
+    # understates the session. The stored intensity is the set-weighted mean over the final
+    # groups, computed after every load and set modifier and before validation and the
+    # append-only ledger (DEC-RESOLVER-18). The weekly spinal projection deliberately keeps
+    # the pre-structure estimate in this package: moving it would change a safety gate and
+    # needs its own measured comparison.
+    items = [
+        replace(item, intensity=_set_weighted_intensity(item))
+        if item.set_groups else item
+        for item in items
+    ]
     load_stack = _load_stack(items)
     if load_stack:
         worst = load_stack[0]
@@ -995,11 +1006,12 @@ def _apply_under_mev(
 def _resize_top_set_groups(
     items: tuple[PrescriptionItem, ...], *, protect: bool = True
 ) -> tuple[tuple[PrescriptionItem, ...], tuple[str, ...]]:
-    """Keep top-set/back-off roles consistent after later set modifiers.
+    """Keep the internal top-set/back-off groups consistent after later set modifiers.
 
     The top set is protected: volume, minimum-session and safety set cuts reduce the back-off
     group first. If only one set remains, the top set is retained alone rather than silently
-    turning the structure into a straight set.
+    turning the structure into a straight set. The roles are the engine build-time tags, never
+    serialized (DEC-RESOLVER-18).
     """
     out: list[PrescriptionItem] = []
     warnings: list[str] = []
@@ -1038,6 +1050,28 @@ def _resize_top_set_groups(
             continue
         out.append(item)
     return tuple(out), tuple(warnings)
+
+
+def _set_weighted_intensity(item: PrescriptionItem) -> float | None:
+    """Mean working-set intensity as a fraction of e1RM, weighted by planned sets.
+
+    The item-level summary load is the back-off load for a structured item, so the summary
+    ratio understates the session. Each group is weighted by its own set count. A missing
+    e1RM or an unusable group load leaves the value unknown rather than guessed.
+    """
+    e1rm = item.e1rm_kg
+    if e1rm in (None, 0):
+        return None
+    total_sets = 0
+    weighted_load = 0.0
+    for group in item.set_groups:
+        if group.load_kg is None or int(group.sets) < 1:
+            return None
+        total_sets += int(group.sets)
+        weighted_load += float(group.load_kg) * int(group.sets)
+    if total_sets < 1:
+        return None
+    return weighted_load / total_sets / float(e1rm)
 
 
 def _apply_volume_cap(

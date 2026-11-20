@@ -3,7 +3,8 @@
 This module owns only the set arithmetic and RIR resolution. It does not choose exercises,
 apply readiness/deload, run the volume budget or write persistence; those remain in the engine
 and the existing pipeline. The structure is intentionally a set-group on one item, never two
-same-exercise item rows.
+same-exercise item rows. `SetGroup.role` here is an internal build-time tag: the wire, the
+stored plan and analysis see only the ordered groups (DEC-RESOLVER-18).
 """
 
 from __future__ import annotations

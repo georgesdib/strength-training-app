@@ -327,7 +327,7 @@ document version.
 | rationale_refs | JSON list of rule IDs + data-point ids |
 | e1rm_source_sets | nullable; usable sets behind a formula e1RM (NULL for overrides/fallbacks) |
 | substitution_for | nullable |
-| set_groups_json | ordered top_set/back_off groups; empty for straight sets (migration 0049) |
+| set_groups_json | ordered planned groups — `group_index`, sets, load, reps range and RIR; empty for straight sets. No role and no back-off ratio is stored; a legacy row that carries a role is read by list order (migration 0049, `DEC-RESOLVER-18`) |
 
 ### 8.4 `workout_form_rating` / `session_form_rating`
 

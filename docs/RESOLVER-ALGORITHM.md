@@ -42,6 +42,12 @@ Outputs: a GeneratedSession with, per slot, the chosen exercise, its score, a hu
 reason list, up to five ranked alternatives and whether a rating is still pending; plus the
 template, warnings, suggestions and the policy/catalogue digests.
 
+Prescription structure is not resolver output. The engine owns loads, sets, warm-up ramps and
+the optional top-set/back-off structure; the resolver chooses exercises and scores complete
+built prescriptions. Structure reaches a client as an ordered `set_groups` list with no stored
+role, and the engine's build-time role is never serialized ([API.md](API.md#planned-set-groups),
+`DEC-RESOLVER-18`).
+
 ## 2. The pipeline at a glance
 
     1. load policy, template, catalogue, settings, context

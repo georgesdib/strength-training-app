@@ -1090,7 +1090,8 @@ def test_prescribe_can_add_the_opt_in_top_set(server):
         "date": "2024-01-08", "session_type": "squat", "top_set": True,
     })
     item = next(row for row in data["items"] if row["exercise_id"] == "ssb_squat")
-    assert [group["role"] for group in item["set_groups"]] == ["top_set", "back_off"]
+    assert [group["group_index"] for group in item["set_groups"]] == [0, 1]
+    assert all("role" not in group for group in item["set_groups"])
     assert data["notes"]["top_set"]["applied"] is True
 
 
