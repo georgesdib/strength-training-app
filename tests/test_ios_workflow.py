@@ -2231,7 +2231,7 @@ def test_activity_batch_survives_one_conflicting_sample(ios):
     assert body["rejected_keys"] == [first["key"]]
 
 
-def test_workout_identity_conflict_is_rejected_per_item(ios):
+def test_workout_identity_conflict_is_rejected_per_item(ios, capsys):
     token, _ = _paired(ios)
     conflict_key = _activity_key("conflict-workout")
     first = _workout_payload(conflict_key)
@@ -2257,6 +2257,10 @@ def test_workout_identity_conflict_is_rejected_per_item(ios):
         "SELECT duration_s FROM external_workout WHERE external_key = ?",
         (bytes.fromhex(conflict_key),),
     )) == 3600
+    # The phone only receives the key; the server log must name the field that conflicted.
+    err = capsys.readouterr().err
+    assert f"rejected workout {conflict_key}" in err
+    assert "different duration_s" in err
 
 
 def test_malformed_workout_is_rejected_per_item(ios):

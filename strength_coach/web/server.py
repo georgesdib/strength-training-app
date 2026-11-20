@@ -1666,6 +1666,20 @@ class Handler(BaseHTTPRequestHandler):
     IOS_ACTIVITY_MAX_WORKOUTS = 200
     IOS_ACTIVITY_MAX_SAMPLES = 5000
 
+    def _log_activity_rejection(self, kind: str, key: bytes, reason: str) -> None:
+        """Record a per-item 200 rejection in the server log.
+
+        The phone only receives the rejected key, so without this line the field that conflicted
+        is lost with the exception. Go straight to stderr because the root logger has no stream
+        handler (the same reason `_error` prints). Values are never included: a conflict names the
+        immutable fields, and a malformed row is reduced by the caller to the rule before any value.
+        """
+        print(
+            f"HTTP 200 {urlparse(self.path).path}: rejected {kind} {key.hex()}: {reason}",
+            file=sys.stderr,
+            flush=True,
+        )
+
     def _ios_healthkit_workouts(self, conn, device: dict, body: dict) -> dict:
         items = body.get("workouts")
         if not isinstance(items, list) or not items:
@@ -1686,6 +1700,7 @@ class Handler(BaseHTTPRequestHandler):
             if cutoff and str(item.get("started_at") or "") < cutoff:
                 rejected += 1
                 rejected_keys.append(key.hex())
+                self._log_activity_rejection("workout", key, "started_at before history_cutoff")
                 continue
             try:
                 _row, new = cardio.record_workout(
@@ -1707,12 +1722,18 @@ class Handler(BaseHTTPRequestHandler):
                     srpe=item.get("srpe"),
                     imported_at=datetime.datetime.now(datetime.UTC).isoformat(),
                 )
-            except (cardio.CardioConflict, cardio.CardioIngestError):
+            except (cardio.CardioConflict, cardio.CardioIngestError) as exc:
                 # Same per-item contract as samples: one immutable conflict or malformed workout
                 # must not fail the rest of the batch. The key is returned so the phone can
                 # quarantine it instead of re-sending it forever.
                 rejected += 1
                 rejected_keys.append(key.hex())
+                if isinstance(exc, cardio.CardioConflict):
+                    reason = str(exc)
+                else:
+                    # A validation message can quote the rejected value; keep the rule only.
+                    reason = str(exc).split(":", 1)[0] or type(exc).__name__
+                self._log_activity_rejection("workout", key, reason)
                 continue
             created += int(new)
             existing += int(not new)
@@ -1770,12 +1791,13 @@ class Handler(BaseHTTPRequestHandler):
                     external_workout_id=workout["external_workout_id"],
                     association=str(item.get("association") or "workout"),
                 )
-            except cardio.CardioConflict:
+            except cardio.CardioConflict as exc:
                 # One conflicting sample must not cost the rest of the batch; the same defect class
                 # as a single bad metric value rejecting a whole sync. Return the key so the phone
                 # can quarantine it rather than holding the cursor and re-sending it forever.
                 rejected += 1
                 rejected_keys.append(sample_key.hex())
+                self._log_activity_rejection("sample", sample_key, str(exc))
                 continue
             created += int(new)
             existing += int(not new)
