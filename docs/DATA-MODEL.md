@@ -605,7 +605,7 @@ until completion.
 | for_date / session_type | copied from the plan |
 | status | `in_progress` \| `completed` \| `abandoned` |
 | plan_json | frozen prescription payload; later regeneration cannot rewrite it. Items may carry an optional structured `vbt` target (target/band, rep count, RIR band, scope/family, sample size, method version, calibration id) |
-| plan_modified_json | latest in-workout plan after swaps/adds/removes/set edits; null until changed |
+| plan_modified_json | **legacy only** — the last in-workout edit of an old client; null for frozen plans and never written after start (`DEC-RESOLVER-23`) |
 | readiness_json | validated readiness fields as supplied; a score-ready snapshot or an explicitly acknowledged partial snapshot |
 | started_at / ended_at | ISO timestamps |
 | duration_measured_s / duration_min / duration_source | measured timer and optional manual override |
@@ -618,11 +618,15 @@ until completion.
 adds `clean_set.set_role`, copied on materialisation; it is nullable so imported and historical
 straight sets need no backfill.
 
-**2026-11-19 target amendment (not yet implemented).** The [resolver prescription structure
+**2026-11-20 amendment — frozen plan and performed-set attribution.** The [resolver
+prescription structure
 plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/RESOLVER-PRESCRIPTION-STRUCTURE.md)
-adds a nullable `substitutes_plan_item_index` to `workout_set` and `clean_set`, copied on
-materialisation, and stops writing `set_role` for new sets; legacy role values stay read-only
-provenance and are not used for matching or decisions (plan D11/D18).
+is implemented by migration `0073`: a nullable `substitutes_plan_item_index` on `workout_set`
+and `clean_set`, copied on materialisation. New sets no longer write `set_role`; legacy role
+values stay read-only provenance and are not used for matching or decisions (plan D11/D18,
+`DEC-RESOLVER-23`). A substitution set carries the same slot in `prescription_item_index` and
+`substitutes_plan_item_index`; an addition is extra work with no plan attribution. A stale
+`plan_item_index` that names another exercise is dropped rather than rejected.
 
 | column | notes |
 |---|---|
@@ -632,12 +636,20 @@ provenance and are not used for matching or decisions (plan D11/D18).
 | load_kg / reps / rir / velocity | actual values |
 | source | `manual` \| `import` \| `device` |
 | prescription_item_index | stable plan-item identity (`prescription_item.order_index`), when matched; not the current display position. Legacy rows may hold a position, resolved only by an exact identity or a same-exercise fallback |
-| set_role | nullable `top_set` / `back_off`; ordinary and historical sets stay null (migration 0049) |
+| set_role | **legacy only** — nullable `top_set` / `back_off`; new rows stay null and the value is never an input (migration 0049) |
+| substitutes_plan_item_index | nullable; the frozen plan slot a performed set replaced, also stored in `prescription_item_index`; null for ordinary and extra work (migration 0073) |
 
 `workout_event` records `start`, `add_set`, `update_set`, `remove_set`, `restore_set`, `end`,
 `abandon`, `reviewed`, `import_applied` and `import_undone` with an optional `target_set_id`;
 it is append-only. Actual-set corrections and imports replay these events rather than mutating
 `workout_set`.
+
+Execution changes add `substitution` and `addition` rows to the same append-only stream. Their
+`payload_json` carries `client_event_id`, the slot (`plan_item_index` or `after_item_index`),
+the exercise, the reps/RIR shape, the solved prefill and its reason. A unique index on
+`(workout_id, json_extract(payload_json, '$.client_event_id'))` makes the client identity the
+idempotency key, and the row identity is the execution watermark returned by
+`GET .../execution` (migration `0073`, `DEC-RESOLVER-23`).
 
 Optional per-rep velocity detail has its own append-only tables:
 
@@ -650,7 +662,8 @@ On completion, `workout.py` materialises the workout into the normal pipeline on
 
 - a `session` row with `session_id = workout_id`, `source = 'workout'`, `prescription_id`,
   `workout_id`, measured duration and sRPE;
-- one `raw_row` + `clean_set` row per actual set, preserving `prescription_item_index`;
+- one `raw_row` + `clean_set` row per actual set, preserving `prescription_item_index` and
+  `substitutes_plan_item_index`;
 - optional `session_feedback`.
 
 This keeps e1RM, volume and review on one actual-session source of truth. In-workout CSV

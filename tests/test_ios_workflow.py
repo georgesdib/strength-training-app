@@ -585,165 +585,6 @@ def test_ready_partial_readiness_can_start_without_stress(ios):
     assert workout["status"] == "in_progress"
 
 
-def test_ios_exercise_catalogue_and_plan_add_defaults(ios):
-    token, _ = _paired(ios)
-    status, issued = _issue(ios, token)
-    assert status == 200, issued
-    status, workout = _start(ios, token, issued["issued_plan_id"])
-    assert status == 200, workout
-    plan_ids = {item["exercise_id"] for item in workout["plan"]["items"]}
-
-    status, catalogue = _request(ios["base"], "/api/ios/v1/exercises", token=token)
-    assert status == 200, catalogue
-    entries = catalogue["exercises"]
-    assert all({"id", "display", "pattern"} <= set(entry) for entry in entries)
-    new_id = next(entry["id"] for entry in entries if entry["id"] not in plan_ids)
-
-    status, added = _plan_edit(
-        ios, token, workout["workout_id"], "/exercises", {"exercise_id": new_id},
-    )
-    assert status == 200, added
-    item = next(item for item in added["plan"]["items"] if item["exercise_id"] == new_id)
-    assert item["sets"] == 3
-    assert item["reps_low"] == 8
-    assert item["reps_high"] == 12
-    assert item["rir_target"] == 2
-    assert item["load_kg"] is None
-    assert item["added_during_workout"] is True
-
-    status, conflict = _plan_edit(
-        ios, token, workout["workout_id"], "/exercises", {"exercise_id": new_id},
-    )
-    assert status == 409, conflict
-    assert conflict["code"] == "exercise_already_present"
-
-
-def test_ios_plan_swap_expected_guard_and_idempotent_replay(ios):
-    token, _ = _paired(ios)
-    status, issued = _issue(ios, token)
-    assert status == 200, issued
-    status, workout = _start(ios, token, issued["issued_plan_id"])
-    assert status == 200, workout
-    item = workout["plan"]["items"][0]
-    plan_ids = {entry["exercise_id"] for entry in workout["plan"]["items"]}
-    status, catalogue = _request(ios["base"], "/api/ios/v1/exercises", token=token)
-    assert status == 200, catalogue
-    new_id = next(entry["id"] for entry in catalogue["exercises"] if entry["id"] not in plan_ids)
-
-    status, conflict = _plan_edit(
-        ios, token, workout["workout_id"], "/items/0/swap",
-        {"exercise_id": new_id, "expected_exercise_id": "wrong_exercise"},
-    )
-    assert status == 409, conflict
-    assert conflict["code"] == "plan_changed"
-    assert conflict["details"]["workout"]["workout_id"] == workout["workout_id"]
-
-    key = uuid.uuid4().hex
-    payload = {"exercise_id": new_id, "expected_exercise_id": item["exercise_id"]}
-    status, swapped = _plan_edit(
-        ios, token, workout["workout_id"], "/items/0/swap", payload, key=key,
-    )
-    assert status == 200, swapped
-    assert swapped["plan"]["items"][0]["exercise_id"] == new_id
-    assert swapped["original_plan"]["items"][0]["exercise_id"] == item["exercise_id"]
-
-    # The execution envelope carries the edited plan with its revision so a watch can apply it
-    # without a second request (contract §10.1/§10.3).
-    status, execution = _request(
-        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/execution",
-        token=token,
-    )
-    assert status == 200, execution
-    assert execution["plan_revision"] >= 1
-    assert execution["plan"]["items"][0]["exercise_id"] == new_id
-    assert swapped["plan"]["items"][0]["load_kg"] is None
-    assert swapped["plan"]["items"][0]["substitution_for"] == item["exercise_id"]
-
-    status, replayed = _plan_edit(
-        ios, token, workout["workout_id"], "/items/0/swap", payload, key=key,
-    )
-    assert status == 200, replayed
-    assert replayed["plan"]["items"][0]["exercise_id"] == new_id
-    assert _scalar(
-        ios["path"],
-        "SELECT COUNT(*) FROM workout_event WHERE workout_id = ? AND event_type = 'swap_exercise'",
-        (workout["workout_id"],),
-    ) == 1
-
-
-def test_ios_plan_edit_blocks_swap_and_set_reduction_after_logged_sets(ios):
-    token, _ = _paired(ios)
-    status, issued = _issue(ios, token)
-    assert status == 200, issued
-    status, workout = _start(ios, token, issued["issued_plan_id"])
-    assert status == 200, workout
-    item_index = next(
-        index for index, entry in enumerate(workout["plan"]["items"])
-        if int(entry.get("sets") or 0) >= 4
-    )
-    item = workout["plan"]["items"][item_index]
-    plan_ids = {entry["exercise_id"] for entry in workout["plan"]["items"]}
-    status, catalogue = _request(ios["base"], "/api/ios/v1/exercises", token=token)
-    assert status == 200, catalogue
-    new_id = next(entry["id"] for entry in catalogue["exercises"] if entry["id"] not in plan_ids)
-
-    for index in range(1, 4):
-        status, body = _add_set(
-            ios, token, workout["workout_id"], item,
-            set_index=index, plan_item_index=item_index,
-        )
-        assert status == 200, body
-
-    status, conflict = _plan_edit(
-        ios, token, workout["workout_id"], f"/items/{item_index}/swap",
-        {"exercise_id": new_id, "expected_exercise_id": item["exercise_id"]},
-    )
-    assert status == 409, conflict
-    assert conflict["code"] == "sets_already_logged"
-    assert conflict["details"]["logged_sets"] == 3
-
-    current = workout["plan"]["items"][item_index]["sets"]
-    assert current >= 4
-    status, lowered = _plan_edit(
-        ios, token, workout["workout_id"], f"/items/{item_index}/sets",
-        {"delta": 3 - current, "expected_exercise_id": item["exercise_id"]},
-    )
-    assert status == 200, lowered
-    assert lowered["plan"]["items"][item_index]["sets"] == 3
-
-    status, conflict = _plan_edit(
-        ios, token, workout["workout_id"], f"/items/{item_index}/sets",
-        {"delta": -1, "expected_exercise_id": item["exercise_id"]},
-    )
-    assert status == 409, conflict
-    assert conflict["code"] == "sets_below_logged"
-    assert conflict["details"]["logged_sets"] == 3
-
-
-def test_ios_remove_last_plan_item_is_blocked(ios):
-    token, _ = _paired(ios)
-    status, issued = _issue(ios, token)
-    assert status == 200, issued
-    status, workout = _start(ios, token, issued["issued_plan_id"])
-    assert status == 200, workout
-    workout_id = workout["workout_id"]
-    current = workout
-    while len(current["plan"]["items"]) > 1:
-        item = current["plan"]["items"][0]
-        status, current = _plan_edit(
-            ios, token, workout_id, "/items/0/remove",
-            {"expected_exercise_id": item["exercise_id"]},
-        )
-        assert status == 200, current
-    item = current["plan"]["items"][0]
-    status, conflict = _plan_edit(
-        ios, token, workout_id, "/items/0/remove",
-        {"expected_exercise_id": item["exercise_id"]},
-    )
-    assert status == 409, conflict
-    assert conflict["code"] == "last_plan_item"
-
-
 def test_ios_set_and_complete_preserve_local_timestamps(ios):
     token, _ = _paired(ios)
     status, issued = _issue(ios, token)
@@ -788,125 +629,6 @@ def test_ios_set_and_complete_preserve_local_timestamps(ios):
     assert completed["status"] == "completed"
     assert completed["duration_source"] == "measured"
 
-
-def test_ios_set_resolves_stable_plan_item_identity_after_removal(ios):
-    token, _ = _paired(ios)
-    status, issued = _issue(ios, token)
-    assert status == 200, issued
-    status, workout = _start(ios, token, issued["issued_plan_id"])
-    assert status == 200, workout
-    items = workout["plan"]["items"]
-    assert len(items) >= 3
-    first, second, third = items[0], items[1], items[2]
-    second_identity = second.get("order_index", 1)
-    first_identity = first.get("order_index", 0)
-    # The old positional lookup would read items[1], which is now this different exercise.
-    assert third["exercise_id"] != second["exercise_id"]
-
-    status, current = _plan_edit(
-        ios, token, workout["workout_id"], "/items/0/remove",
-        {"expected_exercise_id": first["exercise_id"]},
-    )
-    assert status == 200, current
-    assert current["plan"]["items"][0]["exercise_id"] == second["exercise_id"]
-
-    status, added = _add_set(
-        ios, token, workout["workout_id"], second,
-        set_index=1, plan_item_index=second_identity,
-    )
-    assert status == 200, added
-    assert _scalar(
-        ios["path"],
-        "SELECT prescription_item_index FROM workout_set "
-        "WHERE workout_id = ? ORDER BY rowid DESC LIMIT 1",
-        (workout["workout_id"],),
-    ) == second_identity
-
-    status, removed = _add_set(
-        ios, token, workout["workout_id"], first,
-        set_index=1, plan_item_index=first_identity,
-    )
-    assert status == 409, removed
-    assert removed["code"] == "plan_item_mismatch"
-
-    status, missing = _add_set(
-        ios, token, workout["workout_id"], second,
-        set_index=2, plan_item_index=999,
-    )
-    assert status == 409, missing
-    assert missing["code"] == "plan_item_mismatch"
-
-
-def test_ios_removing_an_item_keeps_later_set_identity(ios):
-    token, _ = _paired(ios)
-    status, issued = _issue(ios, token)
-    assert status == 200, issued
-    status, workout = _start(ios, token, issued["issued_plan_id"])
-    assert status == 200, workout
-    items = workout["plan"]["items"]
-    assert len(items) >= 2
-    first = items[0]
-    second = items[1]
-    second_identity = second.get("order_index", 1)
-    for index in (1, 2, 3):
-        status, body = _add_set(
-            ios, token, workout["workout_id"], second,
-            set_index=index, plan_item_index=second_identity,
-        )
-        assert status == 200, body
-
-    remove_key = uuid.uuid4().hex
-    status, body = _plan_edit(
-        ios, token, workout["workout_id"], "/items/0/remove",
-        {"expected_exercise_id": first["exercise_id"]}, key=remove_key,
-    )
-    assert status == 200, body
-    status, replay = _plan_edit(
-        ios, token, workout["workout_id"], "/items/0/remove",
-        {"expected_exercise_id": first["exercise_id"]}, key=remove_key,
-    )
-    assert status == 200, replay
-    assert _scalar(
-        ios["path"],
-        "SELECT COUNT(*) FROM workout_event WHERE workout_id = ? AND event_type = 'remove_exercise'",
-        (workout["workout_id"],),
-    ) == 1
-    bench = next(
-        item for item in body["comparison"]["items"]
-        if item["exercise_id"] == second["exercise_id"]
-    )
-    assert bench["plan_item_index"] == second_identity
-    assert bench["actual_sets"] == 3
-
-    # Reload through the same authoritative workout read.
-    status, today = _request(ios["base"], "/api/ios/v1/today", token=token)
-    assert status == 200, today
-    reloaded = today["active_workout"]
-    bench = next(
-        item for item in reloaded["comparison"]["items"]
-        if item["exercise_id"] == second["exercise_id"]
-    )
-    assert bench["actual_sets"] == 3
-    assert bench["plan_item_index"] == second_identity
-
-    target = int(second["sets"])
-    assert target >= 4
-    status, conflict = _plan_edit(
-        ios, token, workout["workout_id"], "/items/0/sets",
-        {"delta": 1 - target, "expected_exercise_id": second["exercise_id"]},
-    )
-    assert status == 409, conflict
-    assert conflict["code"] == "sets_below_logged"
-    status, reduced = _plan_edit(
-        ios, token, workout["workout_id"], "/items/0/sets",
-        {"delta": 3 - target, "expected_exercise_id": second["exercise_id"]},
-    )
-    assert status == 200, reduced
-    bench = next(
-        item for item in reduced["plan"]["items"]
-        if item["exercise_id"] == second["exercise_id"]
-    )
-    assert bench["sets"] == 3
 
 def test_ios_manual_set_accepts_optional_per_rep_velocity(ios):
     token, _ = _paired(ios)
@@ -1888,6 +1610,128 @@ def test_plans_current_reports_none_for_an_expired_ready_plan(ios):
     assert state == {"status": "none"}
 
 
+def test_ios_plan_edit_routes_are_retired(ios):
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(ios, token, issued["issued_plan_id"])
+    assert status == 200, workout
+    item = workout["plan"]["items"][0]
+    expected = {"expected_exercise_id": item["exercise_id"]}
+    calls = [
+        ("/items/0/swap", {"exercise_id": item["exercise_id"], **expected}),
+        ("/items/0/sets", {"delta": 1, **expected}),
+        ("/items/0/move", {"to_index": 0, **expected}),
+        ("/items/0/remove", expected),
+        ("/exercises", {"exercise_id": item["exercise_id"]}),
+    ]
+    for suffix, payload in calls:
+        status, body = _plan_edit(
+            ios, token, workout["workout_id"], suffix, payload,
+        )
+        assert status == 404, (suffix, body)
+    # The plan is frozen: no route mutates it and the revision never moves.
+    status, current = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/execution",
+        token=token,
+    )
+    assert status == 200
+    assert current["plan_revision"] == 0
+    assert current["plan"] == workout["plan"]
+
+
+def test_ios_execution_change_prefills_and_replays_idempotently(ios):
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(ios, token, issued["issued_plan_id"])
+    assert status == 200, workout
+    items = workout["plan"]["items"]
+    first = items[0]
+    other = next(
+        item["exercise_id"] for item in items[1:]
+        if item["exercise_id"] != first["exercise_id"]
+    )
+    url = f"/api/ios/v1/workouts/{workout['workout_id']}/execution"
+    payload = {
+        "event_id": str(uuid.uuid4()),
+        "change": "substitution",
+        "plan_item_index": 0,
+        "exercise_id": other,
+    }
+    key = uuid.uuid4().hex
+    status, body = _request(
+        ios["base"], url, method="POST", payload=payload, token=token, key=key,
+    )
+    assert status == 200, body
+    view = body["execution"]
+    assert view["watermark"] > 0
+    substitution = view["substitutions"][0]
+    assert substitution["plan_item_index"] == 0
+    assert substitution["exercise_id"] == other
+    assert substitution["prefill_reason"] == "solved"
+    assert substitution["prefill_load_kg"] > 0
+
+    # The same operation key replays its stored receipt; the same client event id under a
+    # new key is deduplicated without appending a second change.
+    status, replayed = _request(
+        ios["base"], url, method="POST", payload=payload, token=token, key=key,
+    )
+    assert status == 200, replayed
+    assert replayed["execution"]["watermark"] == view["watermark"]
+    status, again = _request(
+        ios["base"], url, method="POST", payload=payload, token=token,
+        key=uuid.uuid4().hex,
+    )
+    assert status == 200, again
+    assert again["execution"]["watermark"] == view["watermark"]
+    assert len(again["execution"]["substitutions"]) == 1
+
+    # The same identity for different content is rejected, never rewritten. Use an exercise
+    # that is neither the replaced item's nor an existing planned one, so the change is valid
+    # on its own and only the reused event identity can fail.
+    status, catalogue = _request(ios["base"], "/api/ios/v1/exercises", token=token)
+    assert status == 200, catalogue
+    planned = {item["exercise_id"] for item in items}
+    different = next(
+        entry["id"] for entry in catalogue["exercises"]
+        if entry["id"] not in planned
+    )
+    status, conflict = _request(
+        ios["base"], url, method="POST",
+        payload={**payload, "exercise_id": different},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 400, conflict
+    assert "already used" in conflict["error"]
+
+    # An offline author records no prefill and is never retro-solved.
+    status, body = _request(
+        ios["base"], url, method="POST", token=token, key=uuid.uuid4().hex,
+        payload={
+            "event_id": str(uuid.uuid4()),
+            "change": "addition",
+            "after_item_index": 0,
+            "exercise_id": other,
+            "reps_low": 8,
+            "reps_high": 10,
+            "rir_target": 3,
+            "prefill_requested": False,
+        },
+    )
+    assert status == 200, body
+    addition = body["execution"]["additions"][0]
+    assert addition["after_item_index"] == 0
+    assert addition["prefill_load_kg"] is None
+    assert addition["prefill_reason"] == "authored_offline"
+    assert body["execution"]["watermark"] > view["watermark"]
+
+    # GET returns the same ordered view (the watch refresh path).
+    status, execution = _request(ios["base"], url, token=token)
+    assert status == 200, execution
+    assert execution["execution"] == body["execution"]
+
+
 def test_ios_execution_events_are_idempotent_and_analysable(ios):
     token, _ = _paired(ios)
     status, issued = _issue(ios, token)
@@ -2164,97 +2008,6 @@ def test_queue_selection_is_fifo(tmp_path):
         assert selected["issued_plan_id"] == "older"
     finally:
         store.close()
-
-
-def test_ios_plan_add_accepts_shape_and_still_refuses_a_client_load(ios):
-    token, _ = _paired(ios)
-    status, issued = _issue(ios, token)
-    assert status == 200, issued
-    status, workout = _start(ios, token, issued["issued_plan_id"])
-    assert status == 200, workout
-    plan_ids = {item["exercise_id"] for item in workout["plan"]["items"]}
-    status, catalogue = _request(ios["base"], "/api/ios/v1/exercises", token=token)
-    assert status == 200, catalogue
-    new_id = next(entry["id"] for entry in catalogue["exercises"] if entry["id"] not in plan_ids)
-
-    status, refused = _plan_edit(
-        ios, token, workout["workout_id"], "/exercises",
-        {"exercise_id": new_id, "load_kg": 100},
-    )
-    assert status == 400, refused
-    assert refused["code"] == "unknown_field"
-
-    status, added = _plan_edit(
-        ios, token, workout["workout_id"], "/exercises",
-        {"exercise_id": new_id, "sets": 4, "reps_low": 5, "reps_high": 6,
-         "rir_target": 3},
-    )
-    assert status == 200, added
-    item = next(entry for entry in added["plan"]["items"]
-                if entry["exercise_id"] == new_id)
-    assert item["sets"] == 4
-    assert item["reps_low"] == 5
-    assert item["reps_high"] == 6
-    assert item["rir_target"] == 3
-    # The fresh test database has no history for this exercise, so it is added unsolved
-    # with the solver's reason rather than a client-supplied load.
-    assert item["load_kg"] is None
-    assert item["unknown_load_reason"]
-
-
-def test_ios_plan_move_reorders_and_guards_a_stale_index(ios):
-    token, _ = _paired(ios)
-    status, issued = _issue(ios, token)
-    assert status == 200, issued
-    status, workout = _start(ios, token, issued["issued_plan_id"])
-    assert status == 200, workout
-    items = workout["plan"]["items"]
-    first, second = items[0], items[1]
-
-    status, conflict = _plan_edit(
-        ios, token, workout["workout_id"], "/items/0/move",
-        {"to_index": 1, "expected_exercise_id": "wrong_exercise"},
-    )
-    assert status == 409, conflict
-    assert conflict["code"] == "plan_changed"
-
-    status, moved = _plan_edit(
-        ios, token, workout["workout_id"], "/items/0/move",
-        {"to_index": 1, "expected_exercise_id": first["exercise_id"]},
-    )
-    assert status == 200, moved
-    ordered = moved["plan"]["items"]
-    assert ordered[0]["exercise_id"] == second["exercise_id"]
-    assert ordered[1]["exercise_id"] == first["exercise_id"]
-    # Identity travels with the item; only the display position changed.
-    assert ordered[1].get("order_index", first.get("order_index")) == first.get(
-        "order_index"
-    )
-    assert _scalar(
-        ios["path"],
-        "SELECT COUNT(*) FROM workout_event WHERE workout_id = ? "
-        "AND event_type = 'move_exercise'",
-        (workout["workout_id"],),
-    ) == 1
-
-    status, out_of_range = _plan_edit(
-        ios, token, workout["workout_id"], "/items/0/move",
-        {"to_index": 99, "expected_exercise_id": second["exercise_id"]},
-    )
-    assert status == 409, out_of_range
-    assert out_of_range["code"] == "plan_changed"
-
-    status, same = _plan_edit(
-        ios, token, workout["workout_id"], "/items/1/move",
-        {"to_index": 1, "expected_exercise_id": first["exercise_id"]},
-    )
-    assert status == 200, same
-    assert _scalar(
-        ios["path"],
-        "SELECT COUNT(*) FROM workout_event WHERE workout_id = ? "
-        "AND event_type = 'move_exercise'",
-        (workout["workout_id"],),
-    ) == 1
 
 
 def _activity_key(seed: str) -> str:

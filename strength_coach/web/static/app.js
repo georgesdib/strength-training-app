@@ -1243,8 +1243,11 @@ function volumePanelHtml(panel, label = "Weekly volume") {
 
 function setGroupsHtml(item) {
   if (!item.set_groups || !item.set_groups.length) return "";
-  return '<div class="muted">' + item.set_groups.map((group) =>
-    esc(group.role.replace(/_/g, " ")) + ": " + group.sets + " × " +
+  // Order is the only identity: the server sends group_index and no role
+  // (DEC-RESOLVER-18). A compact preview; order-aware per-row display is WP2.
+  return '<div class="muted">' + item.set_groups.map((group, index) =>
+    "Group " + (Number(group.group_index == null ? index : group.group_index) + 1) +
+    ": " + group.sets + " × " +
     group.reps_low + "–" + group.reps_high + " @ " + fmt(group.load_kg) + " kg" +
     (group.rir_target == null ? "" : " · RIR " + group.rir_target)
   ).join(" · ") + "</div>";

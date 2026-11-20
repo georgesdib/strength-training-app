@@ -1199,9 +1199,10 @@ class Handler(BaseHTTPRequestHandler):
                             "plan_revision": data.get("plan_revision", 0),
                             "last_activity_at": last,
                             "stale": stale,
-                            # The current plan (phone edits included) so a watch can apply a
-                            # newer revision without a second request (contract §10.1/§10.3).
+                            # The frozen plan and the current execution view, so a watch can
+                            # refresh without a second request (contract §10, DEC-RESOLVER-23).
                             "plan": data.get("plan"),
+                            "execution": workout.execution_view(conn, workout_id),
                         })
                 elif path == "/api/ios/v1/progress":
                     params = _ios_progress_params(
@@ -1363,44 +1364,7 @@ class Handler(BaseHTTPRequestHandler):
                     )
                 else:
                     parts = [part for part in path.split("/") if part]
-                    if len(parts) == 7 and parts[:6] == [
-                        "api", "ios", "v1", "workouts", parts[4], "plan"
-                    ] and parts[6] == "exercises":
-                        config = self._ios_require_mutations()
-                        body = self._body()
-                        self._ios_workout_mutation(
-                            conn, device, path, body, config, parts[4],
-                            self._ios_workout_plan_add, access="phone",
-                        )
-                    elif len(parts) == 9 and parts[:5] == [
-                        "api", "ios", "v1", "workouts", parts[4]
-                    ] and parts[5] == "plan" and parts[6] == "items":
-                        try:
-                            item_index = int(parts[7])
-                        except ValueError:
-                            self._error(404, "not found")
-                            return
-                        handlers = {
-                            "swap": self._ios_workout_plan_swap,
-                            "remove": self._ios_workout_plan_remove,
-                            "sets": self._ios_workout_plan_sets,
-                            "move": self._ios_workout_plan_move,
-                        }
-                        handler = handlers.get(parts[8])
-                        if handler is None:
-                            self._error(404, "not found")
-                            return
-                        config = self._ios_require_mutations()
-                        body = self._body()
-
-                        def plan_handler(c, wid, payload, _handler=handler, _index=item_index):
-                            return _handler(c, wid, _index, payload)
-
-                        self._ios_workout_mutation(
-                            conn, device, path, body, config, parts[4], plan_handler,
-                            access="phone",
-                        )
-                    elif len(parts) == 6 and parts[:4] == ["api", "ios", "v1", "workouts"]:
+                    if len(parts) == 6 and parts[:4] == ["api", "ios", "v1", "workouts"]:
                         workout_id = parts[4]
                         action = parts[5]
                         if action == "takeover":
@@ -1412,6 +1376,7 @@ class Handler(BaseHTTPRequestHandler):
                             "sets": self._ios_workout_set,
                             "remove-set": self._ios_workout_remove_set,
                             "execution-events": self._ios_workout_execution_events,
+                            "execution": self._ios_workout_execution_change,
                             "form": self._ios_workout_form,
                             "complete": self._ios_workout_complete,
                             "abandon": self._ios_workout_abandon,
@@ -1422,14 +1387,18 @@ class Handler(BaseHTTPRequestHandler):
                             return
                         config = self._ios_require_mutations()
                         body = self._body()
-                        if action == "execution-events":
+                        if action in {"execution-events", "execution"}:
                             device_id = device["device_id"]
+                            handler_fn = (
+                                self._ios_workout_execution_events
+                                if action == "execution-events"
+                                else self._ios_workout_execution_change
+                            )
                             self._ios_workout_mutation(
                                 conn, device, path, body, config, workout_id,
-                                lambda c, wid, payload, did=device_id:
-                                    self._ios_workout_execution_events(
-                                        c, wid, payload, did
-                                    ),
+                                lambda c, wid, payload, did=device_id,
+                                        fn=handler_fn: fn(c, wid, payload, did),
+                                access="phone" if action == "execution" else "owner",
                             )
                             return
                         self._ios_workout_mutation(
@@ -2660,9 +2629,10 @@ class Handler(BaseHTTPRequestHandler):
     def _ios_workout_set(self, conn, workout_id: str, body: dict) -> dict:
         self._ios_closed_fields(body, {
             "exercise_id", "load_kg", "reps", "rir", "velocity_mps",
-            "set_index", "plan_item_index", "rep_velocities", "performed_at",
+            "set_index", "plan_item_index", "substitutes_plan_item_index",
+            "rep_velocities", "performed_at",
         })
-        data = self._ios_workout(conn, workout_id)
+        self._ios_workout(conn, workout_id)
         exercise_id = body.get("exercise_id")
         if not isinstance(exercise_id, str) or not exercise_id.strip():
             raise ios_workflow.IOSWorkflowError(
@@ -2676,6 +2646,9 @@ class Handler(BaseHTTPRequestHandler):
             velocity = _number(body.get("velocity_mps"))
             set_index = _integer(body.get("set_index"))
             plan_item_index = _integer(body.get("plan_item_index"))
+            substitutes_plan_item_index = _integer(
+                body.get("substitutes_plan_item_index")
+            )
         except (TypeError, ValueError) as exc:
             raise ios_workflow.IOSWorkflowError(
                 400, "validation_failed", str(exc)
@@ -2710,39 +2683,15 @@ class Handler(BaseHTTPRequestHandler):
                 400, "validation_failed", "set_index must be positive",
                 fields={"set_index": "must be positive"},
             )
-        if plan_item_index is not None and plan_item_index < 0:
-            raise ios_workflow.IOSWorkflowError(
-                400, "validation_failed", "plan_item_index must be non-negative",
-                fields={"plan_item_index": "must be non-negative"},
-            )
-        if plan_item_index is not None:
-            items = (data.get("plan") or {}).get("items") or []
-            # Reuse the core resolver: plan_item_index is the stable order_index identity,
-            # not the current list position. The resolver also accepts legacy positional
-            # values only when they still name the same exercise.
-            try:
-                plan_item_index = workout._plan_item_index(
-                    data, exercise_id.strip(), plan_item_index,
-                )
-            except ValueError as exc:
-                current = next(
-                    (
-                        item for position, item in enumerate(items)
-                        if workout._item_identity(item, position) == plan_item_index
-                    ),
-                    None,
-                )
-                if current is None and 0 <= plan_item_index < len(items):
-                    current = items[plan_item_index]
+        for field, value in (
+            ("plan_item_index", plan_item_index),
+            ("substitutes_plan_item_index", substitutes_plan_item_index),
+        ):
+            if value is not None and value < 0:
                 raise ios_workflow.IOSWorkflowError(
-                    409, "plan_item_mismatch",
-                    "the plan item changed; the set is preserved as off-plan",
-                    details={
-                        "item_index": plan_item_index,
-                        "current_item": current,
-                        "plan_revision": data.get("plan_revision", 0),
-                    },
-                ) from exc
+                    400, "validation_failed", f"{field} must be non-negative",
+                    fields={field: "must be non-negative"},
+                )
         performed_at = body.get("performed_at")
         if performed_at is not None and not isinstance(performed_at, str):
             raise ios_workflow.IOSWorkflowError(
@@ -2799,19 +2748,25 @@ class Handler(BaseHTTPRequestHandler):
                     "rep_index": rep_index,
                     "velocity_mps": rep_velocity,
                 })
-        return workout.add_set(
-            conn, workout_id,
-            exercise_id=exercise_id.strip(),
-            load_kg=load,
-            reps=reps,
-            rir=rir,
-            velocity=velocity,
-            source="manual",
-            set_index=set_index,
-            plan_item_index=plan_item_index,
-            rep_velocities=rep_velocities,
-            performed_at=performed_at,
-        )
+        try:
+            return workout.add_set(
+                conn, workout_id,
+                exercise_id=exercise_id.strip(),
+                load_kg=load,
+                reps=reps,
+                rir=rir,
+                velocity=velocity,
+                source="manual",
+                set_index=set_index,
+                plan_item_index=plan_item_index,
+                substitutes_plan_item_index=substitutes_plan_item_index,
+                rep_velocities=rep_velocities,
+                performed_at=performed_at,
+            )
+        except ValueError as exc:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", str(exc)
+            ) from exc
 
     def _ios_workout_execution_events(
         self, conn, workout_id: str, body: dict, device_id: str
@@ -2823,6 +2778,74 @@ class Handler(BaseHTTPRequestHandler):
             device_id=device_id,
             events=body.get("events"),
         )
+
+    def _ios_workout_execution_change(
+        self, conn, workout_id: str, body: dict, device_id: str
+    ) -> dict:
+        """Append one phone-authored substitution or addition (D9, DEC-RESOLVER-23).
+
+        The prefill is solved here, never sent by the client; an offline author sends
+        `prefill_requested: false` so the event records null and says why.
+        """
+        self._ios_closed_fields(body, {
+            "event_id", "change", "plan_item_index", "after_item_index",
+            "exercise_id", "reps_low", "reps_high", "rir_target",
+            "prefill_requested",
+        })
+        change = body.get("change")
+        if change not in workout.EXECUTION_CHANGE_TYPES:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "change must be substitution or addition",
+                fields={"change": "must be substitution or addition"},
+            )
+        event_id = body.get("event_id")
+        if not isinstance(event_id, str) or not event_id.strip():
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "event_id is required",
+                fields={"event_id": "required"},
+            )
+        exercise_id = body.get("exercise_id")
+        if not isinstance(exercise_id, str) or not exercise_id.strip():
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "exercise_id is required",
+                fields={"exercise_id": "required"},
+            )
+        try:
+            plan_item_index = _integer(body.get("plan_item_index"))
+            after_item_index = _integer(body.get("after_item_index"))
+            reps_low = _integer(body.get("reps_low"))
+            reps_high = _integer(body.get("reps_high"))
+            rir_target = _integer(body.get("rir_target"))
+        except (TypeError, ValueError) as exc:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", str(exc)
+            ) from exc
+        requested = body.get("prefill_requested")
+        if requested is not None and not isinstance(requested, bool):
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "prefill_requested must be a boolean",
+                fields={"prefill_requested": "must be a boolean"},
+            )
+        try:
+            # The response is the same execution block the GET returns, so the authoring
+            # phone can apply it to its live view without a second request.
+            return {"execution": workout.record_execution_change(
+                conn, workout_id,
+                client_event_id=event_id.strip(),
+                kind=str(change),
+                exercise_id=exercise_id.strip(),
+                plan_item_index=plan_item_index,
+                after_item_index=after_item_index,
+                reps_low=reps_low,
+                reps_high=reps_high,
+                rir_target=rir_target,
+                prefill_requested=True if requested is None else requested,
+                device_id=device_id,
+            )}
+        except ValueError as exc:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", str(exc)
+            ) from exc
 
     def _ios_workout_remove_set(self, conn, workout_id: str, body: dict) -> dict:
         self._ios_closed_fields(body, {"set_id"})
@@ -2943,151 +2966,6 @@ class Handler(BaseHTTPRequestHandler):
         self._ios_closed_fields(body, set())
         self._ios_workout(conn, workout_id)
         return workout.abandon(conn, workout_id)
-
-    def _ios_plan_item(self, conn, workout_id: str, item_index: int,
-                       body: dict) -> tuple[dict, dict]:
-        data = self._ios_workout(conn, workout_id)
-        items = (data.get("plan") or {}).get("items") or []
-        if not 0 <= int(item_index) < len(items):
-            raise ios_workflow.IOSWorkflowError(
-                409, "plan_changed", "the plan item no longer exists",
-                details={"workout": data},
-            )
-        item = items[int(item_index)]
-        expected = body.get("expected_exercise_id")
-        if not isinstance(expected, str) or not expected.strip():
-            raise ios_workflow.IOSWorkflowError(
-                400, "validation_failed", "expected_exercise_id is required",
-                fields={"expected_exercise_id": "required"},
-            )
-        if expected.strip() != str(item.get("exercise_id")):
-            raise ios_workflow.IOSWorkflowError(
-                409, "plan_changed",
-                "the plan changed; refresh before editing this item",
-                details={"workout": data},
-            )
-        return data, item
-
-    def _ios_plan_conflict(self, exc: workout.PlanEditConflict, data: dict) -> None:
-        raise ios_workflow.IOSWorkflowError(
-            exc.status, exc.code, str(exc),
-            details={**exc.details, "workout": data},
-        ) from exc
-
-    def _ios_workout_plan_swap(self, conn, workout_id: str, item_index: int,
-                               body: dict) -> dict:
-        self._ios_closed_fields(body, {"exercise_id", "expected_exercise_id"})
-        data, _ = self._ios_plan_item(conn, workout_id, item_index, body)
-        exercise_id = body.get("exercise_id")
-        if not isinstance(exercise_id, str) or not exercise_id.strip():
-            raise ios_workflow.IOSWorkflowError(
-                400, "validation_failed", "exercise_id is required",
-                fields={"exercise_id": "required"},
-            )
-        try:
-            return workout.swap_exercise(
-                conn, workout_id, item_index, exercise_id.strip()
-            )
-        except workout.PlanEditConflict as exc:
-            self._ios_plan_conflict(exc, data)
-        except ValueError as exc:
-            raise ios_workflow.IOSWorkflowError(400, "validation_failed", str(exc)) from exc
-
-    def _ios_workout_plan_remove(self, conn, workout_id: str, item_index: int,
-                                 body: dict) -> dict:
-        self._ios_closed_fields(body, {"expected_exercise_id"})
-        data, _ = self._ios_plan_item(conn, workout_id, item_index, body)
-        try:
-            return workout.remove_exercise(conn, workout_id, item_index)
-        except workout.PlanEditConflict as exc:
-            self._ios_plan_conflict(exc, data)
-        except ValueError as exc:
-            raise ios_workflow.IOSWorkflowError(400, "validation_failed", str(exc)) from exc
-
-    def _ios_workout_plan_sets(self, conn, workout_id: str, item_index: int,
-                               body: dict) -> dict:
-        self._ios_closed_fields(body, {"delta", "expected_exercise_id"})
-        data, _ = self._ios_plan_item(conn, workout_id, item_index, body)
-        try:
-            delta = _integer(body.get("delta"))
-        except (TypeError, ValueError) as exc:
-            raise ios_workflow.IOSWorkflowError(
-                400, "validation_failed", str(exc)
-            ) from exc
-        if delta is None or delta == 0:
-            raise ios_workflow.IOSWorkflowError(
-                400, "validation_failed", "delta must be a non-zero integer",
-                fields={"delta": "must be a non-zero integer"},
-            )
-        try:
-            return workout.change_sets(conn, workout_id, item_index, delta)
-        except workout.PlanEditConflict as exc:
-            self._ios_plan_conflict(exc, data)
-        except ValueError as exc:
-            raise ios_workflow.IOSWorkflowError(400, "validation_failed", str(exc)) from exc
-
-    def _ios_workout_plan_move(self, conn, workout_id: str, item_index: int,
-                               body: dict) -> dict:
-        self._ios_closed_fields(body, {"to_index", "expected_exercise_id"})
-        data, _ = self._ios_plan_item(conn, workout_id, item_index, body)
-        try:
-            to_index = _integer(body.get("to_index"))
-        except (TypeError, ValueError) as exc:
-            raise ios_workflow.IOSWorkflowError(
-                400, "validation_failed", str(exc)
-            ) from exc
-        if to_index is None:
-            raise ios_workflow.IOSWorkflowError(
-                400, "validation_failed", "to_index is required",
-                fields={"to_index": "required"},
-            )
-        items = (data.get("plan") or {}).get("items") or []
-        if not 0 <= to_index < len(items):
-            raise ios_workflow.IOSWorkflowError(
-                409, "plan_changed",
-                "the plan changed; refresh before moving this item",
-                details={"workout": data},
-            )
-        try:
-            return workout.move_exercise(conn, workout_id, item_index, to_index)
-        except workout.PlanEditConflict as exc:
-            self._ios_plan_conflict(exc, data)
-        except ValueError as exc:
-            raise ios_workflow.IOSWorkflowError(400, "validation_failed", str(exc)) from exc
-
-    def _ios_workout_plan_add(self, conn, workout_id: str, body: dict) -> dict:
-        self._ios_closed_fields(
-            body, {"exercise_id", "sets", "reps_low", "reps_high", "rir_target"}
-        )
-        data = self._ios_workout(conn, workout_id)
-        exercise_id = body.get("exercise_id")
-        if not isinstance(exercise_id, str) or not exercise_id.strip():
-            raise ios_workflow.IOSWorkflowError(
-                400, "validation_failed", "exercise_id is required",
-                fields={"exercise_id": "required"},
-            )
-        try:
-            sets = _integer(body.get("sets"))
-            reps_low = _integer(body.get("reps_low"))
-            reps_high = _integer(body.get("reps_high"))
-            rir_target = _integer(body.get("rir_target"))
-        except (TypeError, ValueError) as exc:
-            raise ios_workflow.IOSWorkflowError(
-                400, "validation_failed", str(exc)
-            ) from exc
-        try:
-            return workout.add_exercise(
-                conn, workout_id, exercise_id=exercise_id.strip(),
-                sets=3 if sets is None else sets,
-                reps_low=8 if reps_low is None else reps_low,
-                reps_high=12 if reps_high is None else reps_high,
-                rir_target=2 if rir_target is None else rir_target,
-            )
-        except workout.PlanEditConflict as exc:
-            self._ios_plan_conflict(exc, data)
-        except ValueError as exc:
-            raise ios_workflow.IOSWorkflowError(400, "validation_failed", str(exc)) from exc
-
 
     def _monitoring_analysis(self, as_of: str) -> dict:
         key = (
@@ -3283,6 +3161,9 @@ class Handler(BaseHTTPRequestHandler):
                 if payload is None:
                     self._error(404, "execution not available")
                 else:
+                    payload["execution"] = self._with_conn(
+                        lambda c: workout.execution_view(c, workout_id)
+                    )
                     self._json(200, payload)
             elif path.startswith("/api/history/"):
                 session_id = path.rsplit("/", 1)[-1]
@@ -3961,8 +3842,6 @@ class Handler(BaseHTTPRequestHandler):
             self._error(exc.status, exc.message)
         except FieldError as exc:
             self._error(400, str(exc), exc.fields)
-        except workout.PlanEditConflict as exc:
-            self._error(409, str(exc))
         except (ValueError, KeyError) as exc:
             self._error(400, str(exc))
         except Exception:
@@ -5008,35 +4887,7 @@ class Handler(BaseHTTPRequestHandler):
                 rating=int(body.get("rating")),
                 note=body.get("note") or None,
             )}
-        if action == "plan":
-            sub = parts[4] if len(parts) > 4 else ""
-            if sub == "swap":
-                result = workout.swap_exercise(
-                    conn, workout_id, _integer(body.get("item_index")),
-                    str(body.get("exercise_id") or ""),
-                )
-            elif sub == "add-exercise":
-                result = workout.add_exercise(
-                    conn, workout_id,
-                    exercise_id=str(body.get("exercise_id") or ""),
-                    sets=_integer(body.get("sets")) or 3,
-                    reps_low=_integer(body.get("reps_low")) or 8,
-                    reps_high=_integer(body.get("reps_high")) or 12,
-                    load_kg=_number(body.get("load_kg")),
-                    rir_target=_integer(body.get("rir_target")),
-                )
-            elif sub == "remove-exercise":
-                result = workout.remove_exercise(
-                    conn, workout_id, _integer(body.get("item_index"))
-                )
-            elif sub == "set-count":
-                result = workout.change_sets(
-                    conn, workout_id, _integer(body.get("item_index")),
-                    _integer(body.get("delta")),
-                )
-            else:
-                raise ValueError("unknown plan action")
-        elif action == "sets":
+        if action == "sets":
             source = str(body.get("source") or "manual")
             if source == "manual":
                 reps, rir, load, velocity = _manual_set_values(body)
@@ -5054,8 +4905,10 @@ class Handler(BaseHTTPRequestHandler):
                 velocity=velocity,
                 source=source,
                 set_index=_integer(body.get("set_index")),
-                set_role=body.get("set_role") or None,
                 plan_item_index=_integer(body.get("plan_item_index")),
+                substitutes_plan_item_index=_integer(
+                    body.get("substitutes_plan_item_index")
+                ),
                 rep_velocities=body.get("rep_velocities"),
             )
         elif action == "update-set":
@@ -5066,7 +4919,6 @@ class Handler(BaseHTTPRequestHandler):
                 reps=reps,
                 rir=rir,
                 velocity=velocity,
-                set_role=body.get("set_role") or None,
             )
         elif action == "remove-set":
             result = workout.remove_set(conn, workout_id, _integer(body.get("set_id")))

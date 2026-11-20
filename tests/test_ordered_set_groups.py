@@ -19,7 +19,6 @@ from strength_coach.prescribe.models import (
     PrescriptionItem,
     SetGroup,
     group_payload,
-    resize_plan_item_set_groups,
     validate_plan_set_groups,
 )
 
@@ -186,33 +185,6 @@ def test_intensity_is_unknown_without_an_e1rm_or_a_group_load() -> None:
     assert engine._set_weighted_intensity(item) is None
     item = _item((_model_group("top_set", 1, None, rir=1),))
     assert engine._set_weighted_intensity(item) is None
-
-
-def test_resize_merges_groups_by_order() -> None:
-    grown = resize_plan_item_set_groups({
-        "exercise_id": "ssb_squat",
-        "sets": 5,
-        "set_groups": [_group(0, 1, 110.0, rir=1), _group(1, 2, 95.0), _group(2, 1, 100.0)],
-    })
-    assert [group["sets"] for group in grown["set_groups"]] == [1, 2, 2]
-
-    shrunk = resize_plan_item_set_groups({
-        "exercise_id": "ssb_squat",
-        "sets": 2,
-        "set_groups": [_group(0, 1, 110.0, rir=1), _group(1, 2, 95.0), _group(2, 1, 100.0)],
-    })
-    assert [group["sets"] for group in shrunk["set_groups"]] == [1, 1]
-
-
-def test_resize_to_one_set_keeps_the_first_group_and_its_load() -> None:
-    single = resize_plan_item_set_groups({
-        "exercise_id": "ssb_squat",
-        "sets": 1,
-        "set_groups": [_group(0, 1, 110.0, rir=1), _group(1, 3, 90.0)],
-    })
-    assert [group["sets"] for group in single["set_groups"]] == [1]
-    assert single["load_kg"] == 110.0
-    assert single["rir_target"] == 1
 
 
 def test_deload_scales_every_group_and_the_resize_keeps_the_sum() -> None:

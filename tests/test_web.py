@@ -1726,104 +1726,6 @@ def test_review_marks_close_the_workout(server):
     assert comparison["trap_bar_deadlift"]["actual_sets"] == 1
 
 
-def test_web_plan_edit_targets_the_correct_item_after_removal(server):
-    plan = post(server, "/api/prescribe", {"date": "2024-01-01", "session_type": "hinge"})
-    readiness = {
-        "sleep": 4, "energy": 4, "mood": 4, "soreness": 2, "stress": 3,
-        "nutrition": 4, "hydration": 4,
-    }
-    data = post(server, "/api/workout/start", {
-        "date": "2024-01-01", "plan": plan, "readiness": readiness,
-    })
-    workout_id = data["workout"]["workout_id"]
-    first, second = plan["items"][0], plan["items"][1]
-    removed = post(server, f"/api/workout/{workout_id}/plan/remove-exercise", {
-        "item_index": 0,
-    })["workout"]
-    assert all(item["exercise_id"] != first["exercise_id"] for item in removed["plan"]["items"])
-    index = next(
-        index for index, item in enumerate(removed["plan"]["items"])
-        if item["exercise_id"] == second["exercise_id"]
-    )
-    before = removed["plan"]["items"][index]["sets"]
-    changed = post(server, f"/api/workout/{workout_id}/plan/set-count", {
-        "item_index": index, "delta": 1,
-    })["workout"]
-    assert changed["plan"]["items"][index]["exercise_id"] == second["exercise_id"]
-    assert changed["plan"]["items"][index]["sets"] == before + 1
-
-
-def test_web_plan_edits_reject_actions_that_would_rewrite_logged_sets(server):
-    plan = post(server, "/api/prescribe", {"date": "2024-01-01", "session_type": "hinge"})
-    readiness = {
-        "sleep": 4, "energy": 4, "mood": 4, "soreness": 2, "stress": 3,
-        "nutrition": 4, "hydration": 4,
-    }
-    data = post(server, "/api/workout/start", {
-        "date": "2024-01-01", "plan": plan, "readiness": readiness,
-    })
-    workout_id = data["workout"]["workout_id"]
-    index, item = next(
-        (index, item) for index, item in enumerate(plan["items"])
-        if item["exercise_id"] == "trap_bar_deadlift"
-    )
-    for set_index in (1, 2):
-        post(server, f"/api/workout/{workout_id}/sets", {
-            "exercise_id": item["exercise_id"], "load_kg": 100, "reps": 5, "rir": 2,
-            "set_index": set_index, "plan_item_index": index,
-        })
-    with pytest.raises(urllib.error.HTTPError) as excinfo:
-        post(server, f"/api/workout/{workout_id}/plan/swap", {
-            "item_index": index, "exercise_id": "conventional_deadlift",
-        })
-    assert excinfo.value.code == 409
-    with pytest.raises(urllib.error.HTTPError) as excinfo:
-        post(server, f"/api/workout/{workout_id}/plan/set-count", {
-            "item_index": index, "delta": -int(item["sets"]) + 1,
-        })
-    assert excinfo.value.code == 409
-
-
-def test_workout_plan_overrides_api(server):
-    plan = post(server, "/api/prescribe", {"date": "2024-01-01", "session_type": "hinge"})
-    readiness = {
-        "sleep": 4, "energy": 4, "mood": 4, "soreness": 2, "stress": 3,
-        "nutrition": 4, "hydration": 4,
-    }
-    data = post(server, "/api/workout/start", {
-        "date": "2024-01-01", "plan": plan, "readiness": readiness,
-    })
-    workout_id = data["workout"]["workout_id"]
-    deadlift_index = next(
-        index for index, item in enumerate(plan["items"])
-        if item["exercise_id"] == "trap_bar_deadlift"
-    )
-    swapped = post(server, f"/api/workout/{workout_id}/plan/swap", {
-        "item_index": deadlift_index, "exercise_id": "conventional_deadlift",
-    })
-    assert swapped["workout"]["plan"]["items"][deadlift_index]["exercise_id"] == "conventional_deadlift"
-    assert swapped["workout"]["original_plan"]["items"][deadlift_index]["exercise_id"] == "trap_bar_deadlift"
-
-    added = post(server, f"/api/workout/{workout_id}/plan/add-exercise", {
-        "exercise_id": "lat_pulldown", "sets": 2, "reps_low": 10, "reps_high": 12,
-    })
-    assert any(item["exercise_id"] == "lat_pulldown" for item in added["workout"]["plan"]["items"])
-
-    changed = post(server, f"/api/workout/{workout_id}/plan/set-count", {
-        "item_index": deadlift_index, "delta": 1,
-    })
-    assert changed["workout"]["plan"]["items"][deadlift_index]["sets"] == 6
-
-    index = next(
-        i for i, item in enumerate(changed["workout"]["plan"]["items"])
-        if item["exercise_id"] == "lat_pulldown"
-    )
-    removed = post(server, f"/api/workout/{workout_id}/plan/remove-exercise", {
-        "item_index": index,
-    })
-    assert all(item["exercise_id"] != "lat_pulldown" for item in removed["workout"]["plan"]["items"])
-
-
 def test_workout_csv_import_preview_and_apply(server):
     plan = post(server, "/api/prescribe", {"date": "2024-01-01", "session_type": "hinge"})
     readiness = {
@@ -2124,13 +2026,16 @@ def test_prescribe_top_set_control_is_gated_by_the_setting(server):
     assert "independent of dynamic exercise selection" in js
 
 
-def test_workout_ui_renders_and_prefills_planned_set_groups(server):
+def test_workout_ui_renders_groups_without_a_role_picker(server):
     _status, js = get(server, "/static/workout.js")
     assert "workoutSetGroupsHtml(item)" in js
-    assert "workoutNextGroup" in js
-    assert "workoutGroupForRole" in js
-    assert "applyWorkoutGroup" in js
-    assert "set_role: $("#workout-set-role").value || null" in js
+    # The role picker and the role-driven prefill are retired; the order-aware group
+    # prefill lands with WP2 (DEC-RESOLVER-23).
+    assert "workout-set-role" not in js
+    assert "set_role:" not in js
+    _status, page = get(server, "/static/index.html")
+    assert "workout-set-role" not in page
+    assert "workout-edit-role" not in page
 
 
 def test_the_athlete_page_shows_the_tests_needed_table(server):
@@ -3060,53 +2965,6 @@ def test_completed_summary_and_history_expose_adherence(server):
     assert "workout_note" in detail
 
 
-def test_summary_adherence_keeps_original_and_modified_prescriptions_apart(server):
-    plan = {
-        "for_date": "2024-01-03",
-        "session_type": "hinge",
-        "items": [{
-            "exercise_id": "trap_bar_deadlift", "sets": 5, "reps_low": 3,
-            "reps_high": 5, "load_kg": 100, "rir_target": 2,
-        }],
-    }
-    started = post(server, "/api/workout/start", {
-        "date": "2024-01-03", "plan": plan, "readiness": _adherence_readiness(),
-    })["workout"]
-    workout_id = started["workout_id"]
-    post(server, f"/api/workout/{workout_id}/plan/set-count", {
-        "item_index": 0, "delta": -2,
-    })
-    for _ in range(3):
-        post(server, f"/api/workout/{workout_id}/sets", {
-            "exercise_id": "trap_bar_deadlift", "load_kg": 100, "reps": 5, "rir": 2,
-        })
-    post(server, f"/api/workout/{workout_id}/end", {
-        "session_rpe": 7, "duration_min": 40,
-    })
-
-    _, body = get(server, f"/api/workout/{workout_id}/summary")
-    adherence = _strict_json(body)["summary"]["adherence"]
-    assert adherence["original"]["prescribed_sets"] == 5
-    assert adherence["original"]["matched_sets"] == 3
-    assert adherence["original"]["missing_sets"] == 2
-    assert adherence["original"]["set_completion"]["ratio"] == 0.6
-    assert adherence["final_plan"]["prescribed_sets"] == 3
-    assert adherence["final_plan"]["matched_sets"] == 3
-    assert adherence["final_plan"]["missing_sets"] == 0
-    assert adherence["final_plan"]["set_completion"]["ratio"] == 1.0
-    assert adherence["changes"]["set_count_changed"] == [{
-        "plan_item_index": 0,
-        "exercise_id": "trap_bar_deadlift",
-        "from_sets": 5,
-        "to_sets": 3,
-    }]
-
-    _, body = get(server, f"/api/history/{workout_id}")
-    history_adherence = _strict_json(body)["adherence"]
-    assert history_adherence["original"]["prescribed_sets"] == 5
-    assert history_adherence["final_plan"]["prescribed_sets"] == 3
-
-
 def test_imported_history_session_reports_adherence_unavailable(server):
     status, body = get(server, "/api/history/2024-01-01")
     assert status == 200
@@ -3336,55 +3194,6 @@ def test_history_adherence_ui_covers_empty_error_and_unavailable_states(server):
     assert "warnbox" in history and "error.message" in history
 
 
-def test_history_adherence_payload_has_the_fields_the_ui_renders(server):
-    plan = {
-        "for_date": "2024-01-08",
-        "session_type": "hinge",
-        "items": [{
-            "exercise_id": "trap_bar_deadlift", "sets": 2, "reps_low": 3,
-            "reps_high": 5, "load_kg": 100, "rir_target": 2,
-        }],
-    }
-    started = post(server, "/api/workout/start", {
-        "date": "2024-01-08", "plan": plan, "readiness": _adherence_readiness(),
-    })["workout"]
-    workout_id = started["workout_id"]
-    post(server, f"/api/workout/{workout_id}/plan/set-count", {
-        "item_index": 0, "delta": -1,
-    })
-    for reps, load, rir in ((5, 100, 2), (4, 95, 3)):
-        post(server, f"/api/workout/{workout_id}/sets", {
-            "exercise_id": "trap_bar_deadlift", "load_kg": load,
-            "reps": reps, "rir": rir,
-        })
-    post(server, f"/api/workout/{workout_id}/end", {
-        "session_rpe": 7, "duration_min": 30,
-    })
-
-    _, body = get(server, f"/api/history/{workout_id}")
-    adherence = _strict_json(body)["adherence"]
-    assert adherence["status"] == "available"
-    for view_name in ("original", "final_plan"):
-        view = adherence[view_name]
-        for key in ("prescribed_sets", "performed_sets", "matched_sets", "missing_sets",
-                    "extra_sets", "set_completion", "reps", "load", "rir",
-                    "exercises", "quality"):
-            assert key in view, (view_name, key)
-        assert set(view["set_completion"]) == {"numerator", "denominator", "ratio"}
-        exercise = view["exercises"][0]
-        for key in ("exercise_name", "status", "prescribed_sets", "matched_sets", "sets",
-                    "limitations"):
-            assert key in exercise, (view_name, key)
-        first = exercise["sets"][0]
-        for key in ("reps_actual", "reps_target_low", "reps_target_high", "reps_status",
-                    "load_target_kg", "load_actual_external_kg", "load_deviation_kg",
-                    "load_status", "rir_target", "rir_actual", "rir_deviation", "rir_status",
-                    "limitations", "extra", "included_in_attainment"):
-            assert key in first, (view_name, key)
-    assert "set_count_changed" in adherence["changes"]
-    assert "unavailable_metrics" in adherence["quality"]
-
-
 def _create_adherence_workout(server, day, *, sets=3, done=3,
                               exercise_id="trap_bar_deadlift", session_type="hinge"):
     plan = {
@@ -3438,38 +3247,6 @@ def test_adherence_analytics_api_sums_numerators_and_keeps_empty_periods(server)
     assert result["filters"]["exercises"][0]["id"] == "trap_bar_deadlift"
     assert result["filters"]["session_types"] == ["hinge"]
     assert "aggregation" in result["definitions"]
-
-
-def test_adherence_analytics_api_keeps_original_and_final_distinct(server):
-    plan = {
-        "for_date": "2024-02-20",
-        "session_type": "hinge",
-        "items": [{
-            "exercise_id": "trap_bar_deadlift", "sets": 5, "reps_low": 3,
-            "reps_high": 5, "load_kg": 100, "rir_target": 2,
-        }],
-    }
-    started = post(server, "/api/workout/start", {
-        "date": "2024-02-20", "plan": plan, "readiness": _adherence_readiness(),
-    })["workout"]
-    workout_id = started["workout_id"]
-    post(server, f"/api/workout/{workout_id}/plan/set-count", {
-        "item_index": 0, "delta": -2,
-    })
-    for _ in range(3):
-        post(server, f"/api/workout/{workout_id}/sets", {
-            "exercise_id": "trap_bar_deadlift", "load_kg": 100, "reps": 5, "rir": 2,
-        })
-    post(server, f"/api/workout/{workout_id}/end", {
-        "session_rpe": 7, "duration_min": 30,
-    })
-
-    _, body = get(server, "/api/adherence/analytics?from=2024-02-20&to=2024-02-20")
-    result = _strict_json(body)
-    assert result["original"]["set_completion"]["ratio"] == 0.6
-    assert result["final_plan"]["set_completion"]["ratio"] == 1.0
-    assert result["original"]["prescribed_sets"] == 5
-    assert result["final_plan"]["prescribed_sets"] == 3
 
 
 def test_adherence_analytics_api_filters_exercise_and_session_type(server):

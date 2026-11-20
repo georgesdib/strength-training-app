@@ -121,11 +121,13 @@ the same lift.
   the workout date, and is read-only; current workout sets are not part of it and corrections stay
   in History. The *Plan and plan edits* section is open by default so the toggle is visible.
 
-> **2026-11-19 target amendment (not yet implemented).** The [resolver prescription structure
+> **2026-11-20 amendment.** The [resolver prescription structure
 > plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/RESOLVER-PRESCRIPTION-STRUCTURE.md)
-> retires plan editing and the set-role picker. A plan is frozen at start; substitutions and
-> additions are execution events, and the plan view renders ordered set groups. The description
-> above is current behaviour until that slice ships.
+> retires plan editing and the set-role picker. The five plan-edit routes are removed (the menus,
+> which still call them, are removed with WP2), the set-role picker is gone from the log and edit
+> forms, and a plan is frozen at start. Substitutions and additions are execution events; the
+> order-aware group prefill and per-group rendering land with WP2, so a structured plan currently
+> pre-fills its summary (back-off) load.
 
 - **Programme** — rolling session-type forecast; choose weeks, sessions/week, optional start
   date and first session type (`auto` or a specific type).

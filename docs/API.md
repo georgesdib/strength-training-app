@@ -179,7 +179,8 @@ band). It is `null` when nothing qualifies, carries `family`, `text`, `gate`, `n
 `evidence_id`, `limitations` and the same evidence envelope, and never changes a prescription.
 Selection is descriptive; nothing is recalculated (`DEC-AFC-08`).
 
-History set rows also expose `prescription_item_index` and `set_role`; an audited correction
+History set rows also expose `prescription_item_index`, `substitutes_plan_item_index` and the
+legacy read-only `set_role`; an audited correction
 preserves both, so later comparison and adherence still resolve the same plan item and set
 group.
 
@@ -391,11 +392,13 @@ Phase 3A, Phase 4, R7, R8 and the watch companion. The phase rules and client be
 the [iOS client plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/IOS-CLIENT-PLAN.md)
 in the StrengthApp repository.
 
-> **2026-11-19 target amendment (not yet implemented).** The [resolver prescription
+> **2026-11-19 target amendment (partly implemented).** The [resolver prescription
 > structure plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/RESOLVER-PRESCRIPTION-STRUCTURE.md)
-> retires the five `plan/items/...` routes below, replaces the request `top_set` boolean with
-> `top_set_intent`, adds `programme_header` to Today and execution substitutions/additions to
-> `GET .../execution`. This table describes current behaviour until that slice ships.
+> retires the five plan-edit routes, replaces the request `top_set` boolean with `top_set_intent`,
+> adds `programme_header` to Today and execution substitutions/additions. Implemented
+> 2026-11-20: the plan-edit routes are gone, the plan is frozen and `execution` is live.
+> `top_set_intent` (WP3) and `programme_header` (WP4) are still pending; this table describes the
+> routes that remain.
 
 | route | auth | payload |
 |---|---|---|
@@ -423,23 +426,26 @@ in the StrengthApp repository.
 | `POST /api/ios/v1/prescriptions` | bearer + Idempotency-Key | `{readiness_ack?, confirmations?: {deload?, drop?}, settings?: {session_type?, minimum_session?, minimum_target_minutes?, top_set?}}` -> `202 {issued_plan_id, status, for_date, request_expires_at, plan_expires_at, retry_after_ms, settings}`; the request is built in the background (R7) |
 | `GET /api/ios/v1/plans/current` | bearer | the authoritative plan-request state: `{status: queued|building|ready|error|none, issued_plan_id, elapsed_seconds, settings, plan?, readiness?, warnings?, error?}`; `none` is a normal answer, not a 404 |
 | `POST /api/ios/v1/workouts` | bearer + Idempotency-Key | `{issued_plan_id}` -> the existing workout detail; starts by id only; expired/superseded/consumed plans are 410, another active workout is 409 |
-| `POST /api/ios/v1/workouts/<id>/sets` | bearer + Idempotency-Key | `{exercise_id, load_kg?, reps, rir?, velocity_mps?, set_index?, plan_item_index?, rep_velocities?, performed_at?}` -> workout detail; `plan_item_index` is the stable plan-item identity (not the display position); `velocity_mps` is optional manual mean and `rep_velocities` is optional `[{rep_index, velocity_mps}]`; values must be positive and reps are required |
+| `POST /api/ios/v1/workouts/<id>/sets` | bearer + Idempotency-Key | `{exercise_id, load_kg?, reps, rir?, velocity_mps?, set_index?, plan_item_index?, substitutes_plan_item_index?, rep_velocities?, performed_at?}` -> workout detail; `plan_item_index` is the stable plan-item identity (not the display position); `substitutes_plan_item_index` annotates a set that replaced that slot (the performed exercise must differ, and both stored columns then hold the slot); a stale index with no annotation is kept as extra work with no attribution; `velocity_mps` is optional manual mean and `rep_velocities` is optional `[{rep_index, velocity_mps}]`; values must be positive and reps are required |
 | `POST /api/ios/v1/workouts/<id>/remove-set` | bearer + Idempotency-Key | `{set_id}` -> workout detail; removes a performed set; unknown/invalid set id is 400/404; idempotent replay supported |
 | `POST /api/ios/v1/workouts/<id>/form` | bearer + Idempotency-Key | `{exercise_id, rating 1-5, note?}` -> workout detail |
 | `GET /api/ios/v1/exercises` | bearer | `{exercises:[{id, display, pattern}]}`; canonical catalogue for the R8 picker and exercise library |
 | `GET /api/ios/v1/exercises/<id>` | bearer | read-only exercise detail: `{exercise:{id,display,pattern,source}, properties:{...}, e1rm_applicable, e1rm, e1rm_reason}`; `e1rm` is the existing 365-day eligible/degraded series, or `null` when not e1RM-applicable; applicability uses the shared derived structural default when the taxonomy has no explicit flag; unknown id 404 |
 | `GET /api/ios/v1/exercises/<id>/history?limit=&offset=` | bearer | exactly `exercise_history_feature.history`; completed sessions with current working sets, 20 default page, equivalents reported; unknown id 404 |
-| `POST /api/ios/v1/workouts/<id>/plan/items/<index>/swap` | bearer + Idempotency-Key | `{exercise_id, expected_exercise_id}` -> workout detail; the replacement is re-solved from its own history (its own load, warm-ups and VBT target); `409 sets_already_logged` after a set, `409 exercise_already_present`, `409 plan_changed` |
-| `POST /api/ios/v1/workouts/<id>/plan/items/<index>/remove` | bearer + Idempotency-Key | `{expected_exercise_id}` -> workout detail; logged sets are kept; `409 last_plan_item`, `409 plan_changed` |
-| `POST /api/ios/v1/workouts/<id>/plan/items/<index>/sets` | bearer + Idempotency-Key | `{delta, expected_exercise_id}` -> workout detail; `409 sets_below_logged`, `409 plan_changed` |
-| `POST /api/ios/v1/workouts/<id>/plan/items/<index>/move` | bearer + Idempotency-Key | `{to_index, expected_exercise_id}` -> workout detail; `to_index` is the final position after removal, identities and logged-set attribution are preserved, a same-position move is a no-op, out-of-range is `409 plan_changed` |
-| `POST /api/ios/v1/workouts/<id>/plan/exercises` | bearer + Idempotency-Key | `{exercise_id, sets?, reps_low?, reps_high?, rir_target?}` -> workout detail; defaults 3 sets, 8–12 reps, RIR 2; the added slot is solved from its own history (load, warm-ups, VBT) and stays `load_kg: null` with `unknown_load_reason` when it cannot be solved; `load_kg` is `400 unknown_field`; duplicate is `409 exercise_already_present` |
+| `POST /api/ios/v1/workouts/<id>/execution` | bearer + Idempotency-Key, phone token only | `{event_id (UUID), change: substitution\|addition, plan_item_index?, after_item_index?, exercise_id, reps_low?, reps_high?, rir_target?, prefill_requested?}` -> `{execution}` (the same block `GET .../execution` returns). A substitution takes sets/reps/RIR from the frozen plan item; an addition takes the supplied reps/RIR. The prefill is server-solved and stored; `prefill_requested: false` (authored offline) stores `prefill_load_kg: null` with `prefill_reason: authored_offline` and is never retro-solved. Idempotent by `event_id`; the same identity with different content is `400`; a watch token is `403 not_phone` |
 | `POST /api/ios/v1/workouts/<id>/complete` | bearer + Idempotency-Key | `{session_rpe? or not_recorded: true, duration_min?, notes?, ended_at?, productivity?}` -> completed workout detail; RPE and not-recorded are mutually exclusive; `ended_at` preserves the local finish time and measured duration; `productivity` is 1-5 when present |
 | `POST /api/ios/v1/workouts/<id>/abandon` | bearer + Idempotency-Key | `{}` -> abandoned workout detail |
 | `POST /api/ios/v1/workouts/<id>/execution-events` | bearer + Idempotency-Key | `{events:[{event_id, event_type, occurred_at, plan_item_index?, set_id?, local_set_id?, payload?}]}` -> `{workout_id, accepted, duplicates, received_at}`; 1-100 events, all-or-nothing, idempotent by event_id; unknown fields, bad timestamps, wrong ownership/status and conflicting event IDs are 400/404/409 |
 | `POST /api/ios/v1/healthkit/hrv-recovery` | bearer + Idempotency-Key | `{samples:[{sample_id, date, value, sample_at, source_name, source_class, sample_count?}]}` -> `{date_from, date_to, accepted, duplicates}`; 1-500 dated nights, history accepted (2014+, not future), each idempotent by `sample_id`, changed immutable data is 409; readiness reads this series for HRV (2026-11-18) |
-| `GET /api/ios/v1/workouts/<id>/execution` | bearer | read-only execution timeline and derived metrics (exercise intervals may overlap when a session records a superset; they are folded per plan item), plus the session envelope `{owner_device_id, plan_revision, last_activity_at, stale, plan}` so a watch can reconcile ownership and apply a newer plan; empty event coverage is valid and historical workouts are never backfilled |
-| `GET /api/history/<id>/execution` | none (local web UI) | the same read-only execution payload for a completed workout, keyed by session/workout id; imported sessions without a workout row are 404 |
+| `GET /api/ios/v1/workouts/<id>/execution` | bearer | read-only execution timeline and derived metrics (exercise intervals may overlap when a session records a superset; they are folded per plan item), plus the session envelope `{owner_device_id, plan_revision, last_activity_at, stale, plan, execution}`, where `execution` is `{workout_id, watermark, substitutions, additions}` so a watch can apply a payload only when the watermark is at least as new as its own; empty event coverage is valid and historical workouts are never backfilled |
+| `GET /api/history/<id>/execution` | none (local web UI) | the same read-only execution payload for a completed workout, keyed by session/workout id, including the `execution` block; imported sessions without a workout row are 404 |
+
+The five R8 plan-edit routes (`.../plan/items/<index>/swap|remove|sets|move` and
+`.../plan/exercises`) are **retired**. A plan is frozen at start: they return `404`, nothing writes
+`plan_modified_json` or `plan_revision` after start, and a substitution or addition is an
+execution change, not a plan edit (`DEC-RESOLVER-23`). `plan_modified_json` remains readable for
+historical rows, and the `409 plan_item_mismatch` guard is gone: an unannotated stale index is
+preserved as extra work rather than rejected.
 
 Workout-detail sets carry the stable plan-item identity as both `plan_item_index` (the API field)
 and `prescription_item_index` (the stored column name kept for existing web consumers). An

@@ -242,21 +242,18 @@ function updateWorkoutSetTarget() {
     target.textContent = "This exercise is not in the current plan; log it anyway if intended.";
     return;
   }
-  var role = $("#workout-set-role") ? $("#workout-set-role").value : "";
-  var group = vbtGroupForRole(item, role);
-  var planned = group
-    ? group.sets + " × " + group.reps_low + "–" + group.reps_high + " @ " +
-      (group.load_kg == null ? "load unknown" : fmt(group.load_kg) + " kg") +
-      (group.rir_target == null ? "" : ", RIR " + group.rir_target)
-    : item.sets + " × " + item.reps_low + "–" + item.reps_high + " @ " +
-      (item.load_kg == null ? "load unknown" : fmt(item.load_kg) + " kg") +
-      ", " + (item.effort_model === "quality"
-        ? (item.quality_stop || "quality stop")
-        : (item.rir_target == null ? "no RIR target" : "RIR " + item.rir_target));
+  // The web form no longer solicits a set role (DEC-RESOLVER-23). The item summary load is
+  // the back-off load for a structured item, so this is a pre-structure target until the
+  // order-aware web groups land with WP2.
+  var planned = item.sets + " × " + item.reps_low + "–" + item.reps_high + " @ " +
+    (item.load_kg == null ? "load unknown" : fmt(item.load_kg) + " kg") +
+    ", " + (item.effort_model === "quality"
+      ? (item.quality_stop || "quality stop")
+      : (item.rir_target == null ? "no RIR target" : "RIR " + item.rir_target));
   target.innerHTML = "Planned <strong>" + esc(planned) + "</strong>. Logging set <strong>" +
     nextWorkoutSetNumber(exerciseId) + "</strong>.<br>" +
     vbtApplicabilityHtml(
-      item, role,
+      item, "",
       $("#workout-set-reps") ? $("#workout-set-reps").value : "",
       $("#workout-set-rir") ? $("#workout-set-rir").value : ""
     );
@@ -284,61 +281,11 @@ function workoutSetGroupsHtml(item) {
   return typeof setGroupsHtml === "function" ? setGroupsHtml(item) : "";
 }
 
-function workoutLoggedRoleCount(exerciseId, role) {
-  var sets = (window.__workoutData && window.__workoutData.sets) || [];
-  return sets.filter(function (set) {
-    return String(set.exercise_id) === String(exerciseId) &&
-      String(set.set_role || "") === String(role || "");
-  }).length;
-}
-
-function workoutNextGroup(item) {
-  var groups = (item && item.set_groups) || [];
-  for (var index = 0; index < groups.length; index += 1) {
-    var group = groups[index];
-    if (workoutLoggedRoleCount(item.exercise_id, group.role) < Number(group.sets || 0)) {
-      return group;
-    }
-  }
-  return null;
-}
-
-function workoutGroupForRole(item, role) {
-  return ((item && item.set_groups) || []).find(function (group) {
-    return String(group.role) === String(role || "");
-  }) || null;
-}
-
-function applyWorkoutGroup(item, group) {
-  if (group) {
-    $("#workout-set-role").value = group.role;
-    $("#workout-set-load").value = group.load_kg == null ? "" : group.load_kg;
-    $("#workout-set-rir").value = group.rir_target == null ? "" : group.rir_target;
-    return;
-  }
-  $("#workout-set-role").value = "";
-  $("#workout-set-load").value = item.load_kg == null ? "" : item.load_kg;
-  $("#workout-set-rir").value = item.effort_model === "quality" || item.rir_target == null
-    ? "" : item.rir_target;
-}
-
 function prefillWorkoutSetFields(force) {
   var item = workoutPlanItem($("#workout-set-exercise").value);
   if (!item) return;
-  var groups = item.set_groups || [];
-  var pending = groups.length ? workoutNextGroup(item) : null;
-  if (groups.length) {
-    // The planned structure is the execution instruction: prefill the next unfilled
-    // top-set/back-off group, then reset to ordinary once all groups are logged.
-    if (force || pending) {
-      applyWorkoutGroup(item, pending);
-      if (force || $("#workout-set-reps").value === "") {
-        $("#workout-set-reps").value = item.reps_low == null ? "" : item.reps_low;
-      }
-      if (force) $("#workout-set-velocity").value = "";
-    }
-    return;
-  }
+  // A structured item pre-fills its summary (back-off) load until the order-aware group
+  // prefill lands with WP2; the role picker no longer exists (DEC-RESOLVER-23).
   if (force || $("#workout-set-load").value === "") {
     $("#workout-set-load").value = item.load_kg == null ? "" : item.load_kg;
   }
@@ -487,7 +434,6 @@ function editWorkoutSet(setId) {
   var editRepsLabel = $("#workout-edit-reps-label");
   if (editRepsLabel) editRepsLabel.textContent = workoutRepsLabel(set.exercise_id);
   $("#workout-edit-rir").value = set.rir == null ? "" : set.rir;
-  $("#workout-edit-role").value = set.set_role || "";
   $("#workout-edit-velocity").value = set.velocity == null ? "" : set.velocity;
   $("#workout-set-edit").hidden = false;
   $("#workout-set-edit-msg").textContent = set.exercise_id + " · set " + set.set_index;
@@ -503,7 +449,6 @@ function saveWorkoutSetEdit() {
       load_kg: numericOrNull("#workout-edit-load"),
       reps: numericOrNull("#workout-edit-reps"),
       rir: numericOrNull("#workout-edit-rir"),
-      set_role: $("#workout-edit-role").value || null,
       velocity: numericOrNull("#workout-edit-velocity")
     })
   }).then(function (data) {
@@ -718,8 +663,7 @@ function renderWorkout(w) {
     ? '<div class="workout-set-list">' + setRows + '</div>'
     : "<p class='empty'>No sets logged yet.</p>";
   updateWorkoutSetTarget();
-  var selectedPlanItem = workoutPlanItem($("#workout-set-exercise").value);
-  prefillWorkoutSetFields(!keptSelection || Boolean(selectedPlanItem && selectedPlanItem.set_groups && selectedPlanItem.set_groups.length));
+  prefillWorkoutSetFields(!keptSelection);
   updateWorkoutSetTarget();
   renderWorkoutVbtFeedback(w);
   document.querySelectorAll("[data-remove-set]").forEach(function (button) {
@@ -1142,7 +1086,6 @@ function submitWorkoutSet(event) {
     load_kg: numericOrNull("#workout-set-load"),
     reps: reps,
     rir: numericOrNull("#workout-set-rir"),
-    set_role: $("#workout-set-role").value || null,
     velocity: numericOrNull("#workout-set-velocity"),
     rep_velocities: repVelocities,
     set_index: nextWorkoutSetNumber(exerciseId)
@@ -1224,13 +1167,6 @@ document.addEventListener("DOMContentLoaded", function () {
     ["input", "change"].forEach(function (eventName) {
       input.addEventListener(eventName, function () { input.removeAttribute("aria-invalid"); });
     });
-  });
-  var setRole = document.getElementById("workout-set-role");
-  if (setRole) setRole.addEventListener("change", function () {
-    var item = workoutPlanItem($("#workout-set-exercise").value);
-    if (!item) return;
-    applyWorkoutGroup(item, workoutGroupForRole(item, setRole.value));
-    updateWorkoutSetTarget();
   });
   ["#workout-set-reps", "#workout-set-rir"].forEach(function (selector) {
     var input = document.querySelector(selector);

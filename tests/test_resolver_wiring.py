@@ -351,7 +351,7 @@ def test_preview_payload_freezes_into_workout_start(monkeypatch) -> None:
     assert frozen["plan"]["generated_session"] == payload["generated_session"]
 
 
-def test_resolver_top_set_executes_and_materialises_roles(monkeypatch) -> None:
+def test_resolver_top_set_executes_and_materialises_attribution(monkeypatch) -> None:
     _without_required_patterns(monkeypatch)
     with store() as instance:
         settings_profile.save(
@@ -407,20 +407,22 @@ def test_resolver_top_set_executes_and_materialises_roles(monkeypatch) -> None:
         workout.add_set(
             instance.connection, started["workout_id"], exercise_id="ssb_squat",
             load_kg=top["load_kg"], reps=top["reps_low"], rir=top["rir_target"],
-            set_role="top_set",
         )
         for _ in range(back["sets"]):
             workout.add_set(
                 instance.connection, started["workout_id"], exercise_id="ssb_squat",
                 load_kg=back["load_kg"], reps=back["reps_low"],
-                rir=back["rir_target"], set_role="back_off",
+                rir=back["rir_target"],
             )
         workout.end(
             instance.connection, started["workout_id"], session_rpe=7, duration_min=30
         )
-        roles = [
-            row["set_role"] for row in instance.connection.execute(
-                "SELECT set_role FROM clean_set ORDER BY set_id"
+        logged = [
+            (row["prescription_item_index"], row["set_role"])
+            for row in instance.connection.execute(
+                "SELECT prescription_item_index, set_role FROM clean_set "
+                "WHERE session_id = ? ORDER BY set_id",
+                (started["workout_id"],),
             )
         ]
         from strength_coach.features import strength_trend
@@ -446,8 +448,8 @@ def test_resolver_top_set_executes_and_materialises_roles(monkeypatch) -> None:
         )
         workout.end(instance.connection, second["workout_id"], session_rpe=7, duration_min=10)
         day = history.list_training_days(instance.connection)["days"][0]
-    assert roles.count("top_set") == 1
-    assert roles.count("back_off") == back["sets"]
+    # The plan identity is the item's order_index, not its display position.
+    assert logged == [(main["order_index"], None)] * (1 + back["sets"])
     assert observations
     assert day["fragment_count"] == 2
     assert day["active_fragment_count"] == 2

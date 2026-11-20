@@ -39,9 +39,6 @@ class SetGroup:
     percent_of_top: float | None = None
 
 
-SET_GROUP_ROLES = ("top_set", "back_off")
-
-
 def _plan_int(value: Any, field: str, *, where: str, low: int, high: int) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or not low <= value <= high:
         raise ValueError(f"{where}: {field} must be an integer from {low} to {high}")
@@ -119,42 +116,6 @@ def validate_plan_items(items: Any, *, where: str = "plan") -> None:
         if not isinstance(item, Mapping):
             raise ValueError(f"{where}.items[{index}] must be an object")
         validate_plan_set_groups(item, where=f"{where}.items[{index}]")
-
-
-def resize_plan_item_set_groups(item: Mapping[str, Any]) -> dict[str, Any]:
-    """Keep plan groups consistent after a planned-set edit.
-
-    Groups are merged by the order they are read: each group keeps its own sets until the new
-    total is reached, the last surviving group absorbs the remainder, and groups that no
-    longer fit are dropped. A one-set item keeps the first group and its summary load, which
-    is the structured set rather than the back-off summary. A plan without groups is
-    unchanged. Plan editing is removed by the frozen-plan package; this rule exists only for
-    the edit path that is still live.
-    """
-    groups = [dict(group) for group in (item.get("set_groups") or ())]
-    if not groups:
-        return dict(item)
-    sets = int(item.get("sets") or 0)
-    if sets < 1:
-        return dict(item)
-    kept: list[dict[str, Any]] = []
-    remaining = sets
-    for group in groups:
-        if remaining < 1:
-            break
-        take = min(int(group.get("sets") or 0), remaining)
-        kept.append({**group, "sets": take})
-        remaining -= take
-    if remaining:
-        kept[-1]["sets"] = int(kept[-1]["sets"]) + remaining
-    if len(kept) == 1:
-        return {
-            **dict(item),
-            "set_groups": kept,
-            "load_kg": kept[0].get("load_kg"),
-            "rir_target": kept[0].get("rir_target"),
-        }
-    return {**dict(item), "set_groups": kept}
 
 
 @dataclass(frozen=True)
