@@ -14,7 +14,7 @@ import json
 import sqlite3
 
 from strength_coach import settings_profile
-from strength_coach.features import breaks, deload, regime_change
+from strength_coach.features import breaks, deload, programme, regime_change
 from strength_coach.intelligence.config import IntelligenceConfig
 from strength_coach.intelligence.envelope import Envelope, FactBlock, Period, Privacy
 from strength_coach.intelligence.service import (
@@ -169,9 +169,13 @@ def athlete_profile(
 
 PROGRAMME_RESOURCE = "programme_current"
 PROGRAMME_URI = "strength://programme/current"
-PROGRAMME_VERSION = "1.0.0"
+PROGRAMME_VERSION = "1.1.0"
 PROGRAMME_MODULES = (
     "strength_coach.settings_profile.state",
+    "strength_coach.features.programme.header",
+    "strength_coach.rules.context.trained_week_index",
+    "strength_coach.prescribe.undulation.Undulation.for_week",
+    "strength_coach.prescribe.top_set.competition_window",
     "strength_coach.features.deload.decision",
     "strength_coach.features.regime_change.detect",
     "strength_coach.features.breaks.active_on",
@@ -190,6 +194,7 @@ def programme_current(
         execution = execution_context(conn, config, clock=clock)
         state = settings_profile.state(conn, today)
         decision = deload.decision(conn, today)
+        header = programme.header(conn, today)
         regime = regime_change.detect(conn, on_date=today)
         active = breaks.as_dict(breaks.active_on(conn, today))
 
@@ -203,15 +208,32 @@ def programme_current(
                 basis="observed",
                 method="strength_coach.settings_profile.state",
             ),
+            "trained_week": FactBlock(
+                value=header.get("trained_week"),
+                basis="derived",
+                method="strength_coach.rules.context.trained_week_index",
+            ),
+            "dup": FactBlock(
+                value=header.get("dup"),
+                basis="derived",
+                method="strength_coach.prescribe.undulation.Undulation.for_week",
+            ),
+            "competition": FactBlock(
+                value=header.get("competition"),
+                basis="derived",
+                method="strength_coach.prescribe.top_set.competition_window",
+            ),
             "deload": FactBlock(
                 value={
-                    "active": decision is not None,
-                    "reason": getattr(decision, "reason", None),
-                    "trigger": getattr(decision, "trigger", None),
+                    "active": header["deload"]["status"] == "active",
+                    "status": header["deload"]["status"],
+                    "calendar_week": header["deload"]["calendar_week"],
+                    "reason": header["deload"]["reason"],
+                    "trigger": header["deload"]["trigger"],
                     "block_week": getattr(decision, "block_week", None),
                 },
                 basis="derived",
-                method="strength_coach.features.deload.decision",
+                method="strength_coach.features.programme.header",
             ),
             "regime": FactBlock(
                 value={
@@ -232,6 +254,8 @@ def programme_current(
         missing: list[str] = []
         if state.get("profile_id") is None:
             missing.append("no settings profile is recorded")
+        if header.get("trained_week") is None:
+            missing.append("no block anchor or trained week is recorded")
 
         has_context = (
             state.get("profile_id") is not None

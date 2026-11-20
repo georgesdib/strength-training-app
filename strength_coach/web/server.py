@@ -1095,6 +1095,14 @@ class Handler(BaseHTTPRequestHandler):
                     self._ios_idle_sweep(conn)
                     clock = _ios_clock()
                     readiness = self._readiness(conn, clock["server_date"])
+                    plan_payload = self._ios_plan_payload(conn, device)
+                    live_plan = None
+                    plan_row = ios_workflow.current_plan(conn, device["device_id"])
+                    if plan_row is not None and plan_row.get("plan_json"):
+                        try:
+                            live_plan = json.loads(plan_row["plan_json"])
+                        except (TypeError, ValueError):
+                            live_plan = None
                     payload = {
                         "date": clock["server_date"],
                         "readiness": readiness,
@@ -1103,7 +1111,11 @@ class Handler(BaseHTTPRequestHandler):
                         # R7: lets a cold launch render the plan area in one round trip.
                         # The client still reconciles against plans/current, which is the
                         # authoritative read (contract §6).
-                        "plan": self._ios_plan_payload(conn, device),
+                        "plan": plan_payload,
+                        # WP4: read-only programme context, additive.
+                        "programme_header": programme_feature.header(
+                            conn, clock["server_date"], live_plan=live_plan
+                        ),
                     }
                 elif path == "/api/ios/v1/plans/current":
                     payload = self._ios_plan_payload(conn, device)
@@ -4447,10 +4459,14 @@ class Handler(BaseHTTPRequestHandler):
         # The Today card reads the compact fields; the summary alone no longer carries them.
         cardio = cardio_metrics.activity_summary(conn, weeks=4)
         cardio.update(cardio_metrics.dashboard_card(cardio))
+        active = workout.active_workout(conn)
         return {
             "today": today,
             "profile": dict(profile) if profile else None,
             "block_week": context.block_week_index,
+            "programme_header": programme_feature.header(
+                conn, today, live_plan=(active or {}).get("plan"),
+            ),
             "readiness": readiness,
             "readiness_score": readiness_score.compute(conn, today).as_dict(),
             "cardio": cardio,

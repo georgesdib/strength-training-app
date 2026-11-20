@@ -234,6 +234,7 @@ async function loadOverview() {
     $("#cards").innerHTML = cards.map(([label, value, sub]) => `
       <div class="card"><div class="label">${esc(label)}</div>
       <div class="value">${esc(value)}</div><div class="sub">${esc(sub)}</div></div>`).join("");
+    renderProgrammeHeader(data.programme_header);
     renderFormFollowup(formEval);
     renderRecent(data.sessions);
     renderTodayPriorities(data);
@@ -247,6 +248,44 @@ async function loadOverview() {
     $("#today-title").textContent = "Could not load";
     $("#today-sub").textContent = error.message;
   }
+}
+
+function renderProgrammeHeader(header) {
+  const panel = $("#programme-panel");
+  const target = $("#programme-header");
+  if (!panel || !target) return;
+  if (!header) {
+    panel.hidden = true;
+    return;
+  }
+  const rows = [];
+  if (header.trained_week != null) rows.push(["Trained week", header.trained_week, ""]);
+  if (header.dup) {
+    const dup = header.dup;
+    const schemes = [dup.main_scheme, dup.accessory_scheme].filter(Boolean).join(" / ");
+    rows.push(["DUP", "week " + (dup.cycle_week ?? "?") + " of " + (dup.cycle_weeks ?? "?"), schemes]);
+  }
+  if (header.deload?.calendar_week != null) {
+    rows.push(["Deload week (calendar)", header.deload.calendar_week, ""]);
+  }
+  if (header.deload?.status) {
+    rows.push(["Deload", header.deload.status, header.deload.reason || ""]);
+  }
+  if (header.competition) {
+    const days = header.competition.days_until;
+    const parts = [
+      header.competition.date,
+      days == null ? "past" : (days === 0 ? "today" : days + " days"),
+    ].filter(Boolean);
+    if (header.competition.window && header.competition.window !== "none") {
+      parts.push(header.competition.window);
+    }
+    rows.push(["Competition", parts.join(" · "), ""]);
+  }
+  panel.hidden = rows.length === 0;
+  target.innerHTML = rows.map(([label, value, sub]) => `
+    <div class="today-priority-row"><span>${esc(label)}</span><strong>${esc(String(value))}</strong>
+    ${sub ? `<span class="muted">${esc(sub)}</span>` : ""}</div>`).join("");
 }
 
 async function refreshToday() {

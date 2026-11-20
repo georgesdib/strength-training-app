@@ -3691,3 +3691,12 @@ def test_history_edit_accepts_productivity(server):
         "reason": "invalid productivity",
     })
     assert code == 400
+
+
+def test_overview_includes_the_programme_header(server):
+    status, body = get(server, "/api/overview")
+    assert status == 200
+    header = json.loads(body).get("programme_header")
+    assert header is not None
+    assert set(header) >= {"trained_week", "deload"}
+    assert "calendar_week" in header["deload"]

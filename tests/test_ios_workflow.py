@@ -2298,3 +2298,13 @@ def test_pre_cutoff_workout_is_rejected_server_side(ios):
 def test_retired_cardio_route_answers_410(ios):
     status, _body = _request(ios["base"], "/api/cardio", token=None)
     assert status == 410
+
+
+def test_today_includes_the_programme_header(ios):
+    token, _ = _paired(ios)
+    status, body = _request(ios["base"], "/api/ios/v1/today", token=token)
+    assert status == 200, body
+    header = body.get("programme_header")
+    assert header is not None
+    assert set(header) >= {"trained_week", "deload"}
+    assert "calendar_week" in header["deload"]

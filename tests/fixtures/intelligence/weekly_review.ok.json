@@ -55,20 +55,25 @@
       "comparability": null,
       "evidence_ids": [],
       "gate": null,
-      "method": "strength_coach.features.deload.decision",
+      "method": "strength_coach.features.programme.header",
       "n": 0,
       "note": null,
       "quality_flags": [],
       "unit": null,
       "value": {
         "breaks": [],
+        "competition": null,
         "deload": "none_scheduled",
+        "deload_calendar_week": null,
         "deload_policy": "none_scheduled",
         "deload_reason": null,
+        "deload_status": "none",
         "deload_trigger": null,
+        "dup": null,
         "regime_findings": 0,
         "regime_findings_detail": [],
-        "regime_review": "stable"
+        "regime_review": "stable",
+        "trained_week": null
       }
     },
     "progression": {

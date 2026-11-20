@@ -103,6 +103,15 @@ def run_chat(
         blocks.append(
             {"capability": name, "status": envelope.status, "data": narrative_facts(envelope)}
         )
+    from strength_coach.features import programme as programme_feature
+
+    blocks.append(
+        {
+            "capability": "programme_header",
+            "status": "ok",
+            "data": programme_feature.header(service.connection, today.isoformat()),
+        }
+    )
     latest = service.connection.execute(
         "SELECT occurred_on, duration_min FROM session "
         "WHERE voided = 0 AND duration_min IS NOT NULL "
