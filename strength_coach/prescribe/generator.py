@@ -345,6 +345,87 @@ def generate(
     )
 
 
+
+
+def _last_used(conn, *, before_date: str) -> dict[str, str]:
+    """Most recent working date per exercise, stable across shaped templates.
+
+    The pre-build dwell layer keys its draw on the exercise the slot last used, not on slot
+    order, because a minimum-session shape can renumber or omit slots. A lift with no history is
+    absent, so the draw has no effect for that slot.
+    """
+    rows = conn.execute(
+        """
+        SELECT exercise_id, MAX(occurred_on) AS last_used
+          FROM clean_set
+         WHERE occurred_on < ? AND is_working_set = 1
+         GROUP BY exercise_id
+        """,
+        (str(before_date),),
+    ).fetchall()
+    return {
+        str(row["exercise_id"]): str(row["last_used"])
+        for row in rows
+        if row["last_used"] is not None
+    }
+
+
+def _dwell_ordered_pool(
+    candidates: Sequence[str],
+    *,
+    for_date: str,
+    session_type: str,
+    slot_id: str,
+    patterns: Mapping[str, str | None],
+    counts: Mapping[str, int],
+    last_used: Mapping[str, str],
+    settings: ResolverSettings,
+    last_choice_hint: str | None = None,
+) -> list[str]:
+    """Order one eligible pool by the bounded dwell rule.
+
+    Precedence is structural class, factor, draw, catalogue. The factor only reorders
+    candidates that share a pattern, so it cannot move a lift across a structural class or
+    override coverage; the draw demotes the slot's last choice to the end of its class instead
+    of removing it, keeping the fallback available.
+    """
+    catalogue_order = {exercise_id: index for index, exercise_id in enumerate(candidates)}
+    classes: dict[str, list[str]] = {}
+    class_order: list[str] = []
+    for exercise_id in candidates:
+        key = patterns.get(exercise_id) or ""
+        if key not in classes:
+            classes[key] = []
+            class_order.append(key)
+        classes[key].append(exercise_id)
+    for key in class_order:
+        classes[key].sort(
+            key=lambda exercise_id: (
+                -dwell_feature.factor(
+                    int(counts.get(exercise_id, 0)), settings.dwell_tau
+                ),
+                catalogue_order[exercise_id],
+            )
+        )
+    last_choice = None
+    if last_used:
+        available = [c for c in candidates if c in last_used]
+        if available:
+            last_choice = max(available, key=lambda c: (last_used[c], -catalogue_order[c]))
+    if last_choice is None and last_choice_hint in catalogue_order:
+        last_choice = last_choice_hint
+    draw = dwell_feature.rotation_value(
+        for_date=for_date, session_type=session_type, slot_id=slot_id
+    )
+    if last_choice is not None and draw < settings.dwell_probability:
+        key = patterns.get(last_choice) or ""
+        values = classes.get(key, [])
+        if last_choice in values and len(values) > 1:
+            values.remove(last_choice)
+            values.append(last_choice)
+    return [exercise_id for key in class_order for exercise_id in classes[key]]
+
+
 def candidate_pools(
     conn,
     *,
@@ -395,6 +476,8 @@ def candidate_pools(
     }
     main_slot = _main_slot(template, taxonomy)
     dwell_counts = dwell_feature.counts(conn)
+    last_used = _last_used(conn, before_date=for_date)
+    choice_history = _choice_history(conn, session_type, for_date)
 
     raw_pools: dict[str, tuple[str, ...]] = {}
     all_candidates: set[str] = set()
@@ -420,10 +503,24 @@ def candidate_pools(
 
     ordered: dict[str, tuple[str, ...]] = {}
     suggestions_by_slot: dict[str, tuple[str, ...]] = {}
-    for slot in template.slots:
+    for index, slot in enumerate(template.slots):
         auto = list(auto_by_slot[slot.id])
         role = _slot_role(slot, main_slot)
-        ordered[slot.id] = tuple(auto)
+        hint, _sessions_since_change = _last_choice(choice_history, index)
+        ordered[slot.id] = tuple(_dwell_ordered_pool(
+            auto,
+            for_date=for_date,
+            session_type=session_type,
+            slot_id=slot.id,
+            patterns={
+                exercise_id: _pattern_key(exercise_id, taxonomy)
+                for exercise_id in auto
+            },
+            counts=dwell_counts,
+            last_used=last_used,
+            settings=settings,
+            last_choice_hint=hint,
+        ))
         _auto_check, suggestions = _classify_candidates(
             raw_pools[slot.id],
             _permitted_patterns(slot, role, policy, main_slot, taxonomy),

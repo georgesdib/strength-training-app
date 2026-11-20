@@ -22,7 +22,7 @@ from strength_coach import settings_profile
 from strength_coach.features import volume as volume_feature
 from strength_coach.prescribe import beam as beam_mod
 from strength_coach.prescribe import generated as generated_snapshot
-from strength_coach.prescribe import generator, minimum_session, resolver_policy
+from strength_coach.prescribe import generator, minimum_session, resolver_policy, role_quality
 from strength_coach.prescribe.evaluator import EvaluationInputs, evaluate_assignment
 from strength_coach.prescribe.models import Prescription
 from strength_coach.prescribe.resolver_settings import ResolverSettings
@@ -291,7 +291,9 @@ def prescription_input_fingerprint(
     settings are included; unordered mappings are sorted canonically.
     """
     payload = {
-        "fingerprint_version": "prescription-input-v3",
+        "fingerprint_version": "prescription-input-v4",
+        "evaluator_version": role_quality.VERSION,
+        "role_quality_config": role_quality.config_digest(),
         "for_date": for_date,
         "session_type": session_type,
         "assignment": assignment,
@@ -556,7 +558,7 @@ def _build_resolved(
         "policy_digest": pools.policy_digest,
         "catalogue_digest": pools.catalogue_digest,
         "input_hash": input_hash,
-        "fingerprint_version": "prescription-input-v3",
+        "fingerprint_version": "prescription-input-v4",
         "fingerprint_scope": "material build/evaluation inputs, candidate pools and beam config",
         "beam_config": {
             "width": effective_beam_config.width,
@@ -584,7 +586,7 @@ def _build_resolved(
         "policy_digest": pools.policy_digest,
         "catalogue_digest": pools.catalogue_digest,
         "input_hash": input_hash,
-        "fingerprint_version": "prescription-input-v3",
+        "fingerprint_version": "prescription-input-v4",
         "fingerprint_scope": "material build/evaluation inputs, candidate pools and beam config",
         "beam_config": {
             "width": effective_beam_config.width,

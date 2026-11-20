@@ -6,12 +6,15 @@ probabilistic exploration (DEC-RESOLVER-15).
 **Settings:** Settings -> Resolver and Settings profile (group Resolver).
 **Supersedes:** the deterministic seven-session rotation schedule of DEC-RESOLVER-02.
 
-**Resolver wiring status (2026-11-19).** The cap is live in the resolver's `candidate_pools`.
-The factor and the exploration draw are implemented in `prescribe/generator.py::generate`, whose
-only callers are tests; the production resolver does not call it. WP7a of the [resolver
-prescription structure plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/RESOLVER-PRESCRIPTION-STRUCTURE.md)
-wires the cap, draw and a bounded factor into the resolver's pre-build ordering. Until that ships,
-do not describe the factor or draw as live resolver behaviour.
+**Resolver wiring status (2026-11-20, WP7a).** The cap, deterministic draw and bounded factor are
+live in the resolver's `candidate_pools`. The production pool order is the pre-build dwell
+layer's only output: it orders candidates for the beam but does not choose the winner, and the
+evaluator remains authoritative. The factor orders only candidates sharing a structural pattern;
+the draw demotes the slot's last choice to the end of that pattern class rather than removing it,
+so coverage and the all-at-cap fallback survive. The last-choice lookup uses the most recent
+working date per exercise from `clean_set`, which stays stable when a minimum-session shape
+renumbers or omits slots. The older `generator._score` weighted-dwell path remains only for the
+generator's own tests and is not production resolver behaviour.
 
 ## 1. The problem this solves
 
@@ -55,22 +58,29 @@ not sessions of a slot.
 
   where c is the counter and tau is the exposure scale. f(0) = 0; f rises quickly and
   saturates below 1. With the shipped tau = 0.5: f(1) = 0.86, f(2) = 0.98, f(6) = 0.99999.
-* **Score.** The factor is one weighted component of the existing score:
+* **Pool ordering (production).** The factor orders candidates only within the slot's structural
+  pattern class; it never moves a candidate across a pattern, never overrides eligibility or the
+  cap, and is followed by the draw and catalogue order. It changes the beam's rank cost, not the
+  evaluator's winner.
+
+* **Legacy generator score (tests only).** The generator's independent score still contains a
+  weighted dwell term:
 
       weighted = sum(w_k * v_k) / sum(w_k)          over readiness, fatigue, spinal,
                                                      injury and dwell
       score    = clamp(weighted + coverage_factor * (coverage - 0.5) - redundancy)
 
-  The dwell weight is resolver.weights.dwell (default 0.10).
+  This path is not the production resolver; do not use it to describe live selection.
 * **Exclusion.** A candidate with c >= T is removed from automatic selection. This is a
   safety net for a lowered target or an edited counter; normal completions wrap to 0, so a
   candidate is not normally at the cap. If every candidate is at or above T, the pool is
   kept and the generator picks the best remainder, with a warning.
 * **Exploration.** Each slot draws a deterministic pseudo-random value between 0 and 1, keyed
-  on (date, session type, slot id), and with probability p = resolver.dwell.probability
-  excludes its own last choice from the ranking. The replacement is the best-ranked
-  alternative, not a random exercise. The draw is reproducible, so a preview and the
-  prescription saved from it make the same decision; exploration is a decision, not noise.
+  on (date, session type, slot id), and with probability p = resolver.dwell.probability demotes
+  its own last choice to the end of its structural pattern class; it is retained as a fallback.
+  The replacement is the best-ranked alternative, not a random exercise. The draw is
+  reproducible, so a preview and the prescription saved from it make the same decision;
+  exploration is a decision, not noise.
 * **No pin.** The old "keep the last choice and skip scoring" branch is gone. The dwell
   factor is a strong preference, not a lock: the current lift usually wins because its
   factor is near 1 while never-done lifts are at 0, but a lift with a much better base
@@ -116,7 +126,7 @@ completion then resets that counter.
 | resolver.dwell.target | 7 | 1-52 | Completed exposures in one cycle. The counter wraps to 0 at this value. |
 | resolver.dwell.tau | 0.5 | 0.05-10 | Scale in f(c) = 1 - exp(-c / tau). Larger values make the counter matter for longer; 0.5 makes the factor nearly a step at c = 1. |
 | resolver.dwell.probability | 0.10 | 0-1 | Chance that a slot explores its best alternative instead of keeping its last choice. 0 disables exploration; 1 explores every session. |
-| resolver.weights.dwell | 0.10 | 0-1 | Weight of the dwell factor in the score. Higher values make the current lift stickier (the factor is a preference, not a lock). |
+| resolver.weights.dwell | 0.10 | 0-1 | Legacy generator score only; production pool ordering uses the bounded factor and ignores this weight. |
 
 The four retired keys (resolver.rotation.main, resolver.rotation.accessory,
 resolver.rotation.default, resolver.rotation.max_dwell) no longer have any effect. Historical

@@ -284,6 +284,49 @@ def test_dwell_factor_keeps_the_lift_and_rotation_changes_it() -> None:
         store.close()
 
 
+def test_candidate_pools_order_by_dwell_factor_and_demote_the_last_choice() -> None:
+    store = db.Store(":memory:")
+    try:
+        _rate_defaults(store.connection, "squat")
+        _rate(store.connection, "competition_squat")
+        _history(store.connection, "squat", "ssb_squat")
+        dwell.set_count(store.connection, "ssb_squat", 2)
+        kept = generator.candidate_pools(
+            store.connection,
+            for_date="2026-11-01",
+            session_type="squat",
+            settings=_settings(**{"resolver.dwell.probability": 0.0}),
+        )
+        demoted = generator.candidate_pools(
+            store.connection,
+            for_date="2026-11-01",
+            session_type="squat",
+            settings=_settings(**{"resolver.dwell.probability": 1.0}),
+        )
+        assert kept.pools["squat_main"][0] == "ssb_squat"
+        assert demoted.pools["squat_main"][0] == "competition_squat"
+        assert "ssb_squat" in demoted.pools["squat_main"]
+        assert demoted.pools["squat_main"].count("ssb_squat") == 1
+    finally:
+        store.close()
+
+
+def test_candidate_pools_keep_the_pool_when_every_candidate_is_at_the_cap() -> None:
+    store = db.Store(":memory:")
+    try:
+        _rate_defaults(store.connection, "squat")
+        _rate(store.connection, "competition_squat")
+        for exercise_id in ("ssb_squat", "competition_squat"):
+            dwell.set_count(store.connection, exercise_id, 7)
+        pools = generator.candidate_pools(
+            store.connection, for_date="2026-11-01", session_type="squat"
+        )
+        assert "ssb_squat" in pools.pools["squat_main"]
+        assert "competition_squat" in pools.pools["squat_main"]
+    finally:
+        store.close()
+
+
 def test_rotation_draw_is_reported_in_the_reasons() -> None:
     store = db.Store(":memory:")
     try:
