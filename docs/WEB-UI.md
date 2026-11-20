@@ -123,11 +123,12 @@ the same lift.
 
 > **2026-11-20 amendment.** The [resolver prescription structure
 > plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/RESOLVER-PRESCRIPTION-STRUCTURE.md)
-> retires plan editing and the set-role picker. The five plan-edit routes are removed (the menus,
-> which still call them, are removed with WP2), the set-role picker is gone from the log and edit
-> forms, and a plan is frozen at start. Substitutions and additions are execution events; the
-> order-aware group prefill and per-group rendering land with WP2, so a structured plan currently
-> pre-fills its summary (back-off) load.
+> retires plan editing and the set-role picker. The five plan-edit routes, the plan-edit buttons,
+> the swap dialog and the add-exercise form are removed, and the set-role picker is gone from the
+> log and edit forms; a plan is frozen at start. A structured item shows one unlabelled row per
+> planned group, in order, and the logger pre-fills the next group by cumulative set count (the
+> last group holds beyond the plan). Substitutions and additions are phone-only execution events;
+> the web shows the frozen plan and does not author them.
 
 - **Programme** — rolling session-type forecast; choose weeks, sessions/week, optional start
   date and first session type (`auto` or a specific type).

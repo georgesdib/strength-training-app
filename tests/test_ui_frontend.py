@@ -476,6 +476,56 @@ def test_readiness_presets_show_values_and_open_yaml_editor() -> None:
     assert "saveReadinessPresetEditor" in app
 
 
+def test_workout_group_prefill_follows_the_planned_order() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    source = (STATIC / "workout.js").read_text(encoding="utf-8")
+    script = (
+        "const fs = require('fs');\n"
+        "global.window = {};\n"
+        "global.document = { addEventListener: function () {} };\n"
+        "eval(" + json.dumps(source) + ");\n"
+        + r"""
+const groups = [
+  {group_index: 0, sets: 1, load_kg: 120, reps_low: 3, reps_high: 5, rir_target: 1},
+  {group_index: 1, sets: 3, load_kg: 100, reps_low: 3, reps_high: 5, rir_target: 3}
+];
+function expectGroup(setNumber, index) {
+  const group = workoutGroupAtSet(groups, setNumber);
+  if (group == null || group.group_index !== index) {
+    throw new Error("set " + setNumber + " should use group " + index);
+  }
+}
+expectGroup(1, 0);
+expectGroup(2, 1);
+expectGroup(4, 1);
+expectGroup(9, 1);   // beyond the plan: stay on the last group, never dead
+const straight = workoutGroupAtSet([], 1);
+if (straight !== null) throw new Error("straight sets have no group");
+
+const item = {exercise_id: "ssb_squat", order_index: 0, sets: 4,
+              reps_low: 3, reps_high: 5, load_kg: 100, rir_target: 3, set_groups: groups};
+window.__workoutData = {sets: []};
+let next = workoutNextGroup(item);
+if (next == null || next.group_index !== 0) throw new Error("first set is the first group");
+window.__workoutData = {sets: [{exercise_id: "ssb_squat", prescription_item_index: 0}]};
+next = workoutNextGroup(item);
+if (next == null || next.group_index !== 1) throw new Error("second set is the back-off group");
+window.__workoutData = {sets: [
+  {exercise_id: "ssb_squat", prescription_item_index: 0},
+  {exercise_id: "ssb_squat", prescription_item_index: 0},
+  {exercise_id: "ssb_squat", prescription_item_index: 0}
+]};
+next = workoutNextGroup(item);
+if (next == null || next.group_index !== 1) throw new Error("later sets stay on the last group");
+"""
+    )
+    result = _run_node(script)
+    assert result.returncode == 0, result.stderr
+
+
 def test_remaining_ui_controls_are_present() -> None:
     page = INDEX.read_text(encoding="utf-8")
     app = (STATIC / "app.js").read_text(encoding="utf-8")
@@ -488,8 +538,12 @@ def test_remaining_ui_controls_are_present() -> None:
     assert "review-table" in app and "historical · read only" in app
     assert "search-select" in core and "filterNativeSelect" in core
     assert "exercisePickerHtml" in app
-    assert 'id="workout-swap-dialog"' in page
-    assert "openWorkoutSwapDialog" in workout
+    # The plan is frozen at start: the swap/remove/set-count/add surface is gone
+    # (DEC-RESOLVER-23), and nothing calls a plan-edit route.
+    assert 'id="workout-swap-dialog"' not in page
+    assert "openWorkoutSwapDialog" not in workout
+    assert "/plan/" not in workout
+    assert "workout-set-groups" in app and "workoutNextGroup" in workout
     assert "applyFieldErrors" in core
     assert "PROFILE_ERRORS" in app and "CONSTRAINT_ERRORS" in app
 

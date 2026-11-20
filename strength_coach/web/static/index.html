@@ -675,7 +675,7 @@
       <div class="panel" id="workout-active-panel" hidden>
         <div class="panel-head"><h2 id="workout-title">Workout in progress</h2>
           <span class="badge" id="workout-timer">00:00</span></div>
-        <p class="section-help"><span>Log actual sets first; plan edits, device import and end-session data are secondary.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md">Workout guide</a></p>
+        <p class="section-help"><span>Log actual sets first; device import and end-session data are secondary.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md">Workout guide</a></p>
         <div id="workout-meta" class="muted"></div>
         <div id="workout-volume"></div>
 
@@ -714,8 +714,8 @@
         </div>
 
         <details class="advanced" id="workout-plan-details" open>
-          <summary>Plan and plan edits</summary>
-          <p class="section-help"><span>The editable workout plan; the original prescription is kept separately.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md">Workout guide</a></p>
+          <summary>Plan (frozen at start)</summary>
+          <p class="section-help"><span>The plan is frozen when the workout starts, so this view never edits it. A structured item shows one row per planned set group, in order.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md">Workout guide</a></p>
           <div id="workout-plan"></div>
         </details>
 
@@ -1509,26 +1509,6 @@
             <span id="exercise-history-page-status" class="muted" role="status" aria-live="polite"></span></div>
         </details>
       </section>
-    </dialog>
-
-    <dialog id="workout-swap-dialog" class="app-dialog" aria-labelledby="workout-swap-title">
-      <form id="workout-swap-form">
-        <div class="panel-head"><h2 id="workout-swap-title">Swap exercise</h2></div>
-        <p class="section-help"><span>Replaces the selected lift in the current workout plan; the original prescription stays frozen.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md">Workout guide</a></p>
-        <p class="muted">Replace <strong id="workout-swap-current"></strong> with:</p>
-        <label>Exercise
-          <span class="search-select">
-            <input id="workout-swap-filter" type="search" class="search-select-filter"
-              placeholder="Filter exercises…" aria-label="Filter exercise list" autocomplete="off">
-            <select id="workout-swap-exercise" aria-label="Replacement exercise"></select>
-          </span>
-        </label>
-        <div class="form-row">
-          <button class="primary" type="submit">Swap</button>
-          <button class="ghost" type="button" id="workout-swap-cancel">Cancel</button>
-          <span id="workout-swap-msg" class="muted" role="status" aria-live="polite"></span>
-        </div>
-      </form>
     </dialog>
 
     <dialog id="chart-dialog" class="app-dialog wide chart-dialog" aria-labelledby="chart-dialog-title">

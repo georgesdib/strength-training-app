@@ -242,14 +242,18 @@ function updateWorkoutSetTarget() {
     target.textContent = "This exercise is not in the current plan; log it anyway if intended.";
     return;
   }
-  // The web form no longer solicits a set role (DEC-RESOLVER-23). The item summary load is
-  // the back-off load for a structured item, so this is a pre-structure target until the
-  // order-aware web groups land with WP2.
-  var planned = item.sets + " × " + item.reps_low + "–" + item.reps_high + " @ " +
-    (item.load_kg == null ? "load unknown" : fmt(item.load_kg) + " kg") +
-    ", " + (item.effort_model === "quality"
-      ? (item.quality_stop || "quality stop")
-      : (item.rir_target == null ? "no RIR target" : "RIR " + item.rir_target));
+  // A structured item targets the next planned group by cumulative set count; a straight
+  // item uses its summary (DEC-RESOLVER-18/23).
+  var group = workoutNextGroup(item);
+  var planned = group
+    ? Number(group.sets) + " × " + group.reps_low + "–" + group.reps_high + " @ " +
+      (group.load_kg == null ? "load unknown" : fmt(group.load_kg) + " kg") +
+      (group.rir_target == null ? "" : ", RIR " + group.rir_target)
+    : item.sets + " × " + item.reps_low + "–" + item.reps_high + " @ " +
+      (item.load_kg == null ? "load unknown" : fmt(item.load_kg) + " kg") +
+      ", " + (item.effort_model === "quality"
+        ? (item.quality_stop || "quality stop")
+        : (item.rir_target == null ? "no RIR target" : "RIR " + item.rir_target));
   target.innerHTML = "Planned <strong>" + esc(planned) + "</strong>. Logging set <strong>" +
     nextWorkoutSetNumber(exerciseId) + "</strong>.<br>" +
     vbtApplicabilityHtml(
@@ -281,20 +285,49 @@ function workoutSetGroupsHtml(item) {
   return typeof setGroupsHtml === "function" ? setGroupsHtml(item) : "";
 }
 
+function workoutLoggedSetCount(item) {
+  var sets = (window.__workoutData && window.__workoutData.sets) || [];
+  var identity = item.order_index == null ? null : Number(item.order_index);
+  return sets.filter(function (set) {
+    return String(set.exercise_id) === String(item.exercise_id) &&
+      (identity == null || set.prescription_item_index == null ||
+       Number(set.prescription_item_index) === identity);
+  }).length;
+}
+
+function workoutGroupAtSet(groups, setNumber) {
+  var cumulative = 0;
+  for (var index = 0; index < groups.length; index += 1) {
+    cumulative += Number(groups[index].sets || 0);
+    if (setNumber <= cumulative) return groups[index];
+  }
+  return groups.length ? groups[groups.length - 1] : null;
+}
+
+function workoutNextGroup(item) {
+  var groups = (item && item.set_groups) || [];
+  if (!groups.length) return null;
+  return workoutGroupAtSet(groups, workoutLoggedSetCount(item) + 1);
+}
+
 function prefillWorkoutSetFields(force) {
   var item = workoutPlanItem($("#workout-set-exercise").value);
   if (!item) return;
-  // A structured item pre-fills its summary (back-off) load until the order-aware group
-  // prefill lands with WP2; the role picker no longer exists (DEC-RESOLVER-23).
+  // A structured item pre-fills the next planned group by cumulative set count; a straight
+  // item falls back to its summary load. No role is read (DEC-RESOLVER-18/23).
+  var group = workoutNextGroup(item);
+  var targetLoad = group ? group.load_kg : item.load_kg;
+  var targetReps = group ? group.reps_low : item.reps_low;
+  var targetRir = group ? group.rir_target : item.rir_target;
   if (force || $("#workout-set-load").value === "") {
-    $("#workout-set-load").value = item.load_kg == null ? "" : item.load_kg;
+    $("#workout-set-load").value = targetLoad == null ? "" : targetLoad;
   }
   if (force || $("#workout-set-reps").value === "") {
-    $("#workout-set-reps").value = item.reps_low == null ? "" : item.reps_low;
+    $("#workout-set-reps").value = targetReps == null ? "" : targetReps;
   }
   if (force || $("#workout-set-rir").value === "") {
-    $("#workout-set-rir").value = item.effort_model === "quality" || item.rir_target == null
-      ? "" : item.rir_target;
+    $("#workout-set-rir").value = item.effort_model === "quality" || targetRir == null
+      ? "" : targetRir;
   }
   if (force) $("#workout-set-velocity").value = "";
 }
@@ -310,49 +343,6 @@ function loadWorkoutExercises() {
     if (activeWorkoutId) loadActiveWorkout();
     return workoutExerciseList;
   }).catch(function () { return []; });
-}
-
-function openWorkoutSwapDialog(index) {
-  var data = window.__workoutData || {};
-  var item = ((data.plan && data.plan.items) || [])[index];
-  if (!item) return;
-  window.__workoutSwapIndex = index;
-  $("#workout-swap-current").textContent = workoutExerciseLabel(item.exercise_id);
-  $("#workout-swap-exercise").innerHTML = workoutExerciseOptions("");
-  var filter = $("#workout-swap-filter");
-  filter.value = "";
-  filterNativeSelect(filter);
-  $("#workout-swap-msg").textContent = "";
-  $("#workout-swap-dialog").showModal();
-  filter.focus();
-}
-
-function submitWorkoutSwap(event) {
-  event.preventDefault();
-  var exerciseId = $("#workout-swap-exercise").value;
-  var index = window.__workoutSwapIndex;
-  if (!exerciseId) {
-    $("#workout-swap-msg").textContent = "Choose a replacement exercise.";
-    $("#workout-swap-exercise").focus();
-    return;
-  }
-  $("#workout-swap-dialog").close();
-  window.__workoutSwapIndex = null;
-  planAction("swap", { item_index: Number(index), exercise_id: exerciseId });
-}
-
-function planAction(action, body) {
-  if (!activeWorkoutId) return;
-  $("#workout-plan-msg").textContent = "Updating plan…";
-  api("/api/workout/" + activeWorkoutId + "/plan/" + action, {
-    method: "POST", body: JSON.stringify(body)
-  }).then(function (data) {
-    $("#workout-plan-msg").textContent = "";
-    notify("Workout plan updated.");
-    renderWorkout(data.workout);
-  }).catch(function (error) {
-    $("#workout-plan-msg").innerHTML = '<p class="warnbox">' + esc(error.message) + "</p>";
-  });
 }
 
 function renderImportPreview(preview) {
@@ -491,26 +481,8 @@ function renderWorkout(w) {
   var items = plan.items || [];
   var formById = {};
   (w.forms || []).forEach(function (form) { formById[form.exercise_id] = form; });
-  function planSetState(item, index) {
-    var identity = item.order_index != null ? Number(item.order_index) : index;
-    var attributed = 0;
-    var ambiguous = 0;
-    (w.sets || []).forEach(function (row) {
-      if (row.exercise_id !== item.exercise_id) return;
-      if (row.prescription_item_index == null) ambiguous += 1;
-      else if (Number(row.prescription_item_index) === identity) attributed += 1;
-    });
-    return {
-      attributed: attributed,
-      ambiguous: ambiguous,
-      swapBlocked: attributed + ambiguous > 0,
-      decreaseBlocked: ambiguous > 0 || Number(item.sets) <= attributed
-    };
-  }
   var rows = items.map(function (item, index) {
     var form = formById[item.exercise_id];
-    var setState = planSetState(item, index);
-    var lastItem = items.length === 1;
     var history = workoutHistoryFor(item.exercise_id);
     var formOptions = ['<option value="">—</option>'];
     for (var rating = 1; rating <= 5; rating += 1) {
@@ -520,6 +492,8 @@ function renderWorkout(w) {
     var effort = item.effort_model === "quality"
       ? (item.quality_stop || "quality stop")
       : (item.rir_target == null ? "no RIR target" : "RIR " + item.rir_target);
+    // The plan is frozen at start: this card is read-only. A structured item shows one
+    // unlabelled row per planned group in order (DEC-RESOLVER-18/23).
     return '<article class="workout-plan-card">' +
       '<div class="workout-plan-card-head"><strong>' + esc(workoutExerciseLabel(item.exercise_id)) + '</strong>' +
       '<span class="workout-plan-card-tools"><span class="badge">' + item.sets + ' sets</span>' +
@@ -536,41 +510,14 @@ function renderWorkout(w) {
       (item.added_during_workout ? '<p class="muted">added during workout</p>' : "") +
       workoutHistoryPanel(item.exercise_id, index, history) +
       '<div class="workout-plan-actions">' +
-      '<div class="set-stepper" role="group" aria-label="Planned sets for ' + esc(item.exercise_id) + '">' +
-      '<button class="ghost" type="button" data-plan-set="-1" data-index="' + index +
-      '" aria-label="Remove one planned set"' + (setState.decreaseBlocked ? " disabled" : "") +
-      '>−</button><span>' + item.sets + '</span>' +
-      '<button class="ghost" type="button" data-plan-set="1" data-index="' + index +
-      '" aria-label="Add one planned set"' + (Number(item.sets) >= 20 ? " disabled" : "") +
-      '>+</button></div>' +
       '<label class="inline-field">Form ' +
       '<select data-form-exercise="' + esc(item.exercise_id) + '" aria-label="Form rating for ' +
       esc(item.exercise_id) + '">' + formOptions.join("") + '</select></label>' +
-      '</div>' +
-      '<details class="plan-options"><summary>Swap or remove</summary>' +
-      '<button class="ghost" type="button" aria-label="Swap ' + esc(item.exercise_id) +
-      '" data-swap-open="' + index + '"' + (setState.swapBlocked ? " disabled" : "") +
-      '>Swap exercise</button> ' +
-      '<button class="ghost danger" type="button" aria-label="Remove ' + esc(item.exercise_id) + ' from plan" data-remove-item="' + index + '"' +
-      (lastItem ? " disabled" : "") + '>Remove from plan</button>' +
-      (setState.swapBlocked ? '<p class="muted">Swap is unavailable after sets are logged for this exercise.</p>' : "") +
-      (lastItem ? '<p class="muted">The last exercise cannot be removed.</p>' : "") +
-      (setState.decreaseBlocked ? '<p class="muted">The set target cannot go below the logged sets.</p>' : "") +
-      '</details></article>';
+      '</div></article>';
   }).join("");
   $("#workout-plan").innerHTML = '<div id="workout-plan-msg" role="status" aria-live="polite"></div>' +
     (rows || "<p class='empty'>No planned exercises.</p>") +
-    '<details class="advanced"><summary>Form scale (optional)</summary><p class="muted">5 = intended technique on every rep; 4 = minor deviation, no compromised rep; 3 = clear deviation in at least one rep; 2 = multiple compromised reps or a noticeably altered rep; 1 = technique broke down / set stopped. Rate after the lift, per exercise.</p></details>' +
-    '<details class="advanced"><summary>Add an exercise to the plan</summary><div class="form-row">' +
-    '<label>Add exercise <span class="search-select">' +
-    '<input type="search" class="search-select-filter" placeholder="Filter exercises…" aria-label="Filter exercise list">' +
-    '<select id="workout-add-exercise" aria-label="Exercise to add">' + workoutExerciseOptions("") + "</select></span></label>" +
-    '<label>Sets <input id="workout-add-sets" type="number" min="1" max="20" value="3"></label>' +
-    '<label>Reps low <input id="workout-add-reps-low" type="number" min="1" max="50" value="8"></label>' +
-    '<label>Reps high <input id="workout-add-reps-high" type="number" min="1" max="50" value="12"></label>' +
-    '<label>kg <input id="workout-add-load" type="number" step="0.5"></label>' +
-    '<label>RIR <input id="workout-add-rir" type="number" min="0" max="6" value="2"></label>' +
-    '<button class="ghost" type="button" id="workout-add-exercise-run">Add to plan</button></div></details>';
+    '<details class="advanced"><summary>Form scale (optional)</summary><p class="muted">5 = intended technique on every rep; 4 = minor deviation, no compromised rep; 3 = clear deviation in at least one rep; 2 = multiple compromised reps or a noticeably altered rep; 1 = technique broke down / set stopped. Rate after the lift, per exercise.</p></details>';
   document.querySelectorAll("[data-form-exercise]").forEach(function (select) {
     select.addEventListener("change", function () {
       if (!select.value || !activeWorkoutId) return;
@@ -583,37 +530,6 @@ function renderWorkout(w) {
       }).catch(function (error) {
         notify(error.message, "error");
       });
-    });
-  });
-  document.querySelectorAll("[data-plan-set]").forEach(function (button) {
-    button.addEventListener("click", function () {
-      planAction("set-count", { item_index: Number(button.dataset.index), delta: Number(button.dataset.planSet) });
-    });
-  });
-  document.querySelectorAll("[data-remove-item]").forEach(function (button) {
-    button.addEventListener("click", function () {
-      var item = items[Number(button.dataset.removeItem)];
-      var name = item ? workoutExerciseLabel(item.exercise_id) : "this exercise";
-      if (!window.confirm("Remove " + name + " from the workout plan? The original prescription stays.")) return;
-      planAction("remove-exercise", { item_index: Number(button.dataset.removeItem) });
-    });
-  });
-  document.querySelectorAll("[data-swap-open]").forEach(function (button) {
-    button.addEventListener("click", function () {
-      openWorkoutSwapDialog(Number(button.dataset.swapOpen));
-    });
-  });
-  var add = document.getElementById("workout-add-exercise-run");
-  if (add) add.addEventListener("click", function () {
-    var select = document.getElementById("workout-add-exercise");
-    if (!select || !select.value) return;
-    planAction("add-exercise", {
-      exercise_id: select.value,
-      sets: Number(document.getElementById("workout-add-sets").value),
-      reps_low: Number(document.getElementById("workout-add-reps-low").value),
-      reps_high: Number(document.getElementById("workout-add-reps-high").value),
-      load_kg: document.getElementById("workout-add-load").value || null,
-      rir_target: document.getElementById("workout-add-rir").value || null
     });
   });
 
@@ -1157,10 +1073,6 @@ document.addEventListener("DOMContentLoaded", function () {
   if (start) start.addEventListener("submit", submitWorkoutStart);
   var setForm = document.getElementById("workout-set-form");
   if (setForm) setForm.addEventListener("submit", submitWorkoutSet);
-  var swapForm = document.getElementById("workout-swap-form");
-  if (swapForm) swapForm.addEventListener("submit", submitWorkoutSwap);
-  var swapCancel = document.getElementById("workout-swap-cancel");
-  if (swapCancel) swapCancel.addEventListener("click", () => $("#workout-swap-dialog").close());
   ["#workout-set-exercise", "#workout-set-reps"].forEach(function (selector) {
     var input = document.querySelector(selector);
     if (!input) return;

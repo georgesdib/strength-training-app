@@ -1243,14 +1243,13 @@ function volumePanelHtml(panel, label = "Weekly volume") {
 
 function setGroupsHtml(item) {
   if (!item.set_groups || !item.set_groups.length) return "";
-  // Order is the only identity: the server sends group_index and no role
-  // (DEC-RESOLVER-18). A compact preview; order-aware per-row display is WP2.
-  return '<div class="muted">' + item.set_groups.map((group, index) =>
-    "Group " + (Number(group.group_index == null ? index : group.group_index) + 1) +
-    ": " + group.sets + " × " +
-    group.reps_low + "–" + group.reps_high + " @ " + fmt(group.load_kg) + " kg" +
-    (group.rir_target == null ? "" : " · RIR " + group.rir_target)
-  ).join(" · ") + "</div>";
+  // Order is the only identity: one unlabelled row per planned group, in order
+  // (DEC-RESOLVER-18/23).
+  return '<ul class="workout-set-groups muted">' + item.set_groups.map(function (group) {
+    return "<li>" + Number(group.sets || 0) + " × " + group.reps_low + "–" + group.reps_high +
+      " @ " + (group.load_kg == null ? "load unknown" : fmt(group.load_kg) + " kg") +
+      (group.rir_target == null ? "" : " · RIR " + group.rir_target) + "</li>";
+  }).join("") + "</ul>";
 }
 
 function cachePrescription(plan) {
