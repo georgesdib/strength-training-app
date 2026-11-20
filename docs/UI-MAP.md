@@ -84,7 +84,7 @@ current destinations; they do not duplicate their forms or imply new data contra
 | Prospective check | W5 programme-level summary, not a model forecast | [W5-PROSPECTIVE-EVALUATION.md](archive/audits/W5-PROSPECTIVE-EVALUATION.md) |
 | Form trend | Descriptive form observations; no prescription change | [FORM-PROSPECTIVE.md](FORM-PROSPECTIVE.md) |
 | Readiness feedback | Association between readiness reductions and next session; no tuning | [READINESS.md](READINESS.md) |
-| Prescribe form | Deterministic four-session-type prescription; hard constraints, fallback, top-set/back-off ask and plain-English generation flow | [WORKOUT-GENERATION.md](WORKOUT-GENERATION.md), [METHODOLOGY.md](METHODOLOGY.md) |
+| Prescribe form | Deterministic four-session-type prescription; hard constraints, fallback, top-set intent (off/preferred/required) and plain-English generation flow | [WORKOUT-GENERATION.md](WORKOUT-GENERATION.md), [METHODOLOGY.md](METHODOLOGY.md) |
 | Continuity calibration | Gap/continuity evidence and fixed fallback | [CONTINUITY.md](CONTINUITY.md) |
 | Weekly volume | MEV/MAV/MRV ledger and MRV cap | [VOLUME-MANAGEMENT.md](VOLUME-MANAGEMENT.md) |
 | Exposure ratio | Rolling 7/28-day hard-set ratio, coverage, abstention and per-group signals; no prescription effect | [FATIGUE-SIGNALS.md](FATIGUE-SIGNALS.md) |

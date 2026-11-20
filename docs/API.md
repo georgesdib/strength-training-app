@@ -396,9 +396,9 @@ in the StrengthApp repository.
 > structure plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/RESOLVER-PRESCRIPTION-STRUCTURE.md)
 > retires the five plan-edit routes, replaces the request `top_set` boolean with `top_set_intent`,
 > adds `programme_header` to Today and execution substitutions/additions. Implemented
-> 2026-11-20: the plan-edit routes are gone, the plan is frozen and `execution` is live.
-> `top_set_intent` (WP3) and `programme_header` (WP4) are still pending; this table describes the
-> routes that remain.
+> 2026-11-20: the plan-edit routes are gone, the plan is frozen and `execution` is live; the
+> request accepts `top_set_intent` and the plan payload carries the frozen `top_set` outcome.
+> `programme_header` (WP4) is still pending; this table describes the routes that remain.
 
 | route | auth | payload |
 |---|---|---|
@@ -423,7 +423,7 @@ in the StrengthApp repository.
 | `POST /api/ios/v1/healthkit/samples` | bearer + Idempotency-Key | `{samples:[{key, workout_key, kind, sampled_at, value, unit, association, source_name?}], metrics?:[{key, kind, measured_at, value, method}]}` -> `{samples, created, existing, rejected, rejected_keys, metrics?}`; samples land beside their workout (uploaded first), metrics in `measurement`; per-item tolerance, a bad row is counted, its key returned and skipped |
 | `GET /api/ios/v1/healthkit/activity/summary?weeks=N` | bearer | `{summary, recent}` — the same computation the browser panel uses, authenticated for the phone |
 | `POST /api/ios/v1/healthkit/readiness` | bearer + Idempotency-Key | `{date, samples:[{field, value, sample_id, sample_at, source_name, source_bundle_id?, source_class, source_model?, source_manufacturer?}]}` -> the canonical readiness payload plus `healthkit` provenance; one to three samples (HRV, RHR, bodyweight), server-local today for the import, sample identity deduplicated; see Phase 3A contract |
-| `POST /api/ios/v1/prescriptions` | bearer + Idempotency-Key | `{readiness_ack?, confirmations?: {deload?, drop?}, settings?: {session_type?, minimum_session?, minimum_target_minutes?, top_set?}}` -> `202 {issued_plan_id, status, for_date, request_expires_at, plan_expires_at, retry_after_ms, settings}`; the request is built in the background (R7) |
+| `POST /api/ios/v1/prescriptions` | bearer + Idempotency-Key | `{readiness_ack?, confirmations?: {deload?, drop?}, settings?: {session_type?, minimum_session?, minimum_target_minutes?, top_set_intent?}}` where `top_set_intent` is `off`, `preferred` or `required` (omitted follows the profile) -> `202 {issued_plan_id, status, for_date, request_expires_at, plan_expires_at, retry_after_ms, settings}`; the request is built in the background (R7) |
 | `GET /api/ios/v1/plans/current` | bearer | the authoritative plan-request state: `{status: queued|building|ready|error|none, issued_plan_id, elapsed_seconds, settings, plan?, readiness?, warnings?, error?}`; `none` is a normal answer, not a 404 |
 | `POST /api/ios/v1/workouts` | bearer + Idempotency-Key | `{issued_plan_id}` -> the existing workout detail; starts by id only; expired/superseded/consumed plans are 410, another active workout is 409 |
 | `POST /api/ios/v1/workouts/<id>/sets` | bearer + Idempotency-Key | `{exercise_id, load_kg?, reps, rir?, velocity_mps?, set_index?, plan_item_index?, substitutes_plan_item_index?, rep_velocities?, performed_at?}` -> workout detail; `plan_item_index` is the stable plan-item identity (not the display position); `substitutes_plan_item_index` annotates a set that replaced that slot (the performed exercise must differ, and both stored columns then hold the slot); a stale index with no annotation is kept as extra work with no attribution; `velocity_mps` is optional manual mean and `rep_velocities` is optional `[{rep_index, velocity_mps}]`; values must be positive and reps are required |

@@ -212,7 +212,7 @@ resolver was enabled on that copy only. The live database was opened read-only f
 ### 9.1 Resolver build
 
 Same inputs as §2: date 2026-11-04, squat, `minimum_target_minutes=30`,
-`top_set_requested=False`, public `resolver.build_resolved` with the clean-set snapshot on.
+`top_set_intent="off"`, public `resolver.build_resolved` with the clean-set snapshot on.
 
 | Run | Wall | CPU |
 |---|---:|---:|
@@ -299,7 +299,7 @@ The MacBook figures in §11.2–§11.4 located the work; §11.5 is the deploymen
 The owner's database was not opened. The benchmark database is synthetic, built from the
 checked-in taxonomy and session templates: **407 sessions and 9,160 clean sets**, deliberately
 close to the production shape in §10 (379 / 8,009). Same inputs as §2–§9: date 2026-11-04,
-squat emphasis, `minimum_target_minutes=30`, `top_set_requested=False`, resolver enabled.
+squat emphasis, `minimum_target_minutes=30`, `top_set_intent="off"`, resolver enabled.
 
 Calibration: the baseline build is **2.47 s p50** here against 27.77 s p50 for the same build
 on the ODROID-C4 (§11.5), so this host is about **11×** the C4 for the untouched path. The
