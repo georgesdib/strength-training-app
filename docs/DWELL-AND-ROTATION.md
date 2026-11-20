@@ -132,6 +132,16 @@ The four retired keys (resolver.rotation.main, resolver.rotation.accessory,
 resolver.rotation.default, resolver.rotation.max_dwell) no longer have any effect. Historical
 profiles still load; the keys cannot be set again.
 
+## 4.1 Fixed-history ordering comparison
+
+`python -m strength_coach.prescribe.dwell_ab` runs one synthetic squat history through
+cap-only, cap plus draw, cap plus draw plus bounded factor, and the rejected pure-factor
+reference. It records the pool order and the resolver's selected exercise with the same
+feasibility, band, volume and time gates. The production default remains the full layer; the
+pure-factor reference is never selectable. The 2026-11-20 run moved the later
+`competition_squat` ahead of `ssb_squat` in the draw/full orders while the evaluator still chose
+`ssb_squat`, with no safety, band or time change.
+
 ## 5. Counter storage and audit
 
 exercise_dwell_state is one mutable row per exercise (exercise_id, done_count, updated_at).

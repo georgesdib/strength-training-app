@@ -311,6 +311,41 @@ def test_candidate_pools_order_by_dwell_factor_and_demote_the_last_choice() -> N
         store.close()
 
 
+def test_dwell_variants_show_cap_draw_and_factor_order() -> None:
+    base = ["ssb_squat", "competition_squat"]
+    patterns = {"ssb_squat": "squat", "competition_squat": "squat"}
+    counts = {"ssb_squat": 0, "competition_squat": 2}
+    common = dict(
+        for_date="2026-11-01",
+        session_type="squat",
+        slot_id="squat_main",
+        patterns=patterns,
+        counts=counts,
+        last_used={"ssb_squat": "2026-10-30"},
+    )
+    cap = generator._dwell_ordered_pool(
+        base, settings=_settings(**{"resolver.dwell.probability": 1.0}),
+        variant="cap", **common,
+    )
+    drawn = generator._dwell_ordered_pool(
+        base, settings=_settings(**{"resolver.dwell.probability": 1.0}),
+        variant="cap_draw", **common,
+    )
+    full = generator._dwell_ordered_pool(
+        base, settings=_settings(**{"resolver.dwell.probability": 0.0}),
+        variant="full", **common,
+    )
+    pure = generator._dwell_ordered_pool(
+        base, settings=_settings(**{"resolver.dwell.probability": 0.0}),
+        variant="pure_factor", **common,
+    )
+    assert cap == base
+    assert drawn[0] == "competition_squat"
+    assert full[0] == "competition_squat"
+    assert pure[0] == "competition_squat"
+    assert pure[-1] == "ssb_squat"
+
+
 def test_candidate_pools_keep_the_pool_when_every_candidate_is_at_the_cap() -> None:
     store = db.Store(":memory:")
     try:

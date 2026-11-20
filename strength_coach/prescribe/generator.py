@@ -381,6 +381,7 @@ def _dwell_ordered_pool(
     last_used: Mapping[str, str],
     settings: ResolverSettings,
     last_choice_hint: str | None = None,
+    variant: str = "full",
 ) -> list[str]:
     """Order one eligible pool by the bounded dwell rule.
 
@@ -389,7 +390,21 @@ def _dwell_ordered_pool(
     override coverage; the draw demotes the slot's last choice to the end of its class instead
     of removing it, keeping the fallback available.
     """
+    if variant not in {"cap", "cap_draw", "full", "pure_factor"}:
+        raise ValueError(f"unknown dwell variant {variant!r}")
     catalogue_order = {exercise_id: index for index, exercise_id in enumerate(candidates)}
+    if variant == "cap":
+        return list(candidates)
+    if variant == "pure_factor":
+        return sorted(
+            candidates,
+            key=lambda exercise_id: (
+                -dwell_feature.factor(
+                    int(counts.get(exercise_id, 0)), settings.dwell_tau
+                ),
+                catalogue_order[exercise_id],
+            ),
+        )
     classes: dict[str, list[str]] = {}
     class_order: list[str] = []
     for exercise_id in candidates:
@@ -398,15 +413,16 @@ def _dwell_ordered_pool(
             classes[key] = []
             class_order.append(key)
         classes[key].append(exercise_id)
-    for key in class_order:
-        classes[key].sort(
-            key=lambda exercise_id: (
-                -dwell_feature.factor(
-                    int(counts.get(exercise_id, 0)), settings.dwell_tau
-                ),
-                catalogue_order[exercise_id],
+    if variant == "full":
+        for key in class_order:
+            classes[key].sort(
+                key=lambda exercise_id: (
+                    -dwell_feature.factor(
+                        int(counts.get(exercise_id, 0)), settings.dwell_tau
+                    ),
+                    catalogue_order[exercise_id],
+                )
             )
-        )
     last_choice = None
     if last_used:
         available = [c for c in candidates if c in last_used]
@@ -435,6 +451,7 @@ def candidate_pools(
     settings: ResolverSettings | None = None,
     context: RuleContext | None = None,
     template: templates.SessionTemplate | None = None,
+    dwell_variant: str = "full",
 ) -> CandidatePools:
     """Return eligible candidate pools for the joint beam.
 
@@ -520,6 +537,7 @@ def candidate_pools(
             last_used=last_used,
             settings=settings,
             last_choice_hint=hint,
+            variant=dwell_variant,
         ))
         _auto_check, suggestions = _classify_candidates(
             raw_pools[slot.id],
