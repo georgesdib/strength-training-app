@@ -143,12 +143,20 @@ history correction is reflected rather than the original live `workout_set` draf
 block was removed in AFC-2 (`DEC-AFC-01`). The raw `comparison`/`original_comparison` on
 `GET /api/workout/<id>` remains the display contract for a workout that has not been
 materialised (in progress or abandoned); it is not a metric source. The
-existing `is_working_set` classification is authoritative and RIR 6 remains the logged
-warm-up sentinel; contradictory rows are reported as ambiguous. Load is compared as external
-load, using the stored `load_basis`/`external_load_kg`; a captured bodyweight total is not
-treated as an added plate. RIR deviation is actual minus target (positive means further from
-failure). Unmatched, ambiguous, mismatched and removed-exercise sets remain visible under
-`quality`.
+existing `is_working_set` classification is authoritative and RIR 6 is the logged
+warm-up sentinel unconditionally; a stored flag that disagrees is a data-quality note, not a
+second classification. Load is compared as external load, using the stored
+`load_basis`/`external_load_kg`; a captured bodyweight total is not treated as an added plate.
+RIR deviation is actual minus target (positive means further from failure). Unmatched,
+ambiguous, mismatched and removed-exercise sets remain visible under `quality`.
+
+Each exercise entry also carries a descriptive `structure`
+(`structure`, `confidence`, `load_shape`, `segments`, `limitations`) derived from the recorded
+working order, and `substituted`/`planned_exercise_id`/`performed_exercise_id`. A substituted
+set is attributed through `substitutes_plan_item_index` and compared with the server-solved
+prefill when the execution event is present; without one, load quality is unavailable. An
+addition stays extra work outside the planned denominator. Derived structure never changes a raw
+set or any training metric.
 
 `changes` separates swaps, additions, removals, set-count edits and target edits. When the
 original prescription cannot be attributed reliably (a swap removes that item from the
