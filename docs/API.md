@@ -9,7 +9,7 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 
 | route | purpose |
 |---|---|
-| `GET /api/overview` | dashboard data |
+| `GET /api/overview` | dashboard data, including the read-only `programme_header` |
 | `GET /api/progress?date=&weeks=` | descriptive attendance aggregate, weekly average volume, sRPE coverage, recent performance-ratio observations and observed weekly RIR/tonnage/residual series (`weekly`, `missing_weeks`) |
 | `GET /api/adherence/analytics?date=&weeks=&from=&to=&exercise_id=&session_type=&group_by=week\|month` | summed prescription-adherence totals, periods, exercise comparison and completed-workout drill-down; app-tracked completed workouts only |
 | `GET /api/outcomes?weeks=&date=` | read-only strength, volume, attendance, readiness, cardio, measurement and symptom summaries |
@@ -404,7 +404,7 @@ in the StrengthApp repository.
 |---|---|---|
 | `POST /api/ios/v1/pair` | none | `{code, label?}` -> `{api_version, device, token, server_date, server_time, utc_offset_minutes, server_timezone}`; the token is shown once |
 | `GET /api/ios/v1/bootstrap` | bearer | `{api_version, server_date, server_time, utc_offset_minutes, server_timezone, capabilities}`; Phase 2 adds `readiness_write`, `prescription` and `workout_write`; Phase 3A adds `healthkit_readiness` (false when mutations are disabled); INT-3 adds `intelligence_read` |
-| `GET /api/ios/v1/today` | bearer | `{date, readiness, readiness_score, active_workout}`; `readiness` is the existing `/api/readiness/<date>` payload and `active_workout` is null or the live workout detail |
+| `GET /api/ios/v1/today` | bearer | `{date, readiness, readiness_score, active_workout, plan, programme_header}`; `readiness` is the existing `/api/readiness/<date>` payload; `active_workout` is null or the live workout detail; `programme_header` is the read-only `{trained_week, dup?, deload, competition?}` context |
 | `GET /api/ios/v1/history?limit=&offset=&start=&end=` | bearer | exactly `history.list_sessions`; limit 1-100, default 50; offset >= 0, default 0 |
 | `GET /api/ios/v1/history/<id>` | bearer | exactly `history.detail`; session outline, measured/manual duration, sets and feedback; unknown id 404 |
 | `GET /api/ios/v1/workouts/<id>/summary` | bearer | `{"summary": ...}` — the same completed-workout summary payload as the web route (adherence, VBT, feedback, quality flags and evidence); `ratios` is always an empty list here because relative-strength ratios walk the whole lift history and the native report does not render them, so the mobile request stays inside its timeout; unknown id 404, in-progress 409 |
