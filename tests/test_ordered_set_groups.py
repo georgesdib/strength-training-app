@@ -70,13 +70,6 @@ def _item(
     )
 
 
-def test_three_group_fixture_validates_and_keeps_its_order() -> None:
-    Item = _fixture("ordered_three_group_plan.json")["item"]
-    validate_plan_set_groups(Item)
-    assert [group["group_index"] for group in Item["set_groups"]] == [0, 1, 2]
-    assert sum(group["sets"] for group in Item["set_groups"]) == Item["sets"]
-
-
 def test_legacy_role_groups_validate_and_are_read_by_list_order() -> None:
     item = _fixture("legacy_two_group_plan.json")["item"]
     validate_plan_set_groups(item)

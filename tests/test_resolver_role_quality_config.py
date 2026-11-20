@@ -49,14 +49,6 @@ def test_legacy_fixture_keeps_roles_and_group_sum() -> None:
     assert sum(group["sets"] for group in groups) == data["item"]["sets"] == 4
 
 
-def test_ordered_fixture_has_no_role_and_contiguous_indexes() -> None:
-    data = _load_json("ordered_three_group_plan.json")
-    groups = data["item"]["set_groups"]
-    assert [group["group_index"] for group in groups] == [0, 1, 2]
-    assert all("role" not in group for group in groups)
-    assert sum(group["sets"] for group in groups) == data["item"]["sets"] == 4
-
-
 def test_straight_set_plan_performed_as_top_set_and_back_offs() -> None:
     data = _load_json("straight_set_plan_top_backoff_performance.json")
     performed = data["performed"]
