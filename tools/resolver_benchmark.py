@@ -150,7 +150,7 @@ def main() -> int:
                 session_type=args.session_type,
                 inputs=EvaluationInputs(
                     minimum_target_minutes=args.minimum_target_minutes,
-                    top_set_requested=False,
+                    top_set_intent="off",
                 ),
             )
             return [item.exercise_id for item in resolved.prescription.items]

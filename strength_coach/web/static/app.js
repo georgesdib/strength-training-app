@@ -1095,18 +1095,12 @@ async function syncPrescribeTopSet() {
   try {
     const profile = await api("/api/settings/profile");
     const mode = (profile.resolved || {})["resolver.top_set.mode"] || "off";
-    if (mode === "off") {
-      select.value = "";
-      select.disabled = true;
-      note.textContent = "Top set is off in Settings → Resolver. Enable it there to use this control.";
-      note.className = "muted";
-    } else {
-      select.disabled = false;
-      note.textContent = mode === "on"
-        ? "Optional main-lift structure; the Settings default is top set on. Applies to fixed and resolver-generated sessions."
-        : "Optional main-lift structure; independent of dynamic exercise selection. Applies to fixed and resolver-generated sessions.";
-      note.className = "muted";
-    }
+    const labels = { off: "straight sets", preferred: "preferred", required: "required" };
+    select.disabled = false;
+    note.textContent =
+      "Optional main-lift structure. Profile default: " + (labels[mode] || mode) +
+      "; a choice here overrides it for this request. Applies to fixed and resolver-generated sessions.";
+    note.className = "muted";
   } catch (error) {
     // Do not hide the control on a transient settings read; the server remains authoritative
     // and will return the explicit top-set rejection if the setting is off.
@@ -1157,7 +1151,7 @@ $("#prescribe-form").addEventListener("submit", async (event) => {
   const topSetValue = $("#prescribe-top-set").value;
   lastPrescribePayload = {
     date, session_type: sessionType,
-    top_set: topSetValue === "on" ? true : topSetValue === "off" ? false : null,
+    top_set_intent: topSetValue || null,
     apply_selection: applySelection,
     selection_confirmed: selectionConfirmed,
     minimum_session: $("#prescribe-minimum").checked,
@@ -1406,9 +1400,12 @@ function renderPrescription(p, options = {}) {
     <strong>${esc(cadence.due ? "due" : "not due")}</strong>
     — ${esc(cadence.next_scheme)} by ${esc(cadence.next_due)}. ${esc(cadence.reason)}</p>` : "";
   const vbtNoteBox = vbtPrescriptionNote(p.notes?.vbt);
-  const topSet = p.notes?.top_set;
+  const topSet = p.top_set || p.notes?.top_set;
+  const topSetApplied = topSet?.status === "applied";
   const topSetBox = topSet?.reason
-    ? `<p class="muted"><strong>${topSet.applied ? "Top set" : "Top set not applied"}:</strong> ${esc(topSet.reason)}</p>`
+    ? `<p class="muted"><strong>${topSetApplied ? "Top set" : "Top set not applied"}${
+        topSet.status ? " [" + esc(topSet.status) + "]" : ""
+      }:</strong> ${esc(topSet.reason)}</p>`
     : "";
   const deload = p.notes?.deload;
   const deloadBox = deload ? `<p class="warnbox"><strong>Deload (${esc(deload.trigger)})</strong>

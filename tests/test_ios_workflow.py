@@ -1943,18 +1943,29 @@ def test_top_set_setting_is_validated_and_echoed(ios):
     token, _ = _paired(ios)
     status, accepted = _issue(
         ios, token, wait=False,
-        body={"settings": {"session_type": "squat", "top_set": True}},
+        body={"settings": {"session_type": "squat", "top_set_intent": "required"}},
     )
     assert status == 202, accepted
-    assert accepted["settings"]["top_set"] is True
+    assert accepted["settings"]["top_set_intent"] == "required"
 
     status, rejected = _issue(
         ios, token, wait=False,
-        body={"settings": {"top_set": "yes"}},
+        body={"settings": {"top_set_intent": "ask"}},
     )
     assert status == 400, rejected
     assert rejected["code"] == "validation_failed"
-    assert rejected["fields"]["top_set"] == "must be true or false"
+    assert rejected["fields"]["top_set_intent"] == (
+        "must be off, preferred or required"
+    )
+
+    # The retired boolean is no longer part of the closed request schema.
+    status, rejected = _issue(
+        ios, token, wait=False,
+        body={"settings": {"top_set": True}},
+    )
+    assert status == 400, rejected
+    assert rejected["code"] == "unknown_field"
+    assert rejected["fields"]["top_set"] == "not accepted"
 
 
 def test_top_set_setting_reaches_the_builder(ios, monkeypatch):
@@ -1971,12 +1982,12 @@ def test_top_set_setting_reaches_the_builder(ios, monkeypatch):
     token, _ = _paired(ios)
     status, state = _issue(
         ios, token,
-        body={"settings": {"session_type": "squat", "top_set": False}},
+        body={"settings": {"session_type": "squat", "top_set_intent": "off"}},
     )
     assert status == 200, state
     assert calls, "the plan builder was not called"
-    assert calls[-1]["top_set_requested"] is False
-    assert state["settings"]["top_set"] is False
+    assert calls[-1]["top_set_intent"] == "off"
+    assert state["settings"]["top_set_intent"] == "off"
 
 
 def test_queue_selection_is_fifo(tmp_path):

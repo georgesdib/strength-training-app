@@ -61,7 +61,7 @@ class EvaluationInputs:
     technique_throttle_pattern: str | Sequence[str] | None = None
     deload_decision: Any = None
     drop_confirmed: bool = False
-    top_set_requested: bool | None = None
+    top_set_intent: str | None = None
     projected_items: tuple[Mapping[str, Any], ...] = ()
     projected_sessions: int = 0
 
@@ -92,7 +92,7 @@ class EvaluationInputs:
             "technique_throttle_pattern": self.technique_throttle_pattern,
             "deload_decision": self.deload_decision,
             "drop_confirmed": self.drop_confirmed,
-            "top_set_requested": self.top_set_requested,
+            "top_set_intent": self.top_set_intent,
             "projected_items": self.projected_items,
             "projected_sessions": self.projected_sessions,
         }

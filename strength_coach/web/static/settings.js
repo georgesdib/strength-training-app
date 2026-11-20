@@ -714,7 +714,7 @@ function resolverPreviewFormPayload() {
   return {
     date: $("#settings-resolver-preview-date").value,
     session_type: $("#settings-resolver-preview-session").value,
-    top_set: value === "on" ? true : value === "off" ? false : null,
+    top_set_intent: value || null,
     allow_unknown_readiness: $("#settings-resolver-preview-allow-unknown").checked,
   };
 }

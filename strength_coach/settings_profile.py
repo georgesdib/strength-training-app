@@ -51,6 +51,20 @@ def _without_retired(overrides: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+TOP_SET_MODE_KEY = "resolver.top_set.mode"
+# Legacy persisted values are normalised on load, never rewritten (append-only profiles).
+# ask/on were the R8 offer/confirm pair; off/required preserve their effective behaviour.
+TOP_SET_MODE_LEGACY = {"ask": "off", "on": "required"}
+
+
+def _normalise_top_set_mode(overrides: Mapping[str, Any]) -> dict[str, Any]:
+    normalised = dict(overrides)
+    value = normalised.get(TOP_SET_MODE_KEY)
+    if isinstance(value, str) and value in TOP_SET_MODE_LEGACY:
+        normalised[TOP_SET_MODE_KEY] = TOP_SET_MODE_LEGACY[value]
+    return normalised
+
+
 def _loads(value: str | None) -> dict[str, Any]:
     if not value:
         return {}
@@ -67,7 +81,9 @@ def latest(conn, on_date: str) -> dict[str, Any] | None:
     return {
         "profile_id": int(row["profile_id"]),
         "effective_from": str(row["effective_from"]),
-        "overrides": _without_retired(_loads(row["overrides_json"])),
+        "overrides": _normalise_top_set_mode(
+            _without_retired(_loads(row["overrides_json"]))
+        ),
         "created_at": str(row["created_at"]),
         "reason": row.get("reason"),
     }
@@ -136,7 +152,7 @@ def _validate_overrides(
 
 def resolved_registry(overrides: Mapping[str, Any] | None = None) -> dict[str, Any]:
     values = dict(settings_registry.snapshot().values)
-    for key, value in (overrides or {}).items():
+    for key, value in _normalise_top_set_mode(overrides or {}).items():
         if str(key) in RETIRED_OVERRIDE_KEYS or key == "budget":
             continue
         definition = settings_registry.BY_KEY.get(str(key))

@@ -409,6 +409,8 @@ def prescription_dict(prescription) -> dict:
         "items": [_item_dict(item) for item in prescription.items],
         "warnings": list(prescription.warnings),
         "issues": list(prescription.issues),
+        # Frozen top-set outcome: {status, reason_code, reason} plus the applied loads.
+        "top_set": prescription.notes.get("top_set"),
         "notes": prescription.notes,
         "template_digest": (prescription.notes.get("resolver") or {}).get("template_digest"),
         "policy_digest": (prescription.notes.get("resolver") or {}).get("policy_digest"),
@@ -2157,7 +2159,10 @@ class Handler(BaseHTTPRequestHandler):
                 fields={"settings": "must be an object"},
             )
         unknown = sorted(
-            set(raw) - {"session_type", "minimum_session", "minimum_target_minutes", "top_set"}
+            set(raw) - {
+                "session_type", "minimum_session", "minimum_target_minutes",
+                "top_set_intent",
+            }
         )
         if unknown:
             raise ios_workflow.IOSWorkflowError(
@@ -2192,14 +2197,19 @@ class Handler(BaseHTTPRequestHandler):
                     fields={"minimum_target_minutes": "must be an integer from 1 to 240"},
                 )
             settings["minimum_target_minutes"] = int(target)
-        top_set = raw.get("top_set")
-        if top_set not in (None, ""):
-            if not isinstance(top_set, bool):
+        intent = raw.get("top_set_intent")
+        if intent not in (None, ""):
+            if not isinstance(intent, str) or intent not in (
+                "off", "preferred", "required"
+            ):
                 raise ios_workflow.IOSWorkflowError(
-                    400, "validation_failed", "top_set must be true or false",
-                    fields={"top_set": "must be true or false"},
+                    400, "validation_failed",
+                    "top_set_intent must be off, preferred or required",
+                    fields={
+                        "top_set_intent": "must be off, preferred or required"
+                    },
                 )
-            settings["top_set"] = top_set
+            settings["top_set_intent"] = intent
         return settings
 
     def _ios_mint_watch(self, conn, device: dict, config: ios_config.IOSConfig) -> None:
@@ -4994,8 +5004,18 @@ class Handler(BaseHTTPRequestHandler):
             technique_patterns = None
         target = body.get("target_minutes")
         target_minutes = int(target) if target not in (None, "") else None
-        top_set_raw = body.get("top_set")
-        top_set_requested = None if top_set_raw in (None, "") else _truth(top_set_raw)
+        top_set_raw = body.get("top_set_intent")
+        if top_set_raw in (None, ""):
+            top_set_intent = None
+        elif isinstance(top_set_raw, str) and top_set_raw in (
+            "off", "preferred", "required"
+        ):
+            top_set_intent = top_set_raw
+        else:
+            raise FieldError(
+                "top_set_intent must be off, preferred or required",
+                {"top_set_intent": "must be off, preferred or required"},
+            )
         resolved_settings = settings_profile.feature_settings(conn, for_date)
         reactive = deload_feature.reactive_decision(
             conn, for_date, config=resolved_settings.deload
@@ -5018,7 +5038,7 @@ class Handler(BaseHTTPRequestHandler):
             technique_throttle_pattern=technique_patterns,
             deload_decision=deload_decision,
             drop_confirmed=_truth(body.get("drop_confirmed")),
-            top_set_requested=top_set_requested,
+            top_set_intent=top_set_intent,
         )
         build_started = time.perf_counter()
         try:
@@ -5075,7 +5095,6 @@ class Handler(BaseHTTPRequestHandler):
             (prescription.notes.get("resolver") or {}).get("pending_ratings") or []
         )
         payload["beam"] = resolved.beam.as_dict()
-        payload["top_set"] = prescription.notes.get("top_set")
         payload["projected_week"] = prescription.notes.get("volume_budget")
         payload["session_time"] = prescription.notes.get("session_time")
         payload["policy_digest"] = resolved.policy_digest
@@ -5129,10 +5148,18 @@ class Handler(BaseHTTPRequestHandler):
             technique_patterns = None
         target = body.get("target_minutes")
         target_minutes = int(target) if target not in (None, "") else None
-        top_set_raw = body.get("top_set")
-        top_set_requested = (
-            None if top_set_raw in (None, "") else _truth(top_set_raw)
-        )
+        top_set_raw = body.get("top_set_intent")
+        if top_set_raw in (None, ""):
+            top_set_intent = None
+        elif isinstance(top_set_raw, str) and top_set_raw in (
+            "off", "preferred", "required"
+        ):
+            top_set_intent = top_set_raw
+        else:
+            raise FieldError(
+                "top_set_intent must be off, preferred or required",
+                {"top_set_intent": "must be off, preferred or required"},
+            )
         # Resolve deload before building: it must run before minimum session and final
         # validation, not after validation.
         resolved = settings_profile.feature_settings(conn, for_date)
@@ -5163,7 +5190,7 @@ class Handler(BaseHTTPRequestHandler):
             technique_throttle=technique_throttle,
             technique_throttle_pattern=technique_patterns,
             drop_confirmed=_truth(body.get("drop_confirmed")),
-            top_set_requested=top_set_requested,
+            top_set_intent=top_set_intent,
         )
         if scheduled_suggestion is not None:
             prescription = deload_mod.suggest(prescription, scheduled_suggestion)

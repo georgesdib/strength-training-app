@@ -269,7 +269,7 @@ def test_build_resolved_loads_history_once_for_every_evaluation(monkeypatch) -> 
             instance.connection,
             for_date="2024-01-15",
             session_type="squat",
-            inputs=EvaluationInputs(minimum_target_minutes=30, top_set_requested=False),
+            inputs=EvaluationInputs(minimum_target_minutes=30, top_set_intent="off"),
         )
 
     assert resolved.beam.as_dict()["evaluated"] == 4
@@ -302,7 +302,7 @@ def test_the_full_evaluation_budget_is_profile_writable(monkeypatch) -> None:
             instance.connection,
             for_date="2024-01-15",
             session_type="squat",
-            inputs=EvaluationInputs(minimum_target_minutes=30, top_set_requested=False),
+            inputs=EvaluationInputs(minimum_target_minutes=30, top_set_intent="off"),
         )
 
     assert resolved.beam.as_dict()["evaluated"] == 2
@@ -332,7 +332,7 @@ def test_preview_payload_freezes_into_workout_start(monkeypatch) -> None:
             instance.connection,
             for_date="2024-01-15",
             session_type="squat",
-            inputs=EvaluationInputs(minimum_target_minutes=30, top_set_requested=False),
+            inputs=EvaluationInputs(minimum_target_minutes=30, top_set_intent="off"),
         )
         payload = server.prescription_dict(resolved.prescription)
         started = workout.start(
@@ -368,7 +368,7 @@ def test_resolver_top_set_executes_and_materialises_attribution(monkeypatch) -> 
             for_date="2024-01-15",
             session_type="squat",
             inputs=EvaluationInputs(
-                minimum_target_minutes=30, top_set_requested=True,
+                minimum_target_minutes=30, top_set_intent="required",
             ),
         )
         payload = server.prescription_dict(resolved.prescription)
@@ -482,7 +482,7 @@ def test_resolver_top_set_composes_with_budget_and_minimum_session(monkeypatch) 
             inputs=EvaluationInputs(
                 minimum_session=True,
                 minimum_target_minutes=30,
-                top_set_requested=True,
+                top_set_intent="required",
             ),
         )
         prescription = resolved.prescription
@@ -598,7 +598,7 @@ def test_flag_off_public_serialization_is_identical() -> None:
     cases = (
         {},
         {"technique_throttle": True},
-        {"top_set_requested": True},
+        {"top_set_intent": "required"},
         {"minimum_session": True, "minimum_target_minutes": 30},
     )
     with store() as instance:
@@ -785,7 +785,7 @@ def test_prescription_fingerprint_canonical_and_material() -> None:
         template_digest="t" * 64,
         policy_digest="p" * 64,
         catalogue_digest="c" * 64,
-        inputs=EvaluationInputs(minimum_target_minutes=30, top_set_requested=True),
+        inputs=EvaluationInputs(minimum_target_minutes=30, top_set_intent="required"),
         resolved={"b": 2, "a": 1, "nested": {"y": 2, "x": 1}},
         resolver_settings={"rotation": 0.2, "enabled": True},
         candidate_pools={"squat_main": ("ssb_squat",), "power": ("box_jump",)},
@@ -797,7 +797,7 @@ def test_prescription_fingerprint_canonical_and_material() -> None:
         template_digest="t" * 64,
         policy_digest="p" * 64,
         catalogue_digest="c" * 64,
-        inputs=EvaluationInputs(minimum_target_minutes=30, top_set_requested=True),
+        inputs=EvaluationInputs(minimum_target_minutes=30, top_set_intent="required"),
         resolved={"a": 1, "nested": {"x": 1, "y": 2}, "b": 2},
         resolver_settings={"enabled": True, "rotation": 0.2},
         candidate_pools={"power": ("box_jump",), "squat_main": ("ssb_squat",)},
@@ -809,8 +809,8 @@ def test_prescription_fingerprint_canonical_and_material() -> None:
         {"assignment": (("squat_main", "ssb_squat"), ("power", "box_jump"))},
         {"policy_digest": "q" * 64},
         {"catalogue_digest": "d" * 64},
-        {"inputs": EvaluationInputs(minimum_target_minutes=31, top_set_requested=True)},
-        {"inputs": EvaluationInputs(minimum_target_minutes=30, top_set_requested=False)},
+        {"inputs": EvaluationInputs(minimum_target_minutes=31, top_set_intent="required")},
+        {"inputs": EvaluationInputs(minimum_target_minutes=30, top_set_intent="off")},
         {"resolved": {"b": 2, "a": 1, "nested": {"y": 2, "x": 3}}},
         {"resolver_settings": {"rotation": 0.3, "enabled": True}},
         {"candidate_pools": {"squat_main": ("ssb_squat", "competition_squat")}},
@@ -826,7 +826,7 @@ def test_prescription_fingerprint_canonical_and_material() -> None:
             "template_digest": "t" * 64,
             "policy_digest": "p" * 64,
             "catalogue_digest": "c" * 64,
-            "inputs": EvaluationInputs(minimum_target_minutes=30, top_set_requested=True),
+            "inputs": EvaluationInputs(minimum_target_minutes=30, top_set_intent="required"),
             "resolved": {"a": 1, "nested": {"x": 1, "y": 2}, "b": 2},
             "resolver_settings": {"enabled": True, "rotation": 0.2},
             "candidate_pools": {"power": ("box_jump",), "squat_main": ("ssb_squat",)},

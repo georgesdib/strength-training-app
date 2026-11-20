@@ -362,3 +362,36 @@ def test_prescription_snapshot_is_written():
     assert decoded["budget"]["tolerance"] == 0.15
     assert decoded["registry"]["undulation.cycle_weeks"] == 4
     assert snapshot["config_hash"]
+
+@pytest.mark.parametrize("legacy,normalised", [("ask", "off"), ("on", "required")])
+def test_legacy_top_set_mode_is_normalised_on_load(legacy, normalised) -> None:
+    store = _store()
+    try:
+        conn = store.connection
+        repositories.append_settings_profile(
+            conn,
+            effective_from="2026-10-26",
+            overrides={"resolver.top_set.mode": legacy},
+            reason="legacy profile",
+        )
+        latest = settings_profile.latest(conn, "2026-10-26")
+        state = settings_profile.state(conn, "2026-10-26")
+    finally:
+        store.close()
+    assert latest["overrides"]["resolver.top_set.mode"] == normalised
+    assert state["resolved"]["resolver.top_set.mode"] == normalised
+
+
+def test_top_set_mode_rejects_the_legacy_values_on_a_new_write() -> None:
+    store = _store()
+    try:
+        conn = store.connection
+        for legacy in ("ask", "on"):
+            with pytest.raises(ValueError, match="resolver.top_set.mode"):
+                settings_profile.save(
+                    conn,
+                    set_values={"resolver.top_set.mode": legacy},
+                    effective_from="2026-10-26",
+                )
+    finally:
+        store.close()

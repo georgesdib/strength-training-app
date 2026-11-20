@@ -613,7 +613,11 @@ def _build_resolved(
         notes["minimum_session"] = note
     notes["resolver"] = metadata
     warnings = tuple(best.prescription.warnings)
-    if shape is not None and shape.note.get("accessories_only") and requested_inputs.top_set_requested:
+    if (
+        shape is not None
+        and shape.note.get("accessories_only")
+        and requested_inputs.top_set_intent in ("preferred", "required")
+    ):
         warnings += (
             "Top set not applied: accessory-only minimum session has no main lift",
         )

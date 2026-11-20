@@ -197,7 +197,8 @@ def main(argv: list[str] | None = None) -> int:
         default="auto",
     )
     resolver_preview.add_argument(
-        "--top-set", choices=("ask", "on", "off"), default="ask",
+        "--top-set-intent", choices=("off", "preferred", "required"), default=None,
+        help="override the profile's top-set intent for this preview",
     )
     resolver_preview.add_argument(
         "--allow-unknown-readiness", action="store_true",
@@ -865,13 +866,12 @@ def _cmd_resolver(args) -> int:
                 schedule_mod.next_session_type(conn, for_date)
                 if args.session_type == "auto" else args.session_type
             )
-            top_set = None if args.top_set == "ask" else args.top_set == "on"
             try:
                 resolved = resolver.build_resolved(
                     conn,
                     for_date=for_date,
                     session_type=session_type,
-                    inputs=EvaluationInputs(top_set_requested=top_set),
+                    inputs=EvaluationInputs(top_set_intent=args.top_set_intent),
                 )
             except resolver.ResolverBuildError as exc:
                 if args.json:

@@ -1087,12 +1087,14 @@ def test_continuity_calibration_endpoint(server):
 
 def test_prescribe_can_add_the_opt_in_top_set(server):
     data = post(server, "/api/prescribe", {
-        "date": "2024-01-08", "session_type": "squat", "top_set": True,
+        "date": "2024-01-08", "session_type": "squat", "top_set_intent": "required",
     })
     item = next(row for row in data["items"] if row["exercise_id"] == "ssb_squat")
     assert [group["group_index"] for group in item["set_groups"]] == [0, 1]
     assert all("role" not in group for group in item["set_groups"])
-    assert data["notes"]["top_set"]["applied"] is True
+    assert data["top_set"]["status"] == "applied"
+    assert data["top_set"]["reason_code"] == "applied"
+    assert data["notes"]["top_set"]["status"] == "applied"
 
 
 def test_prescribe_accepts_a_session_type(server):
@@ -2016,14 +2018,16 @@ def test_prescribe_exposes_accessories_only_minimum_mode(server):
     assert "hard sets vs next e1RM" in performance_js
 
 
-def test_prescribe_top_set_control_is_gated_by_the_setting(server):
+def test_prescribe_top_set_control_offers_the_per_request_override(server):
     _status, page = get(server, "/")
     assert 'id="prescribe-top-set-note"' in page
+    assert '<option value="preferred">Prefer top set / back-off</option>' in page
+    assert '<option value="required">Require top set / back-off</option>' in page
     _status, js = get(server, "/static/app.js")
     assert "syncPrescribeTopSet" in js
     assert 'resolver.top_set.mode' in js
-    assert "Top set is off in Settings" in js
-    assert "independent of dynamic exercise selection" in js
+    assert "Profile default" in js
+    assert "a choice here overrides it for this request" in js
 
 
 def test_workout_ui_renders_groups_without_a_role_picker(server):

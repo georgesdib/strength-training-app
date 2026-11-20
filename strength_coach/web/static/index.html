@@ -604,8 +604,9 @@
           <p class="muted" id="prescribe-apply-selection-note"><strong>Apply selection:</strong> reruns the per-slot ranking and substitutes only <strong>class A</strong> candidates automatically; <strong>class B</strong> requires <em>Confirm near-comparable</em>; <strong>class C</strong> is never applied. Each applied slot cites <code>MOD-SELECT-001</code> and its load is re-solved from that lift's own history. It does not change the session type, and nothing is persisted until <strong>Start workout</strong>.</p>
           <label>Top set
             <select id="prescribe-top-set">
-              <option value="">Ask (show the offer, no structure yet)</option>
-              <option value="on">Add top set / back-off</option>
+              <option value="">Server default</option>
+              <option value="preferred">Prefer top set / back-off</option>
+              <option value="required">Require top set / back-off</option>
               <option value="off">Straight sets</option>
             </select>
             <span class="muted" id="prescribe-top-set-note">Optional set structure; independent of dynamic exercise selection.</span>
@@ -1319,8 +1320,9 @@
             </label>
             <label>Top set
               <select id="settings-resolver-preview-top-set">
-                <option value="">Ask (offer, no structure yet)</option>
-                <option value="on">Add top set / back-off</option>
+                <option value="">Server default</option>
+                <option value="preferred">Prefer top set / back-off</option>
+                <option value="required">Require top set / back-off</option>
                 <option value="off">Straight sets</option>
               </select>
             </label>

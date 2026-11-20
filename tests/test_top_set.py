@@ -39,14 +39,14 @@ def test_top_set_plan_preserves_total_sets_and_backoff_fraction() -> None:
     item = _item()
     plan = top_set.plan_top_set(
         item,
-        settings=_settings(**{"resolver.top_set.mode": "on"}),
+        settings=_settings(),
         eligible_lifts=("ssb_squat",),
         primary_exercise="ssb_squat",
         scheme="maximal",
         competition_date=None,
         for_date="2026-11-01",
         deload=False,
-        requested=True,
+        intent="required",
     )
     assert plan.applied is True
     assert plan.top_set_rir == 1
@@ -61,7 +61,7 @@ def test_top_set_plan_preserves_total_sets_and_backoff_fraction() -> None:
     assert plan.groups[1].percent_of_top == pytest.approx(0.85)
 
 
-def test_top_set_requires_explicit_opt_in_in_ask_mode() -> None:
+def test_off_intent_is_not_applicable() -> None:
     plan = top_set.plan_top_set(
         _item(),
         settings=_settings(),
@@ -71,10 +71,11 @@ def test_top_set_requires_explicit_opt_in_in_ask_mode() -> None:
         competition_date=None,
         for_date="2026-11-01",
         deload=False,
-        requested=None,
+        intent="off",
     )
     assert plan.applied is False
-    assert "awaiting confirmation" in plan.reason
+    assert plan.status == "not_applicable"
+    assert plan.reason_code == "intent_off"
 
 
 def test_top_set_rir_and_competition_windows() -> None:
@@ -102,7 +103,7 @@ def test_top_set_rir_and_competition_windows() -> None:
 def test_top_set_falls_back_when_resolved_rir_is_too_high() -> None:
     settings = _settings(
         **{
-            "resolver.top_set.mode": "on",
+            "resolver.top_set.mode": "preferred",
             "resolver.top_set.rir_by_main_scheme.maximal": 3,
         }
     )
@@ -115,9 +116,11 @@ def test_top_set_falls_back_when_resolved_rir_is_too_high() -> None:
         competition_date=None,
         for_date="2026-11-01",
         deload=False,
-        requested=True,
+        intent="required",
     )
     assert plan.applied is False
+    assert plan.status == "unsatisfied"
+    assert plan.reason_code == "outside_policy"
     assert "RIR ceiling" in plan.reason
 
 
@@ -126,14 +129,14 @@ def test_readiness_step_is_absorbed_by_the_ceiling() -> None:
     # at the ceiling and the back-offs take the raised RIR (DEC-RESOLVER-14).
     plan = top_set.plan_top_set(
         _item(rir_target=3),
-        settings=_settings(**{"resolver.top_set.mode": "on"}),
+        settings=_settings(),
         eligible_lifts=("ssb_squat",),
         primary_exercise="ssb_squat",
         scheme="strength",
         competition_date=None,
         for_date="2026-11-01",
         deload=False,
-        requested=True,
+        intent="required",
         readiness_bump=1,
     )
     assert plan.applied is True
@@ -148,40 +151,44 @@ def test_readiness_step_is_absorbed_by_the_ceiling() -> None:
 def test_two_step_readiness_drop_uses_straight_sets() -> None:
     plan = top_set.plan_top_set(
         _item(rir_target=4),
-        settings=_settings(**{"resolver.top_set.mode": "on"}),
+        settings=_settings(),
         eligible_lifts=("ssb_squat",),
         primary_exercise="ssb_squat",
         scheme="strength",
         competition_date=None,
         for_date="2026-11-01",
         deload=False,
-        requested=True,
+        intent="required",
         readiness_bump=2,
     )
     assert plan.applied is False
+    assert plan.status == "not_applicable"
+    assert plan.reason_code == "blocked_by_design"
     assert "2 steps" in plan.reason
 
 
 def test_non_readiness_caution_keeps_the_straight_set_fallback() -> None:
     plan = top_set.plan_top_set(
         _item(rir_target=3),
-        settings=_settings(**{"resolver.top_set.mode": "on"}),
+        settings=_settings(),
         eligible_lifts=("ssb_squat",),
         primary_exercise="ssb_squat",
         scheme="strength",
         competition_date=None,
         for_date="2026-11-01",
         deload=False,
-        requested=True,
+        intent="required",
         readiness_bump=1,
         blocked_reason="back flare held the primary lift; straight sets",
     )
     assert plan.applied is False
+    assert plan.status == "not_applicable"
+    assert plan.reason_code == "blocked_by_design"
     assert "back flare" in plan.reason
 
 
 def test_top_set_is_disabled_on_deload_and_for_ineligible_lifts() -> None:
-    settings = _settings(**{"resolver.top_set.mode": "on"})
+    settings = _settings()
     deload = top_set.plan_top_set(
         _item(),
         settings=settings,
@@ -191,10 +198,10 @@ def test_top_set_is_disabled_on_deload_and_for_ineligible_lifts() -> None:
         competition_date=None,
         for_date="2026-11-01",
         deload=True,
-        requested=True,
+        intent="required",
     )
     ineligible = top_set.plan_top_set(
-        _item(exercise_id="back_extension", essential=False),
+        _item(essential=False),
         settings=settings,
         eligible_lifts=("ssb_squat",),
         primary_exercise="ssb_squat",
@@ -202,24 +209,28 @@ def test_top_set_is_disabled_on_deload_and_for_ineligible_lifts() -> None:
         competition_date=None,
         for_date="2026-11-01",
         deload=False,
-        requested=True,
+        intent="required",
     )
     assert deload.applied is False
+    assert deload.status == "not_applicable"
+    assert deload.reason_code == "blocked_by_design"
     assert "deload" in deload.reason
     assert ineligible.applied is False
+    assert ineligible.status == "unsatisfied"
+    assert ineligible.reason_code == "not_eligible"
 
 
 def test_apply_plan_uses_backoff_load_as_the_working_summary() -> None:
     plan = top_set.plan_top_set(
         _item(),
-        settings=_settings(**{"resolver.top_set.mode": "on"}),
+        settings=_settings(),
         eligible_lifts=("ssb_squat",),
         primary_exercise="ssb_squat",
         scheme="strength",
         competition_date=None,
         for_date="2026-11-01",
         deload=False,
-        requested=True,
+        intent="required",
     )
     applied = top_set.apply_plan(_item(), plan)
     assert applied.load_kg == plan.backoff_load

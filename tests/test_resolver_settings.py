@@ -17,7 +17,7 @@ def test_resolver_defaults_are_registered_and_neutral() -> None:
     assert snapshot.get("resolver.dwell.tau") == pytest.approx(0.5)
     assert snapshot.get("resolver.dwell.probability") == pytest.approx(0.1)
     assert snapshot.get("resolver.eligibility.auto_requires_can_do") is True
-    assert snapshot.get("resolver.top_set.mode") == "ask"
+    assert snapshot.get("resolver.top_set.mode") == "off"
     assert snapshot.get("resolver.top_set.fallback_above_rir") == 2
     assert snapshot.get("resolver.competition.peak_weeks") == 4
     weights = [
@@ -65,12 +65,12 @@ def test_resolver_settings_are_profile_backed() -> None:
             store.connection,
             set_values={
                 "resolver.dwell.tau": 0.8,
-                "resolver.top_set.mode": "on",
+                "resolver.top_set.mode": "preferred",
             },
             effective_from="2026-11-01",
         )
         assert state["resolved"]["resolver.dwell.tau"] == 0.8
-        assert state["resolved"]["resolver.top_set.mode"] == "on"
+        assert state["resolved"]["resolver.top_set.mode"] == "preferred"
         assert state["overrides"]["resolver.dwell.tau"] == 0.8
     finally:
         store.close()
@@ -119,6 +119,6 @@ def test_prescription_snapshot_includes_resolver_keys() -> None:
         assert snapshot is not None
         decoded = json.loads(snapshot["settings_json"])
         assert decoded["registry"]["resolver.enabled"] is False
-        assert decoded["registry"]["resolver.top_set.mode"] == "ask"
+        assert decoded["registry"]["resolver.top_set.mode"] == "off"
     finally:
         store.close()
