@@ -86,6 +86,38 @@ def test_a_substitution_is_solved_by_the_server_and_enters_the_view(conn, monkey
     assert view["additions"] == []
 
 
+def test_a_substitution_is_rejected_after_a_set_was_logged(conn, monkeypatch):
+    _patch_solver(monkeypatch, _solved_item(55.0))
+    started = _started(conn)
+    workout.add_set(
+        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+        load_kg=150.0, reps=5, rir=2, set_index=1, plan_item_index=0,
+    )
+    with pytest.raises(ValueError, match="after sets have been logged"):
+        workout.record_execution_change(
+            conn, started["workout_id"], client_event_id=str(uuid.uuid4()),
+            kind="substitution", exercise_id="bench_press",
+            plan_item_index=0,
+        )
+
+
+def test_a_matching_set_index_is_idempotent_only_for_the_same_payload(conn):
+    started = _started(conn)
+    kwargs = dict(
+        exercise_id="trap_bar_deadlift", load_kg=150.0, reps=5, rir=2,
+        set_index=1, plan_item_index=0,
+    )
+    first = workout.add_set(conn, started["workout_id"], **kwargs)
+    assert len(first["sets"]) == 1
+    replay = workout.add_set(conn, started["workout_id"], **kwargs)
+    assert len(replay["sets"]) == 1
+    with pytest.raises(ValueError, match="set_index_conflict"):
+        workout.add_set(
+            conn, started["workout_id"],
+            **{**kwargs, "load_kg": 155.0},
+        )
+
+
 def test_a_duplicate_change_identity_is_idempotent_and_never_rewritten(conn, monkeypatch):
     _patch_solver(monkeypatch, _solved_item(55.0))
     started = _started(conn)

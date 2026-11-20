@@ -722,19 +722,20 @@ def test_optional_post_lift_form_ratings_materialise(conn):
         ("trap_bar_deadlift", 4)
     ]
 
-def test_duplicate_set_index_is_idempotent(conn):
+def test_duplicate_set_index_is_idempotent_only_for_the_same_payload(conn):
     started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
-    first = workout.add_set(
-        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
-        load_kg=100, reps=5, rir=2, set_index=1,
+    kwargs = dict(
+        exercise_id="trap_bar_deadlift", load_kg=100, reps=5, rir=2, set_index=1,
     )
-    retry = workout.add_set(
-        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
-        load_kg=105, reps=4, rir=2, set_index=1,
-    )
+    first = workout.add_set(conn, started["workout_id"], **kwargs)
+    retry = workout.add_set(conn, started["workout_id"], **kwargs)
     assert len(retry["sets"]) == 1
     assert retry["sets"][0]["set_id"] == first["sets"][0]["set_id"]
-    assert retry["sets"][0]["load_kg"] == 100
+    with pytest.raises(ValueError, match="set_index_conflict"):
+        workout.add_set(
+            conn, started["workout_id"],
+            **{**kwargs, "load_kg": 105, "reps": 4},
+        )
 
 
 def test_end_retry_returns_the_completed_workout(conn):
