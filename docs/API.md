@@ -230,9 +230,12 @@ prescribed slots, and VBT cohorts whose residuals fall outside their calibration
 
 ### Coaching nudges (AFC-4)
 
-`GET /api/nudge` promotes at most one AFC-3 observation to a Today review category. A nudge
-carries its family, statement, gate, `n`, `evidence_id` and the full evidence envelope; it has
-no notification channel and never changes a prescription.
+`GET /api/nudge` promotes at most one Today review category: a time-sensitive programme fact
+(a scheduled deload suggestion or an active competition peak/taper window) first, otherwise an
+AFC-3 observation. A nudge carries its family, statement, gate, `n`, `evidence_id` and the
+full evidence envelope; it has no notification channel and never changes a prescription.
+Programme nudges carry `family: "programme"` and the programme header's method; the evidence id
+is the programme state (deload block week, or competition date/window).
 
 Suppression is append-only (`maintenance_review`): `POST /api/nudge` with `action: dismiss`
 records a completed review (`not_applicable`) whose note is the observation/evidence identity, so
@@ -240,7 +243,7 @@ only that evidence window is silenced; `action: snooze` records a 14-day snooze 
 The expiry date is inclusive: a snooze issued on 1 March stays hidden through 15 March and returns
 on 16 March.
 A new evidence id produces a new nudge. Attendance, volume and other signals are deliberately not
-nudge sources.
+nudge sources; programme context is limited to the two facts above.
 
 ### VBT target metadata
 
