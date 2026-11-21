@@ -97,7 +97,7 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `POST /api/intelligence/explain` | `{question}` -> project-grounded explanation, citations, warnings, `grounded`, sources and tokens; no transcript |
 | `GET/POST /api/intelligence/knowledge/settings` | current/save Explain retrieval bounds (`top_k`, `max_context_chars`, `max_answer_words`); persisted in the git-ignored `config/knowledge.local.yaml` |
 | `GET /api/intelligence/knowledge/status` | index readiness, file/chunk counts and per-source commit metadata |
-| `POST /api/intelligence/chat` | `{messages: [{role, content}]}` -> read-only multi-turn answer from a fresh six-capability fact dossier, `answer`, `suggestions`, source capability names, advisory warnings, tokens; max 20 turns; writes a run trace |
+| `POST /api/intelligence/chat` | `{messages: [{role, content}]}` -> read-only multi-turn answer from a fresh six-capability fact dossier, `answer`, `suggestions`, source capability names, advisory warnings, tokens, and `raw` (the exact model request and provider response shown by the web UI raw-data disclosure; neither is stored); max 20 turns; writes a run trace |
 | `POST /api/intelligence/narrate` | `{capability, payload}` -> run one read-only capability and return its narrative (headline, observations, limitations, warnings, raw facts, model, tokens); unverified numbers are warnings, not errors; writes a run trace; 400 when the LLM is disabled |
 | `GET /api/exposures?date=N` | recent high-intensity exposures and recovery guard |
 | `POST /api/exposures` | log a manual max/competition/unplanned exposure; tests use the test endpoint |

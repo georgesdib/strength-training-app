@@ -4343,6 +4343,7 @@ class Handler(BaseHTTPRequestHandler):
             "suggestions": result.suggestions,
             "tokens": result.tokens,
             "model": client.model,
+            "raw": result.raw,
         }
 
     @staticmethod

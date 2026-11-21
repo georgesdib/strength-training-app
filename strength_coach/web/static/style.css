@@ -691,6 +691,9 @@ body.menu-open { overflow: hidden; }
 .chat-bubble { max-width: 88%; padding: 8px 10px; border-radius: 10px; white-space: normal; }
 .chat-bubble.user { align-self: flex-end; background: color-mix(in srgb, var(--accent) 16%, transparent); }
 .chat-bubble.assistant { align-self: flex-start; background: color-mix(in srgb, currentColor 8%, transparent); }
+.raw-output { margin-top: 8px; }
+.raw-output summary { cursor: pointer; }
+.raw-output pre { max-height: 280px; margin: 6px 0 0; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; }
 
 .suggestion-box { margin-top: 8px; padding: 8px 10px; border-left: 3px solid #b7791f; background: color-mix(in srgb, #b7791f 10%, transparent); }
 .suggestion-box ul { margin: 4px 0 0 16px; }

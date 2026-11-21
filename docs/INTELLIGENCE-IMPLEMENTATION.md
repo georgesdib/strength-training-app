@@ -1007,6 +1007,12 @@ changes; the server splits a `Suggestions (not applied)` section into its own UI
 uses the last ten messages and caps the dossier at roughly 18k characters, dropping lower-priority
 blocks first. The daily token budget applies.
 
+**Raw data.** Each answer also returns `raw`: the exact model request (model, messages,
+temperature, max tokens) and the provider response body as parsed. The Chat view puts it in a
+collapsed **Show raw data** disclosure at the end of each answer. It is session-only browser memory;
+the run trace still records only the model and token count, and the captured request body excludes
+headers, so no credential is exposed.
+
 **Tests.** `tests/test_intelligence_chat.py` covers the dossier, suggestion split and history trim;
 `tests/test_intelligence_chat_eval.py` runs a four-case multi-turn matrix (one turn, multi-turn,
 long thread, injection). No real model call in CI.

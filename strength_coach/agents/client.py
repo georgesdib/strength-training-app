@@ -31,6 +31,10 @@ class LLMResponse:
     text: str
     model: str
     tokens: int | None = None
+    #: Exact JSON body sent to the provider (no headers, so no credentials).
+    request: dict[str, Any] | None = None
+    #: Exact JSON body returned by the provider, as parsed.
+    response: dict[str, Any] | None = None
 
 
 @runtime_checkable
@@ -147,7 +151,13 @@ class OpenAICompatibleClient:
         if not isinstance(text, str) or not text.strip():
             raise LLMError(f"{self.model} returned an empty response")
         tokens = (parsed.get("usage") or {}).get("total_tokens")
-        return LLMResponse(text=text.strip(), model=self.model, tokens=tokens)
+        return LLMResponse(
+            text=text.strip(),
+            model=self.model,
+            tokens=tokens,
+            request=payload,
+            response=parsed,
+        )
 
 
 def _urllib_transport(

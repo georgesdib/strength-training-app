@@ -63,6 +63,8 @@ class ChatResult:
     tools: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     suggestions: list[str] = field(default_factory=list)
+    #: The model request and provider response for the UI raw-data disclosure.
+    raw: dict[str, Any] = field(default_factory=dict)
 
 
 def run_chat(
@@ -147,12 +149,29 @@ def run_chat(
     )
     response = client.complete(prompt, system=SYSTEM_PROMPT)
     answer, suggestions = _split_suggestions(response.text)
+    request_messages: list[dict[str, Any]] = []
+    if SYSTEM_PROMPT:
+        request_messages.append({"role": "system", "content": SYSTEM_PROMPT})
+    request_messages.append({"role": "user", "content": prompt})
+    raw_request = getattr(response, "request", None) or {
+        "model": getattr(client, "model", None),
+        "messages": request_messages,
+    }
+    raw_response = getattr(response, "response", None) or {
+        "choices": [{"message": {"content": response.text}}],
+        "usage": {"total_tokens": response.tokens},
+    }
     return ChatResult(
         answer,
         response.tokens,
         tools,
         number_warnings(answer, envelopes, duration_numbers),
         suggestions,
+        {
+            "model": getattr(response, "model", getattr(client, "model", None)),
+            "request": raw_request,
+            "response": raw_response,
+        },
     )
 
 

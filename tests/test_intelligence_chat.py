@@ -40,6 +40,12 @@ def test_chat_uses_the_capability_tool_then_answers():
         assert "get_weekly_review" in result.tools
         assert result.tokens == 15
         assert client.calls == 1
+        assert result.raw["model"] == "fake-chat"
+        assert result.raw["request"]["messages"][0]["role"] == "system"
+        assert "What changed?" in result.raw["request"]["messages"][-1]["content"]
+        assert result.raw["response"]["choices"][0]["message"]["content"].startswith(
+            "Two sessions this week."
+        )
     finally:
         store.close()
 

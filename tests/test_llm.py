@@ -176,6 +176,10 @@ def test_openai_client_speaks_chat_completions():
     assert sent["body"]["model"] == "test-model"
     assert sent["body"]["messages"][0] == {"role": "system", "content": "be brief"}
     assert sent["body"]["messages"][-1] == {"role": "user", "content": "hello"}
+    # The exact wire payload is captured for the UI, without headers or credentials.
+    assert response.request == sent["body"]
+    assert response.response["choices"][0]["message"]["content"] == "ready"
+    assert response.response["usage"]["total_tokens"] == 7
 
 
 def test_bad_response_shape_is_an_llm_error():

@@ -4085,10 +4085,15 @@ function renderChat() {
     }
     const warnings = (turn.warnings || []).map((w) => "<li>" + esc(w) + "</li>").join("");
     const suggestions = (turn.suggestions || []).map((s) => "<li>" + esc(s) + "</li>").join("");
+    const raw = turn.raw
+      ? '<details class="raw-output"><summary>Show raw data</summary><pre>' +
+        esc(JSON.stringify(turn.raw, null, 2)) + "</pre></details>"
+      : "";
     return '<div class="chat-bubble assistant">' + esc(turn.content).replaceAll("\n", "<br>") +
       (suggestions ? '<div class="suggestion-box"><strong>Suggestion — not applied.</strong><ul>' + suggestions + "</ul></div>" : "") +
       (warnings ? '<div class="warnbox"><strong>Unverified numbers</strong><ul>' + warnings + "</ul></div>" : "") +
       (turn.tools?.length ? '<div class="muted">sources: ' + esc(turn.tools.join(", ")) + "</div>" : "") +
+      raw +
       "</div>";
   }).join("");
   log.scrollTop = log.scrollHeight;
@@ -4116,7 +4121,7 @@ $("#chat-form")?.addEventListener("submit", async (event) => {
     });
     chatTurns.push({
       role: "assistant", content: data.answer, warnings: data.warnings || [],
-      suggestions: data.suggestions || [], tools: data.tools || [],
+      suggestions: data.suggestions || [], tools: data.tools || [], raw: data.raw || null,
     });
     message.textContent = "";
   } catch (error) {
