@@ -70,9 +70,12 @@ def record_samples(
         if sample_id in seen:
             raise ValueError("duplicate sample_id in request")
         seen.add(sample_id)
+        # sample_id is the table's primary key and the client derives it from the night's
+        # value, so a re-paired phone must dedupe against the existing observation rather than
+        # collide on the primary key. Device identity is provenance, not observation identity.
         row = conn.execute(
-            "SELECT * FROM hrv_recovery WHERE device_id = ? AND sample_id = ?",
-            (str(device_id), sample_id),
+            "SELECT * FROM hrv_recovery WHERE sample_id = ?",
+            (sample_id,),
         ).fetchone()
         if row is None:
             continue

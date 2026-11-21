@@ -276,6 +276,25 @@ def test_recovery_samples_are_idempotent_and_conflict_on_a_changed_value():
         store.close()
 
 
+def test_a_repaired_phone_dedupes_the_same_sample_id_across_devices():
+    store = _store()
+    try:
+        conn = store.connection
+        hrv_recovery.record_samples(
+            conn, device_id=DEVICE_ID,
+            samples=[_recovery("2024-01-12", 48.0, sample_id="night-1")],
+            imported_at="2024-01-12T08:00:00+00:00",
+        )
+        accepted, duplicates = hrv_recovery.record_samples(
+            conn, device_id="replacement-phone",
+            samples=[_recovery("2024-01-12", 48.0, sample_id="night-1")],
+            imported_at="2024-01-12T08:05:00+00:00",
+        )
+        assert accepted == [] and duplicates == ["night-1"]
+    finally:
+        store.close()
+
+
 def test_a_more_complete_night_beats_a_later_partial_one():
     store = _store()
     try:
