@@ -18,10 +18,9 @@ def test_registry_keys_are_unique_and_classified():
 def test_registry_sources_exist():
     base = Path("config")
     for setting in settings_registry.SETTINGS:
-        if setting.key.startswith("resolver."):
-            # Resolver scalars are effective-dated profile values; the structural policy file
-            # is not their storage location. The registry supplies the defaults.
-            assert setting.source == "settings profile (registry defaults)", setting.key
+        if setting.source == "settings profile (registry defaults)":
+            # Profile-backed settings are effective-dated values. The registry supplies their
+            # defaults instead of a separate YAML file, so there is no path to check.
             continue
         assert (base / setting.source).exists(), setting.key
 
@@ -35,3 +34,4 @@ def test_snapshot_matches_every_definition_and_validates():
     assert snap.get("deload.reactive.consecutive_flares") == 2
     assert snap.get("e1rm.source") in ("best_usable", "median", "most_recent")
     assert snap.get("volume.landmarks.squat.mev") == 6.0
+    assert snap.get("cardio.max_hr_bpm") == 200

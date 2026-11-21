@@ -1,8 +1,9 @@
 """7a settings registry: definitions plus a read-only config snapshot.
 
-This is the contract layer, not the profile store. Values still come from the existing YAML
-files; 7a adds typed keys, classes, sources and ranges so step 4 can persist them without
-inventing a second schema. Every feature loader remains the consumer in this step.
+This is the contract layer, not the profile store. Most values still come from the existing
+YAML files; profile-backed settings are defined here and their defaults are supplied by the
+registry, with user overrides held in the append-only settings profile. Typed keys, classes,
+sources and ranges let the feature loaders and the profile editor share one schema.
 """
 
 from __future__ import annotations
@@ -107,6 +108,11 @@ def _definitions() -> tuple[SettingDefinition, ...]:
         _d("spinal.override", "Spinal", "Spinal cap and costs", "table", {},
            "rules/programme.v1.yaml", "guarded_safety",
            "Guarded weekly cap and per-exercise costs for PRG-SPINE-001."),
+        _d("cardio.max_hr_bpm", "Cardio", "Maximum heart rate (HRmax)", "int", 200,
+           "settings profile (registry defaults)", "display",
+           "Athlete maximum used as the denominator for percent-HRmax classification; 200 is the "
+           "observed default. Changing it reclassifies existing cardio history.",
+           minimum=120, maximum=250),
         _d("deload.enabled", "Deload", "Deload enabled", "bool", True,
            "deload.v1.yaml", "prescription_policy", "Master deload switch."),
         _d("deload.scheduled.enabled", "Deload", "Scheduled deload", "bool", True,
@@ -573,10 +579,10 @@ def _snapshot_values() -> dict[str, Any]:
             "windows_hours": dict(exposure.windows or {}),
         },
     }
-    # Resolver scalar keys are defined by the registry rather than a separate YAML loader in
-    # Step 1; the structural policy file owns pools/patterns/top-set eligibility.
+    # These scalar keys are defined by the registry rather than a separate YAML loader. They are
+    # deliberately profile-backed so a user override is append-only and effective-dated.
     for key, definition in BY_KEY.items():
-        if key.startswith("resolver."):
+        if definition.source == "settings profile (registry defaults)":
             values[key] = definition.default
     for group, landmark in (volume.landmarks or {}).items():
         if group not in LANDMARK_GROUPS:

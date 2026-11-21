@@ -860,6 +860,15 @@ def test_cardio_summary_endpoint_is_served(server):
     assert len(json.loads(body)["weeks"]) == 12
 
 
+def test_cardio_summary_uses_the_profile_maximum_heart_rate(server):
+    profile = post(server, "/api/settings/profile", {"set": {"cardio.max_hr_bpm": 250}})
+    assert profile["resolved"]["cardio.max_hr_bpm"] == 250
+
+    status, body = get(server, "/api/cardio/summary")
+    assert status == 200
+    assert json.loads(body)["policy"]["max_hr_bpm"] == 250
+
+
 def test_measurements_round_trip(server):
     data = post(server, "/api/measurements", {
         "metric": "vo2max", "value": 45.2, "date": "2024-01-02",

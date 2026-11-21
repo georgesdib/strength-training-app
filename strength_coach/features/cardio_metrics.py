@@ -23,10 +23,11 @@ from dataclasses import dataclass
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from strength_coach import settings_profile
 from strength_coach.store import db
 from strength_coach.store.cardio import hidden_workout_ids
 
-MAX_HR_BPM = 200  # observed maximum in this store; reported with every result
+DEFAULT_MAX_HR_BPM = 200  # registry default; an effective-dated profile override wins at read time
 MET_BANDS = (3.0, 6.0)  # WHO: moderate 3-6 METs, vigorous above 6
 HR_BANDS = (0.64, 0.76)  # share of HRmax: light / moderate / vigorous
 ZONES = ("light", "moderate", "vigorous")
@@ -50,7 +51,19 @@ def classify_met(mets: float | None) -> str | None:
     return "vigorous" if mets > MET_BANDS[1] else "moderate"
 
 
-def classify_hr(heart_rate: float | None, max_hr: int = MAX_HR_BPM) -> str | None:
+def configured_max_hr(conn, *, on_date: str | None = None) -> int:
+    """Return the effective profile value for percent-HRmax classification.
+
+    The anchor follows the module's reporting zone, so a server outside Europe/London cannot
+    resolve a different profile version around midnight than the calendar windows use.
+    """
+    day = _as_of_date(on_date).isoformat()
+    profile = settings_profile.latest(conn, day)
+    overrides = profile["overrides"] if profile else {}
+    return int(settings_profile.resolved_registry(overrides)["cardio.max_hr_bpm"])
+
+
+def classify_hr(heart_rate: float | None, max_hr: int = DEFAULT_MAX_HR_BPM) -> str | None:
     if heart_rate is None or heart_rate <= 0:
         return None
     share = heart_rate / max_hr
@@ -59,12 +72,14 @@ def classify_hr(heart_rate: float | None, max_hr: int = MAX_HR_BPM) -> str | Non
     return "vigorous" if share > HR_BANDS[1] else "moderate"
 
 
-def classify(workout: dict[str, Any], average_hr: float | None) -> tuple[str | None, str | None]:
+def classify(
+    workout: dict[str, Any], average_hr: float | None, *, max_hr: int = DEFAULT_MAX_HR_BPM,
+) -> tuple[str | None, str | None]:
     """Return (zone, tier); zone is None when the workout cannot be classified."""
     zone = classify_met(workout.get("avg_mets"))
     if zone is not None:
         return zone, "met"
-    zone = classify_hr(average_hr)
+    zone = classify_hr(average_hr, max_hr)
     if zone is not None:
         return zone, "hr"
     return None, None
@@ -167,7 +182,7 @@ def hr_values_for(conn, workout_ids: list[str]) -> dict[str, list[tuple[float, f
     return values
 
 
-def classification_rows(conn) -> list[dict[str, Any]]:
+def classification_rows(conn, *, max_hr: int = DEFAULT_MAX_HR_BPM) -> list[dict[str, Any]]:
     """Classify every workout once, using the series mean only where Apple supplied no average.
 
     The fallback mean is computed from workout-interval samples only. Recovery-tail samples are
@@ -195,7 +210,7 @@ def classification_rows(conn) -> list[dict[str, Any]]:
         average_hr = workout["avg_heart_rate"]
         if average_hr is None:
             average_hr = averaged.get(workout["external_workout_id"])
-        zone, tier = classify(dict(workout), average_hr)
+        zone, tier = classify(dict(workout), average_hr, max_hr=max_hr)
         rows.append(
             {
                 "external_workout_id": workout["external_workout_id"],
@@ -227,9 +242,9 @@ def invalidate_classification(conn) -> None:
     )
 
 
-def rebuild_classification(conn) -> int:
+def rebuild_classification(conn, *, max_hr: int = DEFAULT_MAX_HR_BPM) -> int:
     """Replace the cache from source. Idempotent; safe to run on every import."""
-    rows = classification_rows(conn)
+    rows = classification_rows(conn, max_hr=max_hr)
     now = dt.datetime.now(dt.UTC).isoformat()
     with db.transaction(conn):
         conn.execute("DELETE FROM cardio_classification")
@@ -254,26 +269,27 @@ def rebuild_classification(conn) -> int:
             ON CONFLICT(name) DO UPDATE SET value = excluded.value,
                                            updated_at = excluded.updated_at
             """,
-            (CLASSIFICATION_STATE, str(len(rows)), now),
+            (CLASSIFICATION_STATE, f"{len(rows)}:{max_hr}", now),
         )
     return len(rows)
 
 
-def cache_is_stale(conn) -> bool:
+def cache_is_stale(conn, *, max_hr: int = DEFAULT_MAX_HR_BPM) -> bool:
     """True when the cache is absent or the workout corpus has changed since it was built.
 
     Presence of the state marker is the ingestion signal: adding heart-rate samples for an
-    already-imported workout deletes it. The row-count comparison still catches a new or removed
-    workout written by any path.
+    already-imported workout deletes it. The fingerprint also includes the configured maximum
+    heart rate, so changing the profile reclassifies existing cardio history. The row-count
+    comparison still catches a new or removed workout written by any path.
     """
     state = conn.execute(
-        "SELECT 1 FROM cardio_cache_state WHERE name = ?", (CLASSIFICATION_STATE,)
+        "SELECT value FROM cardio_cache_state WHERE name = ?", (CLASSIFICATION_STATE,)
     ).fetchone()
     if state is None:
         return True
     cached = conn.execute("SELECT COUNT(*) FROM cardio_classification").fetchone()[0]
     live = conn.execute("SELECT COUNT(*) FROM external_workout").fetchone()[0]
-    return cached != live
+    return cached != live or state[0] != f"{live}:{max_hr}"
 
 
 #: One rebuild at a time per process. Without this, every request that sees a stale cache
@@ -282,13 +298,13 @@ def cache_is_stale(conn) -> bool:
 _REBUILD_LOCK = threading.Lock()
 
 
-def ensure_classification(conn) -> None:
+def ensure_classification(conn, *, max_hr: int = DEFAULT_MAX_HR_BPM) -> None:
     """Rebuild the cache at most once when several requests observe the same stale corpus."""
-    if not cache_is_stale(conn):
+    if not cache_is_stale(conn, max_hr=max_hr):
         return
     with _REBUILD_LOCK:
-        if cache_is_stale(conn):
-            rebuild_classification(conn)
+        if cache_is_stale(conn, max_hr=max_hr):
+            rebuild_classification(conn, max_hr=max_hr)
 
 
 def _as_of_date(as_of: str | None) -> dt.date:
@@ -318,9 +334,10 @@ def activity_summary(
     separate, slower path.
     """
     anchor = _as_of_date(as_of)
+    max_hr = configured_max_hr(conn, on_date=anchor.isoformat())
     hidden = hidden_workout_ids(conn)
     try:
-        ensure_classification(conn)
+        ensure_classification(conn, max_hr=max_hr)
         rows = [
             dict(row)
             for row in conn.execute("SELECT * FROM cardio_classification")
@@ -333,7 +350,7 @@ def activity_summary(
         if "readonly" not in str(exc).lower():
             raise
         rows = [
-            row for row in classification_rows(conn)
+            row for row in classification_rows(conn, max_hr=max_hr)
             if row["external_workout_id"] not in hidden
         ]
 
@@ -382,7 +399,7 @@ def activity_summary(
 
     return {
         "policy": {
-            "max_hr_bpm": MAX_HR_BPM,
+            "max_hr_bpm": max_hr,
             "met_bands": list(MET_BANDS),
             "hr_bands_share": list(HR_BANDS),
             "equivalent_rule": "moderate + 2 * vigorous",
@@ -416,6 +433,7 @@ def dashboard_card(summary: dict[str, Any]) -> dict[str, Any]:
 
 
 def report(conn, *, since: str | None = None, weeks_limit: int = 104) -> dict[str, Any]:
+    max_hr = configured_max_hr(conn)
     workouts = [
         dict(row)
         for row in conn.execute("SELECT * FROM external_workout ORDER BY started_at")
@@ -441,7 +459,7 @@ def report(conn, *, since: str | None = None, weeks_limit: int = 104) -> dict[st
         average_hr = workout["avg_heart_rate"]
         if average_hr is None and series:
             average_hr = sum(bpm for _t, bpm in series) / len(series)
-        zone, tier = classify(workout, average_hr)
+        zone, tier = classify(workout, average_hr, max_hr=max_hr)
         resistance = workout["activity_type"] in RESISTANCE_TYPES
         week = dt.date.fromisoformat(started.date().isoformat()).isocalendar()
         week_key = f"{week[0]}-W{week[1]:02d}"
@@ -460,6 +478,7 @@ def report(conn, *, since: str | None = None, weeks_limit: int = 104) -> dict[st
             series,
             started_at=workout["started_at"],
             ended_at=workout["ended_at"],
+            max_hr=max_hr,
         )
         if zones is not None:
             eligible += 1
@@ -484,7 +503,7 @@ def report(conn, *, since: str | None = None, weeks_limit: int = 104) -> dict[st
                 average_hr = workout["avg_heart_rate"]
                 if average_hr is None and series:
                     average_hr = sum(bpm for _t, bpm in series) / len(series)
-                zone, _tier = classify(workout, average_hr)
+                zone, _tier = classify(workout, average_hr, max_hr=max_hr)
                 minutes = round(int(workout["duration_s"]) / 60.0, 1)
                 totals[zone or "unclassified"] += minutes
                 totals["total_min"] += minutes
@@ -498,7 +517,7 @@ def report(conn, *, since: str | None = None, weeks_limit: int = 104) -> dict[st
 
     return {
         "policy": {
-            "max_hr_bpm": MAX_HR_BPM,
+            "max_hr_bpm": max_hr,
             "met_bands": list(MET_BANDS),
             "hr_bands_share": list(HR_BANDS),
             "zones": list(ZONES),
@@ -570,7 +589,8 @@ class ZoneIntegration:
 
 
 def integrate_zone_minutes(
-    series: list[tuple[float, float]], *, started_at: str, ended_at: str
+    series: list[tuple[float, float]], *, started_at: str, ended_at: str,
+    max_hr: int = DEFAULT_MAX_HR_BPM,
 ) -> ZoneIntegration | None:
     """Elapsed-time integration of adjacent heart-rate samples, clipped to the workout.
 
@@ -602,7 +622,7 @@ def integrate_zone_minutes(
             continue
         span = hi - lo
         covered += span
-        zone = classify_hr(bpm)
+        zone = classify_hr(bpm, max_hr)
         if zone is not None:
             out[zone] += span / 60.0
     return ZoneIntegration(
@@ -614,7 +634,8 @@ def integrate_zone_minutes(
 
 
 def sample_zone_minutes(
-    series: list[tuple[float, float]], *, started_at: str, ended_at: str
+    series: list[tuple[float, float]], *, started_at: str, ended_at: str,
+    max_hr: int = DEFAULT_MAX_HR_BPM,
 ) -> ZoneIntegration | None:
     """Integrated zone minutes for one workout, or None when its series is not eligible.
 
@@ -632,7 +653,9 @@ def sample_zone_minutes(
     ok, _median = continuity([t for t, _bpm in series], int(duration_s))
     if not ok:
         return None
-    return integrate_zone_minutes(series, started_at=started_at, ended_at=ended_at)
+    return integrate_zone_minutes(
+        series, started_at=started_at, ended_at=ended_at, max_hr=max_hr,
+    )
 
 
 def time_in_zone(conn, *, on_date: str | None = None, days: int = 28) -> dict[str, Any]:
@@ -644,6 +667,7 @@ def time_in_zone(conn, *, on_date: str | None = None, days: int = 28) -> dict[st
     share of eligible workout time represented by integrated samples.
     """
     anchor = _as_of_date(on_date)
+    max_hr = configured_max_hr(conn, on_date=anchor.isoformat())
     first = anchor - dt.timedelta(days=days - 1)
     hidden = hidden_workout_ids(conn)
     in_window: list[dict[str, Any]] = []
@@ -673,6 +697,7 @@ def time_in_zone(conn, *, on_date: str | None = None, days: int = 28) -> dict[st
             series,
             started_at=workout["started_at"],
             ended_at=workout["ended_at"],
+            max_hr=max_hr,
         )
         if zones is None:
             continue
