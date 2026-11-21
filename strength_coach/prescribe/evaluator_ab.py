@@ -254,6 +254,24 @@ CASES: dict[str, dict[str, Any]] = {
         ),
         "intent": "off",
     },
+    "accessory_stimulus_high": {
+        "session_type": "bench_squat",
+        "slots": ("power", "bench_main", "squat_support", "accessory_vertical_press"),
+        "main_slot": "bench_main",
+        "pools": {
+            "power": ("medicine_ball_chest_pass",),
+            "bench_main": ("bench_press",),
+            "squat_support": ("competition_squat",),
+            "accessory_vertical_press": ("lat_pulldown", "seated_cable_row"),
+        },
+        "rows": (
+            _history("Competition Bench Press", weight=80)
+            + _history("Competition Squat", weight=100)
+            + _history("Lat Pulldown", weight=50)
+            + _history("Seated Cable Row", weight=50)
+        ),
+        "intent": "off",
+    },
 }
 
 
@@ -421,6 +439,15 @@ def _deciding_text(case: dict) -> str:
     for slot in case["changed_slots"]:
         role, before = _classes_for_slot(case["classic_classes"], slot)
         _role, after = _classes_for_slot(case["quality_classes"], slot)
+        if before == after:
+            values = ", ".join(
+                f"{name}={value}" for name, value in (after or {}).items()
+            )
+            parts.append(
+                f"{role}/{slot}: classes tie ({values}); deterministic "
+                "rank-cost/assignment tie-break"
+            )
+            continue
         left = ", ".join(f"{name}={value}" for name, value in (before or {}).items())
         right = ", ".join(f"{name}={value}" for name, value in (after or {}).items())
         parts.append(f"{role}/{slot}: A[{left}] -> B[{right}]")

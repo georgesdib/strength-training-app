@@ -430,7 +430,7 @@ python tools/resolver_benchmark.py --synthetic --case straight --runs 10
 
 It writes JSON, including the environment, the fixture's candidate pools, cold start and
 steady-state percentiles. Laptop seconds are not ODROID seconds; the ODROID-C4 measurement is
-pending until the command is run there.
+recorded in §11.9.
 
 ### 11.8 Rejected
 
@@ -451,16 +451,18 @@ finalists): the corrected path and the same builds with `role_quality.snapshot` 
 the same finalist evaluations and prescription builds, so the delta is the snapshot cost rather
 than a search-width change.
 
-Measured 2026-11-21 on the MacBook (macOS-27.2.1 arm64, Python 3.15.2, 8 CPUs), one cold build
-then 20 steady-state runs, single process, no CPU pinning:
+Measured 2026-11-21 on the MacBook (macOS-27.2.1 arm64, Python 3.15.2, 8 CPUs) and on the
+ODROID-C4 (Linux 6.18.44 aarch64, Python 3.13.5, 4 CPUs), one cold build then the steady-state
+runs shown, single process, no CPU pinning:
 
 | Host | Case | Corrected p50 / p95 | Same builds, role-quality snapshot disabled | Finalists / builds |
 |---|---|---|---|---|
-| MacBook | `secondary_complementarity` | 0.230 / 0.260 s | 0.197 / 0.235 s | 2 / 2 |
-| MacBook | `straight` (10 runs) | 0.111 / 0.189 s | 0.061 / 0.087 s | 2 / 2 |
-| ODROID-C4 | `secondary_complementarity` | pending | pending | 2 / 2 (fixture) |
+| MacBook | `secondary_complementarity` | 0.218 / 0.224 s | 0.204 / 0.210 s | 2 / 2 |
+| MacBook | `straight` (10 runs) | 0.072 / 0.075 s | 0.058 / 0.061 s | 2 / 2 |
+| ODROID-C4 | `secondary_complementarity` | 3.183 / 3.194 s | 3.018 / 3.144 s | 2 / 2 |
+| ODROID-C4 | `straight` (10 runs) | 1.128 / 1.214 s | 0.921 / 1.179 s | 2 / 2 |
 
-These are development-machine measurements, not deployment guarantees. The ODROID-C4
-measurement remains pending; the historical two-finalist row of 1.21/1.24 s recorded during the
-original WP6 work is not reproduced by a checked-in p95 benchmark and is not a current
-guarantee.
+Cold-start times were 0.263 s / 0.112 s on the MacBook and 3.775 s / 1.730 s on the ODROID-C4
+for the full and straight cases. These are measurements on the named hosts, not deployment
+guarantees. The historical two-finalist row of 1.21/1.24 s recorded during the original WP6 work
+is not reproduced by a checked-in p95 benchmark and is not a current guarantee.

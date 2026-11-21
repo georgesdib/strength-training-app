@@ -24,11 +24,12 @@ from strength_coach.store import queries
 from strength_coach.utils import exercises, paths, yaml_files
 
 CONFIG_NAME = "resolver-role-quality.v1.yaml"
-VERSION = "role-quality-v2"
+VERSION = "role-quality-v3"
 
-# Surfaced in the response snapshot. The existing data measures fatigue cost, not an
-# independent stimulus magnitude; the class compares cost at the slot's fixed dose.
-STIMULUS_COST_ONLY = "stimulus_to_fatigue_compares_cost_at_fixed_slot_dose"
+# Surfaced in the response snapshot. The stimulus rating is an ordinal assumption seeded from
+# the evidence-graded local-muscular demand profile; it is not a measured magnitude.
+STIMULUS_PROVISIONAL = "stimulus_to_fatigue_uses_provisional_ordinal_stimulus"
+STIMULUS_MISSING = "stimulus_to_fatigue_missing_rating"
 
 
 def config_digest() -> str:
@@ -91,6 +92,8 @@ class RoleQualityConfig:
     productive_volume: ClassScale
     tax: ClassScale
     tax_mandatory_axes: Mapping[str, tuple[str, ...]]
+    stimulus_ratings: Mapping[str, int]
+    stimulus_to_fatigue: ClassScale
 
     @classmethod
     def load(cls) -> RoleQualityConfig:
@@ -101,6 +104,7 @@ class RoleQualityConfig:
         age = exposure.get("e1rm_age_days") or {}
         suitability = raw.get("suitability") or {}
         tax_axes = (raw.get("tax") or {}).get("mandatory_axes") or {}
+        stimulus_ratings = (raw.get("stimulus") or {}).get("ratings") or {}
         return cls(
             role_priority=tuple(raw.get("role_priority") or ("main", "secondary", "accessory")),
             criteria={
@@ -126,6 +130,11 @@ class RoleQualityConfig:
                 str(role): tuple(str(axis) for axis in (axes or ()))
                 for role, axes in tax_axes.items()
             },
+            stimulus_ratings={
+                str(exercise_id): int(value)
+                for exercise_id, value in stimulus_ratings.items()
+            },
+            stimulus_to_fatigue=_scale(raw, "stimulus_to_fatigue"),
         )
 
 
@@ -412,37 +421,79 @@ def _coverage_class(
     return scale.value("uncovered")
 
 
+_STIMULUS_LABELS = {3: "high", 2: "moderate", 1: "low"}
+_FATIGUE_LABELS = {3: "low", 2: "moderate", 1: "high"}
+
+
+def _stimulus_inputs(
+    exercise_id: str,
+    essential: bool,
+    tax_config: selection_tax.TaxConfig,
+    config: RoleQualityConfig,
+) -> tuple[int | None, int | None]:
+    """Return (stimulus rating, worst mandatory tax axis), or None when unavailable."""
+    stimulus = config.stimulus_ratings.get(exercise_id)
+    if stimulus not in _STIMULUS_LABELS:
+        stimulus = None
+    tax = tax_config.for_exercise(exercise_id)
+    if tax is None:
+        return stimulus, None
+    axes = config.tax_mandatory_axes.get(
+        "essential" if essential else "accessory", ()
+    )
+    if not axes:
+        return stimulus, None
+    values = [getattr(tax, axis, None) for axis in axes]
+    if any(value is None for value in values):
+        return stimulus, None
+    return stimulus, max(int(value) for value in values)
+
+
+def _stimulus_to_fatigue_from_inputs(
+    stimulus: int | None,
+    fatigue: int | None,
+    config: RoleQualityConfig,
+) -> int:
+    """Map the two ordinals through the configured matrix.
+
+    Higher stimulus and lower mandatory-axis cost are better. The matrix deliberately leaves
+    the incomparable corners (high stimulus/high cost, moderate/moderate, low/low) at the same
+    neutral class instead of inventing a ratio. Missing either input is neutral.
+    """
+    scale = config.stimulus_to_fatigue
+    if stimulus is None or fatigue is None:
+        return scale.neutral
+    stimulus_label = _STIMULUS_LABELS.get(stimulus)
+    if stimulus_label is None:
+        return scale.neutral
+    if fatigue <= 1:
+        fatigue_class = config.tax.value("low")
+    elif fatigue == 2:
+        fatigue_class = config.tax.value("moderate")
+    else:
+        fatigue_class = config.tax.value("high")
+    fatigue_label = _FATIGUE_LABELS.get(fatigue_class)
+    if fatigue_label is None:
+        return scale.neutral
+    return scale.value(f"{stimulus_label}_{fatigue_label}")
+
+
 def _stimulus_to_fatigue_class(
     exercise_id: str,
     essential: bool,
     tax_config: selection_tax.TaxConfig,
     config: RoleQualityConfig,
 ) -> int:
-    """Rank lower mandatory-axis tax above higher tax at the slot's fixed dose.
+    """Rank productive stimulus against the role-specific mandatory tax axes.
 
-    `config/selection-tax.v1.yaml` is an ordinal fatigue-cost assumption, not a stimulus
-    measurement. The slot supplies the intended dose, so this class is the cost side of the
-    ratio; it does not invent a stimulus magnitude. Missing or incomplete tax data is neutral,
-    and the mandatory axes remain role-specific (accessory: axial and skill).
+    The stimulus rating is the ordinal `stimulus.ratings` block, seeded from the
+    evidence-graded local-muscular demand profile and the taxonomy's primary-compound flag;
+    it is provisional, not a measured magnitude. The fatigue side reuses the mandatory tax
+    axes (accessory: axial and skill; essential: axial, systemic and skill). Missing either
+    input is neutral.
     """
-    scale = config.tax
-    tax = tax_config.for_exercise(exercise_id)
-    if tax is None:
-        return scale.neutral
-    axes = config.tax_mandatory_axes.get(
-        "essential" if essential else "accessory", ()
-    )
-    if not axes:
-        return scale.neutral
-    values = [getattr(tax, axis, None) for axis in axes]
-    if any(value is None for value in values):
-        return scale.neutral
-    worst = max(int(value) for value in values)
-    if worst <= 1:
-        return scale.value("low")
-    if worst == 2:
-        return scale.value("moderate")
-    return scale.value("high")
+    stimulus, fatigue = _stimulus_inputs(exercise_id, essential, tax_config, config)
+    return _stimulus_to_fatigue_from_inputs(stimulus, fatigue, config)
 
 
 @dataclass(frozen=True)
@@ -548,16 +599,21 @@ def snapshot(
                 if group is not None
                 else config.productive_volume.neutral
             )
+            stimulus, fatigue = _stimulus_inputs(
+                exercise_id, slot.essential, tax_config, config
+            )
             classes = {
                 "coverage": _coverage_class(
                     exercise_id, other_exercises, taxonomy, config
                 ),
                 "productive_volume": volume_class,
-                "stimulus_to_fatigue": _stimulus_to_fatigue_class(
-                    exercise_id, slot.essential, tax_config, config
+                "stimulus_to_fatigue": _stimulus_to_fatigue_from_inputs(
+                    stimulus, fatigue, config
                 ),
             }
-            limitations.add(STIMULUS_COST_ONLY)
+            limitations.add(STIMULUS_PROVISIONAL)
+            if stimulus is None or fatigue is None:
+                limitations.add(STIMULUS_MISSING)
         roles[role].append({
             "slot_id": slot.id,
             "exercise_id": exercise_id,

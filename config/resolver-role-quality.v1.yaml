@@ -93,9 +93,55 @@ productive_volume:
     redundant: 1
   missing: 2
 
+stimulus:
+  # Ordinal productive-stimulus rating for the accessory stimulus-to-fatigue criterion.
+  # Seeded from the evidence-graded local_muscular demand profile
+  # (config/exercises/demands.v1.yaml) plus the taxonomy primary_compound/main_lift flags.
+  # This is an ordinal assumption, not a measurement; an exercise absent here is unknown and
+  # neutral. Reviewed 2026-11-21; see DEC-RESOLVER-32.
+  source: config/exercises/demands.v1.yaml
+  reviewed_on: "2026-11-21"
+  rubric:
+    high_compound: 3
+    high_isolation: 2
+    moderate_compound: 2
+    moderate_isolation: 1
+    low: 1
+    unknown: null
+  ratings:
+    ab_wheel: 2
+    back_extension: 2
+    belt_squat: 3
+    bench_press: 3
+    bench_press_narrow: 3
+    bench_press_pause: 3
+    bent_over_row: 3
+    box_jump: 1
+    competition_squat: 3
+    dumbbell_bench_press: 3
+    dumbbell_chest_supported_row: 2
+    dumbbell_row: 3
+    front_squat: 3
+    hack_squat: 3
+    hanging_leg_raise: 2
+    high_bar_squat: 3
+    incline_db_bench_press: 3
+    landmine_press: 2
+    lat_pulldown: 2
+    lying_leg_curls: 2
+    nordic_curl: 2
+    overhead_press_seated: 3
+    pull_up: 2
+    rdl: 2
+    seated_cable_row: 3
+    split_squat: 3
+    ssb_squat: 3
+    sumo_deadlift: 3
+    trap_bar_deadlift: 3
+
 tax:
-  # Ordinal fatigue-cost metadata. `lower_is_better` follows DEC-RESOLVER-21; the slot's
-  # fixed dose is the stimulus, so this class does not invent a stimulus magnitude.
+  # Ordinal fatigue-cost metadata. `lower_is_better` follows DEC-RESOLVER-21; the stimulus
+  # magnitude is the separate `stimulus` block, so this remains a cost axis.
   source: config/selection-tax.v1.yaml
   lower_is_better: true
   mandatory_axes:
@@ -111,8 +157,25 @@ tax:
     moderate: 2
     high: 1
   missing: 2
-  stimulus: slot_dose
+  stimulus: separate_rating
   rom: reported_not_ranked
+
+stimulus_to_fatigue:
+  # Two ordinal inputs, one class. Higher stimulus and lower mandatory-axis cost are better;
+  # the matrix keeps incomparable trade-offs neutral instead of inventing a ratio.
+  stimulus_source: stimulus.ratings
+  fatigue_source: tax.mandatory_axes
+  classes:
+    high_low: 4
+    high_moderate: 3
+    moderate_low: 3
+    high_high: 2
+    moderate_moderate: 2
+    low_low: 2
+    moderate_high: 1
+    low_moderate: 1
+    low_high: 0
+  missing: 2
 
 # Repetition and variation are owned by the dwell model (resolver.dwell.*), not by role
 # quality: the cap, the deterministic exploration draw and the bounded factor order the pool

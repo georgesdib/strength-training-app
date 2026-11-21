@@ -136,7 +136,7 @@ values, plus the flattened vector and limitations. It is not a training target.
 Every class is ordinal and higher is better. Missing data returns the configured neutral value;
 it is never treated as evidence of a deficit, a surplus or a complement. The configured class
 values and criterion order are in `config/resolver-role-quality.v1.yaml`; the snapshot version is
-`role-quality-v2`.
+`role-quality-v3`.
 
 **Main**
 
@@ -175,13 +175,18 @@ values and criterion order are in `config/resolver-role-quality.v1.yaml`; the sn
   rule is symmetric and slot-order independent.
 - productive volume uses the same deficit/target/tolerance rule as volume usefulness. It is not
   a positive-set-count check and does not reward volume materially beyond target.
-- stimulus-to-fatigue compares the mandatory tax axes from `config/selection-tax.v1.yaml`
-  (accessory: axial and skill; essential: axial, systemic and skill). Low cost 3, moderate 2,
-  high 1; missing tax is neutral 2. The existing tax data measures ordinal fatigue cost, not an
-  independent stimulus magnitude, so the slot's fixed dose is treated as the stimulus. The
-  snapshot records the limitation `stimulus_to_fatigue_compares_cost_at_fixed_slot_dose`.
-  This criterion never outranks feasibility, intent, the volume band or the main/secondary
-  hierarchy.
+- stimulus-to-fatigue compares two ordinals through a config matrix. Stimulus is a provisional
+  1-3 rating in the role-quality config, seeded from the evidence-graded `local_muscular`
+  demand profile plus the taxonomy `primary_compound`/`main_lift` flags; an exercise without
+  a demand profile is unknown and neutral. Fatigue is the highest mandatory tax axis from
+  `config/selection-tax.v1.yaml` (accessory: axial and skill; essential: axial, systemic and
+  skill). Higher stimulus and lower cost are better: high/low = 4, high/moderate and
+  moderate/low = 3, high/high, moderate/moderate and low/low = 2, moderate/high and
+  low/moderate = 1, low/high = 0. Missing either input is neutral 2. The matrix deliberately
+  leaves incomparable trade-offs at the same class instead of inventing a ratio. The snapshot
+  records `stimulus_to_fatigue_uses_provisional_ordinal_stimulus`, and
+  `stimulus_to_fatigue_missing_rating` when an input is absent. This criterion never outranks
+  feasibility, intent, the volume band or the main/secondary hierarchy.
 
 
 ## 7. Loads and Epley inversion
@@ -347,6 +352,7 @@ dual logging is not supported: one owner_device_id per session.
 | Beam | prescribe/beam.py | search, BeamConfig, BeamResult |
 | Evaluator | prescribe/evaluator.py | evaluate_assignment, score_components, _components |
 | Role quality | prescribe/role_quality.py | snapshot, RoleQualityConfig, ClassScale |
+| Stimulus evidence | config/exercises/demands.v1.yaml | local_muscular demand rating |
 | Tax input | prescribe/selection_tax.py | TaxConfig, Tax, lower_tax |
 | Fixed-history A/B | prescribe/evaluator_ab.py | _run_case, CASES, _markdown |
 | Resolver benchmark | tools/resolver_benchmark.py | _synthetic_measure, _timed, _percentile |
@@ -449,14 +455,22 @@ Coverage is the first accessory criterion, so `dumbbell_row` wins even though th
 horizontal-pull volume is already at target and its productive-volume class is lower. This is
 the `accessory_coverage` A/B row.
 
-For stimulus-to-fatigue, when coverage and productive volume tie, compare the mandatory tax
-axes. Accessory candidates `front_squat` (axial 2, skill 3 -> high cost 1) and
-`hanging_leg_raise` (axial 1, skill 1 -> low cost 3) have different patterns and neither is
-covered, so coverage ties at 3. The low-cost candidate wins. Missing tax (for example
-`lying_leg_curls`) stays neutral 2 and is never assumed to be cheaper. This is the
-`accessory_stimulus` A/B row. Tests:
+For stimulus-to-fatigue, when coverage and productive volume tie, compare the two inputs.
+Accessory candidates `front_squat` (stimulus 3, axial 2/skill 3 -> high cost) and
+`hanging_leg_raise` (stimulus 2, axial 1/skill 1 -> low cost) have different patterns and
+neither is covered, so coverage ties at 3. Front squat is high/high = 2; hanging leg raise is
+moderate/low = 3, so the moderate-stimulus/low-cost candidate wins. This is the
+`accessory_stimulus` A/B row.
+
+The higher-stimulus case uses `lat_pulldown` (stimulus 2, low cost -> moderate/low = 3) and
+`seated_cable_row` (stimulus 3, low cost -> high/low = 4). Both cover an otherwise uncovered
+pattern and both have neutral productive volume, so the higher-stimulus candidate wins; the
+classic key, tied on score, picks the alphabetically earlier `lat_pulldown`. This is the
+`accessory_stimulus_high` A/B row. Missing stimulus (for example a machine exercise with no
+demand profile) or missing tax (for example `lying_leg_curls`) stays neutral 2 and is never
+assumed to be cheaper. Tests:
 `tests/test_role_quality.py::test_coverage_excludes_the_candidate_itself`,
-`::test_accessory_coverage_can_decide_the_winner` and
+`::test_stimulus_matrix_prefers_dominance_not_a_ratio` and
 `::test_stimulus_to_fatigue_can_decide_between_equally_covering_accessories`.
 
 ## 16. Failure modes and diagnostics
@@ -486,7 +500,7 @@ message; use the stage and fields.
 | resolver.top_set.mode | off | top-set intent |
 | resolver.top_set.backoff_percent | 0.85 | back-off load |
 | resolver.top_set.fallback_above_rir | 2 | top-set RIR ceiling |
-| config/resolver-role-quality.v1.yaml | role criteria, class scales and neutral values | evaluator |
+| config/resolver-role-quality.v1.yaml | role criteria, class scales, stimulus ratings and neutral values | evaluator |
 | config/derived-structure.v1.yaml | load/RIR tolerances, gap, back-off count | analysis only |
 | config/volume.v1.yaml | targets, tolerance 0.10, band_min 1 | volume ledger |
 | config/minimum-session.v1.yaml | floors 2/1, 30 s per set | shaped sessions |
@@ -513,8 +527,8 @@ The resolver performance report is reproducible with:
 
 It reports cold start, steady-state p50/p95, finalist evaluations, prescription builds,
 candidate count and beam truncation for the corrected path and for the same builds with the
-role-quality snapshot disabled. Laptop numbers are not ODROID numbers; the ODROID-C4
-measurement is pending until the command is run there.
+role-quality snapshot disabled. Laptop numbers are not ODROID numbers; the 2026-11-21
+ODROID-C4 measurement is recorded in PERFORMANCE-PROFILE.md §11.9.
 
 ## 19. Superseded and specialist documents
 

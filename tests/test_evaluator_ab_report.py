@@ -25,6 +25,7 @@ def test_each_review_case_has_a_safe_quality_choice(name: str) -> None:
         ("secondary_redundancy", "bench_support"),
         ("accessory_coverage", "accessory_row"),
         ("accessory_stimulus", "accessory_vertical_press"),
+        ("accessory_stimulus_high", "accessory_vertical_press"),
     ],
 )
 def test_full_cases_show_the_role_choice_change(name: str, slot: str) -> None:
@@ -47,6 +48,8 @@ def test_full_cases_cover_secondary_and_accessory_changes() -> None:
     secondary = evaluator_ab._run_case("secondary_redundancy")
     coverage = evaluator_ab._run_case("accessory_coverage")
     stimulus = evaluator_ab._run_case("accessory_stimulus")
+    stimulus_high = evaluator_ab._run_case("accessory_stimulus_high")
     assert secondary["changed_slots"] == ["bench_support"]
     assert coverage["changed_slots"] == ["accessory_row"]
     assert stimulus["changed_slots"] == ["accessory_vertical_press"]
+    assert stimulus_high["changed_slots"] == ["accessory_vertical_press"]

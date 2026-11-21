@@ -11,8 +11,11 @@ from pathlib import Path
 
 import yaml
 
+from strength_coach.utils import exercises
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CONFIG = REPO_ROOT / "config" / "resolver-role-quality.v1.yaml"
+DEMANDS = REPO_ROOT / "config" / "exercises" / "demands.v1.yaml"
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "resolver_structure"
 
 
@@ -82,7 +85,54 @@ def test_role_quality_config_documents_the_wired_criteria() -> None:
     assert raw["coverage"]["missing"] == 2
     assert raw["tax"]["classes"] == {"low": 3, "moderate": 2, "high": 1}
     assert raw["tax"]["missing"] == 2
-    assert raw["tax"]["stimulus"] == "slot_dose"
+    assert raw["tax"]["stimulus"] == "separate_rating"
+    assert raw["stimulus_to_fatigue"]["classes"] == {
+        "high_low": 4,
+        "high_moderate": 3,
+        "moderate_low": 3,
+        "high_high": 2,
+        "moderate_moderate": 2,
+        "low_low": 2,
+        "moderate_high": 1,
+        "low_moderate": 1,
+        "low_high": 0,
+    }
+    assert raw["stimulus_to_fatigue"]["missing"] == 2
+    assert raw["stimulus"]["source"] == "config/exercises/demands.v1.yaml"
+    assert raw["stimulus"]["reviewed_on"] == "2026-11-21"
+
+
+def test_stimulus_ratings_are_seeded_from_the_demand_profiles() -> None:
+    raw = yaml.safe_load(CONFIG.read_text(encoding="utf-8"))
+    ratings = raw["stimulus"]["ratings"]
+    demands = yaml.safe_load(DEMANDS.read_text(encoding="utf-8"))["exercises"]
+    taxonomy = exercises.taxonomy().entities
+    assert ratings
+    for exercise_id, rating in ratings.items():
+        assert rating in {1, 2, 3}, exercise_id
+        level = (demands.get(exercise_id, {}).get("local_muscular") or {}).get("level")
+        assert level in {"high", "moderate", "low"}, exercise_id
+        compound = bool(
+            taxonomy.get(exercise_id, {}).get("primary_compound")
+            or taxonomy.get(exercise_id, {}).get("main_lift")
+        )
+        if rating == 3:
+            assert level == "high" and compound, exercise_id
+        elif rating == 2:
+            assert (
+                (level == "high" and not compound)
+                or (level == "moderate" and compound)
+            ), exercise_id
+        else:
+            assert (
+                (level == "moderate" and not compound) or level == "low"
+            ), exercise_id
+    rated = {
+        exercise_id
+        for exercise_id, dims in demands.items()
+        if (dims.get("local_muscular") or {}).get("level") in {"high", "moderate", "low"}
+    }
+    assert set(ratings) == rated
 
 
 def test_legacy_fixture_keeps_roles_and_group_sum() -> None:

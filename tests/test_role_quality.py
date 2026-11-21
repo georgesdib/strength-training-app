@@ -283,19 +283,43 @@ def test_accessory_coverage_can_decide_the_winner() -> None:
 def test_stimulus_to_fatigue_uses_role_specific_mandatory_tax_axes() -> None:
     assert CFG.tax_mandatory_axes["accessory"] == ("axial", "skill")
     assert CFG.tax_mandatory_axes["essential"] == ("axial", "systemic", "skill")
+    # The two inputs are recorded independently, then mapped through the configured matrix.
+    assert role_quality._stimulus_inputs("ab_wheel", False, TAX, CFG) == (2, 1)
     assert role_quality._stimulus_to_fatigue_class(
         "ab_wheel", False, TAX, CFG
-    ) == CFG.tax.value("low")
+    ) == CFG.stimulus_to_fatigue.value("moderate_low")
     assert role_quality._stimulus_to_fatigue_class(
         "dumbbell_row", False, TAX, CFG
-    ) == CFG.tax.value("moderate")
+    ) == CFG.stimulus_to_fatigue.value("high_moderate")
     assert role_quality._stimulus_to_fatigue_class(
         "front_squat", False, TAX, CFG
-    ) == CFG.tax.value("high")
+    ) == CFG.stimulus_to_fatigue.value("high_high")
     # Missing tax data is neutral; it is not assumed to be lower cost.
+    assert role_quality._stimulus_inputs("lying_leg_curls", False, TAX, CFG) == (2, None)
     assert role_quality._stimulus_to_fatigue_class(
         "lying_leg_curls", False, TAX, CFG
-    ) == CFG.tax.neutral
+    ) == CFG.stimulus_to_fatigue.neutral
+    # Missing stimulus is neutral even when the tax is known.
+    assert role_quality._stimulus_inputs("chest_supported_row", False, TAX, CFG) == (None, None)
+    assert role_quality._stimulus_to_fatigue_class(
+        "chest_supported_row", False, TAX, CFG
+    ) == CFG.stimulus_to_fatigue.neutral
+
+
+def test_stimulus_matrix_prefers_dominance_not_a_ratio() -> None:
+    high_low = CFG.stimulus_to_fatigue.value("high_low")
+    high_moderate = CFG.stimulus_to_fatigue.value("high_moderate")
+    high_high = CFG.stimulus_to_fatigue.value("high_high")
+    moderate_low = CFG.stimulus_to_fatigue.value("moderate_low")
+    moderate_moderate = CFG.stimulus_to_fatigue.value("moderate_moderate")
+    moderate_high = CFG.stimulus_to_fatigue.value("moderate_high")
+    low_high = CFG.stimulus_to_fatigue.value("low_high")
+    assert high_low > high_moderate > high_high
+    assert moderate_low > moderate_moderate > moderate_high
+    assert high_low > moderate_low
+    assert high_high == moderate_moderate == CFG.stimulus_to_fatigue.value("low_low")
+    assert moderate_high == CFG.stimulus_to_fatigue.value("low_moderate")
+    assert low_high < moderate_high
 
 
 def test_stimulus_to_fatigue_can_decide_between_equally_covering_accessories() -> None:
@@ -303,13 +327,18 @@ def test_stimulus_to_fatigue_can_decide_between_equally_covering_accessories() -
     assignment_b = {**assignment_a, "core_anti_extension": "pull_up"}
     a = _snapshot_with(base=base, assignment=assignment_a)
     b = _snapshot_with(base=base, assignment=assignment_b)
-    # Both cover vertical pull; the low-cost option wins, and the snapshot says why.
+    # Both cover vertical pull; the moderate-stimulus/low-cost option wins, and the snapshot
+    # records that its stimulus rating is provisional.
     assert a.roles["accessory"][0]["classes"]["coverage"] == CFG.coverage.value("uncovered")
     assert b.roles["accessory"][0]["classes"]["coverage"] == CFG.coverage.value("uncovered")
-    assert a.roles["accessory"][0]["classes"]["stimulus_to_fatigue"] == CFG.tax.value("low")
-    assert b.roles["accessory"][0]["classes"]["stimulus_to_fatigue"] == CFG.tax.value("moderate")
+    assert a.roles["accessory"][0]["classes"]["stimulus_to_fatigue"] == (
+        CFG.stimulus_to_fatigue.value("moderate_low")
+    )
+    assert b.roles["accessory"][0]["classes"]["stimulus_to_fatigue"] == (
+        CFG.stimulus_to_fatigue.value("moderate_moderate")
+    )
     assert a.vector < b.vector
-    assert role_quality.STIMULUS_COST_ONLY in a.limitations
+    assert role_quality.STIMULUS_PROVISIONAL in a.limitations
 
 
 # ---------------------------------------------------------------------------
@@ -336,6 +365,10 @@ def test_accessory_snapshot_reports_its_own_pattern_as_uncovered() -> None:
     # default squat assignment; the old self-inclusive set made every one of them "covered".
     assert by_slot["accessory_row"]["coverage"] == CFG.coverage.value("uncovered")
     assert by_slot["accessory_knee_flexion"]["coverage"] == CFG.coverage.value("uncovered")
+    assert role_quality.STIMULUS_PROVISIONAL in snapshot.limitations
+    # lying_leg_curls has a stimulus rating but no tax entry, so the snapshot says the input
+    # is missing rather than guessing a cost.
+    assert role_quality.STIMULUS_MISSING in snapshot.limitations
 
 
 def test_band_and_intent_penalties_change_the_first_vector_positions() -> None:
