@@ -15,6 +15,7 @@ import datetime as dt
 import uuid
 from typing import Any
 
+from strength_coach.store import ios_workflow
 from strength_coach.store.db import transaction
 from strength_coach.utils import ios_credentials as credentials
 
@@ -252,6 +253,9 @@ def mint_watch(conn, *, parent_device_id: str, label: object = None,
                 "WHERE device_id = ? AND revoked_at IS NULL",
                 (now_iso, replaced),
             )
+            # The replaced watch is gone, so any plan it was the execution target of can never
+            # start. Retiring it here keeps the phone and the watch reading the same answer.
+            ios_workflow.supersede_plans_for_target(conn, replaced, now_iso)
         epoch_row = conn.execute(
             "SELECT COALESCE(MAX(credential_epoch), 0) + 1 AS next_epoch "
             "FROM ios_device WHERE parent_device_id = ?",
@@ -321,6 +325,10 @@ def revoke_device(conn, device_id: str,
                     "WHERE kind = 'watch' AND parent_device_id = ? AND revoked_at IS NULL",
                     (at, target),
                 )
+        # The revoked device and any cascaded watch can no longer start their plan; a repeat
+        # revocation is still a chance to retire a plan a legacy revocation left behind.
+        for revoked in [target, *revoked_watch_ids]:
+            ios_workflow.supersede_plans_for_target(conn, revoked, at)
         if row["revoked_at"] is not None:
             return {"device_id": target, "revoked_at": row["revoked_at"],
                     "already_revoked": True, "revoked_watch_ids": revoked_watch_ids}

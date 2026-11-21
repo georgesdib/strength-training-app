@@ -2519,6 +2519,17 @@ class Handler(BaseHTTPRequestHandler):
         row = ios_workflow.current_plan(conn, device["device_id"])
         if row is None:
             return {"status": "none"}
+        target_device_id = row["target_device_id"]
+        if target_device_id is not None:
+            # Fail closed on a dead execution target. Replacing or revoking a watch supersedes
+            # its live plan, so this only catches a legacy row or a race that missed that
+            # write; advertising it would offer a plan that can never be started.
+            target = conn.execute(
+                "SELECT revoked_at FROM ios_device WHERE device_id = ?",
+                (str(target_device_id),),
+            ).fetchone()
+            if target is None or target["revoked_at"] is not None:
+                return {"status": "none"}
         status = str(row["status"])
         now = ios_workflow.now_iso()
         if status in {"queued", "building"}:

@@ -509,7 +509,9 @@ unattributed set has both as null.
   a ready plan. Prescription rows are written in the start transaction, so an unstarted ready plan
   is a preview and not a prescription. Starting a `queued`/`building` plan is `409 plan_not_ready`;
   a failed build is `410 plan_failed`. Legacy Phase 2 rows are preserved by migration `0056` and
-  keep their original prescription id.
+  keep their original prescription id. Replacing or revoking a watch retires the live plan issued
+  to it in the same transaction, and `plans/current` reports `none` for a plan whose execution
+  target is no longer live; the request row is superseded, never re-targeted.
 - **Mutation switch.** Set mutations_enabled: false in config/ios.v1.yaml to return every Phase 2
   mutation as 503 ios_mutations_disabled while bootstrap/today/history/progress remain available.
   The bootstrap capabilities report the writes as disabled. Settings → iOS settings edits this
