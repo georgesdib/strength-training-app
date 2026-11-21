@@ -70,8 +70,8 @@ Status bands: `ready ≥ 0.75`, `monitor ≥ 0.50`, `low < 0.50`.
 - **RIR is imprecise.** Predictions can be off by ~2–5 reps depending on proximity to failure
   (Zourdos 2021, ref 101; Remmert 2023, ref 102), which feeds directly into the `rir` component.
 - **VBT is sparse and load-dependent.** A velocity target only exists for lifts with enough
-  clean sets; the app does not prescribe velocity targets for the trap bar (`DEC-VBT-01`), and
-  mixed loads make the comparison approximate.
+  clean sets; no lift is excluded by evidence since `DEC-VBT-06` reversed the trap-bar
+  exclusion, and mixed loads make the comparison approximate.
 - **No per-lift soreness/pain input.** The global soreness field and the injury signal stand in
   for it. A true per-lift readiness score would need a lift-specific pre-session rating.
 - **Weights are arbitrary.** 0.20/0.15/0.15 were chosen to let the subjective base dominate;

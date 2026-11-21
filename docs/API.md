@@ -304,6 +304,8 @@ with per-set comparisons, exercise aggregates and quality counts:
 {
   "status": "available",
   "reason": null,
+  "plan_target_note": {"status": "available", "targets": 1, "session_modified": false,
+                       "calibration_ids": ["vbt-..."], "withheld": []},
   "sets": [{
     "set_id": 1, "set_index": 1, "exercise_id": "ssb_squat",
     "reps": 3, "load_kg": 100, "load_basis": "external",
@@ -336,6 +338,15 @@ falls back to the target issued in the original plan and is marked
 `target_source: "original_plan"`; a swapped exercise never borrows the old target. The latest
 set-mean `vbt_override` wins and is marked `velocity_source: "override"`. Per-rep velocity
 loss remains a separate field.
+
+`plan_target_note` is the frozen plan's own `notes.vbt` record, copied verbatim: it names the
+safety rule that skipped target attachment, the calibration shortfall, the issued targets, or
+the lifts withheld by policy. `session_modified` records that a safety rule amended the session
+before targets were attached; the targets are still issued, and the per-set rules decide whether
+each set stayed comparable. The note is provenance for the workout-level `reason`, which can only
+say "no target anywhere"; the web UI shows it beside an `unavailable` result and shows the
+modified-session line when targets were issued anyway. When no plan note was recorded (legacy
+rows, voided sessions) the field is `null`.
 
 A comparison is marked `comparable: false` with explicit reasons when the set is warm-up,
 unattributed, attributed to another exercise, missing/invalid velocity, a different rep count,

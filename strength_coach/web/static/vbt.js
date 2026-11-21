@@ -29,6 +29,31 @@ function vbtReason(code) {
   return VBT_REASON_TEXT[code] || String(code).replace(/_/g, " ");
 }
 
+/* The plan's own record of why targets were attached or skipped.
+ *
+ * The workout-level reason can only say "no target anywhere", so the frozen plan note is shown
+ * beside it: it names the safety rule that skipped the session, the calibration shortfall, or
+ * the targets that were issued. Displayed verbatim; it is provenance, not a new decision.
+ */
+function vbtPlanTargetNoteHtml(note) {
+  if (!note) return "";
+  var reason = note.reason ? esc(note.reason) : "";
+  var status = note.status ? esc(String(note.status).replace(/_/g, " ")) : "";
+  var withheld = (note.withheld && note.withheld.length)
+    ? " Withheld: " + esc(note.withheld.join(", ")) + "."
+    : "";
+  if (!reason && !status && !withheld) return "";
+  return "<p class='muted'>Plan record: " + (reason || "no reason recorded") +
+    (status ? " (" + status + ")" : "") + "." + withheld + "</p>";
+}
+
+function vbtSessionModifiedHtml(note) {
+  if (!note || !note.session_modified) return "";
+  return "<p class='muted'>The session was modified by a safety rule. Targets are still " +
+    "issued; a set whose actual effort left the calibrated RIR band is marked not comparable " +
+    "instead.</p>";
+}
+
 function vbtTargetInline(target) {
   if (!target) return "No VBT target";
   var band = target.low_mps != null && target.high_mps != null
@@ -219,7 +244,8 @@ function vbtSectionHtml(vbt) {
     return "<section class='vbt-section'>" + head +
       "<p class='warnbox'>" + esc(vbtReason(vbt.reason)) + "</p>" +
       "<p class='muted'>" + esc((vbt.quality || {}).logged_sets || 0) +
-      " set(s) recorded; no target comparison was possible.</p></section>";
+      " set(s) recorded; no target comparison was possible.</p>" +
+      vbtPlanTargetNoteHtml(vbt.plan_target_note) + "</section>";
   }
   var quality = vbt.quality || {};
   var byExercise = {};
@@ -287,6 +313,7 @@ function vbtSectionHtml(vbt) {
     (reasonRows ? "<li>Exclusion reasons:<ul>" + reasonRows + "</ul></li>" : "") +
     "</ul></details>";
   return "<section class='vbt-section'>" + head + summary +
+    vbtSessionModifiedHtml(vbt.plan_target_note) +
     (blocks || "<p class='empty'>No exercise-level VBT observations.</p>") +
     qualityBlock + "</section>";
 }

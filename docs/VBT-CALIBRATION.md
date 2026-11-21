@@ -19,7 +19,7 @@ reported per lift, so a target with `n = 4` is visibly weak rather than silently
 | 3 | `1 ≤ reps ≤ 8` | velocity is rep-count dependent; long sets are not VBT sets |
 | 4 | `load_basis ≠ unknown` | DQ-BW-01 could not classify the load |
 | 5 | not quarantined, no `REPS_TYPO` flag | corrupt rows cannot set a target |
-| 6 | `exercise.vbt_family` not null | non-VBT movements (e.g. back extension, planks, jumps, carries and bodyweight work) are excluded structurally. A family is necessary but not sufficient: the trap bar has a family yet is withheld by the evidence-based `VBT_UNRELIABLE` rule |
+| 6 | `exercise.vbt_family` not null | non-VBT movements (e.g. back extension, planks, jumps, carries and bodyweight work) are excluded structurally. No lift is currently withheld by an evidence rule: the trap-bar exclusion was reversed (`DEC-VBT-06`) |
 | 7 | `load ≥ 0.60 × e1RM` | a 40%-e1RM warm-up has no informative velocity target; configurable |
 | 8 | velocity within `median ± 4·MAD` of its (lift, rep) group | single-session device glitches; iterative, max 2 passes |
 
@@ -149,10 +149,14 @@ only where the ladder produces one:
 - the prescription cites the stored calibration rows in `calibration_ids` (deduplicated);
 - a swap clears the old target because the replacement lift has a different velocity profile;
   added exercises have no target; changing set counts preserves a still-applicable target;
-- **no target** is attached when the session was already modified by a safety rule (the load no
-  longer matches the calibration), or when no lift has 12 clean sets across 3 sessions;
-- **hex-bar deadlift targets are withheld** regardless of sample size, because the RIR-velocity
-  relationship for that lift failed accuracy criteria (`docs/VBT-EVIDENCE.md`).
+- **no target** is attached when no lift has 12 clean sets across 3 sessions at the prescribed
+  rep count. A session modified by a safety rule keeps its targets (`DEC-VBT-07`): the target is
+  conditional on rep count and RIR band, so a lighter set is still comparable and the per-set
+  rules exclude a set whose effort left the band;
+- **hex-bar deadlift targets are no longer withheld** (`DEC-VBT-06`): the failed accuracy
+  criterion in `docs/VBT-EVIDENCE.md` concerns RIR-from-velocity, not the mean-velocity target,
+  and the ladder above still refuses a target when the sample is thin. `VBT_UNRELIABLE` stays in
+  the engine as an empty hook for a future evidence-based exclusion.
 
 The prescription notes say which case applied, and the CLI prints a `vel` column when any item
 has a target. A missing target is visible, not silent.
