@@ -463,6 +463,10 @@ runs shown, single process, no CPU pinning:
 | ODROID-C4 | `straight` (10 runs) | 1.128 / 1.214 s | 0.921 / 1.179 s | 2 / 2 |
 
 Cold-start times were 0.263 s / 0.112 s on the MacBook and 3.775 s / 1.730 s on the ODROID-C4
-for the full and straight cases. These are measurements on the named hosts, not deployment
-guarantees. The historical two-finalist row of 1.21/1.24 s recorded during the original WP6 work
-is not reproduced by a checked-in p95 benchmark and is not a current guarantee.
+for the full and straight cases. Percentiles use nearest-rank with the stated n; with n=10 the
+p95 is the maximum sample. The corrected path is measured before the snapshot-disabled baseline
+in each report, so the delta is an indicative snapshot cost, not a paired estimate. The ODROID
+was otherwise quiet during the run (load average 0.06, 36 C, ondemand governor) but is also the
+running backend server. These are measurements on the named hosts, not deployment guarantees.
+The historical two-finalist row of 1.21/1.24 s recorded during the original WP6 work is not
+reproduced by a checked-in p95 benchmark and is not a current guarantee.
