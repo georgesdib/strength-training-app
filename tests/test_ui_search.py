@@ -74,6 +74,15 @@ def test_dwell_prefers_a_dwell_labelled_setting(entries):
     assert "dwell" in results[0][0].title.lower()
 
 
+def test_the_dwell_counter_question_finds_the_resolver_section(entries):
+    query = "where can I see/configure the count of an exercise which is used in dwell?"
+    results = search.rank(entries, query)
+    sections = [entry for entry, _ in results if entry.title == "Dwell counters"]
+    assert sections
+    assert sections[0].target.startswith("settings-dwell")
+    assert sections[0].subtitle == "Settings · Resolver"
+
+
 def test_layout_words_do_not_hide_a_result(entries):
     results = search.rank(entries, "where do I change the maximum heart rate")
     assert results[0][0].target == "profile-cardio-max_hr_bpm"

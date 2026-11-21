@@ -31,11 +31,12 @@ KIND_ORDER = {"setting": 0, "panel": 1, "view": 2, "doc": 3}
 # Generic words that say "show me where", not "which thing". Dropping them keeps
 # "where can I see the table of symptoms" focused on "symptoms".
 STOPWORDS = frozenset({
-    "a", "about", "an", "and", "area", "are", "at", "be", "button", "can", "change", "do", "does",
-    "field", "find", "for", "from", "get", "go", "how", "i", "in", "into", "is", "it", "list",
-    "located", "me", "modify", "my", "of", "on", "open", "option", "options", "or", "page",
-    "screen", "section", "see", "set", "show", "table", "that", "the", "this", "to", "view",
-    "where", "with",
+    "a", "about", "adjust", "an", "and", "area", "are", "at", "be", "button", "can", "change",
+    "config", "configure", "do", "does", "edit", "field", "find", "for", "from", "get", "go", "how",
+    "i", "in", "into", "is", "it", "list", "located", "look", "looking", "me", "modify", "my", "need",
+    "of", "on", "open", "option", "options", "or", "page", "screen", "section", "see", "set", "show",
+    "table", "that", "the", "there", "this", "to", "tweak", "use", "used", "view", "want", "where",
+    "which", "with",
 })
 
 # Everyday words for a surface, mapped to the vocabulary the UI actually uses. Aliases score
@@ -72,6 +73,7 @@ _PANEL_HEAD = re.compile(r'<div class="panel-head"[^>]*>(?P<body>.*?)</div>', re
 _PANEL_HEADING = re.compile(
     r"<h(?P<level>[23])[^>]*>(?P<title>.*?)</h(?P=level)>", re.S
 )
+_SECTION_HEADING = re.compile(r"<h3[^>]*>(?P<title>.*?)</h3>", re.S)
 _HELP = re.compile(r'\s*<p class="section-help">(?P<body>.*?)</p>', re.S)
 _ANY_ID = re.compile(r'id="(?P<id>[^"]+)"')
 
@@ -185,6 +187,46 @@ def _panel_entries(text: str) -> list[Entry]:
                 kind="panel",
                 title=title,
                 subtitle=label,
+                view=view,
+                target=target,
+                body=body,
+            )
+        )
+        entries.extend(_section_entries(slice_, head, view, label, title, target))
+    return entries
+
+
+def _section_entries(
+    slice_: str,
+    panel_head: re.Match[str],
+    view: str,
+    label: str,
+    panel_title: str,
+    fallback: str,
+) -> list[Entry]:
+    """Index an h3 sub-section of a panel, with its own help text and anchor."""
+    entries: list[Entry] = []
+    for head in _PANEL_HEAD.finditer(slice_):
+        if head.start() <= panel_head.start():
+            continue
+        heading = _SECTION_HEADING.search(head.group("body"))
+        if heading is None:
+            continue
+        title = _clean(heading.group("title"))
+        if not title or title.casefold() == panel_title.casefold():
+            continue
+        help_match = _HELP.match(slice_[head.end():])
+        body = _clean(help_match.group("body")) if help_match else ""
+        own_id = _ANY_ID.search(head.group("body"))
+        target = own_id.group("id") if own_id else ""
+        if not target:
+            following = _ANY_ID.search(slice_[head.end():])
+            target = following.group("id") if following else fallback
+        entries.append(
+            Entry(
+                kind="panel",
+                title=title,
+                subtitle=label + " · " + panel_title,
                 view=view,
                 target=target,
                 body=body,
