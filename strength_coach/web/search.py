@@ -290,6 +290,62 @@ ACTION_TARGETS = (
             "so withdrawing records a dated tombstone and keeps the row"
         ),
     },
+    {
+        "title": "Add or edit a constraint",
+        "subtitle": "Athlete",
+        "view": "state",
+        "target": "state-forms",
+        "body": "constraints, goals and injuries kept as athlete state rather than prompt text",
+    },
+    {
+        "title": "Rate an exercise's suitability",
+        "subtitle": "Athlete",
+        "view": "state",
+        "target": "state-forms",
+        "body": "suitability ratings the resolver uses to prefer or avoid an exercise",
+    },
+    {
+        "title": "Declare a break",
+        "subtitle": "Athlete",
+        "view": "state",
+        "target": "state-forms",
+        "body": "declare a holiday, deload or test-week break as an append-only date range",
+    },
+    {
+        "title": "Log a symptom or pain reading",
+        "subtitle": "Athlete",
+        "view": "state",
+        "target": "state-forms",
+        "body": "pre-session symptom reading per region, with optional session attribution",
+    },
+    {
+        "title": "Edit a past session or its sets",
+        "subtitle": "History",
+        "view": "history",
+        "target": "history-edit-panel",
+        "body": "edit or correct a recorded session: sets, reps, load, RIR, velocity and notes",
+    },
+    {
+        "title": "Import training or readiness CSV",
+        "subtitle": "Import",
+        "view": "import",
+        "target": "import-form",
+        "body": "upload training or readiness CSV files and review the import summary",
+    },
+    {
+        "title": "Configure relative strength ratios",
+        "subtitle": "Performance",
+        "view": "performance",
+        "target": "performance-ratios",
+        "body": "add or manage configured relative-strength pairs and their local overrides",
+    },
+    {
+        "title": "Rate resolver generation suggestions",
+        "subtitle": "Settings · Resolver",
+        "view": "settings",
+        "target": "settings-resolver-preview",
+        "body": "rate suggestions can-do, will-not-do or feels-bad before starting a workout",
+    },
 )
 
 

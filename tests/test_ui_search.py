@@ -74,6 +74,31 @@ def test_dwell_prefers_a_dwell_labelled_setting(entries):
     assert "dwell" in results[0][0].title.lower()
 
 
+@pytest.mark.parametrize(
+    ("question", "views"),
+    [
+        ("I want to remove an e1rm override, where can I do that?", {"state"}),
+        ("where can I see the table of symptoms?", {"state"}),
+        ("where do I add a constraint?", {"state"}),
+        ("where do I rate an exercise's suitability?", {"state"}),
+        ("where do I declare a break?", {"state"}),
+        ("where do I record a strength test?", {"state"}),
+        ("where do I log a set?", {"workout"}),
+        ("where do I edit a past session?", {"history"}),
+        ("where do I configure relative strength ratios?", {"performance"}),
+        ("where do I rate resolver suggestions?", {"settings"}),
+        ("where do I change the readiness baseline?", {"readiness"}),
+        ("where do I import a CSV?", {"import", "workout"}),
+        ("where do I log a symptom before training?", {"state"}),
+        ("where do I see the resolver generation preview?", {"settings"}),
+    ],
+)
+def test_realistic_questions_land_in_the_expected_view(entries, question, views):
+    results = search.rank(entries, question)
+    assert results
+    assert results[0][0].view in views
+
+
 def test_curated_actions_point_at_real_elements():
     text = INDEX_HTML.read_text(encoding="utf-8")
     for item in search.ACTION_TARGETS:
