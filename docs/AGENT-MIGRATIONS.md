@@ -1,20 +1,15 @@
 # Agent migrations — strength-training-app
 
-Rules for schema changes and append-only records. Read ../AGENTS.md and
-AGENT-WORKFLOWS.md first.
+Rules for schema changes and append-only records. Read `../AGENTS.md` and `AGENT-WORKFLOWS.md` first.
 
 ## 1. Core rules
 
 - Prescriptions, critiques, calibrations, rule versions and workout events are append-only.
   Correct by appending a new row with a pointer; never update/delete history.
 - Migration files are numbered, ordered and checksummed by strength_coach.store.db. The
-  checksum is SHA-256 over the whole file, so a comment, doc link or whitespace edit is drift
-  too: it stops every database that already applied that version from opening, even when the
-  DDL is unchanged.
-- Never edit an already-applied migration, including its comments; add the next number. A doc
-  link that has moved is not a reason to touch applied SQL: leave the old path in place.
-- If an applied migration has already drifted and the change is provably non-DDL (section 7),
-  re-baseline the recorded checksum only with explicit owner approval, one version at a time.
+  checksum is SHA-256 over the whole file, so a comment, doc link or whitespace edit is drift too: it stops every database that already applied that version from opening, even when the DDL is unchanged.
+- Never edit an already-applied migration, including its comments; add the next number. A doc link that has moved is not a reason to touch applied SQL: leave the old path in place.
+- If an applied migration has already drifted and the change is provably non-DDL (section 7), re-baseline the recorded checksum only with explicit owner approval, one version at a time.
 - A migration must preserve all existing data. If SQLite forces a table rebuild, copy every
   legacy row with an explicit mapping and add a check that aborts on corrupt legacy data.
 - Never run a migration against the live database as part of an agent task without explicit
@@ -74,8 +69,7 @@ training history.
 ## 7. Checksum drift and re-baselining
 
 `MigrationError: migration <file> was edited after being applied` means the file on disk no
-longer hashes to what `schema_migration` recorded. Treat it as a schema-integrity alert, not
-a startup bug: the server refuses to open the database for a reason.
+longer hashes to what `schema_migration` recorded. Treat it as a schema-integrity alert, not a startup bug: the server refuses to open the database for a reason.
 
 Diagnose before repairing:
 
@@ -91,10 +85,7 @@ Approved re-baseline:
 - Back up the database first; `data/*.db*` is git-ignored, so keep the copy beside it.
 - Update exactly one row: `UPDATE schema_migration SET checksum=<sha256 of the current file>
   WHERE version='<version>'`. Never delete rows; never recreate the table.
-- Verify on a copy, not the live database: copy the file, run `store.db.migrate()` against the
-  copy, and confirm both the checksum gate and every pending migration pass.
-- Record in the commit message which versions were re-baselined, the old and new hashes, and
-  the evidence that the diff was comment-only.
+- Verify on a copy, not the live database: copy the file, run `store.db.migrate()` against the copy, and confirm both the checksum gate and every pending migration pass.
+- Record in the commit message which versions were re-baselined, the old and new hashes, and the evidence that the diff was comment-only.
 
-Never re-baseline to hide a schema change. Never revert the migration file to restore an old
-hash either: another machine or CI database may already hold the new one.
+Never re-baseline to hide a schema change. Never revert the migration file to restore an old hash either: another machine or CI database may already hold the new one.

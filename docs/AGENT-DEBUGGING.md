@@ -4,9 +4,9 @@ Diagnostics and log rules. Read ../AGENTS.md and AGENT-WORKFLOWS.md first.
 
 ## 1. Token discipline
 
-- Do not read ROADMAP.md, ROADMAP-DONE.md, CHANGELOG.md, large docs, logs, exports,
-  lockfiles, build artefacts or databases unless essential to the task. ROADMAP.md is the
-  live/next list; ROADMAP-DONE.md is the completed-history archive and is audit-only.
+- Do not read `ROADMAP.md`, `ROADMAP-DONE.md`, `CHANGELOG.md`, large docs, logs, exports,
+  lockfiles, build artefacts or databases unless essential to the task. `ROADMAP.md` is the
+  live/next list; `ROADMAP-DONE.md` is the completed-history archive and is audit-only.
 - Prefer targeted search and small excerpts.
 - Never paste full test/build/log output into context.
 - On failure, return only failing test names, assertion messages and relevant tracebacks.
@@ -22,24 +22,19 @@ Diagnostics and log rules. Read ../AGENTS.md and AGENT-WORKFLOWS.md first.
 5. Re-run the focused file/marker, then the narrow dependent tests.
 6. Run the full default suite only at handoff or when the change crosses broad boundaries.
 
-Do not repeatedly re-run a full suite to watch it. Start a managed background job, wait once
-near the expected duration, then inspect once.
+Do not repeatedly re-run a full suite to watch it. Start a managed background job, wait once near the expected duration, then inspect once.
 
 ## 3. Server/web diagnostics
 
 - Unexpected web exceptions return a generic 500 and are logged with method, path and
   traceback; never return exception classes, filesystem paths or DB details.
 - Expected 400/404/409 messages stay useful and are safe to expose.
-- Per-item HealthKit activity rejections return 200 with `rejected_keys`, and the handler also
-  prints `HTTP 200 <path>: rejected workout|sample <key>: <reason>` to stderr. The reason names
-  the conflicting field or validation rule; payload values are never logged.
+- Per-item HealthKit activity rejections return 200 with `rejected_keys`, and the handler also prints `HTTP 200 <path>: rejected workout|sample <key>: <reason>` to stderr. The reason names the conflicting field or validation rule; payload values are never logged.
 - Request bodies respect MAX_BODY_BYTES; never read an unbounded Content-Length.
 - The web UI is home-network only and unauthenticated. Do not expose it publicly.
 - Use the local server log tail and targeted curl requests for diagnosis; redact tokens,
   pairing codes, real server addresses and personal data.
-- GET log lines include elapsed seconds, and an iOS workout-summary request logs a start line
-  before authentication/dispatch. A missing completion line with a start line means the handler
-  is still running or failed without a response; look for the traceback and the generic 500.
+- GET log lines include elapsed seconds, and an iOS workout-summary request logs a start line before authentication/dispatch. A missing completion line with a start line means the handler is still running or failed without a response; look for the traceback and the generic 500.
 - If a code change makes the running web process stale, restart it the same way it was
   started (same DB/bind/port, detached). Verify GET /, POST /api/programme and that removed
   pages are gone. Config-only edits do not need a restart.
@@ -57,8 +52,7 @@ near the expected duration, then inspect once.
 
 - Distinguish original occurrence time from server receipt time.
 - Check idempotency receipt and per-event identity before assuming a duplicate write.
-- Reproduce offline replay with a temporary database; verify ordering, conflict handling and
-  acknowledgement state.
+- Reproduce offline replay with a temporary database; verify ordering, conflict handling and acknowledgement state.
 - Do not acknowledge work before it is persisted; do not mark server-accepted before ack.
 - For execution telemetry, pair start/end events; never infer a duration from one timestamp.
 

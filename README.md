@@ -270,13 +270,7 @@ tests/                         unit + integration tests
 
 ## The data model in one paragraph
 
-The logs are messy in ways that are not obvious: `0` means five different things depending on
-the column, one weight column mixes unweighted / total-mass / added-load semantics, durations
-are stored in a reps column for isometric holds, and there are no timestamps so sessions must
-be reconstructed from dates alone. Repeated identical rows look like duplicates but are real
-sets. Every one of those decisions is written down with its evidence in
-[`docs/DATA-QUALITY.md`](docs/DATA-QUALITY.md), because a silent interpretation of any of them
-would corrupt every number downstream.
+The logs are messy in ways that are not obvious: `0` means five different things depending on the column, one weight column mixes unweighted / total-mass / added-load semantics, durations are stored in a reps column for isometric holds, and there are no timestamps so sessions must be reconstructed from dates alone. Repeated identical rows look like duplicates but are real sets. Every one of those decisions is written down with its evidence in [`docs/DATA-QUALITY.md`](docs/DATA-QUALITY.md), because a silent interpretation of any of them would corrupt every number downstream.
 
 ## Reading order
 
