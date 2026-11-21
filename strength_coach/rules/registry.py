@@ -455,6 +455,40 @@ def _band_factor(value: float | None, bands, default: float = 1.0) -> float:
     return default
 
 
+def _working_set_groups(working: pd.DataFrame) -> pd.DataFrame:
+    """Project working sets into (week, session, exercise, intensity) columns once.
+
+    The spinal cap is recomputed on every candidate build and in every weekly panel, and the
+    previous row-wise loop spent most of that time boxing pandas scalars. Grouping in column
+    space keeps the same arithmetic: count every working row, average load/e1RM only where both
+    are recorded, and let a single missing ratio poison its group's mean.
+    """
+    if "iso_week" in working.columns:
+        week = working["iso_week"].astype(object)
+        blank = week.isna() | (week.astype(str).str.strip() == "")
+        if bool(blank.any()):
+            week = week.where(~blank, working["date"].map(iso_week))
+    else:
+        week = working["date"].map(iso_week)
+
+    frame = pd.DataFrame({
+        "week": week.astype(str).to_numpy(),
+        "session_id": working["session_id"].astype(str).to_numpy(),
+        "exercise_id": working["exercise_id"].astype(str).to_numpy(),
+    })
+    if "e1rm_kg" in working.columns and "load_kg" in working.columns:
+        e1rm = pd.to_numeric(working["e1rm_kg"], errors="coerce")
+        load = pd.to_numeric(working["load_kg"], errors="coerce")
+        usable = ~((e1rm.eq(0)) | (load.eq(0)))
+        frame["counts_intensity"] = usable.to_numpy(dtype=bool)
+        frame["intensity"] = (load / e1rm).to_numpy(dtype=float)
+    else:
+        # A missing column is "not recorded": it must not contribute an intensity value.
+        frame["counts_intensity"] = False
+        frame["intensity"] = float("nan")
+    return frame
+
+
 def spinal_exposures(
     rule: Rule,
     context: RuleContext,
@@ -474,7 +508,7 @@ def spinal_exposures(
     intensity_factors = params.get("intensity_factors") or ()
 
     exposures: dict[str, dict[tuple[str, str], float]] = defaultdict(dict)
-    groups: dict[tuple[str, str, str], dict[str, Any]] = {}
+    group_keys = ("week", "session_id", "exercise_id")
 
     def add(session_id: str, exercise_id: str, week: str,
             sets: int = 1, intensity: float | None = None) -> None:
@@ -492,21 +526,27 @@ def spinal_exposures(
 
     if not context.sets.empty:
         working = context.sets[context.sets["is_working_set"]]
-        for row in working.itertuples(index=False):
-            week = str(getattr(row, "iso_week", "") or iso_week(row.date))
-            key = (week, str(row.session_id), str(row.exercise_id))
-            item = groups.setdefault(key, {"sets": 0, "intensities": []})
-            item["sets"] += 1
-            e1rm = getattr(row, "e1rm_kg", None)
-            load = getattr(row, "load_kg", None)
-            if e1rm not in (None, 0) and load not in (None, 0):
-                item["intensities"].append(float(load) / float(e1rm))
-    for key, group in groups.items():
-        intensities = group["intensities"]
-        add(
-            key[1], key[2], key[0], int(group["sets"]),
-            sum(intensities) / len(intensities) if intensities else None,
-        )
+        if not working.empty:
+            frame = _working_set_groups(working)
+            grouped = frame.groupby(list(group_keys), sort=False, observed=True)
+            # Set count is every working row; intensity averages only the rows that carry both
+            # load and e1RM. `skipna=False` keeps one missing ratio poisoning its group's mean,
+            # which is what the previous row-wise sum/len did.
+            sizes = grouped.size()
+            means = (
+                frame[frame["counts_intensity"].to_numpy(dtype=bool)]
+                .groupby(list(group_keys), sort=False, observed=True)["intensity"]
+                .mean(skipna=False)
+            )
+            # A dict, not Series.get: the index is a MultiIndex, so every lookup rebuilt a
+            # tuple and ran a binary search (~25k lookups across one resolver build).
+            mean_by_key = dict(zip(means.index, means.to_numpy(), strict=False))
+            for key, count in sizes.items():
+                mean = mean_by_key.get(key)
+                add(
+                    key[1], key[2], key[0], int(count),
+                    None if mean is None or pd.isna(mean) else float(mean),
+                )
 
     for entry in extra:
         session_id, exercise_id, when = entry[:3]

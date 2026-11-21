@@ -12,13 +12,14 @@ import datetime as dt
 import io
 import json
 import math
+import sqlite3
 import uuid
 from collections.abc import Mapping
 from typing import Any
 
 import pandas as pd
 
-from strength_coach import adherence
+from strength_coach import adherence, settings_profile
 from strength_coach.analytics import core as derived_core
 from strength_coach.analytics import revision as analytics_revision
 from strength_coach.domain import load as load_mod
@@ -26,6 +27,7 @@ from strength_coach.domain.plan_identity import item_identity as _item_identity
 from strength_coach.domain.plan_identity import row_plan_identity
 from strength_coach.features import comparisons as comparisons_feature
 from strength_coach.features import demands as demands_feature
+from strength_coach.features import dwell as dwell_feature
 from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
 from strength_coach.features import e1rm_decay as e1rm_decay_feature
 from strength_coach.features import e1rm_source as e1rm_source_feature
@@ -42,11 +44,7 @@ from strength_coach.features.evidence import EvidenceItem, make_source_fingerpri
 from strength_coach.prescribe import config as prescribe_config
 from strength_coach.prescribe import minimum_session as minimum_session_mod
 from strength_coach.prescribe import session_identity
-from strength_coach.prescribe.models import (
-    SET_GROUP_ROLES,
-    resize_plan_item_set_groups,
-    validate_plan_items,
-)
+from strength_coach.prescribe.models import validate_plan_items
 from strength_coach.rules import RuleContext, load_document, registry
 from strength_coach.store import db, queries, repositories
 from strength_coach.utils import exercises
@@ -227,17 +225,6 @@ def get(conn, workout_id: str) -> dict | None:
                 overrides=queries.session_vbt_overrides(conn, workout_id),
             )
     return data
-
-
-class PlanEditConflict(ValueError):
-    """A live plan edit the server refuses; the HTTP facade maps this to 409."""
-
-    status = 409
-
-    def __init__(self, code: str, message: str, details: dict | None = None):
-        super().__init__(message)
-        self.code = code
-        self.details = details or {}
 
 
 class WorkoutNotCompleted(ValueError):
@@ -914,6 +901,7 @@ def _summary_payload(
         adherence_payload = adherence.analyse({
             **data,
             "sets": queries.session_clean_sets(conn, session_id),
+            "execution": execution_view(conn, session_id),
         })
         vbt_payload = data.get("vbt") or vbt_analysis.unavailable("vbt_unavailable")
     feedback = _summary_feedback(conn, data, session_id)
@@ -1270,6 +1258,63 @@ def _plan_item_index(workout: Mapping[str, Any], exercise_id: str,
     return _item_identity(items[matches[0]], matches[0])
 
 
+def _substitution_attribution(
+    workout: Mapping[str, Any],
+    exercise_id: str,
+    substitutes_plan_item_index: int,
+    plan_item_index: int | None,
+) -> tuple[int, int]:
+    """Resolve the frozen plan slot an annotated substitution replaced.
+
+    The annotation is new-client input, so it is validated strictly: it must name a plan
+    item, the performed exercise must differ from the planned one, and an explicit
+    `plan_item_index` must agree. Both stored columns carry the same slot — the attribution
+    and the record that the set replaced it (DEC-RESOLVER-23).
+    """
+    if isinstance(substitutes_plan_item_index, bool) or not isinstance(
+        substitutes_plan_item_index, int
+    ):
+        raise ValueError("substitutes_plan_item_index must be an integer")
+    for position, item in enumerate((workout.get("plan") or {}).get("items") or []):
+        identity = _item_identity(item, position)
+        if identity != substitutes_plan_item_index:
+            continue
+        if str(item.get("exercise_id")) == str(exercise_id):
+            raise ValueError(
+                "substitutes_plan_item_index must name a different exercise "
+                "from the performed one"
+            )
+        if plan_item_index is not None and int(plan_item_index) != identity:
+            raise ValueError(
+                "plan_item_index must equal substitutes_plan_item_index for a substitution"
+            )
+        return identity, identity
+    raise ValueError("substitutes_plan_item_index does not name a plan item")
+
+
+def _set_attribution(
+    workout: Mapping[str, Any],
+    exercise_id: str,
+    plan_item_index: int | None,
+    substitutes_plan_item_index: int | None,
+) -> tuple[int | None, int | None]:
+    """Resolve a performed set's plan attribution without ever guessing.
+
+    An annotated substitution is authoritative. Otherwise an explicit index that does not
+    name the performed exercise is dropped: the set is preserved as extra work instead of
+    being attributed to the item the frozen plan now holds. The frozen plan never changes, so
+    this only covers a stale or buggy client index and a legacy replay.
+    """
+    if substitutes_plan_item_index is not None:
+        return _substitution_attribution(
+            workout, exercise_id, substitutes_plan_item_index, plan_item_index
+        )
+    try:
+        return _plan_item_index(workout, exercise_id, plan_item_index), None
+    except ValueError:
+        return None, None
+
+
 def add_set(
     conn,
     workout_id: str,
@@ -1281,8 +1326,8 @@ def add_set(
     velocity: float | None = None,
     source: str = "manual",
     set_index: int | None = None,
-    set_role: str | None = None,
     plan_item_index: int | None = None,
+    substitutes_plan_item_index: int | None = None,
     rep_velocities: list[dict] | None = None,
     performed_at: str | None = None,
 ) -> dict:
@@ -1295,8 +1340,6 @@ def add_set(
         raise ValueError("exercise_id is required")
     if source not in {"manual", "import", "device"}:
         raise ValueError("source must be manual, import or device")
-    if set_role is not None and set_role not in SET_GROUP_ROLES:
-        raise ValueError("set_role must be top_set, back_off or null")
     if set_index is None:
         row = conn.execute(
             "SELECT COALESCE(MAX(set_index), 0) AS n FROM workout_set WHERE workout_id = ? "
@@ -1312,7 +1355,9 @@ def add_set(
         velocity = round(
             sum(item["velocity_mps"] for item in rep_detail) / len(rep_detail), 3
         )
-    item_index = _plan_item_index(workout, exercise_id, plan_item_index)
+    item_index, substitutes_index = _set_attribution(
+        workout, exercise_id, plan_item_index, substitutes_plan_item_index
+    )
     performed = _parse(performed_at)
     if performed_at is not None:
         start = _parse(workout.get("started_at"))
@@ -1325,23 +1370,40 @@ def add_set(
             raise ValueError("performed_at must not be in the future")
     with db.transaction(conn):
         existing = conn.execute(
-            "SELECT set_id FROM workout_set WHERE workout_id = ? AND exercise_id = ? "
+            "SELECT * FROM workout_set WHERE workout_id = ? AND exercise_id = ? "
             "AND set_index = ?",
             (workout_id, exercise_id, set_index),
         ).fetchone()
         if existing is not None:
-            # A retry after a lost response must not append a second set. The client sends
-            # the next index it knows; an existing row means this request already landed.
-            return get(conn, workout_id)
+            # A retry after a lost response must not append a second set, but a matching
+            # index alone is not proof of a replay: compare the payload so a different set
+            # is rejected instead of being silently discarded.
+            def same_number(left, right) -> bool:
+                if left is None or right is None:
+                    return left is None and right is None
+                return abs(float(left) - float(right)) < 1e-9
+
+            if (
+                same_number(existing["load_kg"], load_kg)
+                and existing["reps"] == reps
+                and existing["rir"] == rir
+                and same_number(existing["velocity"], velocity)
+                and existing["prescription_item_index"] == item_index
+                and existing["substitutes_plan_item_index"] == substitutes_index
+            ):
+                return get(conn, workout_id)
+            raise ValueError(
+                "set_index_conflict: a different set already uses this exercise and index"
+            )
         cursor = conn.execute(
             """
             INSERT INTO workout_set
                 (workout_id, exercise_id, set_index, load_kg, reps, rir, velocity, source,
-                 prescription_item_index, set_role, created_at)
+                 prescription_item_index, substitutes_plan_item_index, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (workout_id, exercise_id, set_index, load_kg, reps, rir, velocity, source,
-             item_index, set_role,
+             item_index, substitutes_index,
              performed.astimezone(dt.UTC).isoformat(timespec="milliseconds")
              if performed is not None else _now()),
         )
@@ -1366,7 +1428,6 @@ def update_set(
     reps: int | None = None,
     rir: int | None = None,
     velocity: float | None = None,
-    set_role: str | None = None,
 ) -> dict:
     """Append a correction event for an actual set; the base row is never mutated."""
     workout = get(conn, workout_id)
@@ -1376,13 +1437,9 @@ def update_set(
         raise ValueError("workout is not in progress")
     if not any(int(item["set_id"]) == int(set_id) for item in _sets(conn, workout_id)):
         raise ValueError("set not found")
-    if set_role is not None and set_role not in SET_GROUP_ROLES:
-        raise ValueError("set_role must be top_set, back_off or null")
     payload = {
         "load_kg": load_kg, "reps": reps, "rir": rir, "velocity": velocity,
     }
-    if set_role is not None:
-        payload["set_role"] = set_role
     _event(
         conn, workout_id, "update_set", payload, target_set_id=int(set_id),
     )
@@ -1416,24 +1473,6 @@ def _validate_exercise(exercise_id: str) -> str:
     return exercise_id
 
 
-def _write_plan(conn, workout_id: str, plan: dict, event_type: str,
-                payload: dict) -> dict:
-    validate_plan_items(plan.get("items") or (), where="plan")
-    conn.execute(
-        "UPDATE workout_session SET plan_modified_json = ?, "
-        "plan_revision = plan_revision + 1, last_activity_at = ? WHERE workout_id = ?",
-        (json.dumps(plan, separators=(",", ":")), _now(), workout_id),
-    )
-    _event(conn, workout_id, event_type, payload)
-    return get(conn, workout_id)
-
-
-def _editable(workout: dict) -> list[dict]:
-    if workout.get("status") != "in_progress":
-        raise ValueError("workout is not in progress")
-    return [dict(item) for item in (workout.get("plan") or {}).get("items") or []]
-
-
 def _row_plan_identity(workout: Mapping[str, Any], row: Mapping[str, Any]) -> int | None:
     """Resolve a stored set against the workout's current plan snapshot.
 
@@ -1445,65 +1484,61 @@ def _row_plan_identity(workout: Mapping[str, Any], row: Mapping[str, Any]) -> in
     )
 
 
-def _logged_sets_for_item(workout: dict, item_index: int, exercise_id: str) -> tuple[int, int]:
-    """Count sets attributed to one item plus same-exercise sets with no attribution.
+EXECUTION_CHANGE_TYPES = ("substitution", "addition")
 
-    The second count is deliberately conservative: the phone cannot know which repeated
-    exercise occurrence an unattributed set belongs to, so a plan edit must not guess.
+
+def _plan_item_identity(items, item_index: int) -> tuple[int, Mapping[str, Any]]:
+    """Resolve a frozen plan item identity, never a display position guess."""
+    for position, item in enumerate(items):
+        identity = _item_identity(item, position)
+        if identity == int(item_index):
+            return identity, item
+    raise ValueError("plan item index does not name a plan item")
+
+
+def _change_events(conn, workout_id: str) -> list[dict[str, Any]]:
+    events = []
+    for row in conn.execute(
+        "SELECT event_id, event_type, payload_json, created_at FROM workout_event "
+        "WHERE workout_id = ? AND event_type IN ('substitution', 'addition') "
+        "ORDER BY event_id",
+        (workout_id,),
+    ):
+        events.append({
+            "event_id": int(row["event_id"]),
+            "kind": str(row["event_type"]),
+            "created_at": row["created_at"],
+            **json.loads(row["payload_json"] or "{}"),
+        })
+    return events
+
+
+def execution_view(conn, workout_id: str) -> dict[str, Any]:
+    """Current execution substitutions and additions with their watermark.
+
+    The view is a live hint, never the record: a performed set carries its own exercise and
+    attribution, so a change whose event never arrives, or arrives after the sets, loses
+    nothing. The watermark is the latest change event identity, which is monotonic per
+    workout; a watch applies a payload only when it is at least as new as its local one
+    (DEC-RESOLVER-23).
     """
-    items = list((workout.get("plan") or {}).get("items") or [])
-    if not 0 <= int(item_index) < len(items):
-        return 0, 0
-    identity = _item_identity(items[int(item_index)], int(item_index))
-    attributed = 0
-    ambiguous = 0
-    for row in workout.get("sets") or []:
-        if str(row.get("exercise_id")) != str(exercise_id):
-            continue
-        resolved = _row_plan_identity(workout, row)
-        if resolved == identity:
-            attributed += 1
-        elif row.get("prescription_item_index") is None or resolved is None:
-            ambiguous += 1
-    return attributed, ambiguous
-
-
-def _solved_plan_item(solved) -> dict:
-    """The plan-item fields the prescription solver owns (swap and add share them)."""
+    events = _change_events(conn, workout_id)
+    substitutions: dict[int, dict[str, Any]] = {}
+    additions: list[dict[str, Any]] = []
+    for event in events:
+        if event["kind"] == "substitution":
+            substitutions[int(event["plan_item_index"])] = event
+        else:
+            additions.append(event)
     return {
-        "order_index": solved.order_index,
-        "exercise_id": solved.exercise_id,
-        "sets": solved.sets,
-        "reps_low": solved.reps_low,
-        "reps_high": solved.reps_high,
-        "reps_unit": solved.reps_unit,
-        "load_kg": solved.load_kg,
-        "load_basis": solved.load_basis,
-        "rounding_increment_kg": solved.rounding_increment_kg,
-        "rir_target": solved.rir_target,
-        "effort_model": solved.effort_model,
-        "quality_stop": solved.quality_stop,
-        "rest_s": solved.rest_s,
-        "essential": solved.essential,
-        "refs": list(solved.rationale_refs),
-        "time_cap_s": solved.time_cap_s,
-        "velocity_target": solved.velocity_target,
-        "vbt_basis": solved.vbt_basis,
-        "vbt": solved.vbt.as_dict() if solved.vbt is not None else None,
-        "unknown_load_reason": solved.unknown_load_reason,
-        "e1rm_source_sets": solved.e1rm_source_sets,
-        "e1rm_kg": solved.e1rm_kg,
-        "e1rm_ref": solved.e1rm_ref,
-        "e1rm_quality": solved.e1rm_quality,
-        "e1rm_age_days": solved.e1rm_age_days,
-        "warmup": [
-            {"percent": w.percent, "reps": w.reps, "load_kg": w.load_kg}
-            for w in solved.warmup
-        ],
+        "workout_id": workout_id,
+        "watermark": max((event["event_id"] for event in events), default=0),
+        "substitutions": [substitutions[index] for index in sorted(substitutions)],
+        "additions": additions,
     }
 
 
-def _solve_added_item(
+def _change_prefill(
     conn,
     *,
     workout: Mapping[str, Any],
@@ -1512,250 +1547,228 @@ def _solve_added_item(
     reps_low: int,
     reps_high: int,
     rir_target: int | None,
+    rest_s: int | None,
+    essential: bool,
     order_index: int,
-) -> dict | None:
-    """Solve one mid-workout addition as its own slot (DEC-IOS-08).
+    requested: bool,
+) -> dict[str, Any]:
+    """Solve the change's prefill on the server, or record why there is none.
 
-    The added exercise keeps the requested sets/reps/RIR shape and gets a load, warm-up
-    ramp and VBT target from its own history and calibration. Nothing is carried from
-    another lift and the athlete never supplies a prescription load. A solve that cannot
-    answer must not block the edit, so the caller falls back to an explicit unsolved item.
+    A client never computes a load. An offline author deliberately has no prefill: solving
+    on arrival would record a target the athlete never saw, so the event keeps null and says
+    why (plan §5.8).
     """
+    if not requested:
+        return {"prefill_load_kg": None, "prefill_reason": "authored_offline"}
     from strength_coach.prescribe import engine as prescribe_engine
 
-    try:
-        solved, _warnings, _vbt_note = prescribe_engine.resolve_replacement(
-            conn,
-            for_date=str(workout["for_date"]),
-            session_type=str(workout["session_type"]),
-            exercise_id=exercise_id,
-            sets=int(sets),
-            reps_low=int(reps_low),
-            reps_high=int(reps_high),
-            rir_target=rir_target,
-            rest_s=None,
-            essential=False,
-            order_index=int(order_index),
-        )
-    except Exception:  # noqa: BLE001 - an unsolved add is still a valid edit
-        return None
-    return _solved_plan_item(solved)
-
-
-def swap_exercise(conn, workout_id: str, item_index: int, exercise_id: str) -> dict:
-    workout = get(conn, workout_id)
-    if workout is None:
-        raise ValueError("workout not found")
-    items = _editable(workout)
-    if not 0 <= int(item_index) < len(items):
-        raise ValueError("item_index out of range")
-    new_id = _validate_exercise(exercise_id)
-    old = items[int(item_index)].get("exercise_id")
-    if any(item.get("exercise_id") == new_id for item in items):
-        raise PlanEditConflict(
-            "exercise_already_present",
-            f"{new_id} is already in the plan",
-        )
-    attributed, ambiguous = _logged_sets_for_item(workout, int(item_index), str(old))
-    if attributed or ambiguous:
-        raise PlanEditConflict(
-            "sets_already_logged",
-            "cannot swap an exercise after sets have been logged for it",
-            {
-                "item_index": int(item_index),
-                "exercise_id": str(old),
-                "logged_sets": attributed + ambiguous,
-                "ambiguous_sets": ambiguous,
-            },
-        )
-    # Re-solve the replacement through the same engine as a normal prescription. The slot
-    # keeps the old sets/reps/RIR shape; load, warm-ups and VBT target come from the new
-    # exercise's own history and calibration. Never carry the old lift's load across.
-    from strength_coach.prescribe import engine as prescribe_engine
-
-    old_item = items[int(item_index)]
     solved, warnings, _ = prescribe_engine.resolve_replacement(
         conn,
         for_date=str(workout["for_date"]),
         session_type=str(workout["session_type"]),
-        exercise_id=new_id,
-        sets=int(old_item.get("sets") or 1),
-        reps_low=int(old_item.get("reps_low") or 1),
-        reps_high=int(old_item.get("reps_high") or old_item.get("reps_low") or 1),
-        rir_target=old_item.get("rir_target"),
-        rest_s=old_item.get("rest_s"),
-        essential=bool(old_item.get("essential")),
-        order_index=int(item_index),
+        exercise_id=exercise_id,
+        sets=sets,
+        reps_low=reps_low,
+        reps_high=reps_high,
+        rir_target=rir_target,
+        rest_s=rest_s,
+        essential=essential,
+        order_index=order_index,
     )
-    solved_row = _solved_plan_item(solved)
-    items[int(item_index)] = {
-        **old_item,
-        **solved_row,
-        "exercise_id": new_id,
-        "substitution_for": old,
-        # The old top-set/back-off structure belongs to the old lift.
-        "set_groups": [],
+    if solved.load_kg is None:
+        return {
+            "prefill_load_kg": None,
+            "prefill_reason": solved.unknown_load_reason or "no_usable_load",
+            "warnings": list(warnings),
+        }
+    return {
+        "prefill_load_kg": float(solved.load_kg),
+        "prefill_reason": "solved",
+        "warnings": list(warnings),
     }
-    plan = {**(workout.get("plan") or {}), "items": items}
-    return _write_plan(conn, workout_id, plan, "swap_exercise",
-                       {"item_index": int(item_index), "from": old, "to": new_id,
-                        "warnings": list(warnings)})
 
 
-def add_exercise(
+def _change_matches_payload(
+    stored: Mapping[str, Any],
+    *,
+    kind: str,
+    exercise_id: str,
+    reps_low: int,
+    reps_high: int,
+    rir_target: int | None,
+    slot_key: Mapping[str, Any],
+) -> bool:
+    """Compare the canonical request fields, never the server-solved prefill."""
+    return (
+        stored.get("exercise_id") == exercise_id
+        and stored.get("reps_low") == reps_low
+        and stored.get("reps_high") == reps_high
+        and stored.get("rir_target") == rir_target
+        and all(stored.get(key) == value for key, value in slot_key.items())
+    )
+
+
+def record_execution_change(
     conn,
     workout_id: str,
     *,
+    client_event_id: str,
+    kind: str,
     exercise_id: str,
-    sets: int = 3,
-    reps_low: int = 8,
-    reps_high: int = 12,
-    load_kg: float | None = None,
-    rir_target: int | None = 2,
-) -> dict:
-    workout = get(conn, workout_id)
-    if workout is None:
-        raise ValueError("workout not found")
-    items = _editable(workout)
-    new_id = _validate_exercise(exercise_id)
-    if any(item.get("exercise_id") == new_id for item in items):
-        raise PlanEditConflict(
-            "exercise_already_present",
-            f"{new_id} is already in the plan",
-        )
-    sets = max(1, min(20, int(sets)))
-    low = max(1, min(50, int(reps_low)))
-    high = max(low, min(50, int(reps_high)))
-    # Allocate across the original snapshot as well as the edited plan. Reusing the identity
-    # of a removed item would make a removal plus an addition indistinguishable from a swap
-    # when original and final prescriptions are compared.
-    original_items = list((workout.get("original_plan") or {}).get("items") or [])
-    identities = [
-        _item_identity(item, position)
-        for collection in (original_items, items)
-        for position, item in enumerate(collection)
-    ]
-    next_index = max(identities, default=-1) + 1
-    # An addition is solved the same way a replacement is (DEC-IOS-08): load, warm-ups and
-    # VBT target come from the exercise's own history and calibration, never from the
-    # athlete. The phone sends no load; the explicit argument stays for the web form.
-    item = None
-    if load_kg is None:
-        item = _solve_added_item(
-            conn,
-            workout=workout,
-            exercise_id=new_id,
-            sets=sets,
-            reps_low=low,
-            reps_high=high,
-            rir_target=rir_target,
-            order_index=next_index,
-        )
-    if item is None:
-        item = {
-            "order_index": next_index,
-            "exercise_id": new_id,
-            "sets": sets,
-            "reps_low": low,
-            "reps_high": high,
-            "load_kg": load_kg,
-            "rir_target": rir_target,
-            "essential": False,
-            "added_during_workout": True,
-            # A workout-time addition has no issued calibration target; keep the shape explicit
-            # rather than making consumers guess from an absent key.
-            "velocity_target": None,
-            "vbt_basis": None,
-            "vbt": None,
-        }
-        if load_kg is None:
-            item["unknown_load_reason"] = "added during workout; load not solved"
-    else:
-        item["added_during_workout"] = True
-    plan = {**(workout.get("plan") or {}), "items": items + [item]}
-    return _write_plan(conn, workout_id, plan, "add_exercise", item)
+    plan_item_index: int | None = None,
+    after_item_index: int | None = None,
+    reps_low: int | None = None,
+    reps_high: int | None = None,
+    rir_target: int | None = None,
+    prefill_requested: bool = True,
+    device_id: str | None = None,
+) -> dict[str, Any]:
+    """Append one execution substitution or addition and return the current view.
 
-
-def remove_exercise(conn, workout_id: str, item_index: int) -> dict:
-    workout = get(conn, workout_id)
-    if workout is None:
-        raise ValueError("workout not found")
-    items = _editable(workout)
-    index = int(item_index)
-    if not 0 <= index < len(items):
-        raise ValueError("item_index out of range")
-    if len(items) == 1:
-        raise PlanEditConflict(
-            "last_plan_item",
-            "cannot remove the last exercise from the plan",
-            {"item_index": index},
-        )
-    removed = items.pop(index)
-    plan = {**(workout.get("plan") or {}), "items": items}
-    return _write_plan(conn, workout_id, plan, "remove_exercise",
-                       {"item_index": index, "removed": removed})
-
-
-def move_exercise(conn, workout_id: str, item_index: int, to_index: int) -> dict:
-    """Move one plan item to a new display position (DEC-IOS-09).
-
-    `to_index` is the item's final position after it is lifted out of the list, so moving
-    the first item to the end of a three-item plan sends 2. Identities, `set_groups` and
-    logged sets travel with the item; nothing is renumbered and no prescription row is
-    touched. A move to the current position is a no-op and records no event.
+    A substitution takes its shape from the frozen plan item and a load solved from the
+    replacement's own history; an addition takes the athlete's reps/RIR and the same solver.
+    Duplicating a client_event_id returns the view unchanged, and reusing it for different
+    content is rejected, so a delayed replay can never rewrite history.
     """
+    if kind not in EXECUTION_CHANGE_TYPES:
+        raise ValueError("kind must be substitution or addition")
+    try:
+        parsed = str(uuid.UUID(str(client_event_id)))
+    except (TypeError, ValueError, AttributeError) as exc:
+        raise ValueError("event_id must be a UUID") from exc
     workout = get(conn, workout_id)
     if workout is None:
         raise ValueError("workout not found")
-    items = _editable(workout)
-    index = int(item_index)
-    target = int(to_index)
-    if not 0 <= index < len(items):
-        raise ValueError("item_index out of range")
-    if not 0 <= target < len(items):
-        raise ValueError("to_index out of range")
-    if target == index:
-        return workout
-    item = items.pop(index)
-    items.insert(target, item)
-    plan = {**(workout.get("plan") or {}), "items": items}
-    return _write_plan(conn, workout_id, plan, "move_exercise",
-                       {"item_index": index, "to_index": target,
-                        "exercise_id": item.get("exercise_id")})
+    if workout["status"] != "in_progress":
+        raise ValueError("workout is not in progress")
+    exercise_id = _validate_exercise(exercise_id)
+    items = list((workout.get("plan") or {}).get("items") or [])
+    if kind == "substitution":
+        if after_item_index is not None:
+            raise ValueError("after_item_index applies only to an addition")
+        if plan_item_index is None:
+            raise ValueError("plan_item_index is required for a substitution")
+        identity, item = _plan_item_identity(items, plan_item_index)
+        if str(item.get("exercise_id")) == exercise_id:
+            raise ValueError("a substitution must name a different exercise")
+        sets = int(item.get("sets") or 1)
+        low = int(item.get("reps_low") or 1)
+        high = int(item.get("reps_high") or low)
+        rir = item.get("rir_target")
+        rest_s = item.get("rest_s")
+        essential = bool(item.get("essential"))
+        order_index = identity
+        slot_key = {"plan_item_index": identity}
+    else:
+        if plan_item_index is not None:
+            raise ValueError("plan_item_index applies only to a substitution")
+        if after_item_index is None:
+            raise ValueError("after_item_index is required for an addition")
+        identity, item = _plan_item_identity(items, after_item_index)
+        low = 1 if reps_low is None else int(reps_low)
+        high = low if reps_high is None else int(reps_high)
+        if not 1 <= low <= high <= 50:
+            raise ValueError("reps_low and reps_high must be 1-50 with low <= high")
+        if rir_target is not None and not 0 <= int(rir_target) <= 10:
+            raise ValueError("rir_target must be 0-10")
+        sets = 1
+        rest_s = item.get("rest_s")
+        essential = False
+        order_index = identity
+        slot_key = {"after_item_index": identity}
+    effective_rir = rir_target if kind == "addition" else rir
 
+    existing = conn.execute(
+        "SELECT event_id, event_type, payload_json FROM workout_event "
+        "WHERE workout_id = ? AND json_extract(payload_json, '$.client_event_id') = ?",
+        (workout_id, parsed),
+    ).fetchone()
+    if existing is not None:
+        stored = json.loads(existing["payload_json"] or "{}")
+        if (
+            str(existing["event_type"]) != kind
+            or not _change_matches_payload(
+                stored,
+                kind=kind,
+                exercise_id=exercise_id,
+                reps_low=low,
+                reps_high=high,
+                rir_target=effective_rir,
+                slot_key=slot_key,
+            )
+        ):
+            raise ValueError("event_id was already used for a different change")
+        return execution_view(conn, workout_id)
 
-def change_sets(conn, workout_id: str, item_index: int, delta: int) -> dict:
-    workout = get(conn, workout_id)
-    if workout is None:
-        raise ValueError("workout not found")
-    items = _editable(workout)
-    index = int(item_index)
-    if not 0 <= index < len(items):
-        raise ValueError("item_index out of range")
-    before = int(items[index].get("sets") or 1)
-    after = max(1, min(20, before + int(delta)))
-    if after == before:
-        return workout
-    exercise_id = str(items[index].get("exercise_id"))
-    attributed, ambiguous = _logged_sets_for_item(workout, index, exercise_id)
-    if after < attributed or (ambiguous and after < before):
-        raise PlanEditConflict(
-            "sets_below_logged",
-            "cannot lower the set target below the sets already logged",
-            {
-                "item_index": index,
-                "logged_sets": attributed + ambiguous,
-                "ambiguous_sets": ambiguous,
-                "before": before,
-                "after": after,
-            },
-        )
-    items[index]["sets"] = after
-    if items[index].get("set_groups"):
-        items[index] = resize_plan_item_set_groups(items[index])
-    plan = {**(workout.get("plan") or {}), "items": items}
-    return _write_plan(conn, workout_id, plan, "change_sets",
-                       {"item_index": index, "before": before, "after": after})
+    if kind == "substitution":
+        performed = conn.execute(
+            "SELECT 1 FROM workout_set WHERE workout_id = ? AND "
+            "(prescription_item_index = ? OR substitutes_plan_item_index = ?) "
+            "LIMIT 1",
+            (workout_id, identity, identity),
+        ).fetchone()
+        if performed is not None:
+            raise ValueError(
+                "cannot substitute a plan item after sets have been logged"
+            )
+
+    prefill = _change_prefill(
+        conn,
+        workout=workout,
+        exercise_id=exercise_id,
+        sets=sets,
+        reps_low=low,
+        reps_high=high,
+        rir_target=effective_rir,
+        rest_s=rest_s,
+        essential=essential,
+        order_index=order_index,
+        requested=bool(prefill_requested),
+    )
+    payload = {
+        "client_event_id": parsed,
+        "exercise_id": exercise_id,
+        "reps_low": low,
+        "reps_high": high,
+        "rir_target": effective_rir,
+        **slot_key,
+        **prefill,
+    }
+    if device_id:
+        payload["device_id"] = str(device_id)
+    try:
+        with db.transaction(conn):
+            _event(conn, workout_id, kind, payload)
+            _touch(conn, workout_id)
+    except sqlite3.IntegrityError as exc:
+        # A concurrent request won the unique client-id index. Reload it and compare the
+        # request content: only a true replay returns the view; a conflicting payload is
+        # rejected instead of being mistaken for a successful retry.
+        stored_row = conn.execute(
+            "SELECT event_type, payload_json FROM workout_event "
+            "WHERE workout_id = ? AND json_extract(payload_json, '$.client_event_id') = ?",
+            (workout_id, parsed),
+        ).fetchone()
+        if stored_row is None:
+            raise
+        stored = json.loads(stored_row["payload_json"] or "{}")
+        if (
+            str(stored_row["event_type"]) != kind
+            or not _change_matches_payload(
+                stored,
+                kind=kind,
+                exercise_id=exercise_id,
+                reps_low=low,
+                reps_high=high,
+                rir_target=effective_rir,
+                slot_key=slot_key,
+            )
+        ):
+            raise ValueError(
+                "event_id was already used for a different change"
+            ) from exc
+        return execution_view(conn, workout_id)
+    return execution_view(conn, workout_id)
 
 
 IMPORT_HEADER = ["exercise", "set", "rpe", "value", "weight", "reps"]
@@ -2032,19 +2045,9 @@ def import_csv(conn, workout_id: str, text: str, *, apply: bool = False,
         return {"preview": parsed, "workout": workout}
     if parsed["errors"]:
         raise ValueError("import has errors; preview and fix them first")
-    # The prescription can be extended by the file; the original snapshot stays frozen.
-    for exercise_id in sorted({row["exercise_id"] for row in parsed["rows"]
-                               if row.get("plan_new") and row["exercise_id"]}):
-        rows = [row for row in parsed["rows"] if row["exercise_id"] == exercise_id]
-        add_exercise(
-            conn, workout_id,
-            exercise_id=exercise_id,
-            sets=max(int(row["set_index"]) for row in rows),
-            reps_low=min(int(row["reps"]) for row in rows),
-            reps_high=max(int(row["reps"]) for row in rows),
-            load_kg=None,
-            rir_target=None,
-        )
+    # The plan is frozen at start, so a file exercise that is not on it becomes extra work:
+    # the sets are imported with no plan attribution instead of extending the prescription
+    # (DEC-RESOLVER-23). The preview's `plan_new` flag labels those rows for the client.
     batch_id = uuid.uuid4().hex
     undo: list[dict] = []
     for row in parsed["rows"]:
@@ -2328,8 +2331,8 @@ def _materialise(conn, workout: Mapping[str, Any], *, ended: str, duration: floa
                 (raw_id, session_id, occurred_on, exercise_id, raw_exercise, load_kg,
                  load_basis, external_load_kg, reps, reps_unit, rir, rir_source,
                  velocity_mps, velocity_present, tonnage_kg, is_working_set, flags,
-                 prescription_item_index, set_role)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 prescription_item_index, set_role, substitutes_plan_item_index)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 raw_id, workout_id, workout["for_date"], exercise_id, exercise_id,
@@ -2340,7 +2343,7 @@ def _materialise(conn, workout: Mapping[str, Any], *, ended: str, duration: floa
                 (float(external) * int(row["reps"]))
                 if external is not None and row.get("reps") is not None else None,
                 is_working, json.dumps(row_flags), row.get("prescription_item_index"),
-                row.get("set_role"),
+                row.get("set_role"), row.get("substitutes_plan_item_index"),
             ),
         )
         detail = rep_state.get(int(row["set_id"]))
@@ -2414,6 +2417,18 @@ def end(
             conn, workout, ended=ended, duration=duration, duration_source=source,
             session_rpe=rpe, session_rpe_recorded=not not_recorded, notes=notes,
             productivity=productivity,
+        )
+        # The dwell counter advances with the durable clean_set rows the materialise step just
+        # wrote, once per exercise per training day. See docs/DWELL-AND-ROTATION.md.
+        profile = settings_profile.latest(conn, str(workout["for_date"]))
+        resolved = settings_profile.resolved_registry(
+            profile["overrides"] if profile else {}
+        )
+        dwell_feature.record_completion(
+            conn,
+            session_id=workout_id,
+            for_date=str(workout["for_date"]),
+            target=int(resolved["resolver.dwell.target"]),
         )
         # No critique is computed at completion: the rubric is a retired diagnostic
         # (DEC-EVAL-09), and ending a workout must not depend on it.

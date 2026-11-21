@@ -12,9 +12,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
-import yaml
 
-from strength_coach.utils import exercises, paths
+from strength_coach.utils import exercises, paths, yaml_files
 
 
 @dataclass(frozen=True)
@@ -35,7 +34,7 @@ class VolumeConfig:
     @classmethod
     def load(cls, path: str | Path | None = None) -> VolumeConfig:
         source = Path(path or paths.config_dir("volume.v1.yaml"))
-        raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
+        raw = yaml_files.load_yaml_file(source) or {}
         targets = {
             str(key): (float(value[0]), float(value[1]))
             for key, value in (raw.get("targets") or {}).items()
@@ -57,9 +56,9 @@ class VolumeConfig:
         if accounting not in ("hard", "effective"):
             raise ValueError("volume ledger set_accounting must be hard or effective")
         indirect_source = paths.config_dir("volume-indirect.v1.yaml")
-        indirect_raw = yaml.safe_load(
-            indirect_source.read_text(encoding="utf-8")
-        ) if indirect_source.exists() else {}
+        indirect_raw = (
+            yaml_files.load_yaml_file(indirect_source) if indirect_source.exists() else {}
+        )
         indirect = {
             str(group): {str(target): float(weight) for target, weight in (targets or {}).items()}
             for group, targets in ((indirect_raw or {}).get("by_group") or {}).items()

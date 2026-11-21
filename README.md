@@ -96,8 +96,10 @@ The tools read `data/raw/training_log.csv` and `data/raw/readiness.csv`. See
 [`data/README.md`](data/README.md) for the expected schema. Use `--no-git` to leave `.git` out
 of the export; the default archive contains private health data and is not encrypted.
 
-After extracting an export, `./setup-venv.sh` creates `.venv` and installs the dev extras;
-use `./setup-venv.sh --locked` for the `requirements.lock` versions.
+After extracting an export, `./setup-venv.sh` creates `.venv` and installs the pinned
+`requirements.lock` versions (the same set CI uses), then the project itself without letting pip
+resolve a newer pandas/numpy. Use `./setup-venv.sh --resolve` only when testing a new pin before
+the lock is updated.
 
 ## Moving the database between machines
 
@@ -268,13 +270,7 @@ tests/                         unit + integration tests
 
 ## The data model in one paragraph
 
-The logs are messy in ways that are not obvious: `0` means five different things depending on
-the column, one weight column mixes unweighted / total-mass / added-load semantics, durations
-are stored in a reps column for isometric holds, and there are no timestamps so sessions must
-be reconstructed from dates alone. Repeated identical rows look like duplicates but are real
-sets. Every one of those decisions is written down with its evidence in
-[`docs/DATA-QUALITY.md`](docs/DATA-QUALITY.md), because a silent interpretation of any of them
-would corrupt every number downstream.
+The logs are messy in ways that are not obvious: `0` means five different things depending on the column, one weight column mixes unweighted / total-mass / added-load semantics, durations are stored in a reps column for isometric holds, and there are no timestamps so sessions must be reconstructed from dates alone. Repeated identical rows look like duplicates but are real sets. Every one of those decisions is written down with its evidence in [`docs/DATA-QUALITY.md`](docs/DATA-QUALITY.md), because a silent interpretation of any of them would corrupt every number downstream.
 
 ## Reading order
 

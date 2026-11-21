@@ -299,8 +299,18 @@ def search(
         raise BeamError("beam produced no complete assignment to evaluate")
 
     def result_key(result: AssignmentEvaluation) -> tuple:
+        # WP6: compare the lexicographic role-quality hierarchy, not the old composite score.
+        # Rank cost is the deterministic tie-break; the assignment itself is the final key.
+        quality = getattr(result, "quality_key", None)
+        if quality is None:
+            # Test doubles and older callers may not carry the snapshot.
+            return (
+                result.score,
+                ranks_by_assignment.get(tuple(result.assignment), (99,)),
+                result.assignment,
+            )
         return (
-            result.score,
+            *quality[:-1],
             ranks_by_assignment.get(tuple(result.assignment), (99,)),
             result.assignment,
         )

@@ -20,6 +20,7 @@ from typing import Any
 import pandas as pd
 
 from strength_coach import settings_profile
+from strength_coach.features import dwell as dwell_feature
 from strength_coach.features import injury_signal, readiness_score, recent_stress, volume
 from strength_coach.prescribe import constraints as constraints_mod
 from strength_coach.prescribe import resolver_policy, templates
@@ -30,8 +31,14 @@ from strength_coach.rules import registry as rules_registry
 from strength_coach.store import queries
 from strength_coach.utils import exercises
 
-STRESS_MISSING = 0.5
-READINESS_MISSING = 0.5
+# A lift with no entry inside the recent-stress window has had no recent hard work, so it
+# scores the best fatigue value rather than a neutral-worse 0.5: scoring "unknown" below a
+# small real exposure let a recently trained lift outrank an idle one (DEC-RESOLVER-10 note).
+STRESS_MISSING = 1.0
+# Unknown readiness is treated as "no readiness penalty" for selection scoring, not as a
+# neutral-worse value. Only reached when the caller has acknowledged an unknown score, and a
+# per-exercise readiness ceiling still caps it.
+READINESS_MISSING = 1.0
 COVERAGE_FACTORS = {"balanced": 0.15, "under_target": 0.25, "strict": 0.35}
 
 
@@ -181,15 +188,14 @@ def generate(
     warnings: list[str] = []
     suggestions: list[str] = []
 
+    dwell_counts = dwell_feature.counts(conn)
+
     for index, slot in enumerate(template.slots):
         role = _slot_role(slot, main_slot)
         pool = pools[slot.id]
         permitted = _permitted_patterns(slot, role, policy, main_slot, taxonomy)
         default_id = _default_id(slot)
-        last_id, sessions_since_change = _last_choice(history, index)
-        rotation = settings.rotation_for(role=role)
-        dwell = settings.rotation_dwell(rotation)
-
+        last_id, _sessions_since_change = _last_choice(history, index)
         auto, slot_suggestions = _classify_candidates(
             pool, permitted, vetoed, active_linked, suitability, settings, taxonomy
         )
@@ -213,6 +219,24 @@ def generate(
             warnings.append(
                 f"{slot.id}: no rated candidate; suggesting {sorted(unrated_suggestions)} for rating"
             )
+        if not slot.power:
+            auto, dwell_fallback = _apply_dwell_exclusion(
+                auto, dwell_counts, settings.dwell_target
+            )
+            if dwell_fallback:
+                warnings.append(
+                    f"{slot.id}: every candidate is at or above the dwell target "
+                    f"{settings.dwell_target}; used the best remaining"
+                )
+
+        rotation_draw = (
+            dwell_feature.rotation_value(
+                for_date=for_date, session_type=session_type, slot_id=slot.id
+            )
+            if last_id is not None
+            else 1.0
+        )
+        rotate = bool(last_id is not None and rotation_draw < settings.dwell_probability)
 
         if slot.power:
             if default_state != AUTO and not (
@@ -227,38 +251,24 @@ def generate(
             chosen = default_id
             reasons = ("fixed power slot",)
             score = 1.0
-        elif last_id and last_id in auto and not _must_rotate(
-            rotation, dwell, sessions_since_change
-        ):
-            chosen = last_id
-            scored = _score(
-                conn, chosen, slot, selected, template, accounting, assessment, injury,
-                stress, stress_config, suitability, settings, volume_config, policy, rule,
-                taxonomy, current_spinal, spinal_cap, last_id, week_start, week_end,
-            )
-            score = scored.score
-            reasons = (
-                f"kept last choice {last_id} because the dwell period has not elapsed",
-                f"rotation {rotation:.2f}",
-            ) + scored.reasons
         elif auto:
-            must_rotate = _must_rotate(rotation, dwell, sessions_since_change)
-            candidates = [c for c in auto if not (must_rotate and c == last_id)]
+            candidates = [c for c in auto if not (rotate and c == last_id)]
             if not candidates:
-                if must_rotate and last_id is not None:
-                    warnings.append(
-                        f"{slot.id}: rotation change was due (rotation {rotation:.2f}) "
-                        f"but no eligible alternative to {last_id} existed; kept it"
-                    )
                 candidates = list(auto)
             ranked = _rank(
                 conn, candidates, slot, selected, template, accounting, assessment,
-                injury, stress, stress_config, suitability, settings, volume_config, policy,
-                rule, taxonomy, current_spinal, spinal_cap, last_id, week_start, week_end,
+                injury, stress, stress_config, suitability, dwell_counts, settings,
+                volume_config, policy, rule, taxonomy, current_spinal, spinal_cap,
+                last_id, week_start, week_end,
             )
             chosen = ranked[0].exercise_id
             score = ranked[0].score
             reasons = ranked[0].reasons
+            if rotate:
+                reasons = (
+                    f"rotation draw {rotation_draw:.3f} < probability "
+                    f"{settings.dwell_probability:.2f}; previous {last_id} excluded",
+                ) + reasons
         else:
             hint = (
                 f"; suggestions require confirmation: {sorted(slot_suggestions)}"
@@ -279,16 +289,17 @@ def generate(
             reasons=reasons,
             alternatives=_alternatives(
                 conn, auto, slot, selected, template, accounting, assessment, injury, stress,
-                stress_config, suitability, settings, volume_config, policy, rule, taxonomy, current_spinal,
-                spinal_cap, last_id, chosen, week_start, week_end,
+                stress_config, suitability, dwell_counts, settings, volume_config, policy,
+                rule, taxonomy, current_spinal, spinal_cap, last_id, chosen, week_start,
+                week_end,
             ),
             pending_rating=_pending_rating(chosen, suitability, settings),
         )
 
     selected, choices, repair_warnings = _repair_required(
-        template, main_slot, pools, selected, choices, policy, suitability, vetoed,
-        active_linked, taxonomy, settings, conn, accounting, assessment, injury, stress,
-        stress_config, volume_config, rule, current_spinal, spinal_cap, session_type,
+        template, main_slot, pools, selected, choices, policy, suitability, dwell_counts,
+        vetoed, active_linked, taxonomy, settings, conn, accounting, assessment, injury,
+        stress, stress_config, volume_config, rule, current_spinal, spinal_cap, session_type,
         week_start, week_end,
     )
     warnings.extend(repair_warnings)
@@ -334,6 +345,103 @@ def generate(
     )
 
 
+
+
+def _last_used(conn, *, before_date: str) -> dict[str, str]:
+    """Most recent working date per exercise, stable across shaped templates.
+
+    The pre-build dwell layer keys its draw on the exercise the slot last used, not on slot
+    order, because a minimum-session shape can renumber or omit slots. A lift with no history is
+    absent, so the draw has no effect for that slot.
+    """
+    rows = conn.execute(
+        """
+        SELECT exercise_id, MAX(occurred_on) AS last_used
+          FROM clean_set
+         WHERE occurred_on < ? AND is_working_set = 1
+         GROUP BY exercise_id
+        """,
+        (str(before_date),),
+    ).fetchall()
+    return {
+        str(row["exercise_id"]): str(row["last_used"])
+        for row in rows
+        if row["last_used"] is not None
+    }
+
+
+def _dwell_ordered_pool(
+    candidates: Sequence[str],
+    *,
+    for_date: str,
+    session_type: str,
+    slot_id: str,
+    patterns: Mapping[str, str | None],
+    counts: Mapping[str, int],
+    last_used: Mapping[str, str],
+    settings: ResolverSettings,
+    last_choice_hint: str | None = None,
+    variant: str = "full",
+) -> list[str]:
+    """Order one eligible pool by the bounded dwell rule.
+
+    Precedence is structural class, factor, draw, catalogue. The factor only reorders
+    candidates that share a pattern, so it cannot move a lift across a structural class or
+    override coverage; the draw demotes the slot's last choice to the end of its class instead
+    of removing it, keeping the fallback available.
+    """
+    if variant not in {"cap", "cap_draw", "full", "pure_factor"}:
+        raise ValueError(f"unknown dwell variant {variant!r}")
+    catalogue_order = {exercise_id: index for index, exercise_id in enumerate(candidates)}
+    if variant == "cap":
+        return list(candidates)
+    if variant == "pure_factor":
+        return sorted(
+            candidates,
+            key=lambda exercise_id: (
+                -dwell_feature.factor(
+                    int(counts.get(exercise_id, 0)), settings.dwell_tau
+                ),
+                catalogue_order[exercise_id],
+            ),
+        )
+    classes: dict[str, list[str]] = {}
+    class_order: list[str] = []
+    for exercise_id in candidates:
+        key = patterns.get(exercise_id) or ""
+        if key not in classes:
+            classes[key] = []
+            class_order.append(key)
+        classes[key].append(exercise_id)
+    if variant == "full":
+        for key in class_order:
+            classes[key].sort(
+                key=lambda exercise_id: (
+                    -dwell_feature.factor(
+                        int(counts.get(exercise_id, 0)), settings.dwell_tau
+                    ),
+                    catalogue_order[exercise_id],
+                )
+            )
+    last_choice = None
+    if last_used:
+        available = [c for c in candidates if c in last_used]
+        if available:
+            last_choice = max(available, key=lambda c: (last_used[c], -catalogue_order[c]))
+    if last_choice is None and last_choice_hint in catalogue_order:
+        last_choice = last_choice_hint
+    draw = dwell_feature.rotation_value(
+        for_date=for_date, session_type=session_type, slot_id=slot_id
+    )
+    if last_choice is not None and draw < settings.dwell_probability:
+        key = patterns.get(last_choice) or ""
+        values = classes.get(key, [])
+        if last_choice in values and len(values) > 1:
+            values.remove(last_choice)
+            values.append(last_choice)
+    return [exercise_id for key in class_order for exercise_id in classes[key]]
+
+
 def candidate_pools(
     conn,
     *,
@@ -343,13 +451,14 @@ def candidate_pools(
     settings: ResolverSettings | None = None,
     context: RuleContext | None = None,
     template: templates.SessionTemplate | None = None,
+    dwell_variant: str = "full",
 ) -> CandidatePools:
     """Return eligible candidate pools for the joint beam.
 
-    Only candidates that pass the same hard eligibility, injury, suitability and can_do rules as
-    generate() are returned. The pool order is the generator's preference: the last choice is
-    first while its dwell is active, otherwise it is placed last when rotation is due. There is
-    no blueprint fallback for a slot with no eligible candidate.
+    Only candidates that pass the same hard eligibility, injury, suitability, can_do and dwell
+    rules as generate() are returned. The pool order is the template + catalogue order; the
+    dwell factor is a score, not a reordering, and a slot whose candidates are all at or above
+    the dwell target keeps them (the generator then picks the best remainder).
 
     Step 2's independent _score/_rank ordering is intentionally not applied here. Step 4's joint
     evaluator is authoritative for assignment quality; candidate order only supplies deterministic
@@ -383,7 +492,9 @@ def candidate_pools(
         for term in region.linked_exercises
     }
     main_slot = _main_slot(template, taxonomy)
-    history = _choice_history(conn, session_type, for_date)
+    dwell_counts = dwell_feature.counts(conn)
+    last_used = _last_used(conn, before_date=for_date)
+    choice_history = _choice_history(conn, session_type, for_date)
 
     raw_pools: dict[str, tuple[str, ...]] = {}
     all_candidates: set[str] = set()
@@ -400,7 +511,7 @@ def candidate_pools(
 
     available, reason, auto_by_slot = _structure_check(
         template, policy, main_slot, raw_pools, vetoed, active_linked,
-        suitability, settings, taxonomy,
+        suitability, dwell_counts, settings, taxonomy,
     )
     if not available:
         raise GenerationError(
@@ -412,15 +523,22 @@ def candidate_pools(
     for index, slot in enumerate(template.slots):
         auto = list(auto_by_slot[slot.id])
         role = _slot_role(slot, main_slot)
-        last_id, sessions_since_change = _last_choice(history, index)
-        rotation = settings.rotation_for(role=role)
-        must_rotate = _must_rotate(
-            rotation, settings.rotation_dwell(rotation), sessions_since_change
-        )
-        if last_id in auto:
-            rest = [candidate for candidate in auto if candidate != last_id]
-            auto = rest + [last_id] if must_rotate else [last_id] + rest
-        ordered[slot.id] = tuple(auto)
+        hint, _sessions_since_change = _last_choice(choice_history, index)
+        ordered[slot.id] = tuple(_dwell_ordered_pool(
+            auto,
+            for_date=for_date,
+            session_type=session_type,
+            slot_id=slot.id,
+            patterns={
+                exercise_id: _pattern_key(exercise_id, taxonomy)
+                for exercise_id in auto
+            },
+            counts=dwell_counts,
+            last_used=last_used,
+            settings=settings,
+            last_choice_hint=hint,
+            variant=dwell_variant,
+        ))
         _auto_check, suggestions = _classify_candidates(
             raw_pools[slot.id],
             _permitted_patterns(slot, role, policy, main_slot, taxonomy),
@@ -493,6 +611,7 @@ def _structure_check(
     vetoed: set[str],
     active_injury: set[str],
     suitability: Mapping[str, Mapping[str, Any]],
+    dwell_counts: Mapping[str, int],
     settings: ResolverSettings,
     taxonomy: Mapping[str, Mapping[str, Any]],
 ) -> tuple[bool, str, dict[str, list[str]]]:
@@ -512,6 +631,10 @@ def _structure_check(
             auto = [item for item in suggestions if item not in suitability]
         if not auto:
             return False, f"slot {slot.id!r}: no automatically eligible candidate", {}
+        if not slot.power:
+            auto, _fallback = _apply_dwell_exclusion(
+                auto, dwell_counts, settings.dwell_target
+            )
         auto_by_slot[slot.id] = auto
 
     patterns_by_slot = {
@@ -607,6 +730,7 @@ def available_session_types(
         if region.status == injury_signal.STATUS_ACTIVE
         for term in region.linked_exercises
     }
+    dwell_counts = dwell_feature.counts(conn)
     out: dict[str, bool] = {}
     for session_type in templates.SESSION_TYPES:
         template = templates.SessionTemplate.load(session_type)
@@ -623,7 +747,7 @@ def available_session_types(
         vetoed = {exercise_id for exercise_id, _reason in report.vetoes}
         available, _reason, _auto = _structure_check(
             template, policy, main_slot, pools, vetoed, active_injury,
-            suitability, settings, taxonomy,
+            suitability, dwell_counts, settings, taxonomy,
         )
         out[session_type] = available
     return out
@@ -823,10 +947,24 @@ def _last_choice(history: Sequence[Mapping[int, str]], index: int) -> tuple[str 
     return None, 0
 
 
-def _must_rotate(rotation: float, dwell: int | None, sessions_since_change: int) -> bool:
-    if rotation <= 0.0 or dwell is None:
-        return False
-    return sessions_since_change >= dwell
+def _apply_dwell_exclusion(
+    pool: Sequence[str], counts: Mapping[str, int], target: int
+) -> tuple[list[str], bool]:
+    """Drop candidates at or above the dwell target; keep the pool if all are over.
+
+    The exclusion is the safety net for a lowered target or an edited counter: normal
+    completions wrap the counter to 0, so a candidate is not usually at the cap when a
+    session is generated. When every candidate is over, the generator still has to produce a
+    session, so the pool is returned unchanged and the caller warns.
+    """
+    kept = [
+        exercise_id
+        for exercise_id in pool
+        if int(counts.get(exercise_id, 0)) < int(target)
+    ]
+    if kept or not pool:
+        return kept, False
+    return list(pool), True
 
 AUTO = "auto"
 SUGGESTION = "suggestion"
@@ -1161,6 +1299,7 @@ def _score(
     stress: Mapping[str, recent_stress.StressEntry],
     stress_config: recent_stress.StressConfig,
     suitability: Mapping[str, Mapping[str, Any]],
+    dwell_counts: Mapping[str, int],
     settings: ResolverSettings,
     volume_config: Any,
     policy: resolver_policy.ResolverPolicy,
@@ -1180,6 +1319,8 @@ def _score(
     )
     spinal = _spinal_component(current_spinal + candidate_spinal, spinal_cap)
     injury_value = _injury_component(injury, exercise_id, taxonomy)
+    dwell_count = int(dwell_counts.get(exercise_id, 0))
+    dwell_value = dwell_feature.factor(dwell_count, settings.dwell_tau)
     partial = dict(selected)
     partial[slot.id] = exercise_id
     assigned = _assignment_pattern_sets(template, partial, taxonomy)
@@ -1191,6 +1332,7 @@ def _score(
         ("fatigue", stress_value),
         ("spinal", spinal),
         ("injury", injury_value),
+        ("dwell", dwell_value),
     )
     weights = {key: float(settings.weights.get(key, 0.0)) for key, _value in components}
     total_weight = sum(weights.values())
@@ -1201,11 +1343,20 @@ def _score(
     )
     factor = COVERAGE_FACTORS.get(settings.coverage_priority, 0.15)
     score = _clamp(weighted + factor * (coverage - 0.5) - redundancy)
-    reasons = tuple(
-        f"{key} {value:.2f} (weight {weights[key] / total_weight:.2f})"
-        for key, value in components
-        if total_weight > 0 and weights[key] > 0
-    ) + (
+    parts: list[str] = []
+    for key, value in components:
+        if total_weight <= 0 or weights[key] <= 0:
+            continue
+        if key == "dwell":
+            parts.append(
+                f"dwell {value:.2f} (counter {dwell_count} of {settings.dwell_target}, "
+                f"weight {weights[key] / total_weight:.2f})"
+            )
+        else:
+            parts.append(
+                f"{key} {value:.2f} (weight {weights[key] / total_weight:.2f})"
+            )
+    reasons = tuple(parts) + (
         f"coverage {coverage:.2f}",
         f"redundancy penalty {redundancy:.2f}",
     )
@@ -1244,6 +1395,7 @@ def _rank(
     stress: Mapping[str, recent_stress.StressEntry],
     stress_config: recent_stress.StressConfig,
     suitability: Mapping[str, Mapping[str, Any]],
+    dwell_counts: Mapping[str, int],
     settings: ResolverSettings,
     volume_config: Any,
     policy: resolver_policy.ResolverPolicy,
@@ -1258,8 +1410,8 @@ def _rank(
     scored = [
         _score(
             conn, exercise_id, slot, selected, template, accounting, assessment, injury,
-            stress, stress_config, suitability, settings, volume_config, policy, rule, taxonomy,
-            current_spinal, spinal_cap, last_id, week_start, week_end,
+            stress, stress_config, suitability, dwell_counts, settings, volume_config, policy,
+            rule, taxonomy, current_spinal, spinal_cap, last_id, week_start, week_end,
         )
         for exercise_id in candidates
     ]
@@ -1279,6 +1431,7 @@ def _alternatives(
     stress: Mapping[str, recent_stress.StressEntry],
     stress_config: recent_stress.StressConfig,
     suitability: Mapping[str, Mapping[str, Any]],
+    dwell_counts: Mapping[str, int],
     settings: ResolverSettings,
     volume_config: Any,
     policy: resolver_policy.ResolverPolicy,
@@ -1295,8 +1448,8 @@ def _alternatives(
         return ()
     ranked = _rank(
         conn, candidates, slot, selected, template, accounting, assessment, injury,
-        stress, stress_config, suitability, settings, volume_config, policy, rule, taxonomy,
-        current_spinal, spinal_cap, last_id, week_start, week_end,
+        stress, stress_config, suitability, dwell_counts, settings, volume_config, policy,
+        rule, taxonomy, current_spinal, spinal_cap, last_id, week_start, week_end,
     )
     return tuple(item.exercise_id for item in ranked if item.exercise_id != chosen)[:5]
 
@@ -1309,6 +1462,7 @@ def _repair_required(
     choices: dict[str, _SlotChoice],
     policy: resolver_policy.ResolverPolicy,
     suitability: Mapping[str, Mapping[str, Any]],
+    dwell_counts: Mapping[str, int],
     vetoed: set[str],
     active_linked: set[str],
     taxonomy: Mapping[str, Mapping[str, Any]],
@@ -1348,6 +1502,9 @@ def _repair_required(
                 pools[slot.id], permitted, vetoed, active_linked, suitability, settings,
                 taxonomy,
             )
+            auto, _fallback = _apply_dwell_exclusion(
+                auto, dwell_counts, settings.dwell_target
+            )
             candidates = [
                 exercise_id
                 for exercise_id in auto
@@ -1372,8 +1529,8 @@ def _repair_required(
             partial.pop(slot.id, None)
             ranked = _rank(
                 conn, candidates, slot, partial, template, accounting, assessment, injury,
-                stress, stress_config, suitability, settings, volume_config, policy, rule,
-                taxonomy, current_spinal, spinal_cap, None, week_start, week_end,
+                stress, stress_config, suitability, dwell_counts, settings, volume_config,
+                policy, rule, taxonomy, current_spinal, spinal_cap, None, week_start, week_end,
             )
             chosen = ranked[0]
             selected[slot.id] = chosen.exercise_id
@@ -1383,8 +1540,8 @@ def _repair_required(
                 reasons=("required-pattern repair",) + chosen.reasons,
                 alternatives=_alternatives(
                     conn, candidates, slot, partial, template, accounting, assessment,
-                    injury, stress, stress_config, suitability, settings, volume_config,
-                    policy, rule, taxonomy, current_spinal, spinal_cap, None,
+                    injury, stress, stress_config, suitability, dwell_counts, settings,
+                    volume_config, policy, rule, taxonomy, current_spinal, spinal_cap, None,
                     chosen.exercise_id, week_start, week_end,
                 ),
                 pending_rating=_pending_rating(

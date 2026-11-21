@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from strength_coach import workout
+from strength_coach import settings_profile, workout
 from strength_coach.features import nudges
-from strength_coach.store import db
+from strength_coach.store import db, repositories
 
 READINESS = {"sleep": 4, "energy": 4, "mood": 4, "soreness": 2, "stress": 3}
 DAYS = ("2024-02-01", "2024-02-02", "2024-02-03", "2024-02-04", "2024-02-05")
@@ -91,3 +91,74 @@ def test_invalid_decisions_are_rejected(conn):
         nudges.record(conn, key="review:1", action="snooze", on_date=day)
     with pytest.raises(ValueError, match="evidence id"):
         nudges.record(conn, key=nudge["key"], action="dismiss", on_date=day)
+
+
+def _programme_profile(conn, *, anchor=None, competition=None):
+    repositories.append_athlete_profile(
+        conn,
+        effective_from="2024-01-01",
+        block_start_date=anchor,
+        competition_date=competition,
+    )
+
+
+def test_scheduled_deload_is_promoted_as_a_programme_nudge(conn):
+    _programme_profile(conn, anchor="2024-01-01")
+    settings_profile.save(
+        conn,
+        set_values={"deload.scheduled.every_weeks": 2},
+        effective_from="2024-01-01",
+    )
+    nudge = nudges.current(conn, on_date="2024-01-08")
+    assert nudge is not None
+    assert nudge["family"] == "programme"
+    assert nudge["key"] == "nudge:programme:deload"
+    assert "deload" in nudge["statement"]
+    assert nudge["evidence"]["limitations"]
+
+
+def test_competition_peak_is_promoted_as_a_programme_nudge(conn):
+    _programme_profile(conn, competition="2024-02-01")
+    nudge = nudges.current(conn, on_date="2024-01-15")
+    assert nudge is not None
+    assert nudge["key"] == "nudge:programme:competition"
+    assert "peak" in nudge["statement"]
+
+
+def test_deload_nudge_precedes_the_competition_nudge(conn):
+    _programme_profile(conn, anchor="2024-01-01", competition="2024-01-20")
+    settings_profile.save(
+        conn,
+        set_values={"deload.scheduled.every_weeks": 2},
+        effective_from="2024-01-01",
+    )
+    nudge = nudges.current(conn, on_date="2024-01-08")
+    assert nudge is not None
+    assert nudge["key"] == "nudge:programme:deload"
+
+
+def test_programme_nudge_dismissal_covers_its_state(conn):
+    _programme_profile(conn, anchor="2024-01-01")
+    settings_profile.save(
+        conn,
+        set_values={"deload.scheduled.every_weeks": 2},
+        effective_from="2024-01-01",
+    )
+    nudge = nudges.current(conn, on_date="2024-01-08")
+    assert nudges.record(
+        conn,
+        key=nudge["key"],
+        action="dismiss",
+        on_date="2024-01-08",
+        evidence_id=nudge["evidence_id"],
+    ) is None
+    assert nudges.current(conn, on_date="2024-01-08") is None
+
+
+def test_programme_nudge_snooze_hides_for_fourteen_days(conn):
+    _programme_profile(conn, competition="2024-02-01")
+    nudge = nudges.current(conn, on_date="2024-01-15")
+    nudges.record(conn, key=nudge["key"], action="snooze", on_date="2024-01-15")
+    assert nudges.current(conn, on_date="2024-01-20") is None
+    assert nudges.current(conn, on_date="2024-01-30") is not None
+

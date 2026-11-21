@@ -14,12 +14,10 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from strength_coach.prescribe import templates
 from strength_coach.prescribe.models import PrescriptionItem
 from strength_coach.store import queries
-from strength_coach.utils import exercises, paths
+from strength_coach.utils import exercises, paths, yaml_files
 
 MODIFIER = "MOD-MIN-001"
 ACCESSORY_SESSION_TYPE = "accessory"
@@ -39,7 +37,7 @@ class MinimumSessionConfig:
     @classmethod
     def load(cls, path: str | Path | None = None) -> MinimumSessionConfig:
         source = Path(path or paths.config_dir("minimum-session.v1.yaml"))
-        raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
+        raw = yaml_files.load_yaml_file(source) or {}
         targets = tuple(int(value) for value in (raw.get("targets_minutes") or (30, 45, 60)))
         default = int(raw.get("default_target_minutes") or 45)
         if not targets or any(value <= 0 for value in targets):

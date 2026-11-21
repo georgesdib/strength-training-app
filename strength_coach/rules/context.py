@@ -87,6 +87,12 @@ class RuleContext:
     set_keys: frozenset[tuple[str, int]] = frozenset()
     session_ids: frozenset[str] = frozenset()
     iso_weeks: frozenset[str] = frozenset()
+    # Memo of `prior_to` views, keyed by (id(sets), for_date). The dict is owned by this
+    # context, which keeps `sets` alive, so a frame id cannot be reused while an entry exists.
+    # A context built by `prior_to` gets a fresh memo (see the replace call below).
+    _prior_views: dict[tuple[int, str], RuleContext] = field(
+        default_factory=dict, compare=False, repr=False
+    )
 
     def entity(self, exercise_id: str) -> Mapping[str, Any]:
         return self.entities.get(str(exercise_id), {})
@@ -99,6 +105,10 @@ class RuleContext:
         completed work. Performed-work predicates keep the full context; only the proposed-week
         accounting (MRV, spinal cap, budget) uses this view (DEC-VOLUME-30).
         """
+        cache_key = (id(self.sets), str(for_date))
+        cached = self._prior_views.get(cache_key)
+        if cached is not None:
+            return cached
         cutoff = pd.Timestamp(for_date)
         sets = self.sets[self.sets["date"] < cutoff] if not self.sets.empty else self.sets
         sessions = (
@@ -117,14 +127,19 @@ class RuleContext:
             frozenset(sets["iso_week"].dropna())
             if "iso_week" in sets.columns else self.iso_weeks
         )
-        return replace(
+        view = replace(
             self,
             sets=sets,
             sessions=sessions,
             set_keys=set_keys,
             session_ids=session_ids,
             iso_weeks=iso_weeks,
+            _prior_views={},
         )
+        self._prior_views[cache_key] = view
+        if len(self._prior_views) > 4:
+            self._prior_views.pop(next(iter(self._prior_views)))
+        return view
 
     @classmethod
     def from_store(

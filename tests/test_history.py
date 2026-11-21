@@ -322,13 +322,19 @@ def test_history_edit_preserves_set_role_and_plan_identity():
         started = workout.start(
             conn, for_date="2024-01-01", plan=plan, readiness=readiness,
         )
-        workout.add_set(
-            conn, started["workout_id"], exercise_id="trap_bar_deadlift",
-            load_kg=110, reps=3, rir=1, set_role="top_set",
+        # Historical role-tagged rows: a role is no longer a logging input
+        # (DEC-RESOLVER-23), but stored provenance must survive an audited history edit.
+        conn.execute(
+            "INSERT INTO workout_set (workout_id, exercise_id, set_index, load_kg, reps, "
+            "rir, source, prescription_item_index, set_role) "
+            "VALUES (?, 'trap_bar_deadlift', 1, 110.0, 3, 1, 'manual', 0, 'top_set')",
+            (started["workout_id"],),
         )
-        workout.add_set(
-            conn, started["workout_id"], exercise_id="trap_bar_deadlift",
-            load_kg=90, reps=5, rir=2, set_role="back_off",
+        conn.execute(
+            "INSERT INTO workout_set (workout_id, exercise_id, set_index, load_kg, reps, "
+            "rir, source, prescription_item_index, set_role) "
+            "VALUES (?, 'trap_bar_deadlift', 2, 90.0, 5, 2, 'manual', 0, 'back_off')",
+            (started["workout_id"],),
         )
         workout.end(conn, started["workout_id"], session_rpe=7, duration_min=30)
         detail = history.detail(conn, started["workout_id"])

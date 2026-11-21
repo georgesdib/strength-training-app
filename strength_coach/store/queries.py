@@ -313,6 +313,21 @@ def exercise_suitability(conn) -> dict[str, dict]:
     return {str(row["exercise_id"]): dict(row) for row in rows}
 
 
+def suitability_on(conn, exercise_id: str, rated_on: str) -> dict | None:
+    """The rating recorded for exactly this exercise and day, if any.
+
+    The table is append-only with one row per `(exercise_id, rated_on)`. The web write path
+    reads this first so an accidental repeat of the same rating is a no-op instead of a
+    SQLite UNIQUE error, and a different rating for the same day can be refused with a
+    message that names the rule.
+    """
+    row = conn.execute(
+        "SELECT * FROM exercise_suitability WHERE exercise_id = ? AND rated_on = ?",
+        (exercise_id, rated_on),
+    ).fetchone()
+    return dict(row) if row is not None else None
+
+
 def symptom_for_date(conn, on_date: str, *, timing: str = "pre_session",
                      region: str = "low_back") -> dict | None:
     """The latest pre-session entry for a date, or None when none was logged.

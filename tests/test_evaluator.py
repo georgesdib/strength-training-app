@@ -327,7 +327,7 @@ def test_shared_input_contract_covers_every_build_input() -> None:
         "technique_throttle_pattern",
         "deload_decision",
         "drop_confirmed",
-        "top_set_requested",
+        "top_set_intent",
         "projected_items",
         "projected_sessions",
     }
@@ -504,7 +504,7 @@ def test_shared_input_contract_matches_the_direct_build() -> None:
             pool_map=pool_map,
             inputs=evaluator.EvaluationInputs(
                 technique_throttle=True,
-                top_set_requested=True,
+                top_set_intent="required",
             ),
         )
 

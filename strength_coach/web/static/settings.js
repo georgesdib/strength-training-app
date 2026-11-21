@@ -714,7 +714,7 @@ function resolverPreviewFormPayload() {
   return {
     date: $("#settings-resolver-preview-date").value,
     session_type: $("#settings-resolver-preview-session").value,
-    top_set: value === "on" ? true : value === "off" ? false : null,
+    top_set_intent: value || null,
     allow_unknown_readiness: $("#settings-resolver-preview-allow-unknown").checked,
   };
 }
@@ -726,6 +726,7 @@ function resolverPreviewChoicesHtml(data) {
       : "<span class='muted'>none</span>";
     const suggestions = (choice.suggestions || []).length
       ? choice.suggestions.map((item) =>
+          "<span class='resolver-suggestion' data-resolver-suggestion='" + esc(item) + "'>" +
           "<span class='badge warn'>" + esc(item) + "</span> " +
           "<button type='button' class='ghost' data-resolver-rate='" + esc(item) +
           "' data-resolver-rate-kind='auto' data-resolver-rate-date='" +
@@ -735,7 +736,8 @@ function resolverPreviewChoicesHtml(data) {
           esc($("#settings-resolver-preview-date").value) + "'>Won\'t do</button>" +
           "<button type='button' class='ghost' data-resolver-rate='" + esc(item) +
           "' data-resolver-rate-kind='feels_bad' data-resolver-rate-date='" +
-          esc($("#settings-resolver-preview-date").value) + "'>Feels bad</button>"
+          esc($("#settings-resolver-preview-date").value) + "'>Feels bad</button>" +
+          "</span>"
         ).join("<br>")
       : "<span class='muted'>none</span>";
     return "<tr><td><strong>" + esc(choice.slot_id) + "</strong></td><td><strong>" +
@@ -746,16 +748,29 @@ function resolverPreviewChoicesHtml(data) {
   }).join("");
 }
 
+function resolverBuildLabel(ms) {
+  // The build is CPU-bound and takes seconds on the server; show ms only when it is quick.
+  const value = Number(ms);
+  if (!Number.isFinite(value) || value < 0) return "";
+  if (value < 1000) return Math.round(value) + " ms";
+  return (value / 1000).toFixed(1) + " s";
+}
+
 function renderResolverPreview(data) {
   window.__resolverPreview = data;
   const box = $("#settings-resolver-preview");
   if (!box) return;
+  const buildLabel = resolverBuildLabel(data.build_ms);
+  const buildLine = buildLabel
+    ? "<div class='muted' data-resolver-build-ms>Built in " + esc(buildLabel) + "</div>"
+    : "";
   if (!data.ok) {
     const beam = data.beam ? "<details><summary>Search diagnostics</summary><pre>" +
       esc(JSON.stringify(data.beam, null, 2)) + "</pre></details>" : "";
     box.innerHTML = "<div class='warnbox'><strong>Resolver preview failed at " +
-      esc(data.stage || "resolver") + "</strong><p>" + esc(data.message) + "</p>" + beam +
-      "</div>";
+      esc(data.stage || "resolver") + "</strong><p>" + esc(data.message) + "</p>" +
+      (buildLabel ? "<p class='muted'>Failed after " + esc(buildLabel) + "</p>" : "") +
+      beam + "</div>";
     return;
   }
   const pending = data.pending_ratings || [];
@@ -772,7 +787,7 @@ function renderResolverPreview(data) {
       esc(JSON.stringify(data.projected_week, null, 2)) + "</pre></details>" : "";
   box.innerHTML = "<div class='panel'><div class='panel-head'><h3>" +
     esc(data.for_date) + " · " + esc(data.session_label || data.session_type) +
-    "</h3><span class='badge'>preview</span></div>" + pendingBox +
+    "</h3><span class='badge'>preview</span></div>" + buildLine + pendingBox +
     "<div class='table-scroll'><table><thead><tr><th>Slot</th><th>Chosen</th>" +
     "<th>Rank</th><th>Alternatives</th><th>Suggestion-only</th></tr></thead><tbody>" +
     resolverPreviewChoicesHtml(data) + "</tbody></table></div>" +
@@ -936,7 +951,35 @@ async function runResolverPreview() {
   }
 }
 
+let resolverRatingRunning = false;
+
+function markResolverSuggestionRated(exerciseId, ratingLabel) {
+  document.querySelectorAll("[data-resolver-suggestion]").forEach((group) => {
+    if (group.dataset.resolverSuggestion !== exerciseId) return;
+    group.innerHTML = "<span class='badge'>rated</span> " + esc(exerciseId) +
+      " <span class='muted'>" + esc(ratingLabel) + "</span>";
+  });
+}
+
+function markResolverPreviewStale() {
+  const box = $("#settings-resolver-preview");
+  if (!box || box.querySelector("[data-resolver-preview-stale]")) return;
+  // The built preview stays on screen until the explicit Build preview click. Say so, because
+  // the Start button remains disabled while the displayed suggestions are stale.
+  box.insertAdjacentHTML("afterbegin",
+    "<div class='warnbox' data-resolver-preview-stale='true'>" +
+    "<strong>Preview is stale.</strong> Press <strong>Build preview</strong> to regenerate it.</div>");
+}
+
 async function rateResolverSuggestion(button) {
+  // A repeated click would post the same (exercise, day) rating twice. Keep the rating
+  // single-flight and say what is happening.
+  if (resolverRatingRunning) return;
+  resolverRatingRunning = true;
+  const buttons = [...document.querySelectorAll("[data-resolver-rate]")];
+  buttons.forEach((node) => { node.disabled = true; });
+  const label = button.textContent;
+  button.textContent = "Saving…";
   const exerciseId = button.dataset.resolverRate;
   const kind = button.dataset.resolverRateKind;
   const date = button.dataset.resolverRateDate;
@@ -950,11 +993,35 @@ async function rateResolverSuggestion(button) {
   };
   try {
     await api("/api/state/suitability", { method: "POST", body: JSON.stringify(payload) });
-    notify("Suitability recorded. Rebuilding preview…");
-    await runResolverPreview();
+    // Do not rebuild automatically: the build can take seconds, and the owner wants an explicit
+    // Build preview click. The previous preview stays until then.
+    markResolverSuggestionRated(exerciseId, label);
+    markResolverPreviewStale();
+    notify("Suitability recorded for " + exerciseId +
+      ". Press Build preview to regenerate the preview.");
   } catch (error) {
     notify(error.message, "error");
+  } finally {
+    resolverRatingRunning = false;
+    button.textContent = label;
+    buttons.forEach((node) => { node.disabled = false; });
   }
+}
+
+// Keys the preview panel adds for display or diagnostics. They must never reach a frozen
+// workout plan: build_ms is a view-only timing and the rest are diff/diagnostic metadata.
+const RESOLVER_PREVIEW_ONLY_KEYS = [
+  "ok", "stage", "message", "choices", "beam", "top_set", "projected_week",
+  "session_time", "policy_digest", "catalogue_digest", "template_digest",
+  "input_hash", "scheduled_suggestion", "build_ms",
+];
+
+function resolverPlanFromPreview(data) {
+  // The response is the exact prescription payload. Remove preview-only metadata so the
+  // frozen plan contains the displayed prescription, not UI/diff controls or timings.
+  const plan = { ...data };
+  RESOLVER_PREVIEW_ONLY_KEYS.forEach((key) => { delete plan[key]; });
+  return plan;
 }
 
 async function openResolverPreviewStart() {
@@ -964,12 +1031,7 @@ async function openResolverPreviewStart() {
     notify("Rate the suggested exercise(s) before starting this preview.", "error");
     return;
   }
-  // The response is the exact prescription payload. Remove preview-only metadata so the
-  // frozen plan contains the displayed prescription, not UI/diff controls.
-  const plan = { ...data };
-  ["ok", "stage", "message", "choices", "beam", "top_set", "projected_week",
-    "session_time", "policy_digest", "catalogue_digest", "template_digest",
-    "input_hash", "scheduled_suggestion"].forEach((key) => { delete plan[key]; });
+  const plan = resolverPlanFromPreview(data);
   window.__lastPrescription = plan;
   if (typeof cachePrescription === "function") cachePrescription(plan);
   if (typeof openWorkoutStart === "function") openWorkoutStart();
@@ -984,6 +1046,15 @@ const resolverPolicySave = $("#settings-resolver-policy-save");
 if (resolverPolicySave) resolverPolicySave.addEventListener("click", saveResolverPolicy);
 const resolverPolicyRestore = $("#settings-resolver-policy-restore");
 if (resolverPolicyRestore) resolverPolicyRestore.addEventListener("click", restoreResolverPolicy);
+const dwellAdd = $("#settings-dwell-add-save");
+if (dwellAdd) dwellAdd.addEventListener("click", () => {
+  const exerciseId = $("#settings-dwell-add-id").value.trim();
+  if (!exerciseId) {
+    $("#settings-dwell-msg").textContent = "Exercise id is required.";
+    return;
+  }
+  saveDwellCount(exerciseId, $("#settings-dwell-add-count").value);
+});
 const resolverPreviewForm = $("#settings-resolver-preview-form");
 if (resolverPreviewForm) resolverPreviewForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -1270,6 +1341,55 @@ function applyMonitoringFilter() {
   if (empty) empty.hidden = totalVisible > 0;
 }
 
+async function loadDwellCounters() {
+  const box = $("#settings-dwell-counters");
+  if (!box) return;
+  try {
+    renderDwellCounters(await api("/api/resolver/dwell"));
+  } catch (error) {
+    box.innerHTML = "<p class='muted'>Dwell counters failed: " + esc(error.message) + "</p>";
+  }
+}
+
+function renderDwellCounters(data) {
+  const box = $("#settings-dwell-counters");
+  if (!box) return;
+  const meta = $("#settings-dwell-meta");
+  if (meta) meta.textContent = "target " + data.target;
+  const rows = Object.entries(data.counts || {}).sort((a, b) => a[0].localeCompare(b[0]));
+  box.innerHTML = rows.length
+    ? rows.map(([exerciseId, count]) =>
+        "<div class='form-row'><span class='grow'><code>" + esc(exerciseId) + "</code></span>" +
+        "<input type='number' min='0' value='" + esc(count) + "' data-dwell-id='" + esc(exerciseId) + "'>" +
+        "<button class='ghost' type='button' data-dwell-save='" + esc(exerciseId) + "'>Save</button></div>"
+      ).join("")
+    : "<p class='muted'>No counters yet; a completed workout creates one.</p>";
+  box.querySelectorAll("[data-dwell-save]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const input = button.parentElement.querySelector("input");
+      saveDwellCount(button.getAttribute("data-dwell-save"), input.value);
+    });
+  });
+}
+
+async function saveDwellCount(exerciseId, value) {
+  const msg = $("#settings-dwell-msg");
+  const count = Number(value);
+  if (!Number.isInteger(count) || count < 0) {
+    if (msg) msg.textContent = "Count must be a non-negative integer.";
+    return;
+  }
+  try {
+    renderDwellCounters(await api("/api/resolver/dwell", {
+      method: "POST",
+      body: JSON.stringify({ exercise_id: exerciseId, count }),
+    }));
+    if (msg) msg.textContent = "Saved " + exerciseId + " = " + count + ".";
+  } catch (error) {
+    if (msg) msg.textContent = error.message;
+  }
+}
+
 async function loadSettings() {
   let data;
   try {
@@ -1295,6 +1415,7 @@ async function loadSettings() {
   } catch (error) {
     $("#settings-resolver-policy-msg").textContent = "Resolver policy failed: " + error.message;
   }
+  await loadDwellCounters();
   try {
     renderVolumeSettings(await api("/api/settings/volume"));
   } catch (error) {

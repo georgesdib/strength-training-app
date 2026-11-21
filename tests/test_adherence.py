@@ -48,10 +48,30 @@ def finish(conn, started):
 
 
 def log(conn, started, *, exercise_id="trap_bar_deadlift", load=100, reps=5, rir=2,
-        set_role=None, plan_item_index=None):
+        plan_item_index=None):
     workout.add_set(
         conn, started["workout_id"], exercise_id=exercise_id, load_kg=load,
-        reps=reps, rir=rir, set_role=set_role, plan_item_index=plan_item_index,
+        reps=reps, rir=rir, plan_item_index=plan_item_index,
+    )
+
+
+def log_legacy_role(conn, started, *, role, load, reps, rir,
+                    exercise_id="trap_bar_deadlift", item_index=0):
+    """Insert a historical role-tagged set directly.
+
+    A role is no longer an input at logging (DEC-RESOLVER-23); this preserves the legacy
+    read path that adherence still explains until the order matcher replaces it.
+    """
+    set_index = conn.execute(
+        "SELECT COALESCE(MAX(set_index), 0) + 1 FROM workout_set "
+        "WHERE workout_id = ? AND exercise_id = ?",
+        (started["workout_id"], exercise_id),
+    ).fetchone()[0]
+    conn.execute(
+        "INSERT INTO workout_set (workout_id, exercise_id, set_index, load_kg, reps, rir, "
+        "source, prescription_item_index, set_role) "
+        "VALUES (?, ?, ?, ?, ?, ?, 'manual', ?, ?)",
+        (started["workout_id"], exercise_id, set_index, load, reps, rir, item_index, role),
     )
 
 
@@ -184,154 +204,6 @@ def test_rir_deviation_direction_and_tolerance(conn):
     assert rows[2]["rir_status"] == "below"
 
 
-def test_modified_set_count_keeps_original_and_final_distinct(conn):
-    started = start(conn, item(sets=5))
-    workout.change_sets(conn, started["workout_id"], 0, -2)
-    for _ in range(3):
-        log(conn, started)
-    data = finish(conn, started)
-    result = adherence.analyse(data)
-
-    assert data["plan_modified"] is True
-    assert result["original"]["prescribed_sets"] == 5
-    assert result["original"]["matched_sets"] == 3
-    assert result["original"]["missing_sets"] == 2
-    assert result["original"]["set_completion"]["ratio"] == 0.6
-    assert result["final_plan"]["prescribed_sets"] == 3
-    assert result["final_plan"]["matched_sets"] == 3
-    assert result["final_plan"]["missing_sets"] == 0
-    assert result["final_plan"]["set_completion"]["ratio"] == 1.0
-    assert result["changes"]["set_count_changed"] == [{
-        "plan_item_index": 0,
-        "exercise_id": "trap_bar_deadlift",
-        "from_sets": 5,
-        "to_sets": 3,
-    }]
-
-
-def test_set_count_and_target_changes_are_reported_independently(conn):
-    """One edit must not hide another: set count and target provenance are separate rows."""
-    started = start(conn, item(sets=5))
-    workout.change_sets(conn, started["workout_id"], 0, -2)
-    plan = workout.get(conn, started["workout_id"])["plan"]
-    plan["items"][0].update({"reps_low": 8, "reps_high": 8})
-    conn.execute(
-        "UPDATE workout_session SET plan_modified_json = ? WHERE workout_id = ?",
-        (json.dumps(plan), started["workout_id"]),
-    )
-    for _ in range(3):
-        log(conn, started, reps=5)
-    result = adherence.analyse(finish(conn, started))
-
-    assert result["changes"]["set_count_changed"] == [{
-        "plan_item_index": 0,
-        "exercise_id": "trap_bar_deadlift",
-        "from_sets": 5,
-        "to_sets": 3,
-    }]
-    assert result["changes"]["targets_changed"] == [{
-        "plan_item_index": 0,
-        "exercise_id": "trap_bar_deadlift",
-        "fields": ["reps_high", "reps_low"],
-    }]
-    assert result["original"]["reps"]["attainment"]["ratio"] == 1.0
-    assert result["final_plan"]["reps"]["attainment"]["ratio"] == 0.0
-
-
-def test_a_swapped_exercise_makes_only_that_original_item_unavailable(conn):
-    started = start(conn, item(sets=2), item("competition_bench_press", sets=2, load_kg=80))
-    workout.swap_exercise(conn, started["workout_id"], 0, "conventional_deadlift")
-    for _ in range(2):
-        log(conn, started, exercise_id="conventional_deadlift", load=100)
-    for _ in range(2):
-        log(conn, started, exercise_id="competition_bench_press", load=80)
-    result = adherence.analyse(finish(conn, started))
-
-    assert result["changes"]["swapped"] == [{
-        "plan_item_index": 0,
-        "from_exercise_id": "trap_bar_deadlift",
-        "to_exercise_id": "conventional_deadlift",
-    }]
-    original = result["original"]
-    assert original["prescribed_sets"] == 2          # only the untouched bench item
-    assert original["unattributable_planned_sets"] == 2
-    assert original["matched_sets"] == 2
-    assert original["extra_sets"] == 2
-    swapped = original["exercises"][0]
-    assert swapped["attributable"] is False
-    assert swapped["status"] == "unavailable"
-    assert swapped["prescribed_sets"] == 0
-    assert swapped["limitations"] == ["swapped_exercise"]
-    assert original["quality"]["unmatched_sets"] == 2
-    assert original["quality"]["mismatched_attribution"] == 2
-    assert {row["reason"] for row in original["quality"]["unmatched"]} == {
-        "mismatched_exercise"
-    }
-    assert result["final_plan"]["prescribed_sets"] == 4
-    assert result["final_plan"]["matched_sets"] == 4
-
-
-def test_addition_and_removal_do_not_reuse_identities(conn):
-    started = start(conn, item(sets=2), item("competition_bench_press", sets=2, load_kg=80))
-    workout.remove_exercise(conn, started["workout_id"], 1)
-    added = workout.add_exercise(
-        conn, started["workout_id"], exercise_id="competition_squat", sets=2,
-    )
-    squat = next(value for value in added["plan"]["items"]
-                 if value["exercise_id"] == "competition_squat")
-    assert squat["order_index"] == 2          # never reuse the removed identity 1
-    for _ in range(2):
-        log(conn, started)
-    for _ in range(2):
-        log(conn, started, exercise_id="competition_squat", load=100)
-    result = adherence.analyse(finish(conn, started))
-
-    assert result["changes"]["removed"] == [{
-        "plan_item_index": 1,
-        "exercise_id": "competition_bench_press",
-        "sets": 2,
-    }]
-    assert result["changes"]["added"] == [{
-        "plan_item_index": 2,
-        "exercise_id": "competition_squat",
-        "sets": 2,
-    }]
-    original = result["original"]
-    assert original["prescribed_sets"] == 4
-    assert original["matched_sets"] == 2
-    assert original["missing_sets"] == 2
-    assert original["extra_sets"] == 2
-    assert original["quality"]["added_exercise_sets"] == 2
-    removed_item = next(value for value in original["exercises"]
-                        if value["exercise_id"] == "competition_bench_press")
-    assert removed_item["status"] == "missing"
-    final = result["final_plan"]
-    assert final["prescribed_sets"] == 4
-    assert final["matched_sets"] == 4
-    assert final["extra_sets"] == 0
-
-
-def test_sets_for_a_removed_exercise_remain_visible_as_final_extra_work(conn):
-    started = start(conn, item(sets=2), item("competition_bench_press", sets=2, load_kg=80))
-    for _ in range(2):
-        log(conn, started, exercise_id="competition_bench_press", load=80)
-    workout.remove_exercise(conn, started["workout_id"], 1)
-    for _ in range(2):
-        log(conn, started)
-    result = adherence.analyse(finish(conn, started))
-
-    assert result["original"]["matched_sets"] == 4
-    assert result["original"]["missing_sets"] == 0
-    final = result["final_plan"]
-    assert final["prescribed_sets"] == 2
-    assert final["matched_sets"] == 2
-    assert final["extra_sets"] == 2
-    assert final["quality"]["removed_exercise_sets"] == 2
-    assert {row["reason"] for row in final["quality"]["unmatched"]} == {
-        "removed_from_final_plan"
-    }
-
-
 def test_a_duplicate_exercise_without_an_index_is_ambiguous(conn):
     duplicate = item(sets=2)
     started = start(conn, duplicate, dict(duplicate))
@@ -359,23 +231,23 @@ def test_an_unplanned_exercise_is_reported_as_unmatched(conn):
     assert {row["reason"] for row in result["quality"]["unmatched"]} == {"unattributed"}
 
 
-def test_warm_ups_and_contradictory_roles_are_excluded_and_visible(conn):
+def test_rir6_is_a_warm_up_even_with_a_legacy_role(conn):
     started = start(conn, item(sets=3))
     log(conn, started, load=50, reps=10, rir=6)                     # logged warm-up
-    log(conn, started, rir=6, set_role="top_set")                   # contradictory role
+    log_legacy_role(conn, started, role="top_set", load=100, reps=5, rir=6)  # still warm-up
     for _ in range(2):
         log(conn, started)
     data = finish(conn, started)
     result = adherence.analyse(data)
 
     assert len(data["sets"]) == 4
-    assert result["quality"]["warm_up_sets_excluded"] == 1
-    assert result["quality"]["ambiguous_status_sets"] == 1
+    assert result["quality"]["warm_up_sets_excluded"] == 2
+    assert result["quality"]["ambiguous_status_sets"] == 0
     original = result["original"]
     assert original["performed_sets"] == 2
     assert original["matched_sets"] == 2
     assert original["missing_sets"] == 1
-    assert original["warm_up_sets_excluded"] == 1
+    assert original["warm_up_sets_excluded"] == 2
     assert len(original["exercises"][0]["sets"]) == 2
     assert all(row["matched"] for row in original["exercises"][0]["sets"])
 
@@ -484,8 +356,8 @@ def test_top_set_and_back_off_targets_come_from_the_set_group(conn):
             "reps_high": 5, "rir_target": 2, "percent_of_top": 0.82}
     started = start(conn, item(sets=2, reps_low=3, load_kg=90, load_basis="external",
                                set_groups=[top, back]))
-    log(conn, started, load=110, reps=3, rir=1, set_role="top_set")
-    log(conn, started, load=90, reps=5, rir=2, set_role="back_off")
+    log_legacy_role(conn, started, role="top_set", load=110, reps=3, rir=1)
+    log_legacy_role(conn, started, role="back_off", load=90, reps=5, rir=2)
     result = adherence.analyse(finish(conn, started))["original"]
 
     rows = result["exercises"][0]["sets"]
@@ -496,21 +368,25 @@ def test_top_set_and_back_off_targets_come_from_the_set_group(conn):
     assert result["rir"]["at_target"] == 2
 
 
-def test_a_missing_set_role_leaves_group_load_and_rir_unavailable(conn):
-    top = {"role": "top_set", "sets": 1, "load_kg": 110, "reps_low": 3,
-           "reps_high": 5, "rir_target": 1, "percent_of_top": None}
-    back = {"role": "back_off", "sets": 1, "load_kg": 90, "reps_low": 3,
-            "reps_high": 5, "rir_target": 2, "percent_of_top": 0.82}
+def test_groups_are_selected_by_working_set_order(conn):
+    top = {"group_index": 0, "sets": 1, "load_kg": 110, "reps_low": 3,
+           "reps_high": 5, "rir_target": 1}
+    back = {"group_index": 1, "sets": 1, "load_kg": 90, "reps_low": 3,
+            "reps_high": 5, "rir_target": 2}
     started = start(conn, item(sets=2, reps_low=3, load_kg=90, load_basis="external",
                                set_groups=[top, back]))
     log(conn, started, load=110, reps=3, rir=1)
     log(conn, started, load=90, reps=5, rir=2)
     result = adherence.analyse(finish(conn, started))["original"]
 
-    assert result["load"]["evaluated_sets"] == 0
-    assert result["rir"]["evaluated_sets"] == 0
-    assert result["reps"]["evaluated_sets"] == 2      # groups share the rep range
-    assert "ambiguous_set_role" in result["quality"]["unavailable_metrics"]
+    assert result["load"]["evaluated_sets"] == 2
+    assert result["rir"]["evaluated_sets"] == 2
+    assert result["reps"]["evaluated_sets"] == 2
+    assert "ambiguous_set_role" not in result["quality"]["unavailable_metrics"]
+    targets = [
+        row["load_target_kg"] for row in result["exercises"][0]["sets"]
+    ]
+    assert targets == [110.0, 90.0]
 
 
 def test_legacy_plan_and_legacy_set_attribution_stay_explicit(conn):

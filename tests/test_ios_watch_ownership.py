@@ -12,7 +12,6 @@ from test_ios_workflow import (
     _first_item,
     _issue,
     _paired,
-    _plan_edit,
     _request,
     _start,
     ios,
@@ -69,24 +68,6 @@ def test_start_records_owner_and_revision(ios, monkeypatch):
     assert execution["stale"] is False
 
 
-def test_watch_cannot_edit_the_plan_but_phone_can(ios, monkeypatch):
-    phone, watch, started = _watch_workout(ios, monkeypatch)
-    item = _first_item(started["plan"])
-    status, body = _plan_edit(
-        ios, watch, started["workout_id"], "/items/0/sets",
-        {"delta": 1, "expected_exercise_id": item["exercise_id"]},
-    )
-    assert status == 403, body
-    assert body["code"] == "not_phone"
-
-    status, updated = _plan_edit(
-        ios, phone, started["workout_id"], "/items/0/sets",
-        {"delta": 1, "expected_exercise_id": item["exercise_id"]},
-    )
-    assert status == 200, updated
-    assert updated["plan_revision"] == 1
-
-
 def test_takeover_transfers_writes_to_the_phone(ios, monkeypatch):
     phone, watch, started = _watch_workout(ios, monkeypatch)
     item = _first_item(started["plan"])
@@ -111,8 +92,8 @@ def test_takeover_transfers_writes_to_the_phone(ios, monkeypatch):
     assert status == 200, body
 
 
-def test_changed_plan_item_returns_mismatch_then_off_plan(ios, monkeypatch):
-    phone, watch, started = _watch_workout(ios, monkeypatch)
+def test_a_stale_plan_item_index_is_kept_as_extra_work(ios, monkeypatch):
+    _phone, watch, started = _watch_workout(ios, monkeypatch)
     items = started["plan"]["items"]
     assert len(items) >= 2
     first = items[0]
@@ -120,15 +101,39 @@ def test_changed_plan_item_returns_mismatch_then_off_plan(ios, monkeypatch):
         item["exercise_id"] for item in items[1:]
         if item["exercise_id"] != first["exercise_id"]
     )
+    # The plan is frozen, so this is a stale index: the set is preserved as extra work and
+    # never attributed to another exercise's slot. The 409 plan_item_mismatch is retired.
     status, body = _add_set(
         ios, watch, started["workout_id"], first,
         plan_item_index=0, exercise_id=other,
     )
-    assert status == 409, body
-    assert body["code"] == "plan_item_mismatch"
+    assert status == 200, body
+    logged = body["sets"][-1]
+    assert logged["exercise_id"] == other
+    assert logged["prescription_item_index"] is None
 
+    # An annotated substitution keeps the slot on both columns.
     status, body = _add_set(
         ios, watch, started["workout_id"], first,
-        plan_item_index=None, exercise_id=other,
+        exercise_id=other, substitutes_plan_item_index=0, set_index=2,
     )
     assert status == 200, body
+    annotated = body["sets"][-1]
+    assert annotated["prescription_item_index"] == 0
+    assert annotated["substitutes_plan_item_index"] == 0
+
+
+def test_watch_cannot_author_an_execution_change(ios, monkeypatch):
+    phone, watch, started = _watch_workout(ios, monkeypatch)
+    payload = {
+        "event_id": str(uuid.uuid4()),
+        "change": "substitution",
+        "plan_item_index": 0,
+        "exercise_id": _first_item(started["plan"])["exercise_id"],
+    }
+    status, body = _request(
+        ios["base"], f"/api/ios/v1/workouts/{started['workout_id']}/execution",
+        method="POST", payload=payload, token=watch, key=uuid.uuid4().hex,
+    )
+    assert status == 403, body
+    assert body["code"] == "not_phone"

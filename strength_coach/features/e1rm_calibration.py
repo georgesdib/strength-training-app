@@ -20,11 +20,10 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-import yaml
 
 from strength_coach.features import derived, e1rm_decay
 from strength_coach.store import queries
-from strength_coach.utils import exercises, paths
+from strength_coach.utils import exercises, paths, yaml_files
 
 DEFAULT_WINDOW_DAYS = 84
 
@@ -42,7 +41,7 @@ class E1RMCalibrationConfig:
     @classmethod
     def load(cls, path: str | Path | None = None) -> E1RMCalibrationConfig:
         source = Path(path or paths.e1rm_calibration_yaml())
-        raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
+        raw = yaml_files.load_yaml_file(source) or {}
         return cls(
             apply=bool(raw.get("apply", True)),
             min_tests=int(raw.get("min_tests", 3)),
@@ -354,12 +353,26 @@ def build(
     return out
 
 
+@lru_cache(maxsize=16)
+def _cached_report(
+    conn, on_date: str, window_days: int, config: E1RMCalibrationConfig,
+    decay_config: e1rm_decay.DecayConfig, data_version: int, changes: int,
+) -> tuple[LiftCalibration, ...]:
+    return tuple(
+        build(
+            conn, window_days=window_days, as_of=on_date, config=config,
+            decay_config=decay_config,
+        )
+    )
+
+
 def coverage(
     conn,
     *,
     window_days: int = DEFAULT_WINDOW_DAYS,
     as_of: str | None = None,
     config: E1RMCalibrationConfig | None = None,
+    decay_config: e1rm_decay.DecayConfig | None = None,
     report: list[LiftCalibration] | None = None,
 ) -> list[LiftCoverage]:
     """Which lifts are short of the measured-test gate, and by how many tests.
@@ -373,9 +386,20 @@ def coverage(
     been built with the same `config`, `window_days` and `as_of`.
     """
     cfg = config or E1RMCalibrationConfig.load()
-    rows = report if report is not None else build(
-        conn, window_days=window_days, as_of=as_of, config=cfg
-    )
+    if report is not None:
+        rows = report
+    else:
+        # The resolver builds four candidates for one date; the coverage table does not
+        # depend on the assignment, so it is built once per database state, not once per
+        # candidate. Same memo key as the factor cache above.
+        data_version, changes = _db_stamp(conn)
+        effective_decay = decay_config or e1rm_decay.DecayConfig.load()
+        if as_of is None:
+            rows = build(conn, window_days=window_days, as_of=as_of, config=cfg)
+        else:
+            rows = list(_cached_report(
+                conn, as_of, window_days, cfg, effective_decay, data_version, changes
+            ))
     entities = exercises.taxonomy().entities
     measured = [
         row for row in queries.e1rm_overrides(conn)

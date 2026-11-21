@@ -4,10 +4,15 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 
+import pytest
 from conftest import make_readiness, make_training
 
+from strength_coach import settings_profile
 from strength_coach.features.deload import DeloadDecision
 from strength_coach.prescribe import build_prescription, engine, loads
+from strength_coach.prescribe import top_set as top_set_mod
+from strength_coach.prescribe.models import PrescriptionItem
+from strength_coach.prescribe.resolver_settings import ResolverSettings
 from strength_coach.store import db, importer, repositories
 
 ROWS = [
@@ -60,15 +65,34 @@ def test_top_set_applies_to_the_session_main_and_preserves_sets() -> None:
             store.connection,
             for_date="2024-01-15",
             session_type="squat",
-            top_set_requested=True,
+            top_set_intent="required",
         )
     main = _item(prescription, "ssb_squat")
-    assert prescription.notes["top_set"]["applied"] is True
+    assert prescription.notes["top_set"]["status"] == "applied"
+    assert prescription.notes["top_set"]["reason_code"] == "applied"
     assert [group.role for group in main.set_groups] == ["top_set", "back_off"]
     assert sum(group.sets for group in main.set_groups) == main.sets
     assert main.set_groups[0].rir_target == 1
     assert main.set_groups[0].load_kg > main.set_groups[1].load_kg
     assert main.warmup[0].load_kg < main.load_kg
+
+
+def test_structured_intensity_is_the_set_weighted_mean() -> None:
+    with store_with() as store:
+        prescription = build_prescription(
+            store.connection,
+            for_date="2024-01-15",
+            session_type="squat",
+            top_set_intent="required",
+        )
+    main = _item(prescription, "ssb_squat")
+    assert main.set_groups
+    weighted = sum(
+        group.sets * group.load_kg for group in main.set_groups
+    ) / main.sets
+    assert main.intensity == pytest.approx(weighted / main.e1rm_kg)
+    # The stored item load is the back-off load, so its ratio alone would understate the day.
+    assert main.intensity > main.load_kg / main.e1rm_kg
 
 
 def test_deload_suppresses_top_set_and_keeps_the_plan_executable() -> None:
@@ -77,24 +101,25 @@ def test_deload_suppresses_top_set_and_keeps_the_plan_executable() -> None:
             store.connection,
             for_date="2024-01-15",
             session_type="squat",
-            top_set_requested=True,
+            top_set_intent="required",
             deload_decision=DeloadDecision(reason="test deload", trigger="test"),
         )
     main = _item(prescription, "ssb_squat")
     assert main.set_groups == ()
-    assert prescription.notes["top_set"]["applied"] is False
+    assert prescription.notes["top_set"]["status"] == "not_applicable"
+    assert prescription.notes["top_set"]["reason_code"] == "blocked_by_design"
     assert "deload" in prescription.notes["top_set"]["reason"]
 
 
-def test_ask_mode_does_not_apply_without_confirmation() -> None:
+def test_default_off_builds_straight_sets() -> None:
     with store_with() as store:
         prescription = build_prescription(
             store.connection, for_date="2024-01-15", session_type="squat"
         )
     main = _item(prescription, "ssb_squat")
     assert main.set_groups == ()
-    assert prescription.notes["top_set"]["applied"] is False
-    assert "awaiting confirmation" in prescription.notes["top_set"]["reason"]
+    assert prescription.notes["top_set"]["status"] == "not_applicable"
+    assert prescription.notes["top_set"]["reason_code"] == "intent_off"
 
 
 def test_competition_taper_removes_the_top_set() -> None:
@@ -103,9 +128,10 @@ def test_competition_taper_removes_the_top_set() -> None:
             store.connection,
             for_date="2024-01-15",
             session_type="squat",
-            top_set_requested=True,
+            top_set_intent="required",
         )
-    assert prescription.notes["top_set"]["applied"] is False
+    assert prescription.notes["top_set"]["status"] == "not_applicable"
+    assert prescription.notes["top_set"]["reason_code"] == "blocked_by_design"
     assert "taper" in prescription.notes["top_set"]["reason"]
 
 
@@ -113,11 +139,11 @@ def test_warmup_uses_the_final_throttled_top_set_load() -> None:
     with store_with() as store:
         baseline = build_prescription(
             store.connection, for_date="2024-01-15", session_type="squat",
-            top_set_requested=True,
+            top_set_intent="required",
         )
         throttled = build_prescription(
             store.connection, for_date="2024-01-15", session_type="squat",
-            top_set_requested=True, technique_throttle=True,
+            top_set_intent="required", technique_throttle=True,
         )
     base_main = _item(baseline, "ssb_squat")
     throttle_main = _item(throttled, "ssb_squat")
@@ -156,10 +182,77 @@ def test_hinge_maximal_is_allowed_and_warned() -> None:
             store.connection,
             for_date="2024-01-15",
             session_type="hinge",
-            top_set_requested=True,
+            top_set_intent="required",
         )
     trap_bar = _item(prescription, "trap_bar_deadlift")
     assert (trap_bar.reps_low, trap_bar.reps_high) == (1, 3)
     assert trap_bar.set_groups
     assert trap_bar.set_groups[0].rir_target == 1
     assert any("maximal hinge allowed" in warning for warning in prescription.warnings)
+
+
+def _resolver_settings() -> ResolverSettings:
+    return ResolverSettings.from_values(settings_profile.resolved_registry())
+
+
+def _top_set_item(**overrides) -> PrescriptionItem:
+    base: dict = {
+        "order_index": 0,
+        "exercise_id": "ssb_squat",
+        "sets": 3,
+        "reps_low": 3,
+        "reps_high": 5,
+        "load_kg": 100.0,
+        "load_basis": "external",
+        "rounding_increment_kg": 0.5,
+        "rir_target": 2,
+        "rest_s": 180,
+        "essential": True,
+        "e1rm_kg": 120.0,
+    }
+    base.update(overrides)
+    return PrescriptionItem(**base)
+
+
+def _plan(intent: str, item: PrescriptionItem):
+    return top_set_mod.plan_top_set(
+        item,
+        settings=_resolver_settings(),
+        eligible_lifts=("ssb_squat",),
+        primary_exercise="ssb_squat",
+        scheme="strength",
+        competition_date=None,
+        for_date="2024-01-15",
+        deload=False,
+        intent=intent,
+    )
+
+
+def test_preferred_applies_on_an_eligible_main() -> None:
+    plan = _plan("preferred", _top_set_item())
+    assert plan.status == "applied"
+    assert plan.reason_code == "applied"
+    assert plan.applied is True
+    assert len(plan.groups) == 2
+
+
+def test_off_intent_is_not_applicable_even_when_eligible() -> None:
+    plan = _plan("off", _top_set_item())
+    assert plan.status == "not_applicable"
+    assert plan.reason_code == "intent_off"
+    assert plan.applied is False
+    assert plan.groups == ()
+
+
+def test_preferred_falls_back_on_an_unexpected_blocker() -> None:
+    plan = _plan("preferred", _top_set_item(load_kg=None, e1rm_kg=None))
+    assert plan.status == "fallback"
+    assert plan.reason_code == "no_usable_load"
+    assert plan.applied is False
+
+
+def test_required_marks_an_unexpected_blocker_unsatisfied() -> None:
+    plan = _plan("required", _top_set_item(load_kg=None, e1rm_kg=None))
+    assert plan.status == "unsatisfied"
+    assert plan.reason_code == "no_usable_load"
+    assert plan.applied is False

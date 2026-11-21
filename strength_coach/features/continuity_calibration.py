@@ -22,9 +22,8 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-import yaml
 
-from strength_coach.utils import paths
+from strength_coach.utils import paths, yaml_files
 
 
 @dataclass(frozen=True)
@@ -47,7 +46,7 @@ class CalibrationConfig:
     @classmethod
     def load(cls, path: str | Path | None = None) -> CalibrationConfig:
         source = Path(path or paths.continuity_calibration_yaml())
-        raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
+        raw = yaml_files.load_yaml_file(source) or {}
         return cls(
             enabled=bool(raw.get("enabled", True)),
             apply=bool(raw.get("apply", True)),

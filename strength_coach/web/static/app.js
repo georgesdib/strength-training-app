@@ -234,6 +234,7 @@ async function loadOverview() {
     $("#cards").innerHTML = cards.map(([label, value, sub]) => `
       <div class="card"><div class="label">${esc(label)}</div>
       <div class="value">${esc(value)}</div><div class="sub">${esc(sub)}</div></div>`).join("");
+    renderProgrammeHeader(data.programme_header);
     renderFormFollowup(formEval);
     renderRecent(data.sessions);
     renderTodayPriorities(data);
@@ -247,6 +248,44 @@ async function loadOverview() {
     $("#today-title").textContent = "Could not load";
     $("#today-sub").textContent = error.message;
   }
+}
+
+function renderProgrammeHeader(header) {
+  const panel = $("#programme-panel");
+  const target = $("#programme-header");
+  if (!panel || !target) return;
+  if (!header) {
+    panel.hidden = true;
+    return;
+  }
+  const rows = [];
+  if (header.trained_week != null) rows.push(["Trained week", header.trained_week, ""]);
+  if (header.dup) {
+    const dup = header.dup;
+    const schemes = [dup.main_scheme, dup.accessory_scheme].filter(Boolean).join(" / ");
+    rows.push(["DUP", "week " + (dup.cycle_week ?? "?") + " of " + (dup.cycle_weeks ?? "?"), schemes]);
+  }
+  if (header.deload?.calendar_week != null) {
+    rows.push(["Deload week (calendar)", header.deload.calendar_week, ""]);
+  }
+  if (header.deload?.status) {
+    rows.push(["Deload", header.deload.status, header.deload.reason || ""]);
+  }
+  if (header.competition) {
+    const days = header.competition.days_until;
+    const parts = [
+      header.competition.date,
+      days == null ? "past" : (days === 0 ? "today" : days + " days"),
+    ].filter(Boolean);
+    if (header.competition.window && header.competition.window !== "none") {
+      parts.push(header.competition.window);
+    }
+    rows.push(["Competition", parts.join(" · "), ""]);
+  }
+  panel.hidden = rows.length === 0;
+  target.innerHTML = rows.map(([label, value, sub]) => `
+    <div class="today-priority-row"><span>${esc(label)}</span><strong>${esc(String(value))}</strong>
+    ${sub ? `<span class="muted">${esc(sub)}</span>` : ""}</div>`).join("");
 }
 
 async function refreshToday() {
@@ -1095,18 +1134,12 @@ async function syncPrescribeTopSet() {
   try {
     const profile = await api("/api/settings/profile");
     const mode = (profile.resolved || {})["resolver.top_set.mode"] || "off";
-    if (mode === "off") {
-      select.value = "";
-      select.disabled = true;
-      note.textContent = "Top set is off in Settings → Resolver. Enable it there to use this control.";
-      note.className = "muted";
-    } else {
-      select.disabled = false;
-      note.textContent = mode === "on"
-        ? "Optional main-lift structure; the Settings default is top set on. Applies to fixed and resolver-generated sessions."
-        : "Optional main-lift structure; independent of dynamic exercise selection. Applies to fixed and resolver-generated sessions.";
-      note.className = "muted";
-    }
+    const labels = { off: "straight sets", preferred: "preferred", required: "required" };
+    select.disabled = false;
+    note.textContent =
+      "Optional main-lift structure. Profile default: " + (labels[mode] || mode) +
+      "; a choice here overrides it for this request. Applies to fixed and resolver-generated sessions.";
+    note.className = "muted";
   } catch (error) {
     // Do not hide the control on a transient settings read; the server remains authoritative
     // and will return the explicit top-set rejection if the setting is off.
@@ -1157,7 +1190,7 @@ $("#prescribe-form").addEventListener("submit", async (event) => {
   const topSetValue = $("#prescribe-top-set").value;
   lastPrescribePayload = {
     date, session_type: sessionType,
-    top_set: topSetValue === "on" ? true : topSetValue === "off" ? false : null,
+    top_set_intent: topSetValue || null,
     apply_selection: applySelection,
     selection_confirmed: selectionConfirmed,
     minimum_session: $("#prescribe-minimum").checked,
@@ -1243,11 +1276,13 @@ function volumePanelHtml(panel, label = "Weekly volume") {
 
 function setGroupsHtml(item) {
   if (!item.set_groups || !item.set_groups.length) return "";
-  return '<div class="muted">' + item.set_groups.map((group) =>
-    esc(group.role.replace(/_/g, " ")) + ": " + group.sets + " × " +
-    group.reps_low + "–" + group.reps_high + " @ " + fmt(group.load_kg) + " kg" +
-    (group.rir_target == null ? "" : " · RIR " + group.rir_target)
-  ).join(" · ") + "</div>";
+  // Order is the only identity: one unlabelled row per planned group, in order
+  // (DEC-RESOLVER-18/23).
+  return '<ul class="workout-set-groups muted">' + item.set_groups.map(function (group) {
+    return "<li>" + Number(group.sets || 0) + " × " + group.reps_low + "–" + group.reps_high +
+      " @ " + (group.load_kg == null ? "load unknown" : fmt(group.load_kg) + " kg") +
+      (group.rir_target == null ? "" : " · RIR " + group.rir_target) + "</li>";
+  }).join("") + "</ul>";
 }
 
 function cachePrescription(plan) {
@@ -1404,9 +1439,12 @@ function renderPrescription(p, options = {}) {
     <strong>${esc(cadence.due ? "due" : "not due")}</strong>
     — ${esc(cadence.next_scheme)} by ${esc(cadence.next_due)}. ${esc(cadence.reason)}</p>` : "";
   const vbtNoteBox = vbtPrescriptionNote(p.notes?.vbt);
-  const topSet = p.notes?.top_set;
-  const topSetBox = topSet?.reason
-    ? `<p class="muted"><strong>${topSet.applied ? "Top set" : "Top set not applied"}:</strong> ${esc(topSet.reason)}</p>`
+  const topSet = p.top_set || p.notes?.top_set;
+  const topSetApplied = topSet?.status === "applied";
+  const topSetBox = topSet?.reason && topSet.reason_code !== "intent_off"
+    ? `<p class="muted"><strong>${topSetApplied ? "Top set" : "Top set not applied"}${
+        topSet.status ? " [" + esc(topSet.status) + "]" : ""
+      }:</strong> ${esc(topSet.reason)}</p>`
     : "";
   const deload = p.notes?.deload;
   const deloadBox = deload ? `<p class="warnbox"><strong>Deload (${esc(deload.trigger)})</strong>

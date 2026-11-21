@@ -22,6 +22,7 @@ from strength_coach.features import (
     deload,
     exercise_history,
     observations,
+    programme,
     progress,
     readiness_score,
     regime_change,
@@ -29,7 +30,8 @@ from strength_coach.features import (
     vbt_performance,
     volume,
 )
-from strength_coach.prescribe import volume_budget
+from strength_coach.prescribe import top_set, undulation, volume_budget
+from strength_coach.rules import context as rules_context
 from strength_coach.store import queries
 from strength_coach.utils import exercises
 
@@ -66,6 +68,10 @@ METHODS: dict[str, Callable[..., object]] = {
     "strength_coach.features.cardio_metrics.latest_vo2max": cardio_metrics.latest_vo2max,
     "strength_coach.features.cardio_metrics.time_in_zone": cardio_metrics.time_in_zone,
     "strength_coach.prescribe.volume_budget.headroom": volume_budget.headroom,
+    "strength_coach.features.programme.header": programme.header,
+    "strength_coach.rules.context.trained_week_index": rules_context.trained_week_index,
+    "strength_coach.prescribe.undulation.Undulation.for_week": undulation.Undulation.for_week,
+    "strength_coach.prescribe.top_set.competition_window": top_set.competition_window,
 }
 
 

@@ -12,13 +12,11 @@ import datetime as dt
 from dataclasses import dataclass
 from pathlib import Path
 
-import yaml
-
 from strength_coach.domain.symptoms import flare_from
 from strength_coach.features import breaks as breaks_feature
 from strength_coach.rules import History, RuleContext, evaluate, load_document
 from strength_coach.store import queries
-from strength_coach.utils import paths
+from strength_coach.utils import paths, yaml_files
 
 
 @dataclass(frozen=True)
@@ -40,7 +38,7 @@ class DeloadConfig:
     @classmethod
     def load(cls, path: str | Path | None = None) -> DeloadConfig:
         source = Path(path or paths.config_dir("deload.v1.yaml"))
-        raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
+        raw = yaml_files.load_yaml_file(source) or {}
         scheduled = raw.get("scheduled") or {}
         reactive = raw.get("reactive") or {}
         prescription = raw.get("prescription") or {}

@@ -27,9 +27,8 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-import yaml
 
-from strength_coach.utils import paths
+from strength_coach.utils import paths, yaml_files
 
 RESOLUTION_ORDER = ("alias_override", "entity_log_name", "classification_pattern")
 
@@ -111,8 +110,7 @@ class Taxonomy:
         overrides_path: str | Path | None = None,
     ) -> Taxonomy:
         source = Path(path or paths.taxonomy_yaml())
-        with source.open("r", encoding="utf-8") as handle:
-            raw = yaml.safe_load(handle)
+        raw = yaml_files.load_yaml_file(source)
 
         entities = {str(k): dict(v) for k, v in (raw.get("entities") or {}).items()}
         # UI edits live in a separate file so the checked-in taxonomy keeps its comments and
@@ -120,8 +118,7 @@ class Taxonomy:
         if overrides_path is None and path is None:
             overrides_path = paths.exercise_overrides_yaml()
         if overrides_path is not None and Path(overrides_path).exists():
-            with Path(overrides_path).open("r", encoding="utf-8") as handle:
-                overrides = yaml.safe_load(handle) or {}
+            overrides = yaml_files.load_yaml_file(overrides_path) or {}
             for entity_id, patch in (overrides.get("entities") or {}).items():
                 merged = dict(entities.get(str(entity_id), {}))
                 merged.update(dict(patch or {}))

@@ -8,8 +8,12 @@ version = "1.7.1"
 description = "Evidence-based, rules-driven strength coaching: deterministic Python core with a small, auditable LLM layer"
 requires-python = ">=3.11"
 dependencies = [
-    "pandas>=2.0",
-    "numpy>=1.26",
+    # Bounded to what the lock and both deployment hosts actually run (pandas 3.0.6 on the
+    # ODROID, 3.1.1 on the MacBook). The spinal-exposure grouping relies on explicit
+    # skipna=False/observed=True, but a major bump is still a tested change, not a pip
+    # upgrade: see docs/PERFORMANCE-PROFILE.md section 11.
+    "pandas>=3.0,<4",
+    "numpy>=2.3,<3",
     "PyYAML>=6.0",
 ]
 

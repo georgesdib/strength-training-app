@@ -12,9 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
 
-import yaml
-
-from strength_coach.utils import paths
+from strength_coach.utils import paths, yaml_files
 
 
 class UndulationError(ValueError):
@@ -38,7 +36,7 @@ class Undulation:
         source = Path(path or paths.undulation_yaml())
         if not source.exists():
             return cls(enabled=False, cycle_weeks=0, weeks=MappingProxyType({}))
-        raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
+        raw = yaml_files.load_yaml_file(source) or {}
         cycle = int(raw.get("cycle_weeks", 0))
         raw_weeks = raw.get("weeks") or {}
         weeks: dict[int, Mapping[str, str]] = {}

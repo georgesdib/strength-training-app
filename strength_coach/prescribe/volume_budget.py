@@ -11,6 +11,7 @@ instead of silently moving the dose.
 
 from __future__ import annotations
 
+import copy
 import datetime as dt
 import math
 from collections.abc import Iterable, Mapping, Sequence
@@ -18,13 +19,11 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from strength_coach.features import volume as volume_feature
 from strength_coach.prescribe import generated as generated_snapshot
 from strength_coach.prescribe import schedule, templates
 from strength_coach.store import queries, repositories
-from strength_coach.utils import exercises, paths
+from strength_coach.utils import exercises, paths, yaml_files
 
 # The ledger's target keys. The managed keys have MEV/MAV/MRV landmarks and are managed by the
 # budget; erector and power work are fixed template doses, included in the weekly total and the
@@ -234,10 +233,12 @@ class BudgetConfig:
         profile_budget: Mapping[str, Any] | None = None,
     ) -> BudgetConfig:
         source = Path(path or paths.config_dir("volume.v1.yaml"))
-        raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
+        # Copied: the profile overrides below are merged into this document, and the parsed
+        # file is shared with every other caller.
+        raw = copy.deepcopy(yaml_files.load_yaml_file(source)) or {}
         overlay = source.with_name("volume.local.yaml")
         if overlay.is_file():
-            _deep_merge(raw, yaml.safe_load(overlay.read_text(encoding="utf-8")) or {})
+            _deep_merge(raw, yaml_files.load_yaml_file(overlay) or {})
         if profile_budget is None and conn is not None and on_date is not None:
             from strength_coach.settings_profile import budget_overrides
             profile_budget = budget_overrides(conn, on_date)
@@ -276,9 +277,9 @@ class BudgetConfig:
                 "weekly_target_effective"
             )
         indirect_path = paths.config_dir("volume-indirect.v1.yaml")
-        indirect_raw = yaml.safe_load(
-            indirect_path.read_text(encoding="utf-8")
-        ) if indirect_path.exists() else {}
+        indirect_raw = (
+            yaml_files.load_yaml_file(indirect_path) if indirect_path.exists() else {}
+        )
         raw_total = body.get("weekly_total")
         total = float(raw_total) if raw_total is not None else sum(targets.values())
         if total < 0:

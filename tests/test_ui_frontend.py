@@ -476,6 +476,56 @@ def test_readiness_presets_show_values_and_open_yaml_editor() -> None:
     assert "saveReadinessPresetEditor" in app
 
 
+def test_workout_group_prefill_follows_the_planned_order() -> None:
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    source = (STATIC / "workout.js").read_text(encoding="utf-8")
+    script = (
+        "const fs = require('fs');\n"
+        "global.window = {};\n"
+        "global.document = { addEventListener: function () {} };\n"
+        "eval(" + json.dumps(source) + ");\n"
+        + r"""
+const groups = [
+  {group_index: 0, sets: 1, load_kg: 120, reps_low: 3, reps_high: 5, rir_target: 1},
+  {group_index: 1, sets: 3, load_kg: 100, reps_low: 3, reps_high: 5, rir_target: 3}
+];
+function expectGroup(setNumber, index) {
+  const group = workoutGroupAtSet(groups, setNumber);
+  if (group == null || group.group_index !== index) {
+    throw new Error("set " + setNumber + " should use group " + index);
+  }
+}
+expectGroup(1, 0);
+expectGroup(2, 1);
+expectGroup(4, 1);
+expectGroup(9, 1);   // beyond the plan: stay on the last group, never dead
+const straight = workoutGroupAtSet([], 1);
+if (straight !== null) throw new Error("straight sets have no group");
+
+const item = {exercise_id: "ssb_squat", order_index: 0, sets: 4,
+              reps_low: 3, reps_high: 5, load_kg: 100, rir_target: 3, set_groups: groups};
+window.__workoutData = {sets: []};
+let next = workoutNextGroup(item);
+if (next == null || next.group_index !== 0) throw new Error("first set is the first group");
+window.__workoutData = {sets: [{exercise_id: "ssb_squat", prescription_item_index: 0}]};
+next = workoutNextGroup(item);
+if (next == null || next.group_index !== 1) throw new Error("second set is the back-off group");
+window.__workoutData = {sets: [
+  {exercise_id: "ssb_squat", prescription_item_index: 0},
+  {exercise_id: "ssb_squat", prescription_item_index: 0},
+  {exercise_id: "ssb_squat", prescription_item_index: 0}
+]};
+next = workoutNextGroup(item);
+if (next == null || next.group_index !== 1) throw new Error("later sets stay on the last group");
+"""
+    )
+    result = _run_node(script)
+    assert result.returncode == 0, result.stderr
+
+
 def test_remaining_ui_controls_are_present() -> None:
     page = INDEX.read_text(encoding="utf-8")
     app = (STATIC / "app.js").read_text(encoding="utf-8")
@@ -488,8 +538,12 @@ def test_remaining_ui_controls_are_present() -> None:
     assert "review-table" in app and "historical · read only" in app
     assert "search-select" in core and "filterNativeSelect" in core
     assert "exercisePickerHtml" in app
-    assert 'id="workout-swap-dialog"' in page
-    assert "openWorkoutSwapDialog" in workout
+    # The plan is frozen at start: the swap/remove/set-count/add surface is gone
+    # (DEC-RESOLVER-23), and nothing calls a plan-edit route.
+    assert 'id="workout-swap-dialog"' not in page
+    assert "openWorkoutSwapDialog" not in workout
+    assert "/plan/" not in workout
+    assert "workout-set-groups" in app and "workoutNextGroup" in workout
     assert "applyFieldErrors" in core
     assert "PROFILE_ERRORS" in app and "CONSTRAINT_ERRORS" in app
 
@@ -539,6 +593,103 @@ def test_volume_panel_is_consolidated_and_linked_to_its_guide() -> None:
             "if (volumeNestedValue(budget, 'missing.total') !== undefined) throw new Error('missing');"
         )
         result = _run_node(script)
+    assert result.returncode == 0, result.stderr
+
+
+def test_resolver_suggestion_rating_does_not_rebuild_the_preview() -> None:
+    """Rating a suggestion records state but leaves the old preview until Build preview."""
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+
+        pytest.skip("node is not installed")
+    settings = (STATIC / "settings.js").read_text(encoding="utf-8")
+
+    def function_source(name: str) -> str:
+        match = re.search(
+            rf"(?:async\s+)?function {name}\([^)]*\) \{{[\s\S]*?\n\}}", settings
+        )
+        assert match, f"{name}() not found"
+        return match.group(0)
+
+    script = "\n".join([
+        function_source("markResolverSuggestionRated"),
+        function_source("markResolverPreviewStale"),
+        function_source("rateResolverSuggestion"),
+        """
+let rebuildCalls = 0;
+const notices = [];
+let staleHtml = "";
+function runResolverPreview() {
+  rebuildCalls += 1;
+  return Promise.resolve();
+}
+function notify(message) { notices.push(message); }
+function esc(value) { return String(value ?? ""); }
+const groups = [
+  {dataset: {resolverSuggestion: "ssb_squat"}, innerHTML: "original"},
+  {dataset: {resolverSuggestion: "bench_press"}, innerHTML: "other"},
+];
+const previewBox = {
+  querySelector() { return null; },
+  insertAdjacentHTML(position, html) { staleHtml = position + ":" + html; },
+};
+function $(selector) {
+  return selector === "#settings-resolver-preview" ? previewBox : null;
+}
+function makeButton(exerciseId) {
+  return {
+    dataset: {
+      resolverRate: exerciseId,
+      resolverRateKind: "auto",
+      resolverRateDate: "2024-01-01",
+    },
+    textContent: "Can do",
+    disabled: false,
+  };
+}
+const clicked = makeButton("ssb_squat");
+const other = makeButton("bench_press");
+const buttons = [clicked, other];
+const document = {
+  querySelectorAll(selector) {
+    if (selector === "[data-resolver-rate]") return buttons;
+    if (selector === "[data-resolver-suggestion]") return groups;
+    throw new Error("unexpected selector " + selector);
+  },
+};
+let posted = null;
+function api(path, options) {
+  posted = {path: path, payload: JSON.parse(options.body)};
+  return Promise.resolve({});
+}
+let resolverRatingRunning = false;
+(async () => {
+  await rateResolverSuggestion(clicked);
+  if (!posted || posted.path !== "/api/state/suitability")
+    throw new Error("rating was not posted");
+  if (posted.payload.exercise_id !== "ssb_squat")
+    throw new Error("rating payload lost the exercise");
+  if (rebuildCalls !== 0)
+    throw new Error("rating rebuilt the preview automatically");
+  if (!groups[0].innerHTML.includes("rated") ||
+      !groups[0].innerHTML.includes("ssb_squat"))
+    throw new Error("rated suggestion was not marked");
+  if (groups[1].innerHTML !== "other")
+    throw new Error("unrelated suggestion was rewritten");
+  if (other.disabled)
+    throw new Error("other suggestions were left disabled");
+  if (!staleHtml.includes("Build preview"))
+    throw new Error("stale preview was not flagged");
+  if (!notices.some((message) => message.includes("Build preview")))
+    throw new Error("the toast did not ask for an explicit rebuild");
+})().catch((error) => {
+  console.error(error.message);
+  process.exit(1);
+});
+""",
+    ])
+    result = _run_node(script)
     assert result.returncode == 0, result.stderr
 
 
@@ -2098,28 +2249,28 @@ if (details.indexOf("RIR 2–3") < 0 || details.indexOf("squat") < 0) throw new 
 if (details.indexOf("18 sets / 3 sessions") < 0 || details.indexOf("1.0.0") < 0) throw new Error("sample/method");
 if (details.indexOf("vbt-test") < 0) throw new Error("calibration id");
 
-var ok = vbtApplicability(item, "", 3, 2);
+var ok = vbtApplicability(item, 0, 3, 2);
 if (ok.status !== "applicable") throw new Error("applicable target");
-var reps = vbtApplicability(item, "", 5, 2);
+var reps = vbtApplicability(item, 0, 5, 2);
 if (reps.reason !== "rep_mismatch") throw new Error("rep mismatch");
-var effort = vbtApplicability(item, "", 3, 1);
+var effort = vbtApplicability(item, 0, 3, 1);
 if (effort.reason !== "actual_rir_outside_band") throw new Error("rir band");
-var missingEffort = vbtApplicability(item, "", 3, "");
+var missingEffort = vbtApplicability(item, 0, 3, "");
 if (missingEffort.reason !== "actual_rir_missing") throw new Error("rir missing");
-var noTarget = vbtApplicability({exercise_id: "ssb_squat", vbt: null}, "", 3, 2);
+var noTarget = vbtApplicability({exercise_id: "ssb_squat", vbt: null}, 0, 3, 2);
 if (noTarget.reason !== "no_target") throw new Error("no target");
-var legacy = vbtApplicability({exercise_id: "ssb_squat", vbt: null, velocity_target: 0.4}, "", 3, 2);
+var legacy = vbtApplicability({exercise_id: "ssb_squat", vbt: null, velocity_target: 0.4}, 0, 3, 2);
 if (legacy.reason !== "legacy_target") throw new Error("legacy target");
 
 var groups = [
-  {role: "top_set", sets: 1, reps_low: 5, reps_high: 5, load_kg: 110, rir_target: 1},
-  {role: "back_off", sets: 2, reps_low: 3, reps_high: 5, load_kg: 95, rir_target: 2}
+  {group_index: 0, sets: 1, reps_low: 5, reps_high: 5, load_kg: 110, rir_target: 1},
+  {group_index: 1, sets: 2, reps_low: 3, reps_high: 5, load_kg: 95, rir_target: 2}
 ];
 var groupItem = {exercise_id: "ssb_squat", reps_low: 3, reps_high: 5, set_groups: groups, vbt: target};
-var groupMismatch = vbtApplicability(groupItem, "top_set", 5, 1);
+var groupMismatch = vbtApplicability(groupItem, 0, 5, 1);
 if (groupMismatch.reason !== "group_rep_mismatch") throw new Error("group reps");
-var ambiguous = vbtApplicability(groupItem, "", 3, 2);
-if (ambiguous.reason !== "ambiguous_set_role") throw new Error("ambiguous role");
+var orderGroup = vbtApplicability(groupItem, 1, 3, 2);
+if (orderGroup.status !== "applicable" || orderGroup.group.group_index !== 1) throw new Error("ordered group");
 
 var comparable = vbtFeedbackHtml({
   target_mps: 0.42, actual_velocity_mps: 0.44, delta_mps: 0.02,
@@ -2309,3 +2460,36 @@ def test_exercise_save_reports_why_it_did_not_send() -> None:
     assert "is required or invalid" in exercises
     # A catalogue that has not loaded leaves the required pattern select empty.
     assert "loadExerciseCatalog().then" in exercises
+
+def test_a_started_preview_never_carries_its_build_time() -> None:
+    """build_ms is view-only: it must not be frozen into the plan a workout is started from."""
+    node = shutil.which("node")
+    if node is None:
+        import pytest
+        pytest.skip("node is not installed")
+    source = (STATIC / "settings.js").read_text(encoding="utf-8")
+    keys = re.search(r"const RESOLVER_PREVIEW_ONLY_KEYS = \[[\s\S]*?\];", source)
+    assert keys, "RESOLVER_PREVIEW_ONLY_KEYS not found"
+    helper = re.search(
+        r"function resolverPlanFromPreview\(data\) \{[\s\S]*?\n\}", source
+    )
+    assert helper, "resolverPlanFromPreview() not found"
+    # One eval: a const declared in a separate eval call is not visible to the next one.
+    declared = keys.group(0) + "\n" + helper.group(0) + "\nresolverPlanFromPreview"
+    script = (
+        f"const freeze = eval({json.dumps(declared)});"
+        "const preview = {"
+        "  ok: true, build_ms: 16640, choices: [], beam: {}, top_set: null,"
+        "  for_date: '2026-11-04', session_type: 'squat', warnings: [],"
+        "  items: [{exercise_id: 'ssb_squat', sets: 5}],"
+        "};"
+        "const plan = freeze(preview);"
+        "if ('build_ms' in plan) throw new Error('build_ms survived the freeze');"
+        "if ('ok' in plan || 'choices' in plan || 'beam' in plan) "
+        "  throw new Error('preview-only metadata survived the freeze');"
+        "if (plan.items.length !== 1 || plan.items[0].exercise_id !== 'ssb_squat') "
+        "  throw new Error('the prescription was dropped');"
+        "if (preview.build_ms !== 16640) throw new Error('the preview was mutated');"
+    )
+    result = _run_node(script)
+    assert result.returncode == 0, result.stderr

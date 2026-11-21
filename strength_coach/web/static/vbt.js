@@ -17,7 +17,7 @@ var VBT_REASON_TEXT = {
   warm_up: "Warm-up sets are not target comparisons.",
   rep_mismatch: "The actual rep count differs from the target's calibration rep count.",
   group_rep_mismatch: "The selected set group's rep count differs from the target's calibration rep count.",
-  ambiguous_set_role: "Choose a set role so the target can be applied to the right set group.",
+  ambiguous_group: "The set group could not be resolved from the plan order.",
   actual_rir_missing: "Actual RIR is missing, so effort comparability cannot be established.",
   actual_rir_outside_band: "Actual RIR is outside the target's calibration band.",
   load_basis_unknown: "The prescribed load basis is unknown or not comparable.",
@@ -67,14 +67,19 @@ function vbtTargetDetails(item) {
     "context, not a target input.</p></details>";
 }
 
-function vbtGroupForRole(item, role) {
+function vbtGroupForOrdinal(item, ordinal) {
   var groups = (item && item.set_groups) || [];
   if (!groups.length) return null;
-  if (!role) return groups.length === 1 ? groups[0] : null;
-  return groups.find(function (group) { return String(group.role) === String(role); }) || null;
+  var target = Number(ordinal || 0) + 1;
+  var cumulative = 0;
+  for (var index = 0; index < groups.length; index += 1) {
+    cumulative += Number(groups[index].sets || 0);
+    if (target <= cumulative) return groups[index];
+  }
+  return groups[groups.length - 1];
 }
 
-function vbtApplicability(item, role, reps, rir) {
+function vbtApplicability(item, ordinal, reps, rir) {
   var target = item && item.vbt;
   if (!target) {
     if (item && item.velocity_target != null) {
@@ -83,9 +88,9 @@ function vbtApplicability(item, role, reps, rir) {
     return {status: "unavailable", reason: "no_target", target: null};
   }
   var groups = item.set_groups || [];
-  var group = vbtGroupForRole(item, role);
+  var group = vbtGroupForOrdinal(item, ordinal);
   if (groups.length && !group) {
-    return {status: "not_applicable", reason: "ambiguous_set_role", target: target};
+    return {status: "not_applicable", reason: "ambiguous_group", target: target};
   }
   if (group && Number(group.reps_low) !== Number(target.rep_count)) {
     return {status: "not_applicable", reason: "group_rep_mismatch", target: target, group: group};
@@ -104,9 +109,9 @@ function vbtApplicability(item, role, reps, rir) {
   return {status: "applicable", reason: null, target: target, group: group};
 }
 
-function vbtApplicabilityHtml(item, role, reps, rir) {
+function vbtApplicabilityHtml(item, ordinal, reps, rir) {
   if (!item) return "";
-  var result = vbtApplicability(item, role, reps, rir);
+  var result = vbtApplicability(item, ordinal, reps, rir);
   if (!result.target) {
     return "<span class='muted'>" + esc(vbtReason(result.reason)) + "</span>";
   }

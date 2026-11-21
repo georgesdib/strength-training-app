@@ -1,0 +1,33 @@
+{
+  "name": "legacy_two_group_plan",
+  "source": "legacy plan with role-based set groups",
+  "item": {
+    "exercise_id": "ssb_squat",
+    "sets": 4,
+    "set_groups": [
+      {
+        "role": "top_set",
+        "sets": 1,
+        "load_kg": 120,
+        "reps_low": 3,
+        "reps_high": 5,
+        "rir_target": 1,
+        "percent_of_top": null
+      },
+      {
+        "role": "back_off",
+        "sets": 3,
+        "load_kg": 102.5,
+        "reps_low": 3,
+        "reps_high": 5,
+        "rir_target": 3,
+        "percent_of_top": 0.85
+      }
+    ]
+  },
+  "expected": {
+    "group_count": 2,
+    "sum_sets": 4,
+    "identity": "list_order"
+  }
+}

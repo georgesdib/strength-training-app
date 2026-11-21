@@ -93,66 +93,35 @@ def test_start_rejects_inconsistent_set_groups_without_a_workout(conn):
     assert conn.execute("SELECT COUNT(*) FROM workout_session").fetchone()[0] == 0
 
 
-def test_planned_group_edits_keep_the_set_total_and_roles(conn):
-    plan = {
-        **PLAN,
-        "items": [{
-            **PLAN["items"][0],
-            "sets": 5,
-            "set_groups": [
-                {"role": "top_set", "sets": 1, "load_kg": 110, "reps_low": 3,
-                 "reps_high": 5, "rir_target": 1, "percent_of_top": None},
-                {"role": "back_off", "sets": 4, "load_kg": 90, "reps_low": 3,
-                 "reps_high": 5, "rir_target": 2, "percent_of_top": 0.85},
-            ],
-        }],
-    }
-    started = workout.start(conn, for_date="2024-01-01", plan=plan, readiness=READINESS)
-    reduced = workout.change_sets(conn, started["workout_id"], 0, -2)
-    item = reduced["plan"]["items"][0]
-    assert item["sets"] == 3
-    assert sum(group["sets"] for group in item["set_groups"]) == 3
-    one = workout.change_sets(conn, started["workout_id"], 0, -2)
-    item = one["plan"]["items"][0]
-    assert item["sets"] == 1
-    assert [group["role"] for group in item["set_groups"]] == ["top_set"]
-    swapped = workout.swap_exercise(
-        conn, started["workout_id"], 0, "ssb_squat"
-    )
-    item = swapped["plan"]["items"][0]
-    assert item["set_groups"] == []
 
-
-def test_completed_top_set_and_backoff_roles_survive_materialisation(conn):
+def test_substitution_attribution_survives_materialisation(conn):
     plan = {
         **PLAN,
         "items": [{
             **PLAN["items"][0],
             "sets": 2,
             "set_groups": [
-                {"role": "top_set", "sets": 1, "load_kg": 110, "reps_low": 3,
-                 "reps_high": 5, "rir_target": 1, "percent_of_top": None},
-                {"role": "back_off", "sets": 1, "load_kg": 90, "reps_low": 3,
-                 "reps_high": 5, "rir_target": 2, "percent_of_top": 0.85},
+                {"group_index": 0, "sets": 1, "load_kg": 110, "reps_low": 3,
+                 "reps_high": 5, "rir_target": 1},
+                {"group_index": 1, "sets": 1, "load_kg": 90, "reps_low": 3,
+                 "reps_high": 5, "rir_target": 2},
             ],
         }],
     }
     started = workout.start(conn, for_date="2024-01-01", plan=plan, readiness=READINESS)
     workout.add_set(
-        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
-        load_kg=110, reps=3, rir=1, set_role="top_set",
-    )
-    workout.add_set(
-        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
-        load_kg=90, reps=5, rir=2, set_role="back_off",
+        conn, started["workout_id"], exercise_id="competition_bench_press",
+        load_kg=90, reps=5, rir=2, substitutes_plan_item_index=0,
     )
     workout.end(conn, started["workout_id"], session_rpe=7, duration_min=30)
-    roles = [
-        row["set_role"] for row in conn.execute(
-            "SELECT set_role FROM clean_set ORDER BY set_id"
-        )
-    ]
-    assert roles == ["top_set", "back_off"]
+    row = conn.execute(
+        "SELECT prescription_item_index, substitutes_plan_item_index, set_role "
+        "FROM clean_set ORDER BY set_id"
+    ).fetchone()
+    assert row["prescription_item_index"] == 0
+    assert row["substitutes_plan_item_index"] == 0
+    # New sets never carry a role; the legacy column stays null (DEC-RESOLVER-23).
+    assert row["set_role"] is None
 
 
 def test_start_requires_all_seven_readiness_fields(conn):
@@ -328,73 +297,19 @@ def test_a_duplicate_exercise_without_an_index_remains_ambiguous(conn):
     assert added["comparison"]["extra"][0]["match_status"] == "ambiguous"
 
 
-def test_an_explicit_plan_item_index_must_match_the_exercise(conn):
+def test_a_stale_plan_item_index_is_preserved_as_extra_work(conn):
+    # With a frozen plan the item index cannot change, so this only covers a stale or buggy
+    # client index: the set is kept and never attributed to another exercise's slot.
     started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
-    with pytest.raises(ValueError, match="does not match"):
-        workout.add_set(
-            conn, started["workout_id"], exercise_id="trap_bar_deadlift",
-            load_kg=100, reps=5, rir=2, plan_item_index=1,
-        )
+    result = workout.add_set(
+        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+        load_kg=100, reps=5, rir=2, plan_item_index=1,
+    )
+    row = result["sets"][0]
+    assert row["prescription_item_index"] is None
+    assert row["substitutes_plan_item_index"] is None
 
 
-def test_swap_resolves_the_replacement_load_and_warmups(conn):
-    prior = workout.start(
-        conn,
-        for_date="2023-12-30",
-        plan={
-            "for_date": "2023-12-30",
-            "session_type": "hinge",
-            "items": [{
-                "exercise_id": "trap_bar_deadlift",
-                "sets": 3, "reps_low": 5, "reps_high": 5,
-                "load_kg": 100, "rir_target": 2,
-            }],
-        },
-        readiness=READINESS,
-    )
-    for _ in range(3):
-        workout.add_set(
-            conn, prior["workout_id"], exercise_id="trap_bar_deadlift",
-            load_kg=100, reps=5, rir=2,
-        )
-    workout.end(conn, prior["workout_id"], session_rpe=7, duration_min=45)
-
-    started = workout.start(
-        conn,
-        for_date="2024-01-01",
-        plan={
-            "for_date": "2024-01-01",
-            "session_type": "hinge",
-            "items": [{
-                "exercise_id": "conventional_deadlift",
-                "sets": 3, "reps_low": 5, "reps_high": 5,
-                "load_kg": 120, "rir_target": 2, "essential": True,
-            }],
-        },
-        readiness=READINESS,
-    )
-    swapped = workout.swap_exercise(
-        conn, started["workout_id"], 0, "trap_bar_deadlift"
-    )
-    item = swapped["plan"]["items"][0]
-    assert item["exercise_id"] == "trap_bar_deadlift"
-    assert item["load_kg"] is not None
-    assert item["unknown_load_reason"] is None
-    assert item["warmup"]
-
-
-def test_original_comparison_is_unavailable_after_a_plan_swap(conn):
-    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
-    changed = workout.swap_exercise(
-        conn, started["workout_id"], 0, "conventional_deadlift",
-    )
-    workout.add_set(
-        conn, started["workout_id"], exercise_id="conventional_deadlift",
-        load_kg=100, reps=5, rir=2, plan_item_index=0,
-    )
-    changed = workout.get(conn, started["workout_id"])
-    assert changed["comparison"]["items"][0]["match_status"] == "matched"
-    assert changed["original_comparison"]["items"][0]["match_status"] == "unavailable"
 
 
 def test_sets_and_end_preserve_explicit_local_timestamps(conn):
@@ -443,97 +358,9 @@ def test_sets_and_end_preserve_explicit_local_timestamps(conn):
     assert 8.5 <= ended["duration_min"] <= 9.5
     assert ended["ended_at"].startswith((now - dt.timedelta(minutes=1)).isoformat()[:19])
 
-def test_removing_an_earlier_item_keeps_later_set_attribution(conn):
-    plan = {
-        "for_date": "2024-01-01",
-        "session_type": "hinge",
-        "items": [
-            {"order_index": 0, "exercise_id": "competition_squat", "sets": 3,
-             "reps_low": 5, "reps_high": 5, "load_kg": 140, "rir_target": 2},
-            {"order_index": 1, "exercise_id": "competition_bench_press", "sets": 5,
-             "reps_low": 5, "reps_high": 5, "load_kg": 100, "rir_target": 2},
-            {"order_index": 2, "exercise_id": "trap_bar_deadlift", "sets": 3,
-             "reps_low": 3, "reps_high": 5, "load_kg": 180, "rir_target": 2},
-        ],
-    }
-    started = workout.start(conn, for_date="2024-01-01", plan=plan, readiness=READINESS)
-    for index in (1, 2, 3):
-        workout.add_set(
-            conn, started["workout_id"], exercise_id="competition_bench_press",
-            load_kg=100, reps=5, rir=2, set_index=index, plan_item_index=1,
-        )
-
-    workout.remove_exercise(conn, started["workout_id"], 0)
-    reloaded = workout.get(conn, started["workout_id"])
-    bench = next(
-        item for item in reloaded["comparison"]["items"]
-        if item["exercise_id"] == "competition_bench_press"
-    )
-    assert bench["plan_item_index"] == 1
-    assert bench["actual_sets"] == 3
-    assert bench["status"] == "under"
-
-    # B still has three logged sets, so a reduction to two is rejected; a reduction to
-    # three is valid and an increase remains valid.
-    with pytest.raises(workout.PlanEditConflict, match="below"):
-        workout.change_sets(conn, started["workout_id"], 0, -3)
-    reduced = workout.change_sets(conn, started["workout_id"], 0, -2)
-    assert next(
-        item for item in reduced["plan"]["items"]
-        if item["exercise_id"] == "competition_bench_press"
-    )["sets"] == 3
-    increased = workout.change_sets(conn, started["workout_id"], 0, 1)
-    assert next(
-        item for item in increased["plan"]["items"]
-        if item["exercise_id"] == "competition_bench_press"
-    )["sets"] == 4
-
-def test_swap_is_blocked_after_a_set_is_logged(conn):
-    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
-    workout.add_set(
-        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
-        load_kg=100, reps=5, rir=2, plan_item_index=0,
-    )
-    with pytest.raises(workout.PlanEditConflict, match="after sets") as excinfo:
-        workout.swap_exercise(conn, started["workout_id"], 0, "conventional_deadlift")
-    assert excinfo.value.code == "sets_already_logged"
 
 
-def test_an_unattributed_set_blocks_swap_and_set_reduction(conn):
-    # A repeated exercise is the case where add_set deliberately leaves the item unattributed.
-    duplicate = {
-        **PLAN,
-        "items": [PLAN["items"][0], {**PLAN["items"][0]}, PLAN["items"][1]],
-    }
-    started = workout.start(conn, for_date="2024-01-01", plan=duplicate, readiness=READINESS)
-    workout.add_set(
-        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
-        load_kg=100, reps=5, rir=2,
-    )
-    with pytest.raises(workout.PlanEditConflict, match="after sets"):
-        workout.swap_exercise(conn, started["workout_id"], 0, "conventional_deadlift")
-    with pytest.raises(workout.PlanEditConflict, match="below"):
-        workout.change_sets(conn, started["workout_id"], 0, -1)
 
-
-def test_set_count_cannot_go_below_logged_sets(conn):
-    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
-    for _ in range(3):
-        workout.add_set(
-            conn, started["workout_id"], exercise_id="trap_bar_deadlift",
-            load_kg=100, reps=5, rir=2, plan_item_index=0,
-        )
-    workout.change_sets(conn, started["workout_id"], 0, -2)
-    assert workout.get(conn, started["workout_id"])["plan"]["items"][0]["sets"] == 3
-    with pytest.raises(workout.PlanEditConflict, match="below"):
-        workout.change_sets(conn, started["workout_id"], 0, -1)
-
-
-def test_remove_last_exercise_is_blocked(conn):
-    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
-    workout.remove_exercise(conn, started["workout_id"], 1)
-    with pytest.raises(workout.PlanEditConflict, match="last exercise"):
-        workout.remove_exercise(conn, started["workout_id"], 0)
 
 
 def test_weekly_residual_uses_stored_plan_item_target(conn):
@@ -587,31 +414,6 @@ def test_end_writes_no_critique(conn):
     ).fetchone()["c"] == 0
     assert ended["status"] == "completed"
 
-
-def test_plan_overrides_keep_the_original_prescription(conn):
-    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
-    swapped = workout.swap_exercise(
-        conn, started["workout_id"], 0, "conventional_deadlift"
-    )
-    assert swapped["original_plan"]["items"][0]["exercise_id"] == "trap_bar_deadlift"
-    assert swapped["plan"]["items"][0]["exercise_id"] == "conventional_deadlift"
-    assert swapped["plan"]["items"][0]["substitution_for"] == "trap_bar_deadlift"
-    assert swapped["plan"]["items"][0]["load_kg"] is None
-    assert swapped["plan"]["items"][0]["warmup"] == []
-    assert swapped["plan_modified"] is True
-
-    added = workout.add_exercise(
-        conn, started["workout_id"], exercise_id="lat_pulldown", sets=2,
-        reps_low=10, reps_high=12,
-    )
-    assert any(item["exercise_id"] == "lat_pulldown" for item in added["plan"]["items"])
-    assert len(added["original_plan"]["items"]) == 2
-
-    changed = workout.change_sets(conn, started["workout_id"], 0, 1)
-    assert changed["plan"]["items"][0]["sets"] == 6
-    removed = workout.remove_exercise(conn, started["workout_id"], 2)
-    assert all(item["exercise_id"] != "lat_pulldown" for item in removed["plan"]["items"])
-    assert len(removed["plan"]["items"]) == 2
 
 
 CSV = """Exercise,Set,RPE,Value,Weight,Reps
@@ -674,11 +476,14 @@ def test_import_preview_reports_conflicts_and_undo_restores(conn):
     started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
     first = workout.import_csv(conn, started["workout_id"], CSV, apply=True)
     assert first["workout"]["sets"][0]["load_kg"] == 20.0
-    assert any(item["exercise_id"] == "push_press"
-               for item in first["workout"]["plan"]["items"])
+    # The plan is frozen at start: an imported exercise that is not on it stays off-plan
+    # rather than extending the prescription (DEC-RESOLVER-23).
+    assert not any(item["exercise_id"] == "push_press"
+                   for item in first["workout"]["plan"]["items"])
+    assert first["workout"]["sets"][0]["prescription_item_index"] is None
     changed = CSV.replace("Push Press,1,4,???,20.0kg,4", "Push Press,1,4,???,25.0kg,4")
     preview = workout.import_csv(conn, started["workout_id"], changed, apply=False)
-    assert preview["preview"]["rows"][0]["plan_new"] is False
+    assert preview["preview"]["rows"][0]["plan_new"] is True
     row = next(item for item in preview["preview"]["rows"] if item["exercise"] == "Push Press" and item["set_index"] == 1)
     assert row["conflicts"]["load_kg"] == [25.0, 20.0]
     workout.import_csv(conn, started["workout_id"], changed, apply=True)
@@ -917,19 +722,20 @@ def test_optional_post_lift_form_ratings_materialise(conn):
         ("trap_bar_deadlift", 4)
     ]
 
-def test_duplicate_set_index_is_idempotent(conn):
+def test_duplicate_set_index_is_idempotent_only_for_the_same_payload(conn):
     started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
-    first = workout.add_set(
-        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
-        load_kg=100, reps=5, rir=2, set_index=1,
+    kwargs = dict(
+        exercise_id="trap_bar_deadlift", load_kg=100, reps=5, rir=2, set_index=1,
     )
-    retry = workout.add_set(
-        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
-        load_kg=105, reps=4, rir=2, set_index=1,
-    )
+    first = workout.add_set(conn, started["workout_id"], **kwargs)
+    retry = workout.add_set(conn, started["workout_id"], **kwargs)
     assert len(retry["sets"]) == 1
     assert retry["sets"][0]["set_id"] == first["sets"][0]["set_id"]
-    assert retry["sets"][0]["load_kg"] == 100
+    with pytest.raises(ValueError, match="set_index_conflict"):
+        workout.add_set(
+            conn, started["workout_id"],
+            **{**kwargs, "load_kg": 105, "reps": 4},
+        )
 
 
 def test_end_retry_returns_the_completed_workout(conn):
@@ -969,45 +775,3 @@ def test_end_failure_rolls_back_the_completion(conn, monkeypatch):
         "SELECT COUNT(*) AS c FROM session WHERE session_id = ?",
         (started["workout_id"],),
     ).fetchone()["c"] == 0
-
-
-
-def test_move_exercise_changes_display_order_but_keeps_identity(conn):
-    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
-    before = started["plan"]["items"]
-    moved = workout.move_exercise(conn, started["workout_id"], 0, 1)
-    items = moved["plan"]["items"]
-    assert [item["exercise_id"] for item in items] == [
-        before[1]["exercise_id"], before[0]["exercise_id"],
-    ]
-    # Identity travels with the item; display position changes only.
-    assert items[1].get("order_index", 0) == before[0].get("order_index", 0)
-    assert moved["original_plan"]["items"][0]["exercise_id"] == before[0]["exercise_id"]
-    event = conn.execute(
-        "SELECT payload_json FROM workout_event "
-        "WHERE workout_id = ? AND event_type = 'move_exercise'",
-        (started["workout_id"],),
-    ).fetchone()
-    assert event is not None
-    assert '"to_index":1' in event["payload_json"].replace(" ", "")
-
-
-def test_move_to_the_same_position_records_no_event(conn):
-    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
-    revision = started.get("plan_revision")
-    same = workout.move_exercise(conn, started["workout_id"], 0, 0)
-    assert same["plan"]["items"][0]["exercise_id"] == (
-        started["plan"]["items"][0]["exercise_id"]
-    )
-    assert same.get("plan_revision") == revision
-    assert conn.execute(
-        "SELECT COUNT(*) AS c FROM workout_event "
-        "WHERE workout_id = ? AND event_type = 'move_exercise'",
-        (started["workout_id"],),
-    ).fetchone()["c"] == 0
-
-
-def test_move_rejects_an_out_of_range_position(conn):
-    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
-    with pytest.raises(ValueError, match="to_index out of range"):
-        workout.move_exercise(conn, started["workout_id"], 0, 5)

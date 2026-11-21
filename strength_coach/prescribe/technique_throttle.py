@@ -193,7 +193,8 @@ def apply(items: Iterable[PrescriptionItem], patterns: Mapping[str, str], *,
         )
         if groups:
             # The parent summary represents the back-off group; keep it equal to the
-            # structured work rather than a stale pre-throttle load.
+            # structured work rather than a stale pre-throttle load. The role read here is
+            # the engine build-time tag, never a wire field (DEC-RESOLVER-18).
             summary = next(
                 (group for group in groups if group.role == "back_off"),
                 groups[0],

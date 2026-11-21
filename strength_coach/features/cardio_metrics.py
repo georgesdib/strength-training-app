@@ -15,6 +15,7 @@ recording mode rather than the data.
 from __future__ import annotations
 
 import datetime as dt
+import sqlite3
 import statistics
 import threading
 from collections import Counter, defaultdict
@@ -317,13 +318,24 @@ def activity_summary(
     separate, slower path.
     """
     anchor = _as_of_date(as_of)
-    ensure_classification(conn)
     hidden = hidden_workout_ids(conn)
-    rows = [
-        dict(row)
-        for row in conn.execute("SELECT * FROM cardio_classification")
-        if row["external_workout_id"] not in hidden
-    ]
+    try:
+        ensure_classification(conn)
+        rows = [
+            dict(row)
+            for row in conn.execute("SELECT * FROM cardio_classification")
+            if row["external_workout_id"] not in hidden
+        ]
+    except sqlite3.OperationalError as exc:
+        # Intelligence reads run on a read-only SQLite handle by policy. A stale or absent
+        # classification cache must not turn an otherwise read-only summary into a 500: classify
+        # from source in memory instead of writing the cache.
+        if "readonly" not in str(exc).lower():
+            raise
+        rows = [
+            row for row in classification_rows(conn)
+            if row["external_workout_id"] not in hidden
+        ]
 
     # Every week in the window exists, even with no workouts: a gap is a real week with zero
     # minutes, not a week that disappears from the chart.

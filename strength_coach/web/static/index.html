@@ -92,6 +92,11 @@
         </div>
       </div>
       <div id="cards" class="cards"></div>
+      <div class="panel" id="programme-panel" hidden>
+        <div class="panel-head"><h2>Programme</h2><span class="muted">read-only context</span></div>
+        <p class="section-help"><span>Trained week, DUP cycle, deload calendar week and competition countdown, assembled by the server; no model narrative.</span> <a class="doc-link" href="#docs?doc=docs/WEB-UI.md">Web UI and API</a></p>
+        <div id="programme-header" class="today-priorities"></div>
+      </div>
       <div class="panel">
         <div class="panel-head"><h2>Today’s priorities</h2><span class="muted">actions and review status</span></div>
         <p class="section-help"><span>Quick paths to the workout, session review, form follow-up, and detailed analytics.</span> <a class="doc-link" href="#docs?doc=docs/UI-MAP.md">Today and navigation map</a></p>
@@ -604,8 +609,9 @@
           <p class="muted" id="prescribe-apply-selection-note"><strong>Apply selection:</strong> reruns the per-slot ranking and substitutes only <strong>class A</strong> candidates automatically; <strong>class B</strong> requires <em>Confirm near-comparable</em>; <strong>class C</strong> is never applied. Each applied slot cites <code>MOD-SELECT-001</code> and its load is re-solved from that lift's own history. It does not change the session type, and nothing is persisted until <strong>Start workout</strong>.</p>
           <label>Top set
             <select id="prescribe-top-set">
-              <option value="">Ask (show the offer, no structure yet)</option>
-              <option value="on">Add top set / back-off</option>
+              <option value="">Server default</option>
+              <option value="preferred">Prefer top set / back-off</option>
+              <option value="required">Require top set / back-off</option>
               <option value="off">Straight sets</option>
             </select>
             <span class="muted" id="prescribe-top-set-note">Optional set structure; independent of dynamic exercise selection.</span>
@@ -675,7 +681,7 @@
       <div class="panel" id="workout-active-panel" hidden>
         <div class="panel-head"><h2 id="workout-title">Workout in progress</h2>
           <span class="badge" id="workout-timer">00:00</span></div>
-        <p class="section-help"><span>Log actual sets first; plan edits, device import and end-session data are secondary.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md">Workout guide</a></p>
+        <p class="section-help"><span>Log actual sets first; device import and end-session data are secondary.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md">Workout guide</a></p>
         <div id="workout-meta" class="muted"></div>
         <div id="workout-volume"></div>
 
@@ -688,13 +694,6 @@
             <label>Load kg <input type="number" inputmode="decimal" step="0.5" id="workout-set-load" placeholder="added load"></label>
             <label><span id="workout-set-reps-label">Reps / sec</span> <input type="number" inputmode="numeric" step="1" min="0" id="workout-set-reps" required aria-describedby="workout-set-msg"></label>
             <label>RIR <input type="number" inputmode="numeric" step="1" min="0" max="6" id="workout-set-rir"></label>
-            <label>Set role
-              <select id="workout-set-role">
-                <option value="">Ordinary</option>
-                <option value="top_set">Top set</option>
-                <option value="back_off">Back-off</option>
-              </select>
-            </label>
             <label>Velocity m/s <input type="number" inputmode="decimal" step="0.01" id="workout-set-velocity" placeholder="optional"></label>
             <label class="grow">Per-rep m/s <input type="text" id="workout-set-rep-velocities" placeholder="e.g. 0.62, 0.58, 0.55"></label>
             <button class="primary" type="submit">Add set</button>
@@ -714,13 +713,6 @@
             <label>Load kg <input id="workout-edit-load" type="number" step="0.5" inputmode="decimal"></label>
             <label><span id="workout-edit-reps-label">Reps</span> <input id="workout-edit-reps" type="number" step="1" min="0" inputmode="numeric"></label>
             <label>RIR <input id="workout-edit-rir" type="number" step="1" min="0" max="6" inputmode="numeric"></label>
-            <label>Set role
-              <select id="workout-edit-role">
-                <option value="">Ordinary</option>
-                <option value="top_set">Top set</option>
-                <option value="back_off">Back-off</option>
-              </select>
-            </label>
             <label>Velocity m/s <input id="workout-edit-velocity" type="number" step="0.01" inputmode="decimal"></label>
             <button class="primary" type="button" id="workout-set-edit-save">Save set</button>
           </div>
@@ -728,8 +720,8 @@
         </div>
 
         <details class="advanced" id="workout-plan-details" open>
-          <summary>Plan and plan edits</summary>
-          <p class="section-help"><span>The editable workout plan; the original prescription is kept separately.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md">Workout guide</a></p>
+          <summary>Plan (frozen at start)</summary>
+          <p class="section-help"><span>The plan is frozen when the workout starts, so this view never edits it. A structured item shows one row per planned set group, in order.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md">Workout guide</a></p>
           <div id="workout-plan"></div>
         </details>
 
@@ -1272,11 +1264,24 @@
         <div class="panel-head"><h2>Resolver</h2>
           <span class="badge" id="resolver-status">loading…</span></div>
         <p class="section-help"><span>Opt-in deterministic exercise generation. Settings are append-only profile versions; structural policy is a versioned local YAML file with validated backups.</span>
-          <a class="doc-link" href="#docs?doc=docs/archive/PROGRAMME-BUILDER-PLAN.md">Resolver plan</a></p>
+          <a class="doc-link" href="#docs?doc=docs/RESOLVER-ALGORITHM.md">Resolver algorithm, step by step</a></p>
         <div id="settings-resolver-warning" class="warnbox" hidden>
           Resolver mode is enabled. Preview and start paths use generated exercise pools; the fixed-template path remains available when it is disabled.
         </div>
         <div id="settings-resolver-fields"><p class="empty">Loading resolver settings…</p></div>
+        <div class="panel-head"><h3>Dwell counters</h3>
+          <span class="badge" id="settings-dwell-meta">loading…</span></div>
+        <p class="section-help">One mutable counter per exercise: completed exposures in the current
+          cycle. A counter wraps to 0 at the target. Editing a counter is a manual override; to stop
+          prescribing a lift use its suitability rating instead.
+          <a class="doc-link" href="#docs?doc=docs/DWELL-AND-ROTATION.md">Dwell model</a></p>
+        <div id="settings-dwell-counters"></div>
+        <div class="form-row">
+          <label class="grow">Exercise id <input id="settings-dwell-add-id" placeholder="bench_press"></label>
+          <label>Count <input id="settings-dwell-add-count" type="number" min="0" value="0"></label>
+          <button class="ghost" type="button" id="settings-dwell-add-save">Set counter</button>
+          <span class="muted" id="settings-dwell-msg"></span>
+        </div>
         <div class="form-row">
           <label class="grow">Reason <input id="settings-resolver-reason" placeholder="required for guarded settings"></label>
           <label><input type="checkbox" id="settings-resolver-enable-confirm"> Confirm resolver enable</label>
@@ -1305,7 +1310,7 @@
 
         <div class="panel" style="margin:12px 0 0">
           <div class="panel-head"><h3>Generation preview</h3><span class="muted">read-only · nothing is persisted</span></div>
-          <p class="section-help"><span>Preview is read-only; rating a suggestion updates suitability, and Start opens the frozen workflow.</span>
+          <p class="section-help"><span>Preview is read-only; rating a suggestion records suitability. Press Build preview to regenerate it, and Start opens the frozen workflow.</span>
             <a class="doc-link" href="#docs?doc=docs/archive/PROGRAMME-BUILDER-PLAN.md">Resolver methodology</a></p>
           <form id="settings-resolver-preview-form" class="form-row">
             <label>Date <input type="date" id="settings-resolver-preview-date" required></label>
@@ -1320,15 +1325,16 @@
             </label>
             <label>Top set
               <select id="settings-resolver-preview-top-set">
-                <option value="">Ask (offer, no structure yet)</option>
-                <option value="on">Add top set / back-off</option>
+                <option value="">Server default</option>
+                <option value="preferred">Prefer top set / back-off</option>
+                <option value="required">Require top set / back-off</option>
                 <option value="off">Straight sets</option>
               </select>
             </label>
             <label><input type="checkbox" id="settings-resolver-preview-allow-unknown"> Allow unknown readiness</label>
             <button class="primary" type="submit">Build preview</button>
           </form>
-          <p class="muted">Preview uses the same engine as Start. Rating a suggestion below appends a suitability record; it never changes the preview silently.</p>
+          <p class="muted">Preview uses the same engine as Start. Rating a suggestion below appends a suitability record; press Build preview to regenerate the preview before starting.</p>
           <div id="settings-resolver-preview"><p class="empty">No preview built.</p></div>
           <div id="settings-resolver-preview-diff" class="muted"></div>
         </div>
@@ -1337,7 +1343,8 @@
       <div class="panel">
         <div class="panel-head"><h2>Settings profile</h2>
           <span class="badge" id="settings-profile-meta">loading…</span></div>
-        <p class="section-help"><span>Profile-backed settings; a save appends a version and never edits history.</span> <a class="doc-link" href="#docs?doc=docs/archive/VOLUME-MODULATION-PLAN.md">Settings plan</a></p>
+        <p class="section-help"><span>Profile-backed settings; a save appends a version and never edits history.</span>
+          <a class="doc-link" href="#docs?doc=docs/archive/VOLUME-MODULATION-PLAN.md">Settings plan</a></p>
         <div id="settings-profile-fields"></div>
         <div class="form-row">
           <label class="grow">Reason <input id="settings-profile-reason" placeholder="required for guarded settings"></label>
@@ -1509,26 +1516,6 @@
             <span id="exercise-history-page-status" class="muted" role="status" aria-live="polite"></span></div>
         </details>
       </section>
-    </dialog>
-
-    <dialog id="workout-swap-dialog" class="app-dialog" aria-labelledby="workout-swap-title">
-      <form id="workout-swap-form">
-        <div class="panel-head"><h2 id="workout-swap-title">Swap exercise</h2></div>
-        <p class="section-help"><span>Replaces the selected lift in the current workout plan; the original prescription stays frozen.</span> <a class="doc-link" href="#docs?doc=USER-GUIDE.md">Workout guide</a></p>
-        <p class="muted">Replace <strong id="workout-swap-current"></strong> with:</p>
-        <label>Exercise
-          <span class="search-select">
-            <input id="workout-swap-filter" type="search" class="search-select-filter"
-              placeholder="Filter exercises…" aria-label="Filter exercise list" autocomplete="off">
-            <select id="workout-swap-exercise" aria-label="Replacement exercise"></select>
-          </span>
-        </label>
-        <div class="form-row">
-          <button class="primary" type="submit">Swap</button>
-          <button class="ghost" type="button" id="workout-swap-cancel">Cancel</button>
-          <span id="workout-swap-msg" class="muted" role="status" aria-live="polite"></span>
-        </div>
-      </form>
     </dialog>
 
     <dialog id="chart-dialog" class="app-dialog wide chart-dialog" aria-labelledby="chart-dialog-title">

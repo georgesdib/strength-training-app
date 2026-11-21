@@ -22,10 +22,11 @@ from strength_coach import settings_profile
 from strength_coach.features import volume as volume_feature
 from strength_coach.prescribe import beam as beam_mod
 from strength_coach.prescribe import generated as generated_snapshot
-from strength_coach.prescribe import generator, minimum_session, resolver_policy
+from strength_coach.prescribe import generator, minimum_session, resolver_policy, role_quality
 from strength_coach.prescribe.evaluator import EvaluationInputs, evaluate_assignment
 from strength_coach.prescribe.models import Prescription
 from strength_coach.prescribe.resolver_settings import ResolverSettings
+from strength_coach.rules import History
 from strength_coach.store import queries
 from strength_coach.utils import exercises
 
@@ -290,7 +291,9 @@ def prescription_input_fingerprint(
     settings are included; unordered mappings are sorted canonically.
     """
     payload = {
-        "fingerprint_version": "prescription-input-v3",
+        "fingerprint_version": "prescription-input-v4",
+        "evaluator_version": role_quality.VERSION,
+        "role_quality_config": role_quality.config_digest(),
         "for_date": for_date,
         "session_type": session_type,
         "assignment": assignment,
@@ -354,7 +357,11 @@ def _build_resolved(
 ) -> ResolvedPrescription:
     """Run the generator/beam/evaluator path and return the already-built final prescription."""
     settings = settings or ResolverSettings.load(conn, for_date)
-    effective_beam_config = beam_config or beam_mod.BeamConfig()
+    # The beam width stays fixed; only how many finalists get a full evaluation is a setting.
+    # Its value is frozen into generated_session.beam_config on every prescription.
+    effective_beam_config = beam_config or beam_mod.BeamConfig(
+        max_full_evaluations=settings.full_evaluations
+    )
     policy = policy or resolver_policy.ResolverPolicy.load()
     if not settings.enabled:
         raise ResolverBuildError(
@@ -449,6 +456,10 @@ def _build_resolved(
             "pool_generation", f"candidate pool generation failed: {exc}", cause=exc,
             details={"for_date": for_date, "session_type": session_type},
         ) from exc
+    # The beam evaluates four complete assignments over the same past. Loading the enriched
+    # history once and handing it to every evaluation replaces four independent queries plus
+    # four re-enrichments of the same frame; the engine slices it to `for_date` itself.
+    history = History.load(conn)
     try:
         result = beam_mod.search(
             conn,
@@ -462,6 +473,7 @@ def _build_resolved(
             ),
             inputs=inputs,
             evaluator=_stage_evaluator,
+            evaluator_kwargs={"history": history},
         )
     except _PrescriptionEvaluationError as exc:
         raise ResolverBuildError(
@@ -546,7 +558,7 @@ def _build_resolved(
         "policy_digest": pools.policy_digest,
         "catalogue_digest": pools.catalogue_digest,
         "input_hash": input_hash,
-        "fingerprint_version": "prescription-input-v3",
+        "fingerprint_version": "prescription-input-v4",
         "fingerprint_scope": "material build/evaluation inputs, candidate pools and beam config",
         "beam_config": {
             "width": effective_beam_config.width,
@@ -574,7 +586,7 @@ def _build_resolved(
         "policy_digest": pools.policy_digest,
         "catalogue_digest": pools.catalogue_digest,
         "input_hash": input_hash,
-        "fingerprint_version": "prescription-input-v3",
+        "fingerprint_version": "prescription-input-v4",
         "fingerprint_scope": "material build/evaluation inputs, candidate pools and beam config",
         "beam_config": {
             "width": effective_beam_config.width,
@@ -603,7 +615,11 @@ def _build_resolved(
         notes["minimum_session"] = note
     notes["resolver"] = metadata
     warnings = tuple(best.prescription.warnings)
-    if shape is not None and shape.note.get("accessories_only") and requested_inputs.top_set_requested:
+    if (
+        shape is not None
+        and shape.note.get("accessories_only")
+        and requested_inputs.top_set_intent in ("preferred", "required")
+    ):
         warnings += (
             "Top set not applied: accessory-only minimum session has no main lift",
         )

@@ -53,24 +53,23 @@ def test_top_set_columns_and_prescription_round_trip() -> None:
         assert "set_groups_json" in item_columns
         assert "set_role" in set_columns
         assert "set_role" in clean_columns
+        # The stored shape is ordered: no role and no back-off ratio (DEC-RESOLVER-18).
         groups = [
             {
-                "role": "top_set",
+                "group_index": 0,
                 "sets": 1,
                 "load_kg": 120.0,
                 "reps_low": 5,
                 "reps_high": 5,
                 "rir_target": 1,
-                "percent_of_top": None,
             },
             {
-                "role": "back_off",
+                "group_index": 1,
                 "sets": 3,
                 "load_kg": 100.0,
                 "reps_low": 5,
                 "reps_high": 5,
                 "rir_target": 2,
-                "percent_of_top": 0.85,
             },
         ]
         _prescription(conn, set_groups=groups)
@@ -80,7 +79,7 @@ def test_top_set_columns_and_prescription_round_trip() -> None:
     assert json.loads(raw) == groups
 
 
-def test_workout_role_is_logged_and_survives_an_ordinary_update() -> None:
+def test_new_sets_write_no_role_and_a_legacy_value_stays_provenance() -> None:
     with db.Store(":memory:") as store:
         conn = store.connection
         plan = {
@@ -94,9 +93,9 @@ def test_workout_role_is_logged_and_survives_an_ordinary_update() -> None:
                     "reps_high": 5,
                     "load_kg": 100.0,
                     "set_groups": [
-                        {"role": "top_set", "sets": 1, "load_kg": 120.0,
+                        {"group_index": 0, "sets": 1, "load_kg": 120.0,
                          "reps_low": 5, "reps_high": 5, "rir_target": 1},
-                        {"role": "back_off", "sets": 1, "load_kg": 100.0,
+                        {"group_index": 1, "sets": 1, "load_kg": 100.0,
                          "reps_low": 5, "reps_high": 5, "rir_target": 2},
                     ],
                 }
@@ -111,10 +110,24 @@ def test_workout_role_is_logged_and_survives_an_ordinary_update() -> None:
         )
         workout.add_set(
             conn, started["workout_id"], exercise_id="ssb_squat",
-            load_kg=120.0, reps=5, rir=1, set_role="top_set",
+            load_kg=120.0, reps=5, rir=1,
         )
         row = workout.get(conn, started["workout_id"])["sets"][0]
-        assert row["set_role"] == "top_set"
-        workout.update_set(conn, started["workout_id"], row["set_id"], reps=5)
-        updated = workout.get(conn, started["workout_id"])["sets"][0]
-        assert updated["set_role"] == "top_set"
+        # A new set carries no role and no substitution annotation unless one was given.
+        assert row["set_role"] is None
+        assert row["substitutes_plan_item_index"] is None
+        # A historical row keeps its stored role: copied to clean_set as read-only provenance
+        # and never rewritten or re-asked for (DEC-RESOLVER-23).
+        conn.execute(
+            "INSERT INTO workout_set (workout_id, exercise_id, set_index, load_kg, "
+            "reps, rir, source, prescription_item_index, set_role) "
+            "VALUES (?, 'ssb_squat', 2, 100.0, 5, 2, 'manual', 0, 'back_off')",
+            (started["workout_id"],),
+        )
+        workout.end(conn, started["workout_id"], session_rpe=7, duration_min=30)
+        roles = [
+            record["set_role"] for record in conn.execute(
+                "SELECT set_role FROM clean_set ORDER BY set_id"
+            )
+        ]
+        assert roles == [None, "back_off"]

@@ -327,7 +327,7 @@ document version.
 | rationale_refs | JSON list of rule IDs + data-point ids |
 | e1rm_source_sets | nullable; usable sets behind a formula e1RM (NULL for overrides/fallbacks) |
 | substitution_for | nullable |
-| set_groups_json | ordered top_set/back_off groups; empty for straight sets (migration 0049) |
+| set_groups_json | ordered planned groups — `group_index`, sets, load, reps range and RIR; empty for straight sets. No role and no back-off ratio is stored; a legacy row that carries a role is read by list order (migration 0049, `DEC-RESOLVER-18`) |
 
 ### 8.4 `workout_form_rating` / `session_form_rating`
 
@@ -408,10 +408,13 @@ until the step-5 confirmation flow. The snapshot freezes what a prescription act
 existing prescriptions without a row are not rewritten.
 
 Historical profiles may contain the retired resolver weights
-`resolver.weights.rotation` and `resolver.weights.preference`. Reading ignores exactly those
-keys and leaves the historical row untouched; saving an unrelated setting strips inherited
-retired keys before appending the new complete map. They are not active registry keys, defaults,
-snapshot values or UI controls, and an explicit new write of either key is rejected.
+`resolver.weights.rotation` and `resolver.weights.preference`, or the four retired rotation
+keys `resolver.rotation.main`, `resolver.rotation.accessory`, `resolver.rotation.default`
+and `resolver.rotation.max_dwell`. Reading ignores exactly those keys and leaves the historical
+row untouched; saving an unrelated setting strips inherited retired keys before appending the
+new complete map. They are not active registry keys, defaults, snapshot values or UI controls,
+and an explicit new write of any of them is rejected. The dwell model that replaced the rotation
+keys is documented in [DWELL-AND-ROTATION.md](DWELL-AND-ROTATION.md).
 
 ### 11.2 `athlete_constraint` — injuries, contraindications, mobility limits
 
@@ -448,6 +451,29 @@ never overridable by an agent.
 Deliberate distinction: `feels_bad` is a preference the prescription may work around;
 `constraint.severity = hard_exclude` is a safety rule that vetoes. Conflating them would let
 a preference masquerade as a medical restriction, or the reverse.
+
+`rated_on` is a `YYYY-MM-DD` day and part of the primary key, so the table keeps at most one
+rating per exercise per day. The web write path makes an identical repeated write a no-op;
+a *different* rating for a day that already has one is refused with a field error and must be
+recorded on a later date, because the append-only table cannot replace the earlier row.
+
+### 11.3a `exercise_dwell_state` — mutable resolver cycle counter
+
+The resolver's dwell model keeps one counter per exercise: how many completed training days
+with at least one working set of that exercise the athlete has logged since the cycle started
+(DEC-RESOLVER-15).
+
+| column | notes |
+|---|---|
+| exercise_id PK | |
+| done_count | completed exposures in the current cycle; wraps to 0 at `resolver.dwell.target` |
+| updated_at | last write, the audit marker |
+
+This table is **deliberately mutable**, unlike the append-only prescription and workout
+tables. It is a cycle state, not a record: the counter is advanced by workout completion and
+by the settings reconcile pass, and can be corrected from the Settings -> Resolver dwell
+counters panel. The resolver only reads it. Migration 0072 creates it empty, so every exercise starts at 0. Full model, formulas
+and rollback are in [DWELL-AND-ROTATION.md](DWELL-AND-ROTATION.md).
 
 ### 11.4 `metric_definition` — declared measurement direction
 
@@ -579,7 +605,7 @@ until completion.
 | for_date / session_type | copied from the plan |
 | status | `in_progress` \| `completed` \| `abandoned` |
 | plan_json | frozen prescription payload; later regeneration cannot rewrite it. Items may carry an optional structured `vbt` target (target/band, rep count, RIR band, scope/family, sample size, method version, calibration id) |
-| plan_modified_json | latest in-workout plan after swaps/adds/removes/set edits; null until changed |
+| plan_modified_json | **legacy only** — the last in-workout edit of an old client; null for frozen plans and never written after start (`DEC-RESOLVER-23`) |
 | readiness_json | validated readiness fields as supplied; a score-ready snapshot or an explicitly acknowledged partial snapshot |
 | started_at / ended_at | ISO timestamps |
 | duration_measured_s / duration_min / duration_source | measured timer and optional manual override |
@@ -592,6 +618,16 @@ until completion.
 adds `clean_set.set_role`, copied on materialisation; it is nullable so imported and historical
 straight sets need no backfill.
 
+**2026-11-20 amendment — frozen plan and performed-set attribution.** The [resolver
+prescription structure
+plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/RESOLVER-PRESCRIPTION-STRUCTURE.md)
+is implemented by migration `0073`: a nullable `substitutes_plan_item_index` on `workout_set`
+and `clean_set`, copied on materialisation. New sets no longer write `set_role`; legacy role
+values stay read-only provenance and are not used for matching or decisions (plan D11/D18,
+`DEC-RESOLVER-23`). A substitution set carries the same slot in `prescription_item_index` and
+`substitutes_plan_item_index`; an addition is extra work with no plan attribution. A stale
+`plan_item_index` that names another exercise is dropped rather than rejected.
+
 | column | notes |
 |---|---|
 | set_id | autoincrement |
@@ -600,12 +636,20 @@ straight sets need no backfill.
 | load_kg / reps / rir / velocity | actual values |
 | source | `manual` \| `import` \| `device` |
 | prescription_item_index | stable plan-item identity (`prescription_item.order_index`), when matched; not the current display position. Legacy rows may hold a position, resolved only by an exact identity or a same-exercise fallback |
-| set_role | nullable `top_set` / `back_off`; ordinary and historical sets stay null (migration 0049) |
+| set_role | **legacy only** — nullable `top_set` / `back_off`; new rows stay null and the value is never an input (migration 0049) |
+| substitutes_plan_item_index | nullable; the frozen plan slot a performed set replaced, also stored in `prescription_item_index`; null for ordinary and extra work (migration 0073) |
 
 `workout_event` records `start`, `add_set`, `update_set`, `remove_set`, `restore_set`, `end`,
 `abandon`, `reviewed`, `import_applied` and `import_undone` with an optional `target_set_id`;
 it is append-only. Actual-set corrections and imports replay these events rather than mutating
 `workout_set`.
+
+Execution changes add `substitution` and `addition` rows to the same append-only stream. Their
+`payload_json` carries `client_event_id`, the slot (`plan_item_index` or `after_item_index`),
+the exercise, the reps/RIR shape, the solved prefill and its reason. A unique index on
+`(workout_id, json_extract(payload_json, '$.client_event_id'))` makes the client identity the
+idempotency key, and the row identity is the execution watermark returned by
+`GET .../execution` (migration `0073`, `DEC-RESOLVER-23`).
 
 Optional per-rep velocity detail has its own append-only tables:
 
@@ -618,7 +662,8 @@ On completion, `workout.py` materialises the workout into the normal pipeline on
 
 - a `session` row with `session_id = workout_id`, `source = 'workout'`, `prescription_id`,
   `workout_id`, measured duration and sRPE;
-- one `raw_row` + `clean_set` row per actual set, preserving `prescription_item_index`;
+- one `raw_row` + `clean_set` row per actual set, preserving `prescription_item_index` and
+  `substitutes_plan_item_index`;
 - optional `session_feedback`.
 
 This keeps e1RM, volume and review on one actual-session source of truth. In-workout CSV

@@ -22,6 +22,7 @@ from strength_coach.prescribe import (
     persistence as prescription_persistence,
 )
 from strength_coach.prescribe.evaluator import EvaluationInputs
+from strength_coach.rules import History
 from strength_coach.store import db, importer, repositories
 from strength_coach.web import server
 
@@ -233,6 +234,88 @@ def test_enabled_resolver_rejects_selection_override(monkeypatch) -> None:
             raise AssertionError("resolver must reject selection override")
 
 
+def test_build_resolved_loads_history_once_for_every_evaluation(monkeypatch) -> None:
+    """Four candidate builds share one enriched history frame."""
+    _without_required_patterns(monkeypatch)
+    loads: list[int] = []
+    real_load = History.load.__func__
+
+    @classmethod
+    def counting_load(cls, conn, **kwargs):
+        loads.append(1)
+        return real_load(cls, conn, **kwargs)
+
+    monkeypatch.setattr(History, "load", counting_load)
+    with store() as instance:
+        settings_profile.save(
+            instance.connection,
+            set_values={"resolver.enabled": True},
+            resolver_enable_confirmed=True,
+            effective_from="2024-01-01",
+        )
+        wide = replace(
+            _pools(),
+            pools={
+                "power": ("box_jump",),
+                "squat_main": (
+                    "ssb_squat", "competition_squat", "belt_squat", "split_squat",
+                ),
+            },
+        )
+        monkeypatch.setattr(
+            resolver.generator, "candidate_pools", lambda *args, **kwargs: wide
+        )
+        resolved = resolver.build_resolved(
+            instance.connection,
+            for_date="2024-01-15",
+            session_type="squat",
+            inputs=EvaluationInputs(minimum_target_minutes=30, top_set_intent="off"),
+        )
+
+    assert resolved.beam.as_dict()["evaluated"] == 4
+    assert len(loads) == 1
+
+
+def test_the_full_evaluation_budget_is_profile_writable(monkeypatch) -> None:
+    """Lowering it is a speed/coverage trade, so the value must reach the prescription."""
+    _without_required_patterns(monkeypatch)
+    wide = replace(
+        _pools(),
+        pools={
+            "power": ("box_jump",),
+            "squat_main": (
+                "ssb_squat", "competition_squat", "belt_squat", "split_squat",
+            ),
+        },
+    )
+    with store() as instance:
+        settings_profile.save(
+            instance.connection,
+            set_values={"resolver.enabled": True, "resolver.full_evaluations": 2},
+            resolver_enable_confirmed=True,
+            effective_from="2024-01-01",
+        )
+        monkeypatch.setattr(
+            resolver.generator, "candidate_pools", lambda *args, **kwargs: wide
+        )
+        resolved = resolver.build_resolved(
+            instance.connection,
+            for_date="2024-01-15",
+            session_type="squat",
+            inputs=EvaluationInputs(minimum_target_minutes=30, top_set_intent="off"),
+        )
+
+    assert resolved.beam.as_dict()["evaluated"] == 2
+    assert resolved.generated_session["beam_config"]["max_full_evaluations"] == 2
+    assert resolved.generated_session["beam_config"]["width"] == 4
+
+
+def test_the_full_evaluation_budget_defaults_to_four() -> None:
+    overrides: dict[str, object] = {}
+    values = settings_profile.resolved_registry(overrides)
+    assert values["resolver.full_evaluations"] == 4
+
+
 def test_preview_payload_freezes_into_workout_start(monkeypatch) -> None:
     _without_required_patterns(monkeypatch)
     with store() as instance:
@@ -249,7 +332,7 @@ def test_preview_payload_freezes_into_workout_start(monkeypatch) -> None:
             instance.connection,
             for_date="2024-01-15",
             session_type="squat",
-            inputs=EvaluationInputs(minimum_target_minutes=30, top_set_requested=False),
+            inputs=EvaluationInputs(minimum_target_minutes=30, top_set_intent="off"),
         )
         payload = server.prescription_dict(resolved.prescription)
         started = workout.start(
@@ -268,7 +351,7 @@ def test_preview_payload_freezes_into_workout_start(monkeypatch) -> None:
     assert frozen["plan"]["generated_session"] == payload["generated_session"]
 
 
-def test_resolver_top_set_executes_and_materialises_roles(monkeypatch) -> None:
+def test_resolver_top_set_executes_and_materialises_attribution(monkeypatch) -> None:
     _without_required_patterns(monkeypatch)
     with store() as instance:
         settings_profile.save(
@@ -285,13 +368,14 @@ def test_resolver_top_set_executes_and_materialises_roles(monkeypatch) -> None:
             for_date="2024-01-15",
             session_type="squat",
             inputs=EvaluationInputs(
-                minimum_target_minutes=30, top_set_requested=True,
+                minimum_target_minutes=30, top_set_intent="required",
             ),
         )
         payload = server.prescription_dict(resolved.prescription)
         main = next(item for item in payload["items"] if item["exercise_id"] == "ssb_squat")
         groups = main["set_groups"]
-        assert [group["role"] for group in groups] == ["top_set", "back_off"]
+        assert [group["group_index"] for group in groups] == [0, 1]
+        assert all("role" not in group for group in groups)
         assert sum(group["sets"] for group in groups) == main["sets"]
         prescription_id = prescription_persistence.store_plan(
             instance.connection, payload
@@ -323,20 +407,22 @@ def test_resolver_top_set_executes_and_materialises_roles(monkeypatch) -> None:
         workout.add_set(
             instance.connection, started["workout_id"], exercise_id="ssb_squat",
             load_kg=top["load_kg"], reps=top["reps_low"], rir=top["rir_target"],
-            set_role="top_set",
         )
         for _ in range(back["sets"]):
             workout.add_set(
                 instance.connection, started["workout_id"], exercise_id="ssb_squat",
                 load_kg=back["load_kg"], reps=back["reps_low"],
-                rir=back["rir_target"], set_role="back_off",
+                rir=back["rir_target"],
             )
         workout.end(
             instance.connection, started["workout_id"], session_rpe=7, duration_min=30
         )
-        roles = [
-            row["set_role"] for row in instance.connection.execute(
-                "SELECT set_role FROM clean_set ORDER BY set_id"
+        logged = [
+            (row["prescription_item_index"], row["set_role"])
+            for row in instance.connection.execute(
+                "SELECT prescription_item_index, set_role FROM clean_set "
+                "WHERE session_id = ? ORDER BY set_id",
+                (started["workout_id"],),
             )
         ]
         from strength_coach.features import strength_trend
@@ -362,8 +448,8 @@ def test_resolver_top_set_executes_and_materialises_roles(monkeypatch) -> None:
         )
         workout.end(instance.connection, second["workout_id"], session_rpe=7, duration_min=10)
         day = history.list_training_days(instance.connection)["days"][0]
-    assert roles.count("top_set") == 1
-    assert roles.count("back_off") == back["sets"]
+    # The plan identity is the item's order_index, not its display position.
+    assert logged == [(main["order_index"], None)] * (1 + back["sets"])
     assert observations
     assert day["fragment_count"] == 2
     assert day["active_fragment_count"] == 2
@@ -396,7 +482,7 @@ def test_resolver_top_set_composes_with_budget_and_minimum_session(monkeypatch) 
             inputs=EvaluationInputs(
                 minimum_session=True,
                 minimum_target_minutes=30,
-                top_set_requested=True,
+                top_set_intent="required",
             ),
         )
         prescription = resolved.prescription
@@ -512,7 +598,7 @@ def test_flag_off_public_serialization_is_identical() -> None:
     cases = (
         {},
         {"technique_throttle": True},
-        {"top_set_requested": True},
+        {"top_set_intent": "required"},
         {"minimum_session": True, "minimum_target_minutes": 30},
     )
     with store() as instance:
@@ -699,7 +785,7 @@ def test_prescription_fingerprint_canonical_and_material() -> None:
         template_digest="t" * 64,
         policy_digest="p" * 64,
         catalogue_digest="c" * 64,
-        inputs=EvaluationInputs(minimum_target_minutes=30, top_set_requested=True),
+        inputs=EvaluationInputs(minimum_target_minutes=30, top_set_intent="required"),
         resolved={"b": 2, "a": 1, "nested": {"y": 2, "x": 1}},
         resolver_settings={"rotation": 0.2, "enabled": True},
         candidate_pools={"squat_main": ("ssb_squat",), "power": ("box_jump",)},
@@ -711,7 +797,7 @@ def test_prescription_fingerprint_canonical_and_material() -> None:
         template_digest="t" * 64,
         policy_digest="p" * 64,
         catalogue_digest="c" * 64,
-        inputs=EvaluationInputs(minimum_target_minutes=30, top_set_requested=True),
+        inputs=EvaluationInputs(minimum_target_minutes=30, top_set_intent="required"),
         resolved={"a": 1, "nested": {"x": 1, "y": 2}, "b": 2},
         resolver_settings={"enabled": True, "rotation": 0.2},
         candidate_pools={"power": ("box_jump",), "squat_main": ("ssb_squat",)},
@@ -723,8 +809,8 @@ def test_prescription_fingerprint_canonical_and_material() -> None:
         {"assignment": (("squat_main", "ssb_squat"), ("power", "box_jump"))},
         {"policy_digest": "q" * 64},
         {"catalogue_digest": "d" * 64},
-        {"inputs": EvaluationInputs(minimum_target_minutes=31, top_set_requested=True)},
-        {"inputs": EvaluationInputs(minimum_target_minutes=30, top_set_requested=False)},
+        {"inputs": EvaluationInputs(minimum_target_minutes=31, top_set_intent="required")},
+        {"inputs": EvaluationInputs(minimum_target_minutes=30, top_set_intent="off")},
         {"resolved": {"b": 2, "a": 1, "nested": {"y": 2, "x": 3}}},
         {"resolver_settings": {"rotation": 0.3, "enabled": True}},
         {"candidate_pools": {"squat_main": ("ssb_squat", "competition_squat")}},
@@ -740,7 +826,7 @@ def test_prescription_fingerprint_canonical_and_material() -> None:
             "template_digest": "t" * 64,
             "policy_digest": "p" * 64,
             "catalogue_digest": "c" * 64,
-            "inputs": EvaluationInputs(minimum_target_minutes=30, top_set_requested=True),
+            "inputs": EvaluationInputs(minimum_target_minutes=30, top_set_intent="required"),
             "resolved": {"a": 1, "nested": {"x": 1, "y": 2}, "b": 2},
             "resolver_settings": {"enabled": True, "rotation": 0.2},
             "candidate_pools": {"power": ("box_jump",), "squat_main": ("ssb_squat",)},

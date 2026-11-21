@@ -50,14 +50,14 @@ from typing import Any
 
 from strength_coach.domain import load as load_mod
 from strength_coach.domain.plan_identity import item_identity, row_plan_identity
+from strength_coach.features import derived_structure, set_matching
 from strength_coach.utils import exercises
 
 VERSION = 1
 # One RIR step is the resolution of the logged scale, so +/-1 keeps a set inside its target
 # window without pretending the difference between RIR 2 and RIR 3 is a different stimulus.
 RIR_TOLERANCE = 1
-WARM_UP_RIR = 6
-SET_ROLES = ("top_set", "back_off")
+WARM_UP_RIR = set_matching.WARM_UP_RIR
 
 
 def _number(value: Any) -> float | None:
@@ -106,73 +106,41 @@ def _infer_load_basis(item: Mapping[str, Any], *, is_bodyweight: bool) -> str:
 
 
 def _classify_set(row: Mapping[str, Any]) -> str:
-    """Classify one actual set as working, warm-up or ambiguous.
+    """Classify one actual set as working or warm-up.
 
-    A materialised clean_set row carries is_working_set, which is the authoritative
-    classification used by volume and reports. Live workout rows do not, so they fall back to
-    the same RIR 6 sentinel that materialisation uses.
+    RIR 6 is the warm-up sentinel by definition and wins over a stored flag or a legacy role
+    (DEC-RIR-01, owner clarification 2026-11-20). A missing RIR is working with unknown
+    warm-up status, matching the conservative materialisation rule.
     """
-    role = row.get("set_role")
-    if role is not None and role not in SET_ROLES:
-        return "ambiguous"
-    stored = row.get("is_working_set")
-    if stored is not None:
-        try:
-            working = int(stored)
-        except (TypeError, ValueError):
-            return "ambiguous"
-        if working not in (0, 1):
-            return "ambiguous"
-        if working == 0:
-            # A top-set/back-off role on a warm-up row contradicts the stored classification.
-            return "ambiguous" if role in SET_ROLES else "warm_up"
-        return "working"
-    if _integer(row.get("rir")) == WARM_UP_RIR:
-        # RIR 6 alone is the documented warm-up sentinel, but a top-set/back-off role on the
-        # same row contradicts it: keep the record visible instead of guessing which wins.
-        return "ambiguous" if role in SET_ROLES else "warm_up"
-    return "working"
+    return set_matching.classify_set(row)
 
 
 def _group_for_set(
-    item: Mapping[str, Any], row: Mapping[str, Any]
+    item: Mapping[str, Any], ordinal: int
 ) -> tuple[Mapping[str, Any] | None, str | None]:
-    """Resolve the set-group target for a top-set/back-off item.
+    """Resolve the target group for the nth working set by cumulative group order.
 
-    The item-level load of such an item is the back-off load, so comparing a top set with it
-    would be wrong. Without a role the target is usable only when every group is identical.
+    Order is the only group identity (DEC-RESOLVER-18); a legacy role is never read.
     """
-    groups = [group for group in (item.get("set_groups") or []) if isinstance(group, Mapping)]
-    if not groups:
-        return None, None
-    role = row.get("set_role")
-    if role is not None:
-        for group in groups:
-            if group.get("role") == role:
-                return group, None
-        return None, "unknown_set_role"
-    if len(groups) == 1:
-        return groups[0], None
-    keys = ("load_kg", "rir_target", "reps_low", "reps_high")
-    first = groups[0]
-    if all(all(group.get(key) == first.get(key) for key in keys) for group in groups[1:]):
-        return first, None
-    return None, "ambiguous_set_role"
+    return set_matching.group_for_ordinal(item, ordinal), None
+
+
+def _is_substitution_row(row: Mapping[str, Any], identity: int) -> bool:
+    value = row.get("substitutes_plan_item_index")
+    if value is None or isinstance(value, bool):
+        return False
+    try:
+        return int(value) == identity
+    except (TypeError, ValueError):
+        return False
 
 
 def _reps_target(
     item: Mapping[str, Any], row: Mapping[str, Any], group: Mapping[str, Any] | None
 ) -> tuple[Mapping[str, Any] | None, str | None]:
     """Resolve a repetition target; groups normally share the item range."""
-    groups = [value for value in (item.get("set_groups") or []) if isinstance(value, Mapping)]
     if group is not None:
         return group, None
-    if groups:
-        ranges = {(value.get("reps_low"), value.get("reps_high")) for value in groups}
-        if len(ranges) == 1:
-            low, high = next(iter(ranges))
-            return {"reps_low": low, "reps_high": high}, None
-        return None, "ambiguous_set_role"
     return item, None
 
 
@@ -254,9 +222,31 @@ def _set_metrics(
     is_time_based: bool,
     included: bool,
     matched: bool,
+    ordinal: int = 0,
+    substitution: Mapping[str, Any] | None = None,
+    performed_entity: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Evaluate one attributed set against its item (and set-group) target."""
-    group, group_limitation = _group_for_set(item, row)
+    """Evaluate one attributed set against its item (or substitution prefill) target."""
+    target_item = item
+    if substitution is not None:
+        performed = performed_entity or {}
+        is_bodyweight = bool(performed.get("bodyweight_type"))
+        is_time_based = bool(performed.get("time_based"))
+        target_item = {
+            "load_basis": "bodyweight_total" if is_bodyweight else "external",
+        }
+        group = {
+            "load_kg": substitution.get("prefill_load_kg"),
+            "reps_low": substitution.get("reps_low"),
+            "reps_high": substitution.get("reps_high"),
+            "rir_target": substitution.get("rir_target"),
+        }
+        group_limitation = (
+            None if substitution.get("prefill_load_kg") is not None
+            else "substituted_prefill_unavailable"
+        )
+    else:
+        group, group_limitation = _group_for_set(item, ordinal)
     limitations: list[str] = []
     if group_limitation:
         limitations.append(group_limitation)
@@ -292,8 +282,8 @@ def _set_metrics(
         pass
     else:
         prescribed_load, prescribed_basis, load_limitation = _prescribed_external_load(
-            item,
-            group if group is not None else item,
+            target_item,
+            group if group is not None else target_item,
             is_bodyweight=is_bodyweight,
             is_time_based=is_time_based,
         )
@@ -320,7 +310,7 @@ def _set_metrics(
                     # not comparable with an added-load prescription.
                     limitations.append("actual_load_includes_bodyweight")
                 else:
-                    load_tolerance = _load_tolerance(item, prescribed_load)
+                    load_tolerance = _load_tolerance(target_item, prescribed_load)
                     load_deviation = round(actual_external - prescribed_load, 2)
                     if prescribed_load > 0:
                         load_pct = round(load_deviation / prescribed_load * 100, 2)
@@ -362,7 +352,13 @@ def _set_metrics(
         "set_id": row.get("set_id"),
         "set_index": row.get("set_index"),
         "exercise_id": row.get("exercise_id"),
-        "set_role": row.get("set_role"),
+        "substituted": substitution is not None,
+        "planned_exercise_id": (
+            item.get("exercise_id") if substitution is not None else None
+        ),
+        "performed_exercise_id": (
+            row.get("exercise_id") if substitution is not None else None
+        ),
         "matched": matched,
         "extra": not matched,
         "included_in_attainment": included,
@@ -534,6 +530,8 @@ def _analyse_view(
     bodyweight_kg: float | None,
     entities: Mapping[str, Any],
     original_view: bool,
+    substitutions: Mapping[int, Mapping[str, Any]] | None = None,
+    structure_config: derived_structure.StructureConfig | None = None,
 ) -> dict[str, Any]:
     if not items:
         unmatched = [
@@ -609,7 +607,7 @@ def _analyse_view(
             "planned_sets": planned,
             "attributable": attributable,
             "set_groups": [
-                {"role": group.get("role"), "sets": group.get("sets"),
+                {"group_index": group.get("group_index"), "sets": group.get("sets"),
                  "load_kg": group.get("load_kg"), "reps_low": group.get("reps_low"),
                  "reps_high": group.get("reps_high"),
                  "rir_target": group.get("rir_target")}
@@ -643,7 +641,10 @@ def _analyse_view(
         matching = [
             row for row in working
             if row_plan_identity(items, row) == identity
-            and str(row.get("exercise_id")) == exercise_id
+            and (
+                str(row.get("exercise_id")) == exercise_id
+                or _is_substitution_row(row, identity)
+            )
         ]
         matching.sort(
             key=lambda row: (int(row.get("set_index") or 0), int(row.get("set_id") or 0))
@@ -651,8 +652,18 @@ def _analyse_view(
         matched_rows = matching[:planned]
         assigned.update(int(row["set_id"]) for row in matching)
         details = []
+        substituted = False
+        performed_exercise_id = None
         for index, row in enumerate(matching):
             included = index < planned
+            is_substitution = _is_substitution_row(row, identity)
+            event = (substitutions or {}).get(identity) if is_substitution else None
+            performed_entity = (
+                entities.get(str(row.get("exercise_id"))) if is_substitution else None
+            )
+            if is_substitution:
+                substituted = True
+                performed_exercise_id = performed_exercise_id or str(row.get("exercise_id"))
             details.append(_set_metrics(
                 row,
                 item,
@@ -661,6 +672,9 @@ def _analyse_view(
                 is_time_based=is_time_based,
                 included=included,
                 matched=included,
+                ordinal=index,
+                substitution=(event or {}) if is_substitution else None,
+                performed_entity=performed_entity,
             ))
         for row in details:
             limitations.update(row["limitations"])
@@ -692,6 +706,12 @@ def _analyse_view(
             "load": _load_summary(details, matched),
             "rir": _rir_summary(details, matched),
             "sets": details,
+            "substituted": substituted,
+            "planned_exercise_id": exercise_id,
+            "performed_exercise_id": performed_exercise_id,
+            "structure": derived_structure.derive(
+                matching, item=item, config=structure_config
+            ),
             "limitations": sorted(set(
                 limitation
                 for row in details
@@ -883,6 +903,17 @@ def analyse(workout: Mapping[str, Any]) -> dict[str, Any]:
         if _integer(row.get("rir")) is None:
             sets_without_rir += 1
 
+    substitutions: dict[int, Mapping[str, Any]] = {}
+    for event in (workout.get("execution") or {}).get("substitutions") or []:
+        slot = event.get("plan_item_index")
+        if slot is None:
+            continue
+        try:
+            substitutions[int(slot)] = event
+        except (TypeError, ValueError):
+            continue
+    structure_config = derived_structure.StructureConfig.load()
+
     original_view = _analyse_view(
         label="original",
         items=original,
@@ -892,6 +923,8 @@ def analyse(workout: Mapping[str, Any]) -> dict[str, Any]:
         bodyweight_kg=bodyweight_kg,
         entities=entities,
         original_view=True,
+        substitutions=substitutions,
+        structure_config=structure_config,
     )
     final_view = _analyse_view(
         label="final_plan",
@@ -902,6 +935,8 @@ def analyse(workout: Mapping[str, Any]) -> dict[str, Any]:
         bodyweight_kg=bodyweight_kg,
         entities=entities,
         original_view=False,
+        substitutions=substitutions,
+        structure_config=structure_config,
     )
 
     status = "available" if (original or final) else "unavailable"

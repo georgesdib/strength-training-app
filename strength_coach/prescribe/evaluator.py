@@ -11,10 +11,13 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from strength_coach.prescribe import build_prescription, templates
+from strength_coach.prescribe import build_prescription, role_quality, templates
 from strength_coach.prescribe.models import Prescription
+
+if TYPE_CHECKING:  # pragma: no cover - import cycle guard, annotations only
+    from strength_coach.rules import History
 
 # Heuristic ordering weights, not calibrated utility. Hard feasibility is separate in
 # AssignmentEvaluation.feasible; these terms only rank otherwise valid candidates.
@@ -58,7 +61,7 @@ class EvaluationInputs:
     technique_throttle_pattern: str | Sequence[str] | None = None
     deload_decision: Any = None
     drop_confirmed: bool = False
-    top_set_requested: bool | None = None
+    top_set_intent: str | None = None
     projected_items: tuple[Mapping[str, Any], ...] = ()
     projected_sessions: int = 0
 
@@ -89,7 +92,7 @@ class EvaluationInputs:
             "technique_throttle_pattern": self.technique_throttle_pattern,
             "deload_decision": self.deload_decision,
             "drop_confirmed": self.drop_confirmed,
-            "top_set_requested": self.top_set_requested,
+            "top_set_intent": self.top_set_intent,
             "projected_items": self.projected_items,
             "projected_sessions": self.projected_sessions,
         }
@@ -137,6 +140,25 @@ class AssignmentEvaluation:
     session_replaced: bool = False
     replacement_reason: str | None = None
     structural_violations: tuple[str, ...] = ()
+    quality: role_quality.RoleQualitySnapshot | None = None
+
+    @property
+    def quality_key(self) -> tuple:
+        """Lexicographic hierarchy: band gate, intent, role classes, volume, recovery, score."""
+        vector = self.quality.vector if self.quality is not None else ()
+        return (
+            *vector,
+            round(self.components.volume_error, 6),
+            round(self.components.time_over_minutes, 3),
+            self.components.warnings,
+            round(self.score, 6),
+            self.assignment,
+        )
+
+    @property
+    def classic_score_key(self) -> tuple:
+        """The pre-WP6 additive key, retained only for the fixed-history comparison."""
+        return (round(self.score, 6), self.assignment)
 
     @property
     def feasible(self) -> bool:
@@ -188,6 +210,15 @@ class AssignmentEvaluation:
             "session_replaced": self.session_replaced,
             "replacement_reason": self.replacement_reason,
             "structural_violations": list(self.structural_violations),
+            "quality": self.quality.as_dict() if self.quality is not None else None,
+            "quality_key": [
+                *self.quality_key[:-1],
+                [list(pair) for pair in self.assignment],
+            ],
+            "classic_score_key": [
+                round(self.score, 6),
+                [list(pair) for pair in self.assignment],
+            ],
             "warnings": list(self.prescription.warnings),
         }
 
@@ -370,12 +401,18 @@ def evaluate_assignment(
     assignment: Mapping[str, str],
     candidate_pools: Mapping[str, Sequence[str]],
     inputs: EvaluationInputs | None = None,
+    history: History | None = None,
 ) -> AssignmentEvaluation:
     """Run one complete, validated assignment through the real engine read-only.
 
     The normal build applies readiness, continuity, deload, spinal, volume, time and validation.
     No engine function in this path writes to the store; the caller may use the returned
     prescription for preview/selection but must not persist it from the evaluator.
+
+    `history` lets a caller that evaluates several assignments from the same past (the resolver
+    beam) load the enriched frame once; it is passed to the engine beside `inputs` rather than
+    inside it, so the prescription input fingerprint keeps describing the request, not the
+    history snapshot.
     """
     validated = validate_assignment(base_template, assignment, candidate_pools)
     build_inputs = inputs or EvaluationInputs()
@@ -390,13 +427,16 @@ def evaluate_assignment(
         build_inputs.resolver_policy or resolver_policy.ResolverPolicy.load(),
         exercises.taxonomy().entities,
     )
+    build_kwargs = build_inputs.as_build_kwargs()
+    if history is not None:
+        build_kwargs["history"] = history
     prescription = build_prescription(
         conn,
         for_date=for_date,
         session_type=base_template.session_type,
         template=template,
         use_resolver=False,
-        **build_inputs.as_build_kwargs(),
+        **build_kwargs,
     )
     components = _components(prescription)
     score, reasons = score_components(components)
@@ -422,6 +462,33 @@ def evaluate_assignment(
     if structural_violations:
         score += STRUCTURAL_PENALTY
         reasons += structural_violations
+    panel = prescription.notes.get("volume_panel") or {}
+    band = panel.get("band") or {}
+    after = float(panel.get("after") or 0.0)
+    band_penalty = 0
+    if band:
+        low = float(band.get("low") or 0.0)
+        high = float(band.get("high") or 0.0)
+        if after < low or after > high:
+            band_penalty = 1
+    top_set = prescription.notes.get("top_set") or {}
+    intent_penalty = 1 if top_set.get("status") == "unsatisfied" else 0
+    quality = None
+    if (
+        conn is not None
+        and prescription.items
+        and assignment_preserved
+        and not session_replaced
+    ):
+        quality = role_quality.snapshot(
+            conn=conn,
+            for_date=for_date,
+            base=base_template,
+            assignment=dict(validated),
+            prescription=prescription,
+            band_penalty=band_penalty,
+            intent_penalty=intent_penalty,
+        )
     return AssignmentEvaluation(
         assignment=validated,
         score=round(score, 6),
@@ -432,4 +499,5 @@ def evaluate_assignment(
         session_replaced=session_replaced,
         replacement_reason=replacement_reason,
         structural_violations=structural_violations,
+        quality=quality,
     )

@@ -538,6 +538,67 @@ def test_state_can_be_edited(server):
     assert any(row["source"] == "measured" for row in state["e1rm_overrides"])
     assert state["symptoms"]
 
+
+def test_same_day_suitability_repeat_is_idempotent(server, tmp_path):
+    payload = {
+        "exercise_id": "ssb_squat", "rated_on": "2024-01-01",
+        "can_do": True, "will_do": False, "feels_bad": False,
+        "note": "resolver preview inline rating",
+    }
+    first = post(server, "/api/state/suitability", payload)
+    assert first["suitability"]["ssb_squat"]["will_do"] == 0
+    # A double click must not become a SQLite UNIQUE error (the resolver preview rebuild is
+    # slow enough that a second click is easy).
+    repeated = post(server, "/api/state/suitability", payload)
+    assert repeated["suitability"]["ssb_squat"]["will_do"] == 0
+    conn = sqlite3.connect(tmp_path / "coach.db")
+    try:
+        rows = conn.execute(
+            "SELECT COUNT(*) FROM exercise_suitability "
+            "WHERE exercise_id = 'ssb_squat' AND rated_on = '2024-01-01'"
+        ).fetchone()[0]
+    finally:
+        conn.close()
+    assert rows == 1
+
+
+def test_same_day_suitability_change_is_rejected_with_a_message(server):
+    post(server, "/api/state/suitability", {
+        "exercise_id": "ssb_squat", "rated_on": "2024-01-01",
+        "can_do": True, "will_do": False, "feels_bad": False,
+    })
+    code, body = post_status(server, "/api/state/suitability", {
+        "exercise_id": "ssb_squat", "rated_on": "2024-01-01",
+        "can_do": True, "will_do": True, "feels_bad": False,
+    })
+    assert code == 400
+    data = json.loads(body)
+    assert "already rated for 2024-01-01" in data["error"]
+    assert "rated_on" in data["fields"]
+
+
+def test_suitability_rejects_a_malformed_rating_date(server):
+    code, body = post_status(server, "/api/state/suitability", {
+        "exercise_id": "ssb_squat", "rated_on": "not-a-date",
+    })
+    assert code == 400
+    assert "rated_on" in json.loads(body)["fields"]
+
+
+def test_resolver_preview_inline_rating_is_single_flight(server):
+    _status, js = get(server, "/static/settings.js")
+    assert "let resolverRatingRunning = false;" in js
+    assert "if (resolverRatingRunning) return;" in js
+    assert 'button.textContent = "Saving…";' in js
+    start = js.index("async function rateResolverSuggestion")
+    end = js.index("\nasync function openResolverPreviewStart", start)
+    rating = js[start:end]
+    # Rating records suitability but must not rebuild the slow preview on its own; the owner
+    # presses Build preview to regenerate it.
+    assert "runResolverPreview" not in rating
+    assert "Build preview" in rating
+
+
 def test_exercise_catalogue_is_served(server):
     status, body = get(server, "/api/exercises")
     assert status == 200
@@ -1026,11 +1087,14 @@ def test_continuity_calibration_endpoint(server):
 
 def test_prescribe_can_add_the_opt_in_top_set(server):
     data = post(server, "/api/prescribe", {
-        "date": "2024-01-08", "session_type": "squat", "top_set": True,
+        "date": "2024-01-08", "session_type": "squat", "top_set_intent": "required",
     })
     item = next(row for row in data["items"] if row["exercise_id"] == "ssb_squat")
-    assert [group["role"] for group in item["set_groups"]] == ["top_set", "back_off"]
-    assert data["notes"]["top_set"]["applied"] is True
+    assert [group["group_index"] for group in item["set_groups"]] == [0, 1]
+    assert all("role" not in group for group in item["set_groups"])
+    assert data["top_set"]["status"] == "applied"
+    assert data["top_set"]["reason_code"] == "applied"
+    assert data["notes"]["top_set"]["status"] == "applied"
 
 
 def test_prescribe_accepts_a_session_type(server):
@@ -1172,7 +1236,9 @@ def test_resolver_panel_uses_every_registry_setting(server):
     assert status == 200
     registry = json.loads(body)["registry"]
     resolver = [setting for setting in registry if setting["group"] == "Resolver"]
-    assert len(resolver) == 29
+    # 30 since resolver.full_evaluations was added; the panel renders the group generically,
+    # so this count is the guard that a new Resolver setting reaches the UI.
+    assert len(resolver) == 30
     assert all(setting["key"].startswith("resolver.") for setting in resolver)
     assert all(
         setting["key"] != "resolver.top_set.preserve_total_sets"
@@ -1198,6 +1264,21 @@ def test_settings_profile_endpoint(server):
 
 
 def test_resolver_policy_and_preview_endpoints(server):
+    status, body = get(server, "/api/resolver/dwell")
+    assert status == 200
+    dwell_state = json.loads(body)
+    assert dwell_state["target"] == 7
+    assert isinstance(dwell_state["counts"], dict)
+
+    saved = post(server, "/api/resolver/dwell", {
+        "exercise_id": "bench_press", "count": 3,
+    })
+    assert saved["counts"]["bench_press"] == 3
+    status, _invalid = post_status(server, "/api/resolver/dwell", {
+        "exercise_id": "bench_press", "count": -1,
+    })
+    assert status == 400
+
     status, body = get(server, "/api/resolver/policy")
     assert status == 200
     policy = json.loads(body)
@@ -1217,6 +1298,10 @@ def test_resolver_policy_and_preview_endpoints(server):
     })
     assert data["ok"] is False
     assert data["stage"] == "dispatch"
+    # The duration is reported even when the build fails, so the panel can say how long
+    # the attempt took.
+    assert isinstance(data["build_ms"], int)
+    assert data["build_ms"] >= 0
 
     status, body = post_status(server, "/api/settings/profile", {
         "set": {"resolver.enabled": True},
@@ -1257,6 +1342,7 @@ def test_resolver_preview_job_returns_a_pollable_result(server):
     assert job["status"] == "done"
     assert job["result"]["ok"] is False
     assert job["result"]["stage"] == "dispatch"
+    assert isinstance(job["result"]["build_ms"], int)
 
 
 def test_prescribe_job_returns_a_pollable_result(server):
@@ -1642,104 +1728,6 @@ def test_review_marks_close_the_workout(server):
     assert comparison["trap_bar_deadlift"]["actual_sets"] == 1
 
 
-def test_web_plan_edit_targets_the_correct_item_after_removal(server):
-    plan = post(server, "/api/prescribe", {"date": "2024-01-01", "session_type": "hinge"})
-    readiness = {
-        "sleep": 4, "energy": 4, "mood": 4, "soreness": 2, "stress": 3,
-        "nutrition": 4, "hydration": 4,
-    }
-    data = post(server, "/api/workout/start", {
-        "date": "2024-01-01", "plan": plan, "readiness": readiness,
-    })
-    workout_id = data["workout"]["workout_id"]
-    first, second = plan["items"][0], plan["items"][1]
-    removed = post(server, f"/api/workout/{workout_id}/plan/remove-exercise", {
-        "item_index": 0,
-    })["workout"]
-    assert all(item["exercise_id"] != first["exercise_id"] for item in removed["plan"]["items"])
-    index = next(
-        index for index, item in enumerate(removed["plan"]["items"])
-        if item["exercise_id"] == second["exercise_id"]
-    )
-    before = removed["plan"]["items"][index]["sets"]
-    changed = post(server, f"/api/workout/{workout_id}/plan/set-count", {
-        "item_index": index, "delta": 1,
-    })["workout"]
-    assert changed["plan"]["items"][index]["exercise_id"] == second["exercise_id"]
-    assert changed["plan"]["items"][index]["sets"] == before + 1
-
-
-def test_web_plan_edits_reject_actions_that_would_rewrite_logged_sets(server):
-    plan = post(server, "/api/prescribe", {"date": "2024-01-01", "session_type": "hinge"})
-    readiness = {
-        "sleep": 4, "energy": 4, "mood": 4, "soreness": 2, "stress": 3,
-        "nutrition": 4, "hydration": 4,
-    }
-    data = post(server, "/api/workout/start", {
-        "date": "2024-01-01", "plan": plan, "readiness": readiness,
-    })
-    workout_id = data["workout"]["workout_id"]
-    index, item = next(
-        (index, item) for index, item in enumerate(plan["items"])
-        if item["exercise_id"] == "trap_bar_deadlift"
-    )
-    for set_index in (1, 2):
-        post(server, f"/api/workout/{workout_id}/sets", {
-            "exercise_id": item["exercise_id"], "load_kg": 100, "reps": 5, "rir": 2,
-            "set_index": set_index, "plan_item_index": index,
-        })
-    with pytest.raises(urllib.error.HTTPError) as excinfo:
-        post(server, f"/api/workout/{workout_id}/plan/swap", {
-            "item_index": index, "exercise_id": "conventional_deadlift",
-        })
-    assert excinfo.value.code == 409
-    with pytest.raises(urllib.error.HTTPError) as excinfo:
-        post(server, f"/api/workout/{workout_id}/plan/set-count", {
-            "item_index": index, "delta": -int(item["sets"]) + 1,
-        })
-    assert excinfo.value.code == 409
-
-
-def test_workout_plan_overrides_api(server):
-    plan = post(server, "/api/prescribe", {"date": "2024-01-01", "session_type": "hinge"})
-    readiness = {
-        "sleep": 4, "energy": 4, "mood": 4, "soreness": 2, "stress": 3,
-        "nutrition": 4, "hydration": 4,
-    }
-    data = post(server, "/api/workout/start", {
-        "date": "2024-01-01", "plan": plan, "readiness": readiness,
-    })
-    workout_id = data["workout"]["workout_id"]
-    deadlift_index = next(
-        index for index, item in enumerate(plan["items"])
-        if item["exercise_id"] == "trap_bar_deadlift"
-    )
-    swapped = post(server, f"/api/workout/{workout_id}/plan/swap", {
-        "item_index": deadlift_index, "exercise_id": "conventional_deadlift",
-    })
-    assert swapped["workout"]["plan"]["items"][deadlift_index]["exercise_id"] == "conventional_deadlift"
-    assert swapped["workout"]["original_plan"]["items"][deadlift_index]["exercise_id"] == "trap_bar_deadlift"
-
-    added = post(server, f"/api/workout/{workout_id}/plan/add-exercise", {
-        "exercise_id": "lat_pulldown", "sets": 2, "reps_low": 10, "reps_high": 12,
-    })
-    assert any(item["exercise_id"] == "lat_pulldown" for item in added["workout"]["plan"]["items"])
-
-    changed = post(server, f"/api/workout/{workout_id}/plan/set-count", {
-        "item_index": deadlift_index, "delta": 1,
-    })
-    assert changed["workout"]["plan"]["items"][deadlift_index]["sets"] == 6
-
-    index = next(
-        i for i, item in enumerate(changed["workout"]["plan"]["items"])
-        if item["exercise_id"] == "lat_pulldown"
-    )
-    removed = post(server, f"/api/workout/{workout_id}/plan/remove-exercise", {
-        "item_index": index,
-    })
-    assert all(item["exercise_id"] != "lat_pulldown" for item in removed["workout"]["plan"]["items"])
-
-
 def test_workout_csv_import_preview_and_apply(server):
     plan = post(server, "/api/prescribe", {"date": "2024-01-01", "session_type": "hinge"})
     readiness = {
@@ -2000,6 +1988,10 @@ def test_resolver_preview_uses_the_direct_prescription_response(server):
     assert "pending_ratings" in js
     assert "Rate suggestions to start" in js
     assert "Suitability ratings needed" in js
+    # The build duration is shown at the top of the preview and never frozen into a workout.
+    assert "data-resolver-build-ms" in js
+    assert "resolverBuildLabel(data.build_ms)" in js
+    assert "\"build_ms\"" in js
     _status, app_js = get(server, "/static/app.js")
     assert "Suitability ratings needed" in app_js
     assert "pending_ratings" in app_js
@@ -2026,23 +2018,28 @@ def test_prescribe_exposes_accessories_only_minimum_mode(server):
     assert "hard sets vs next e1RM" in performance_js
 
 
-def test_prescribe_top_set_control_is_gated_by_the_setting(server):
+def test_prescribe_top_set_control_offers_the_per_request_override(server):
     _status, page = get(server, "/")
     assert 'id="prescribe-top-set-note"' in page
+    assert '<option value="preferred">Prefer top set / back-off</option>' in page
+    assert '<option value="required">Require top set / back-off</option>' in page
     _status, js = get(server, "/static/app.js")
     assert "syncPrescribeTopSet" in js
     assert 'resolver.top_set.mode' in js
-    assert "Top set is off in Settings" in js
-    assert "independent of dynamic exercise selection" in js
+    assert "Profile default" in js
+    assert "a choice here overrides it for this request" in js
 
 
-def test_workout_ui_renders_and_prefills_planned_set_groups(server):
+def test_workout_ui_renders_groups_without_a_role_picker(server):
     _status, js = get(server, "/static/workout.js")
     assert "workoutSetGroupsHtml(item)" in js
-    assert "workoutNextGroup" in js
-    assert "workoutGroupForRole" in js
-    assert "applyWorkoutGroup" in js
-    assert "set_role: $("#workout-set-role").value || null" in js
+    # The role picker and the role-driven prefill are retired; the order-aware group
+    # prefill lands with WP2 (DEC-RESOLVER-23).
+    assert "workout-set-role" not in js
+    assert "set_role:" not in js
+    _status, page = get(server, "/static/index.html")
+    assert "workout-set-role" not in page
+    assert "workout-edit-role" not in page
 
 
 def test_the_athlete_page_shows_the_tests_needed_table(server):
@@ -2972,53 +2969,6 @@ def test_completed_summary_and_history_expose_adherence(server):
     assert "workout_note" in detail
 
 
-def test_summary_adherence_keeps_original_and_modified_prescriptions_apart(server):
-    plan = {
-        "for_date": "2024-01-03",
-        "session_type": "hinge",
-        "items": [{
-            "exercise_id": "trap_bar_deadlift", "sets": 5, "reps_low": 3,
-            "reps_high": 5, "load_kg": 100, "rir_target": 2,
-        }],
-    }
-    started = post(server, "/api/workout/start", {
-        "date": "2024-01-03", "plan": plan, "readiness": _adherence_readiness(),
-    })["workout"]
-    workout_id = started["workout_id"]
-    post(server, f"/api/workout/{workout_id}/plan/set-count", {
-        "item_index": 0, "delta": -2,
-    })
-    for _ in range(3):
-        post(server, f"/api/workout/{workout_id}/sets", {
-            "exercise_id": "trap_bar_deadlift", "load_kg": 100, "reps": 5, "rir": 2,
-        })
-    post(server, f"/api/workout/{workout_id}/end", {
-        "session_rpe": 7, "duration_min": 40,
-    })
-
-    _, body = get(server, f"/api/workout/{workout_id}/summary")
-    adherence = _strict_json(body)["summary"]["adherence"]
-    assert adherence["original"]["prescribed_sets"] == 5
-    assert adherence["original"]["matched_sets"] == 3
-    assert adherence["original"]["missing_sets"] == 2
-    assert adherence["original"]["set_completion"]["ratio"] == 0.6
-    assert adherence["final_plan"]["prescribed_sets"] == 3
-    assert adherence["final_plan"]["matched_sets"] == 3
-    assert adherence["final_plan"]["missing_sets"] == 0
-    assert adherence["final_plan"]["set_completion"]["ratio"] == 1.0
-    assert adherence["changes"]["set_count_changed"] == [{
-        "plan_item_index": 0,
-        "exercise_id": "trap_bar_deadlift",
-        "from_sets": 5,
-        "to_sets": 3,
-    }]
-
-    _, body = get(server, f"/api/history/{workout_id}")
-    history_adherence = _strict_json(body)["adherence"]
-    assert history_adherence["original"]["prescribed_sets"] == 5
-    assert history_adherence["final_plan"]["prescribed_sets"] == 3
-
-
 def test_imported_history_session_reports_adherence_unavailable(server):
     status, body = get(server, "/api/history/2024-01-01")
     assert status == 200
@@ -3248,55 +3198,6 @@ def test_history_adherence_ui_covers_empty_error_and_unavailable_states(server):
     assert "warnbox" in history and "error.message" in history
 
 
-def test_history_adherence_payload_has_the_fields_the_ui_renders(server):
-    plan = {
-        "for_date": "2024-01-08",
-        "session_type": "hinge",
-        "items": [{
-            "exercise_id": "trap_bar_deadlift", "sets": 2, "reps_low": 3,
-            "reps_high": 5, "load_kg": 100, "rir_target": 2,
-        }],
-    }
-    started = post(server, "/api/workout/start", {
-        "date": "2024-01-08", "plan": plan, "readiness": _adherence_readiness(),
-    })["workout"]
-    workout_id = started["workout_id"]
-    post(server, f"/api/workout/{workout_id}/plan/set-count", {
-        "item_index": 0, "delta": -1,
-    })
-    for reps, load, rir in ((5, 100, 2), (4, 95, 3)):
-        post(server, f"/api/workout/{workout_id}/sets", {
-            "exercise_id": "trap_bar_deadlift", "load_kg": load,
-            "reps": reps, "rir": rir,
-        })
-    post(server, f"/api/workout/{workout_id}/end", {
-        "session_rpe": 7, "duration_min": 30,
-    })
-
-    _, body = get(server, f"/api/history/{workout_id}")
-    adherence = _strict_json(body)["adherence"]
-    assert adherence["status"] == "available"
-    for view_name in ("original", "final_plan"):
-        view = adherence[view_name]
-        for key in ("prescribed_sets", "performed_sets", "matched_sets", "missing_sets",
-                    "extra_sets", "set_completion", "reps", "load", "rir",
-                    "exercises", "quality"):
-            assert key in view, (view_name, key)
-        assert set(view["set_completion"]) == {"numerator", "denominator", "ratio"}
-        exercise = view["exercises"][0]
-        for key in ("exercise_name", "status", "prescribed_sets", "matched_sets", "sets",
-                    "limitations"):
-            assert key in exercise, (view_name, key)
-        first = exercise["sets"][0]
-        for key in ("reps_actual", "reps_target_low", "reps_target_high", "reps_status",
-                    "load_target_kg", "load_actual_external_kg", "load_deviation_kg",
-                    "load_status", "rir_target", "rir_actual", "rir_deviation", "rir_status",
-                    "limitations", "extra", "included_in_attainment"):
-            assert key in first, (view_name, key)
-    assert "set_count_changed" in adherence["changes"]
-    assert "unavailable_metrics" in adherence["quality"]
-
-
 def _create_adherence_workout(server, day, *, sets=3, done=3,
                               exercise_id="trap_bar_deadlift", session_type="hinge"):
     plan = {
@@ -3350,38 +3251,6 @@ def test_adherence_analytics_api_sums_numerators_and_keeps_empty_periods(server)
     assert result["filters"]["exercises"][0]["id"] == "trap_bar_deadlift"
     assert result["filters"]["session_types"] == ["hinge"]
     assert "aggregation" in result["definitions"]
-
-
-def test_adherence_analytics_api_keeps_original_and_final_distinct(server):
-    plan = {
-        "for_date": "2024-02-20",
-        "session_type": "hinge",
-        "items": [{
-            "exercise_id": "trap_bar_deadlift", "sets": 5, "reps_low": 3,
-            "reps_high": 5, "load_kg": 100, "rir_target": 2,
-        }],
-    }
-    started = post(server, "/api/workout/start", {
-        "date": "2024-02-20", "plan": plan, "readiness": _adherence_readiness(),
-    })["workout"]
-    workout_id = started["workout_id"]
-    post(server, f"/api/workout/{workout_id}/plan/set-count", {
-        "item_index": 0, "delta": -2,
-    })
-    for _ in range(3):
-        post(server, f"/api/workout/{workout_id}/sets", {
-            "exercise_id": "trap_bar_deadlift", "load_kg": 100, "reps": 5, "rir": 2,
-        })
-    post(server, f"/api/workout/{workout_id}/end", {
-        "session_rpe": 7, "duration_min": 30,
-    })
-
-    _, body = get(server, "/api/adherence/analytics?from=2024-02-20&to=2024-02-20")
-    result = _strict_json(body)
-    assert result["original"]["set_completion"]["ratio"] == 0.6
-    assert result["final_plan"]["set_completion"]["ratio"] == 1.0
-    assert result["original"]["prescribed_sets"] == 5
-    assert result["final_plan"]["prescribed_sets"] == 3
 
 
 def test_adherence_analytics_api_filters_exercise_and_session_type(server):
@@ -3822,3 +3691,12 @@ def test_history_edit_accepts_productivity(server):
         "reason": "invalid productivity",
     })
     assert code == 400
+
+
+def test_overview_includes_the_programme_header(server):
+    status, body = get(server, "/api/overview")
+    assert status == 200
+    header = json.loads(body).get("programme_header")
+    assert header is not None
+    assert set(header) >= {"trained_week", "deload"}
+    assert "calendar_week" in header["deload"]

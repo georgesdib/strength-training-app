@@ -5,6 +5,8 @@ Updated 2026-11-05: per-generation `clean_sets` snapshot implemented and A/B reb
 §8 statuses clarified.
 Updated 2026-11-10: §9 adds an iMac coding-host re-run of the resolver and programme forecast;
 the ODROID-C4 figures in §2–§8 are unchanged.
+Updated 2026-11-18: §11 records four Python-side hot-path changes and their measured effect;
+the ODROID-C4 figures in §2–§9 are unchanged and §11 has no deployment-target numbers yet.
 No prescription behaviour changed.
 **Workload:** deterministic resolver build for 2026-11-04, squat, target field 30 minutes
 (minimum-session trimming not applied), resolver enabled, against the owner's local database
@@ -210,7 +212,7 @@ resolver was enabled on that copy only. The live database was opened read-only f
 ### 9.1 Resolver build
 
 Same inputs as §2: date 2026-11-04, squat, `minimum_target_minutes=30`,
-`top_set_requested=False`, public `resolver.build_resolved` with the clean-set snapshot on.
+`top_set_intent="off"`, public `resolver.build_resolved` with the clean-set snapshot on.
 
 | Run | Wall | CPU |
 |---|---:|---:|
@@ -286,3 +288,185 @@ time-in-zone alone 191 ms.
    variant would refine a tool description nothing reads. Refresh it only if MCP acquires a client. The transport is named per row in `intelligence/latency.py`.
 5. HTTP adds 10–15 % on this hardware (readiness: 377 ms HTTP vs 434 ms direct), so the two
    transports are not interchangeable when comparing.
+
+## 11. Python hot-path work (2026-11-18)
+
+**Status:** implemented and confirmed on the ODROID-C4 on 2026-11-18 (§11.5).
+The MacBook figures in §11.2–§11.4 located the work; §11.5 is the deployment result.
+
+### 11.1 Method
+
+The owner's database was not opened. The benchmark database is synthetic, built from the
+checked-in taxonomy and session templates: **407 sessions and 9,160 clean sets**, deliberately
+close to the production shape in §10 (379 / 8,009). Same inputs as §2–§9: date 2026-11-04,
+squat emphasis, `minimum_target_minutes=30`, `top_set_intent="off"`, resolver enabled.
+
+Calibration: the baseline build is **2.47 s p50** here against 27.77 s p50 for the same build
+on the ODROID-C4 (§11.5), so this host is about **11×** the C4 for the untouched path. The
+synthetic database over-weights the two cached paths, and §11.5 shows the deployed gain is
+smaller than the local one. The local figures are used for locating the work, not as a
+latency claim.
+
+### 11.2 Where one build went (baseline)
+
+| Phase | Share |
+|---|---:|
+| Four full `build_prescription` evaluations (the beam) | **91 %** |
+| `candidate_pools` | 8 % |
+| fingerprint, snapshot validation, policy load | 1 % |
+
+Deterministic counts inside those four builds:
+
+- **195 SQL statements**, with **5 ms** of `sqlite3` C time. The database is not the bottleneck.
+- **19.6 M Python calls.** `cProfile` attributes 37 % to pandas object access, 29 % to PyYAML,
+  21 % to `strength_coach` itself and 0.3 % to C extensions.
+- **899 `DecayConfig.load` calls** (one per prescribed item per candidate build) for one file.
+- **5 `History.load` calls**: a clean-set query plus `derived.enrich` over the whole record, five
+  times, for the same past.
+- **16 `spinal_exposures` recomputations**, each walking every working set with `itertuples`
+  (2.65 M `ExtensionArray.__getitem__` and 2.65 M `__iter__` calls per build).
+
+### 11.3 Changes
+
+| Commit | Change |
+|---|---|
+| `aca8459` | `DecayConfig` parsed once per (path, mtime, size); the object is frozen and scalar-only, so it is shared. |
+| `c63b9e7` | The beam's four evaluations share one `History`. It is passed beside `inputs`, not inside it, so the prescription input fingerprint still describes the request. |
+| `1b14e71` | `spinal_exposures` groups in column space. Every working row still counts as a set, intensity still averages only rows carrying load and e1RM, and `skipna=False` keeps one missing ratio poisoning its group mean. |
+| `0cb8d7a` | `utils/yaml_files` caches a parsed config document per (path, mtime, size); each loader still builds its own frozen dataclass from it. The constitution was already content-hash cached and is unchanged. |
+
+### 11.4 Measured effect on the coding host
+
+| Tree | p50 | Change |
+|---|---:|---:|
+| baseline | 2.465 s | — |
+| + decay-config cache | 2.195 s | −11 % |
+| + shared `History` | 1.826 s | −17 % |
+| + grouped spinal exposures | **1.575 s** | −14 % |
+| all three | **1.575 s** | **−36 % (1.57×)** |
+
+The steps are sequential, not additive: the `History` change removes work the other two also
+touch. The config cache (`0cb8d7a`) leaves this path essentially unchanged (117 YAML parses per
+build versus 129); its effect is per request in a long-lived process, see §11.5.
+
+Output was identical at every step: the same seven items in the same order, the same set counts,
+spinal cost/headroom and warnings on 2026-11-04, 2026-06-10 and 2025-12-03.
+
+### 11.5 On the ODROID-C4 (deployment target)
+
+Same harness, same live database (379 sessions), same inputs, two measured runs each, against
+the source database opened read-only and backed up with SQLite's backup API. `d7181d6` is the
+commit before this work; `e826867` is the current `development`.
+
+| Run | `d7181d6` | `e826867` | Change |
+|---|---:|---:|---:|
+| Resolver build, p50 | 27.77 s | **23.71 s** | **−14.6 % (1.17×)** |
+| Resolver build, min | 27.72 s | 23.67 s | −14.6 % |
+| Forecast, 2 weeks / 6 sessions, p50 | 43.54 s | 40.16 s | −7.8 % |
+
+The prescribed items were identical in both runs (`box_jump, ssb_squat, bench_press,
+back_extension, dumbbell_row, lying_leg_curls, ab_wheel`).
+
+A second round took the same harness on the same database after four more changes (look up
+group means in a dict instead of `Series.get` on a MultiIndex; eleven more config loaders through
+`utils/yaml_files`; the e1RM calibration report memoised per database state; `prior_to` views
+memoised on the context):
+
+| Run | before (`e826867`) | after (`3e4ca8e`) | Change |
+|---|---:|---:|---:|
+| Resolver build, p50 | 23.71 s | **16.64 s** | **−30 %** |
+| Forecast, 2 weeks / 6 sessions, p50 | 40.16 s | **22.06 s** | **−45 %** |
+
+Cumulative against the pre-work commit `d7181d6`: resolver **27.77 s → 16.64 s (−40 %, 1.67×)**,
+two-week forecast **43.54 s → 22.06 s (−49 %, 1.97×)**, same seven items throughout.
+
+`resolver.full_evaluations` (default 4, range 1–4, settings-profile) now exposes how many beam
+finalists are evaluated; the beam width is unchanged and the value is recorded in
+`generated_session.beam_config`. Lowering it trades selection coverage for speed and is a
+coaching decision, not an optimisation; the default keeps the behaviour measured above.
+
+Two notes on the numbers:
+
+1. Both are below §2's 35.41 s because the harness warms the process caches with one unmeasured
+   build and the input date has moved on; the comparable pair is this table's two columns, not
+   this column and §2.
+2. The deployed gain is smaller than the 36 % measured locally. The synthetic database is 9 MB
+   and carries only training and readiness rows; the live one is 241 MB with app-tracked
+   workouts, symptom rows and heart-rate samples, so the work this change does not touch is a
+   larger share of the build. The local percentage was a ceiling, not a forecast.
+
+### 11.6 Effect on the capabilities
+
+Warm YAML parses per request, before → after `0cb8d7a`:
+
+| Capability | Parses per request |
+|---|---|
+| `get_session_details` | 30 → 3 |
+| `get_weekly_review` | 5 → 2 |
+| `get_training_overview` | 3 → 1 |
+| `get_longevity_assessment` | 39 → 14 |
+
+The largest single parse removed was the exercise taxonomy at **67.7 ms per call**, now 0.01 ms.
+End-to-end capability timings were not recorded at a quiet enough moment to publish; they are to
+be taken with the ODROID run below. The remaining parses are small files and were left alone.
+
+### 11.7 Reproduce
+
+```text
+python tools/resolver_benchmark.py --db /path/to/copied/coach.db --runs 5 --forecast-weeks 2
+```
+
+The tool copies the database to a temporary directory, enables the resolver on the copy, and
+prints cold start, min/p50/p95/max, finalist evaluations, prescription builds, candidate count and
+beam truncation plus the prescribed items. Report the machine with the result.
+
+The same harness has a synthetic fixed-history mode, so the corrected WP6 path and the same
+builds with the role-quality snapshot disabled can be compared on identical inputs:
+
+```text
+python tools/resolver_benchmark.py --synthetic --case secondary_complementarity --runs 10
+python tools/resolver_benchmark.py --synthetic --case straight --runs 10
+```
+
+It writes JSON, including the environment, the fixture's candidate pools, cold start and
+steady-state percentiles. Laptop seconds are not ODROID seconds; the ODROID-C4 measurement is
+recorded in §11.9.
+
+### 11.8 Rejected
+
+1. **Rust / PyO3 rewrite.** Only 5 ms of a 2.47 s build is in C (`sqlite3`); the cost is
+   redundant work (899 parses, 5 history loads, 16 whole-record scans) that a port would still
+   perform. The measured 1.57× came from removing that work in Python, without a second
+   implementation of the prescription authority.
+2. **Caching the parsed rule document.** Already implemented in `rules/loader.load_document`
+   (content-hash keyed); nothing to add.
+3. **Multiprocessing.** §6 still stands: one CPU-heavy build at a time, no process backend.
+
+### 11.9 WP6 role-quality closeout (2026-11-21)
+
+The WP6 corrective closeout changed the role-quality class computation, not the beam, candidate
+cap or evaluation budget. The reproducible comparison is the synthetic
+`secondary_complementarity` case (a full main + secondary + accessory fixture with two
+finalists): the corrected path and the same builds with `role_quality.snapshot` disabled report
+the same finalist evaluations and prescription builds, so the delta is the snapshot cost rather
+than a search-width change.
+
+Measured 2026-11-21 on the MacBook (macOS-27.2.1 arm64, Python 3.15.2, 8 CPUs) and on the
+ODROID-C4 (Linux 6.18.44 aarch64, Python 3.13.5, 4 CPUs), one cold build then the steady-state
+runs shown, single process, no CPU pinning:
+
+| Host | Case | Corrected p50 / p95 | Same builds, role-quality snapshot disabled | Finalists / builds |
+|---|---|---|---|---|
+| MacBook | `secondary_complementarity` | 0.218 / 0.224 s | 0.204 / 0.210 s | 2 / 2 |
+| MacBook | `straight` (10 runs) | 0.072 / 0.075 s | 0.058 / 0.061 s | 2 / 2 |
+| ODROID-C4 | `secondary_complementarity` | 3.183 / 3.194 s | 3.018 / 3.144 s | 2 / 2 |
+| ODROID-C4 | `straight` (10 runs) | 1.128 / 1.214 s | 0.921 / 1.179 s | 2 / 2 |
+
+Cold-start times were 0.263 s / 0.112 s on the MacBook and 3.775 s / 1.730 s on the ODROID-C4
+for the full and straight cases. Percentiles use nearest-rank with the stated n; with n=10 the
+p95 is the maximum sample. The corrected path is measured before the snapshot-disabled baseline
+in each report, so the delta is an indicative snapshot cost, not a paired estimate. The ODROID
+was otherwise quiet during the run (load average 0.06, 36 C, ondemand governor) but is also the
+running backend server. These are measurements on the named hosts, not deployment guarantees.
+The historical two-finalist row of 1.21/1.24 s recorded during the original WP6 work is not
+reproduced by a checked-in p95 benchmark and is not a current guarantee.

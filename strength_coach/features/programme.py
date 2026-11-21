@@ -12,7 +12,9 @@ full-body rotation; a different frequency would need a scheduling decision, not 
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import Any
 
 from strength_coach import settings_profile
 from strength_coach.features import deload as deload_feature
@@ -152,3 +154,111 @@ def build_programme(conn, *, start: str | None = None, weeks: int = 4,
             conn, date.isoformat(), prior_types=prior
         )
     return out
+
+def header(
+    conn, on_date: str, *, live_plan: Mapping[str, Any] | None = None
+) -> dict[str, Any]:
+    """Read-only programme context for Today and intelligence (WP4).
+
+    Uses the profile anchor, the trained-week query, effective settings and the deload
+    decisions only: no full history or rule-context load, and it is never an evaluator input.
+    """
+    from strength_coach.prescribe import top_set as top_set_mod
+    from strength_coach.prescribe.resolver_settings import ResolverSettings
+    from strength_coach.rules.context import trained_week_index
+    from strength_coach.store import queries
+
+    profile = queries.athlete_profile(conn) or {}
+    anchor_raw = profile.get("block_start_date")
+    resolved = settings_profile.feature_settings(conn, on_date)
+
+    anchor: dt.date | None = None
+    if anchor_raw:
+        try:
+            anchor = dt.date.fromisoformat(str(anchor_raw)[:10])
+        except ValueError:
+            anchor = None
+
+    trained_week = (
+        trained_week_index(conn, str(anchor_raw), on_date) if anchor else None
+    )
+    out: dict[str, Any] = {"trained_week": trained_week}
+
+    undulation = resolved.undulation
+    if (
+        anchor is not None
+        and trained_week is not None
+        and trained_week >= 1
+        and undulation.enabled
+        and undulation.cycle_weeks > 0
+    ):
+        schemes = undulation.for_week(trained_week)
+        if schemes:
+            out["dup"] = {
+                "enabled": True,
+                "cycle_weeks": int(undulation.cycle_weeks),
+                "cycle_week": ((trained_week - 1) % undulation.cycle_weeks) + 1,
+                "main_scheme": schemes.get("main"),
+                "accessory_scheme": schemes.get("accessory"),
+            }
+
+    reactive = deload_feature.reactive_decision(
+        conn, on_date, config=resolved.deload
+    )
+    scheduled = deload_feature.scheduled_decision(
+        conn, on_date, config=resolved.deload
+    )
+    live_notes = (live_plan or {}).get("notes") or {}
+    live_deload = live_notes.get("deload") if isinstance(live_notes, Mapping) else None
+    if reactive is not None:
+        status: str | None = "active"
+        trigger = reactive.trigger
+        reason = reactive.reason
+    elif isinstance(live_deload, Mapping) and live_deload:
+        status = "active"
+        trigger = live_deload.get("trigger")
+        reason = live_deload.get("reason")
+    elif scheduled is not None:
+        status = "suggested"
+        trigger = scheduled.trigger
+        reason = scheduled.reason
+    else:
+        status = "none"
+        trigger = None
+        reason = None
+
+    calendar_week = None
+    if anchor is not None:
+        try:
+            current = dt.date.fromisoformat(str(on_date)[:10])
+        except ValueError:
+            current = None
+        if current is not None and current >= anchor:
+            calendar_week = (current - anchor).days // 7 + 1
+    out["deload"] = {
+        "calendar_week": calendar_week,
+        "status": status,
+        "trigger": trigger,
+        "reason": reason,
+    }
+
+    competition_raw = profile.get("competition_date")
+    if competition_raw:
+        try:
+            competition = dt.date.fromisoformat(str(competition_raw)[:10])
+            current = dt.date.fromisoformat(str(on_date)[:10])
+        except ValueError:
+            competition = None
+            current = None
+        if competition is not None and current is not None:
+            days = (competition - current).days
+            window = top_set_mod.competition_window(
+                competition.isoformat(), on_date, ResolverSettings.load(conn, on_date)
+            )
+            out["competition"] = {
+                "date": competition.isoformat(),
+                "days_until": days if days >= 0 else None,
+                "window": window,
+            }
+    return out
+

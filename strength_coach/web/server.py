@@ -123,6 +123,7 @@ from strength_coach.prescribe import summary as programme_summary
 from strength_coach.prescribe import volume_budget as volume_budget_mod
 from strength_coach.prescribe.config import Thresholds
 from strength_coach.prescribe.evaluator import EvaluationInputs
+from strength_coach.prescribe.models import group_payload
 from strength_coach.rules import RuleContext
 from strength_coach.store import (
     cardio,
@@ -382,16 +383,8 @@ def _item_dict(item) -> dict:
             for w in item.warmup
         ],
         "set_groups": [
-            {
-                "role": group.role,
-                "sets": group.sets,
-                "load_kg": group.load_kg,
-                "reps_low": group.reps_low,
-                "reps_high": group.reps_high,
-                "rir_target": group.rir_target,
-                "percent_of_top": group.percent_of_top,
-            }
-            for group in item.set_groups
+            group_payload(group, index)
+            for index, group in enumerate(item.set_groups)
         ],
     }
 
@@ -416,6 +409,8 @@ def prescription_dict(prescription) -> dict:
         "items": [_item_dict(item) for item in prescription.items],
         "warnings": list(prescription.warnings),
         "issues": list(prescription.issues),
+        # Frozen top-set outcome: {status, reason_code, reason} plus the applied loads.
+        "top_set": prescription.notes.get("top_set"),
         "notes": prescription.notes,
         "template_digest": (prescription.notes.get("resolver") or {}).get("template_digest"),
         "policy_digest": (prescription.notes.get("resolver") or {}).get("policy_digest"),
@@ -770,6 +765,10 @@ _RESOLVER_PREVIEW_JOB_MAX = 20
 MAX_RUNNING_RESOLVER_PREVIEW_JOBS = 1
 
 
+def _elapsed_ms(started: float) -> int:
+    return max(0, round((time.perf_counter() - started) * 1000))
+
+
 def _resolver_preview_job_cleanup() -> None:
     cutoff = datetime.datetime.now().timestamp() - _RESOLVER_PREVIEW_JOB_TTL_SECONDS
     stale = [
@@ -1096,6 +1095,14 @@ class Handler(BaseHTTPRequestHandler):
                     self._ios_idle_sweep(conn)
                     clock = _ios_clock()
                     readiness = self._readiness(conn, clock["server_date"])
+                    plan_payload = self._ios_plan_payload(conn, device)
+                    live_plan = None
+                    plan_row = ios_workflow.current_plan(conn, device["device_id"])
+                    if plan_row is not None and plan_row.get("plan_json"):
+                        try:
+                            live_plan = json.loads(plan_row["plan_json"])
+                        except (TypeError, ValueError):
+                            live_plan = None
                     payload = {
                         "date": clock["server_date"],
                         "readiness": readiness,
@@ -1104,7 +1111,11 @@ class Handler(BaseHTTPRequestHandler):
                         # R7: lets a cold launch render the plan area in one round trip.
                         # The client still reconciles against plans/current, which is the
                         # authoritative read (contract §6).
-                        "plan": self._ios_plan_payload(conn, device),
+                        "plan": plan_payload,
+                        # WP4: read-only programme context, additive.
+                        "programme_header": programme_feature.header(
+                            conn, clock["server_date"], live_plan=live_plan
+                        ),
                     }
                 elif path == "/api/ios/v1/plans/current":
                     payload = self._ios_plan_payload(conn, device)
@@ -1202,9 +1213,10 @@ class Handler(BaseHTTPRequestHandler):
                             "plan_revision": data.get("plan_revision", 0),
                             "last_activity_at": last,
                             "stale": stale,
-                            # The current plan (phone edits included) so a watch can apply a
-                            # newer revision without a second request (contract §10.1/§10.3).
+                            # The frozen plan and the current execution view, so a watch can
+                            # refresh without a second request (contract §10, DEC-RESOLVER-23).
                             "plan": data.get("plan"),
+                            "execution": workout.execution_view(conn, workout_id),
                         })
                 elif path == "/api/ios/v1/progress":
                     params = _ios_progress_params(
@@ -1366,44 +1378,7 @@ class Handler(BaseHTTPRequestHandler):
                     )
                 else:
                     parts = [part for part in path.split("/") if part]
-                    if len(parts) == 7 and parts[:6] == [
-                        "api", "ios", "v1", "workouts", parts[4], "plan"
-                    ] and parts[6] == "exercises":
-                        config = self._ios_require_mutations()
-                        body = self._body()
-                        self._ios_workout_mutation(
-                            conn, device, path, body, config, parts[4],
-                            self._ios_workout_plan_add, access="phone",
-                        )
-                    elif len(parts) == 9 and parts[:5] == [
-                        "api", "ios", "v1", "workouts", parts[4]
-                    ] and parts[5] == "plan" and parts[6] == "items":
-                        try:
-                            item_index = int(parts[7])
-                        except ValueError:
-                            self._error(404, "not found")
-                            return
-                        handlers = {
-                            "swap": self._ios_workout_plan_swap,
-                            "remove": self._ios_workout_plan_remove,
-                            "sets": self._ios_workout_plan_sets,
-                            "move": self._ios_workout_plan_move,
-                        }
-                        handler = handlers.get(parts[8])
-                        if handler is None:
-                            self._error(404, "not found")
-                            return
-                        config = self._ios_require_mutations()
-                        body = self._body()
-
-                        def plan_handler(c, wid, payload, _handler=handler, _index=item_index):
-                            return _handler(c, wid, _index, payload)
-
-                        self._ios_workout_mutation(
-                            conn, device, path, body, config, parts[4], plan_handler,
-                            access="phone",
-                        )
-                    elif len(parts) == 6 and parts[:4] == ["api", "ios", "v1", "workouts"]:
+                    if len(parts) == 6 and parts[:4] == ["api", "ios", "v1", "workouts"]:
                         workout_id = parts[4]
                         action = parts[5]
                         if action == "takeover":
@@ -1415,6 +1390,7 @@ class Handler(BaseHTTPRequestHandler):
                             "sets": self._ios_workout_set,
                             "remove-set": self._ios_workout_remove_set,
                             "execution-events": self._ios_workout_execution_events,
+                            "execution": self._ios_workout_execution_change,
                             "form": self._ios_workout_form,
                             "complete": self._ios_workout_complete,
                             "abandon": self._ios_workout_abandon,
@@ -1425,14 +1401,18 @@ class Handler(BaseHTTPRequestHandler):
                             return
                         config = self._ios_require_mutations()
                         body = self._body()
-                        if action == "execution-events":
+                        if action in {"execution-events", "execution"}:
                             device_id = device["device_id"]
+                            handler_fn = (
+                                self._ios_workout_execution_events
+                                if action == "execution-events"
+                                else self._ios_workout_execution_change
+                            )
                             self._ios_workout_mutation(
                                 conn, device, path, body, config, workout_id,
-                                lambda c, wid, payload, did=device_id:
-                                    self._ios_workout_execution_events(
-                                        c, wid, payload, did
-                                    ),
+                                lambda c, wid, payload, did=device_id,
+                                        fn=handler_fn: fn(c, wid, payload, did),
+                                access="phone" if action == "execution" else "owner",
                             )
                             return
                         self._ios_workout_mutation(
@@ -1686,6 +1666,20 @@ class Handler(BaseHTTPRequestHandler):
     IOS_ACTIVITY_MAX_WORKOUTS = 200
     IOS_ACTIVITY_MAX_SAMPLES = 5000
 
+    def _log_activity_rejection(self, kind: str, key: bytes, reason: str) -> None:
+        """Record a per-item 200 rejection in the server log.
+
+        The phone only receives the rejected key, so without this line the field that conflicted
+        is lost with the exception. Go straight to stderr because the root logger has no stream
+        handler (the same reason `_error` prints). Values are never included: a conflict names the
+        immutable fields, and a malformed row is reduced by the caller to the rule before any value.
+        """
+        print(
+            f"HTTP 200 {urlparse(self.path).path}: rejected {kind} {key.hex()}: {reason}",
+            file=sys.stderr,
+            flush=True,
+        )
+
     def _ios_healthkit_workouts(self, conn, device: dict, body: dict) -> dict:
         items = body.get("workouts")
         if not isinstance(items, list) or not items:
@@ -1696,6 +1690,7 @@ class Handler(BaseHTTPRequestHandler):
             )
         cutoff = cardio.get_sync_state(conn, "history_cutoff")
         created = existing = rejected = 0
+        rejected_keys: list[str] = []
         for item in items:
             if not isinstance(item, dict):
                 raise FieldError("each workout must be an object")
@@ -1704,26 +1699,42 @@ class Handler(BaseHTTPRequestHandler):
             # duplicate an export row under a second key, which is what forced the rebuild.
             if cutoff and str(item.get("started_at") or "") < cutoff:
                 rejected += 1
+                rejected_keys.append(key.hex())
+                self._log_activity_rejection("workout", key, "started_at before history_cutoff")
                 continue
-            _row, new = cardio.record_workout(
-                conn,
-                external_key=key,
-                origin="healthkit",
-                activity_type=str(item.get("activity_type") or ""),
-                started_at=item.get("started_at"),
-                ended_at=item.get("ended_at"),
-                duration_s=int(item.get("duration_s") or 0),
-                source_name=str(item.get("source_name") or "HealthKit"),
-                source_bundle_id=item.get("source_bundle_id"),
-                timezone=item.get("timezone"),
-                avg_heart_rate=item.get("avg_heart_rate"),
-                max_heart_rate=item.get("max_heart_rate"),
-                active_energy_kj=item.get("active_energy_kj"),
-                distance_m=item.get("distance_m"),
-                avg_mets=item.get("avg_mets"),
-                srpe=item.get("srpe"),
-                imported_at=datetime.datetime.now(datetime.UTC).isoformat(),
-            )
+            try:
+                _row, new = cardio.record_workout(
+                    conn,
+                    external_key=key,
+                    origin="healthkit",
+                    activity_type=str(item.get("activity_type") or ""),
+                    started_at=item.get("started_at"),
+                    ended_at=item.get("ended_at"),
+                    duration_s=int(item.get("duration_s") or 0),
+                    source_name=str(item.get("source_name") or "HealthKit"),
+                    source_bundle_id=item.get("source_bundle_id"),
+                    timezone=item.get("timezone"),
+                    avg_heart_rate=item.get("avg_heart_rate"),
+                    max_heart_rate=item.get("max_heart_rate"),
+                    active_energy_kj=item.get("active_energy_kj"),
+                    distance_m=item.get("distance_m"),
+                    avg_mets=item.get("avg_mets"),
+                    srpe=item.get("srpe"),
+                    imported_at=datetime.datetime.now(datetime.UTC).isoformat(),
+                )
+            except (cardio.CardioConflict, cardio.CardioIngestError) as exc:
+                # Same per-item contract as samples: one immutable conflict or malformed workout
+                # must not fail the rest of the batch. The key is returned so the phone can
+                # quarantine it instead of re-sending it forever.
+                rejected += 1
+                rejected_keys.append(key.hex())
+                if isinstance(exc, cardio.CardioConflict):
+                    reason = str(exc)
+                else:
+                    # A validation message can quote the rejected value; keep the rule only.
+                    reason = str(exc).split(":", 1)[0] or type(exc).__name__
+                self._log_activity_rejection("workout", key, reason)
+                continue
             created += int(new)
             existing += int(not new)
         return {
@@ -1731,6 +1742,7 @@ class Handler(BaseHTTPRequestHandler):
             "created": created,
             "existing": existing,
             "rejected": rejected,
+            "rejected_keys": rejected_keys,
         }
 
     def _ios_healthkit_samples(self, conn, device: dict, body: dict) -> dict:
@@ -1744,36 +1756,48 @@ class Handler(BaseHTTPRequestHandler):
         items = body.get("samples")
         if not isinstance(items, list) or not items:
             if metrics:
-                return {"samples": 0, "created": 0, "existing": 0, "metrics": metric_result}
+                return {
+                    "samples": 0,
+                    "created": 0,
+                    "existing": 0,
+                    "rejected": 0,
+                    "rejected_keys": [],
+                    "metrics": metric_result,
+                }
             raise FieldError("samples must be a non-empty list")
         if len(items) > self.IOS_ACTIVITY_MAX_SAMPLES:
             raise FieldError(f"at most {self.IOS_ACTIVITY_MAX_SAMPLES} samples per request")
         created = existing = rejected = 0
+        rejected_keys: list[str] = []
         for item in items:
             if not isinstance(item, dict):
                 raise FieldError("each sample must be an object")
+            sample_key = self._ios_activity_key(item.get("key"))
             workout_key = self._ios_activity_key(item.get("workout_key"))
             workout = cardio.get_workout(conn, workout_key)
             if workout is None:
                 raise FieldError("upload the workout before its samples")
             try:
                 _row, new = cardio.record_sample(
-                conn,
-                sample_key=self._ios_activity_key(item.get("key")),
-                kind=str(item.get("kind") or ""),
-                sampled_at=item.get("sampled_at"),
-                value=float(item.get("value")),
-                unit=str(item.get("unit") or ""),
-                source_name=str(item.get("source_name") or "HealthKit"),
-                source_bundle_id=item.get("source_bundle_id"),
-                imported_at=datetime.datetime.now(datetime.UTC).isoformat(),
-                external_workout_id=workout["external_workout_id"],
+                    conn,
+                    sample_key=sample_key,
+                    kind=str(item.get("kind") or ""),
+                    sampled_at=item.get("sampled_at"),
+                    value=float(item.get("value")),
+                    unit=str(item.get("unit") or ""),
+                    source_name=str(item.get("source_name") or "HealthKit"),
+                    source_bundle_id=item.get("source_bundle_id"),
+                    imported_at=datetime.datetime.now(datetime.UTC).isoformat(),
+                    external_workout_id=workout["external_workout_id"],
                     association=str(item.get("association") or "workout"),
                 )
-            except cardio.CardioConflict:
+            except cardio.CardioConflict as exc:
                 # One conflicting sample must not cost the rest of the batch; the same defect class
-                # as a single bad metric value rejecting a whole sync.
+                # as a single bad metric value rejecting a whole sync. Return the key so the phone
+                # can quarantine it rather than holding the cursor and re-sending it forever.
                 rejected += 1
+                rejected_keys.append(sample_key.hex())
+                self._log_activity_rejection("sample", sample_key, str(exc))
                 continue
             created += int(new)
             existing += int(not new)
@@ -1782,6 +1806,7 @@ class Handler(BaseHTTPRequestHandler):
             "created": created,
             "existing": existing,
             "rejected": rejected,
+            "rejected_keys": rejected_keys,
         }
         if metric_result:
             payload["metrics"] = metric_result
@@ -2168,7 +2193,10 @@ class Handler(BaseHTTPRequestHandler):
                 fields={"settings": "must be an object"},
             )
         unknown = sorted(
-            set(raw) - {"session_type", "minimum_session", "minimum_target_minutes", "top_set"}
+            set(raw) - {
+                "session_type", "minimum_session", "minimum_target_minutes",
+                "top_set_intent",
+            }
         )
         if unknown:
             raise ios_workflow.IOSWorkflowError(
@@ -2203,14 +2231,19 @@ class Handler(BaseHTTPRequestHandler):
                     fields={"minimum_target_minutes": "must be an integer from 1 to 240"},
                 )
             settings["minimum_target_minutes"] = int(target)
-        top_set = raw.get("top_set")
-        if top_set not in (None, ""):
-            if not isinstance(top_set, bool):
+        intent = raw.get("top_set_intent")
+        if intent not in (None, ""):
+            if not isinstance(intent, str) or intent not in (
+                "off", "preferred", "required"
+            ):
                 raise ios_workflow.IOSWorkflowError(
-                    400, "validation_failed", "top_set must be true or false",
-                    fields={"top_set": "must be true or false"},
+                    400, "validation_failed",
+                    "top_set_intent must be off, preferred or required",
+                    fields={
+                        "top_set_intent": "must be off, preferred or required"
+                    },
                 )
-            settings["top_set"] = top_set
+            settings["top_set_intent"] = intent
         return settings
 
     def _ios_mint_watch(self, conn, device: dict, config: ios_config.IOSConfig) -> None:
@@ -2640,9 +2673,10 @@ class Handler(BaseHTTPRequestHandler):
     def _ios_workout_set(self, conn, workout_id: str, body: dict) -> dict:
         self._ios_closed_fields(body, {
             "exercise_id", "load_kg", "reps", "rir", "velocity_mps",
-            "set_index", "plan_item_index", "rep_velocities", "performed_at",
+            "set_index", "plan_item_index", "substitutes_plan_item_index",
+            "rep_velocities", "performed_at",
         })
-        data = self._ios_workout(conn, workout_id)
+        self._ios_workout(conn, workout_id)
         exercise_id = body.get("exercise_id")
         if not isinstance(exercise_id, str) or not exercise_id.strip():
             raise ios_workflow.IOSWorkflowError(
@@ -2656,6 +2690,9 @@ class Handler(BaseHTTPRequestHandler):
             velocity = _number(body.get("velocity_mps"))
             set_index = _integer(body.get("set_index"))
             plan_item_index = _integer(body.get("plan_item_index"))
+            substitutes_plan_item_index = _integer(
+                body.get("substitutes_plan_item_index")
+            )
         except (TypeError, ValueError) as exc:
             raise ios_workflow.IOSWorkflowError(
                 400, "validation_failed", str(exc)
@@ -2690,39 +2727,15 @@ class Handler(BaseHTTPRequestHandler):
                 400, "validation_failed", "set_index must be positive",
                 fields={"set_index": "must be positive"},
             )
-        if plan_item_index is not None and plan_item_index < 0:
-            raise ios_workflow.IOSWorkflowError(
-                400, "validation_failed", "plan_item_index must be non-negative",
-                fields={"plan_item_index": "must be non-negative"},
-            )
-        if plan_item_index is not None:
-            items = (data.get("plan") or {}).get("items") or []
-            # Reuse the core resolver: plan_item_index is the stable order_index identity,
-            # not the current list position. The resolver also accepts legacy positional
-            # values only when they still name the same exercise.
-            try:
-                plan_item_index = workout._plan_item_index(
-                    data, exercise_id.strip(), plan_item_index,
-                )
-            except ValueError as exc:
-                current = next(
-                    (
-                        item for position, item in enumerate(items)
-                        if workout._item_identity(item, position) == plan_item_index
-                    ),
-                    None,
-                )
-                if current is None and 0 <= plan_item_index < len(items):
-                    current = items[plan_item_index]
+        for field, value in (
+            ("plan_item_index", plan_item_index),
+            ("substitutes_plan_item_index", substitutes_plan_item_index),
+        ):
+            if value is not None and value < 0:
                 raise ios_workflow.IOSWorkflowError(
-                    409, "plan_item_mismatch",
-                    "the plan item changed; the set is preserved as off-plan",
-                    details={
-                        "item_index": plan_item_index,
-                        "current_item": current,
-                        "plan_revision": data.get("plan_revision", 0),
-                    },
-                ) from exc
+                    400, "validation_failed", f"{field} must be non-negative",
+                    fields={field: "must be non-negative"},
+                )
         performed_at = body.get("performed_at")
         if performed_at is not None and not isinstance(performed_at, str):
             raise ios_workflow.IOSWorkflowError(
@@ -2779,19 +2792,25 @@ class Handler(BaseHTTPRequestHandler):
                     "rep_index": rep_index,
                     "velocity_mps": rep_velocity,
                 })
-        return workout.add_set(
-            conn, workout_id,
-            exercise_id=exercise_id.strip(),
-            load_kg=load,
-            reps=reps,
-            rir=rir,
-            velocity=velocity,
-            source="manual",
-            set_index=set_index,
-            plan_item_index=plan_item_index,
-            rep_velocities=rep_velocities,
-            performed_at=performed_at,
-        )
+        try:
+            return workout.add_set(
+                conn, workout_id,
+                exercise_id=exercise_id.strip(),
+                load_kg=load,
+                reps=reps,
+                rir=rir,
+                velocity=velocity,
+                source="manual",
+                set_index=set_index,
+                plan_item_index=plan_item_index,
+                substitutes_plan_item_index=substitutes_plan_item_index,
+                rep_velocities=rep_velocities,
+                performed_at=performed_at,
+            )
+        except ValueError as exc:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", str(exc)
+            ) from exc
 
     def _ios_workout_execution_events(
         self, conn, workout_id: str, body: dict, device_id: str
@@ -2803,6 +2822,74 @@ class Handler(BaseHTTPRequestHandler):
             device_id=device_id,
             events=body.get("events"),
         )
+
+    def _ios_workout_execution_change(
+        self, conn, workout_id: str, body: dict, device_id: str
+    ) -> dict:
+        """Append one phone-authored substitution or addition (D9, DEC-RESOLVER-23).
+
+        The prefill is solved here, never sent by the client; an offline author sends
+        `prefill_requested: false` so the event records null and says why.
+        """
+        self._ios_closed_fields(body, {
+            "event_id", "change", "plan_item_index", "after_item_index",
+            "exercise_id", "reps_low", "reps_high", "rir_target",
+            "prefill_requested",
+        })
+        change = body.get("change")
+        if change not in workout.EXECUTION_CHANGE_TYPES:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "change must be substitution or addition",
+                fields={"change": "must be substitution or addition"},
+            )
+        event_id = body.get("event_id")
+        if not isinstance(event_id, str) or not event_id.strip():
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "event_id is required",
+                fields={"event_id": "required"},
+            )
+        exercise_id = body.get("exercise_id")
+        if not isinstance(exercise_id, str) or not exercise_id.strip():
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "exercise_id is required",
+                fields={"exercise_id": "required"},
+            )
+        try:
+            plan_item_index = _integer(body.get("plan_item_index"))
+            after_item_index = _integer(body.get("after_item_index"))
+            reps_low = _integer(body.get("reps_low"))
+            reps_high = _integer(body.get("reps_high"))
+            rir_target = _integer(body.get("rir_target"))
+        except (TypeError, ValueError) as exc:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", str(exc)
+            ) from exc
+        requested = body.get("prefill_requested")
+        if requested is not None and not isinstance(requested, bool):
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "prefill_requested must be a boolean",
+                fields={"prefill_requested": "must be a boolean"},
+            )
+        try:
+            # The response is the same execution block the GET returns, so the authoring
+            # phone can apply it to its live view without a second request.
+            return {"execution": workout.record_execution_change(
+                conn, workout_id,
+                client_event_id=event_id.strip(),
+                kind=str(change),
+                exercise_id=exercise_id.strip(),
+                plan_item_index=plan_item_index,
+                after_item_index=after_item_index,
+                reps_low=reps_low,
+                reps_high=reps_high,
+                rir_target=rir_target,
+                prefill_requested=True if requested is None else requested,
+                device_id=device_id,
+            )}
+        except ValueError as exc:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", str(exc)
+            ) from exc
 
     def _ios_workout_remove_set(self, conn, workout_id: str, body: dict) -> dict:
         self._ios_closed_fields(body, {"set_id"})
@@ -2924,151 +3011,6 @@ class Handler(BaseHTTPRequestHandler):
         self._ios_workout(conn, workout_id)
         return workout.abandon(conn, workout_id)
 
-    def _ios_plan_item(self, conn, workout_id: str, item_index: int,
-                       body: dict) -> tuple[dict, dict]:
-        data = self._ios_workout(conn, workout_id)
-        items = (data.get("plan") or {}).get("items") or []
-        if not 0 <= int(item_index) < len(items):
-            raise ios_workflow.IOSWorkflowError(
-                409, "plan_changed", "the plan item no longer exists",
-                details={"workout": data},
-            )
-        item = items[int(item_index)]
-        expected = body.get("expected_exercise_id")
-        if not isinstance(expected, str) or not expected.strip():
-            raise ios_workflow.IOSWorkflowError(
-                400, "validation_failed", "expected_exercise_id is required",
-                fields={"expected_exercise_id": "required"},
-            )
-        if expected.strip() != str(item.get("exercise_id")):
-            raise ios_workflow.IOSWorkflowError(
-                409, "plan_changed",
-                "the plan changed; refresh before editing this item",
-                details={"workout": data},
-            )
-        return data, item
-
-    def _ios_plan_conflict(self, exc: workout.PlanEditConflict, data: dict) -> None:
-        raise ios_workflow.IOSWorkflowError(
-            exc.status, exc.code, str(exc),
-            details={**exc.details, "workout": data},
-        ) from exc
-
-    def _ios_workout_plan_swap(self, conn, workout_id: str, item_index: int,
-                               body: dict) -> dict:
-        self._ios_closed_fields(body, {"exercise_id", "expected_exercise_id"})
-        data, _ = self._ios_plan_item(conn, workout_id, item_index, body)
-        exercise_id = body.get("exercise_id")
-        if not isinstance(exercise_id, str) or not exercise_id.strip():
-            raise ios_workflow.IOSWorkflowError(
-                400, "validation_failed", "exercise_id is required",
-                fields={"exercise_id": "required"},
-            )
-        try:
-            return workout.swap_exercise(
-                conn, workout_id, item_index, exercise_id.strip()
-            )
-        except workout.PlanEditConflict as exc:
-            self._ios_plan_conflict(exc, data)
-        except ValueError as exc:
-            raise ios_workflow.IOSWorkflowError(400, "validation_failed", str(exc)) from exc
-
-    def _ios_workout_plan_remove(self, conn, workout_id: str, item_index: int,
-                                 body: dict) -> dict:
-        self._ios_closed_fields(body, {"expected_exercise_id"})
-        data, _ = self._ios_plan_item(conn, workout_id, item_index, body)
-        try:
-            return workout.remove_exercise(conn, workout_id, item_index)
-        except workout.PlanEditConflict as exc:
-            self._ios_plan_conflict(exc, data)
-        except ValueError as exc:
-            raise ios_workflow.IOSWorkflowError(400, "validation_failed", str(exc)) from exc
-
-    def _ios_workout_plan_sets(self, conn, workout_id: str, item_index: int,
-                               body: dict) -> dict:
-        self._ios_closed_fields(body, {"delta", "expected_exercise_id"})
-        data, _ = self._ios_plan_item(conn, workout_id, item_index, body)
-        try:
-            delta = _integer(body.get("delta"))
-        except (TypeError, ValueError) as exc:
-            raise ios_workflow.IOSWorkflowError(
-                400, "validation_failed", str(exc)
-            ) from exc
-        if delta is None or delta == 0:
-            raise ios_workflow.IOSWorkflowError(
-                400, "validation_failed", "delta must be a non-zero integer",
-                fields={"delta": "must be a non-zero integer"},
-            )
-        try:
-            return workout.change_sets(conn, workout_id, item_index, delta)
-        except workout.PlanEditConflict as exc:
-            self._ios_plan_conflict(exc, data)
-        except ValueError as exc:
-            raise ios_workflow.IOSWorkflowError(400, "validation_failed", str(exc)) from exc
-
-    def _ios_workout_plan_move(self, conn, workout_id: str, item_index: int,
-                               body: dict) -> dict:
-        self._ios_closed_fields(body, {"to_index", "expected_exercise_id"})
-        data, _ = self._ios_plan_item(conn, workout_id, item_index, body)
-        try:
-            to_index = _integer(body.get("to_index"))
-        except (TypeError, ValueError) as exc:
-            raise ios_workflow.IOSWorkflowError(
-                400, "validation_failed", str(exc)
-            ) from exc
-        if to_index is None:
-            raise ios_workflow.IOSWorkflowError(
-                400, "validation_failed", "to_index is required",
-                fields={"to_index": "required"},
-            )
-        items = (data.get("plan") or {}).get("items") or []
-        if not 0 <= to_index < len(items):
-            raise ios_workflow.IOSWorkflowError(
-                409, "plan_changed",
-                "the plan changed; refresh before moving this item",
-                details={"workout": data},
-            )
-        try:
-            return workout.move_exercise(conn, workout_id, item_index, to_index)
-        except workout.PlanEditConflict as exc:
-            self._ios_plan_conflict(exc, data)
-        except ValueError as exc:
-            raise ios_workflow.IOSWorkflowError(400, "validation_failed", str(exc)) from exc
-
-    def _ios_workout_plan_add(self, conn, workout_id: str, body: dict) -> dict:
-        self._ios_closed_fields(
-            body, {"exercise_id", "sets", "reps_low", "reps_high", "rir_target"}
-        )
-        data = self._ios_workout(conn, workout_id)
-        exercise_id = body.get("exercise_id")
-        if not isinstance(exercise_id, str) or not exercise_id.strip():
-            raise ios_workflow.IOSWorkflowError(
-                400, "validation_failed", "exercise_id is required",
-                fields={"exercise_id": "required"},
-            )
-        try:
-            sets = _integer(body.get("sets"))
-            reps_low = _integer(body.get("reps_low"))
-            reps_high = _integer(body.get("reps_high"))
-            rir_target = _integer(body.get("rir_target"))
-        except (TypeError, ValueError) as exc:
-            raise ios_workflow.IOSWorkflowError(
-                400, "validation_failed", str(exc)
-            ) from exc
-        try:
-            return workout.add_exercise(
-                conn, workout_id, exercise_id=exercise_id.strip(),
-                sets=3 if sets is None else sets,
-                reps_low=8 if reps_low is None else reps_low,
-                reps_high=12 if reps_high is None else reps_high,
-                rir_target=2 if rir_target is None else rir_target,
-            )
-        except workout.PlanEditConflict as exc:
-            self._ios_plan_conflict(exc, data)
-        except ValueError as exc:
-            raise ios_workflow.IOSWorkflowError(400, "validation_failed", str(exc)) from exc
-
-
     def _monitoring_analysis(self, as_of: str) -> dict:
         key = (
             "monitoring-analysis", str(self.db_path), _db_stamp(self.db_path),
@@ -3151,6 +3093,8 @@ class Handler(BaseHTTPRequestHandler):
                     self._json(200, resolver_admin.policy_state())
                 except resolver_policy.ResolverPolicyError as exc:
                     raise FieldError(str(exc), {"policy": str(exc)}) from exc
+            elif path == "/api/resolver/dwell":
+                self._json(200, self._with_conn(self._resolver_dwell))
             elif path == "/api/regime":
                 query = parse_qs(urlparse(self.path).query)
                 self._json(200, self._with_conn(lambda c: regime_feature.detect(
@@ -3261,6 +3205,9 @@ class Handler(BaseHTTPRequestHandler):
                 if payload is None:
                     self._error(404, "execution not available")
                 else:
+                    payload["execution"] = self._with_conn(
+                        lambda c: workout.execution_view(c, workout_id)
+                    )
                     self._json(200, payload)
             elif path.startswith("/api/history/"):
                 session_id = path.rsplit("/", 1)[-1]
@@ -3769,6 +3716,8 @@ class Handler(BaseHTTPRequestHandler):
                     self._json(200, resolver_admin.restore_latest())
                 except resolver_policy.ResolverPolicyError as exc:
                     raise FieldError(str(exc), {"policy": str(exc)}) from exc
+            elif path == "/api/resolver/dwell":
+                self._json(200, self._with_conn(lambda c: self._save_resolver_dwell(c, body)))
             elif path == "/api/resolver/preview/jobs":
                 job = start_resolver_preview_job(self.db_path, body)
                 self._json(202, job)
@@ -3937,8 +3886,6 @@ class Handler(BaseHTTPRequestHandler):
             self._error(exc.status, exc.message)
         except FieldError as exc:
             self._error(400, str(exc), exc.fields)
-        except workout.PlanEditConflict as exc:
-            self._error(409, str(exc))
         except (ValueError, KeyError) as exc:
             self._error(400, str(exc))
         except Exception:
@@ -4534,10 +4481,14 @@ class Handler(BaseHTTPRequestHandler):
         # The Today card reads the compact fields; the summary alone no longer carries them.
         cardio = cardio_metrics.activity_summary(conn, weeks=4)
         cardio.update(cardio_metrics.dashboard_card(cardio))
+        active = workout.active_workout(conn)
         return {
             "today": today,
             "profile": dict(profile) if profile else None,
             "block_week": context.block_week_index,
+            "programme_header": programme_feature.header(
+                conn, today, live_plan=(active or {}).get("plan"),
+            ),
             "readiness": readiness,
             "readiness_score": readiness_score.compute(conn, today).as_dict(),
             "cardio": cardio,
@@ -4984,35 +4935,7 @@ class Handler(BaseHTTPRequestHandler):
                 rating=int(body.get("rating")),
                 note=body.get("note") or None,
             )}
-        if action == "plan":
-            sub = parts[4] if len(parts) > 4 else ""
-            if sub == "swap":
-                result = workout.swap_exercise(
-                    conn, workout_id, _integer(body.get("item_index")),
-                    str(body.get("exercise_id") or ""),
-                )
-            elif sub == "add-exercise":
-                result = workout.add_exercise(
-                    conn, workout_id,
-                    exercise_id=str(body.get("exercise_id") or ""),
-                    sets=_integer(body.get("sets")) or 3,
-                    reps_low=_integer(body.get("reps_low")) or 8,
-                    reps_high=_integer(body.get("reps_high")) or 12,
-                    load_kg=_number(body.get("load_kg")),
-                    rir_target=_integer(body.get("rir_target")),
-                )
-            elif sub == "remove-exercise":
-                result = workout.remove_exercise(
-                    conn, workout_id, _integer(body.get("item_index"))
-                )
-            elif sub == "set-count":
-                result = workout.change_sets(
-                    conn, workout_id, _integer(body.get("item_index")),
-                    _integer(body.get("delta")),
-                )
-            else:
-                raise ValueError("unknown plan action")
-        elif action == "sets":
+        if action == "sets":
             source = str(body.get("source") or "manual")
             if source == "manual":
                 reps, rir, load, velocity = _manual_set_values(body)
@@ -5030,8 +4953,10 @@ class Handler(BaseHTTPRequestHandler):
                 velocity=velocity,
                 source=source,
                 set_index=_integer(body.get("set_index")),
-                set_role=body.get("set_role") or None,
                 plan_item_index=_integer(body.get("plan_item_index")),
+                substitutes_plan_item_index=_integer(
+                    body.get("substitutes_plan_item_index")
+                ),
                 rep_velocities=body.get("rep_velocities"),
             )
         elif action == "update-set":
@@ -5042,7 +4967,6 @@ class Handler(BaseHTTPRequestHandler):
                 reps=reps,
                 rir=rir,
                 velocity=velocity,
-                set_role=body.get("set_role") or None,
             )
         elif action == "remove-set":
             result = workout.remove_set(conn, workout_id, _integer(body.get("set_id")))
@@ -5118,8 +5042,18 @@ class Handler(BaseHTTPRequestHandler):
             technique_patterns = None
         target = body.get("target_minutes")
         target_minutes = int(target) if target not in (None, "") else None
-        top_set_raw = body.get("top_set")
-        top_set_requested = None if top_set_raw in (None, "") else _truth(top_set_raw)
+        top_set_raw = body.get("top_set_intent")
+        if top_set_raw in (None, ""):
+            top_set_intent = None
+        elif isinstance(top_set_raw, str) and top_set_raw in (
+            "off", "preferred", "required"
+        ):
+            top_set_intent = top_set_raw
+        else:
+            raise FieldError(
+                "top_set_intent must be off, preferred or required",
+                {"top_set_intent": "must be off, preferred or required"},
+            )
         resolved_settings = settings_profile.feature_settings(conn, for_date)
         reactive = deload_feature.reactive_decision(
             conn, for_date, config=resolved_settings.deload
@@ -5142,8 +5076,9 @@ class Handler(BaseHTTPRequestHandler):
             technique_throttle_pattern=technique_patterns,
             deload_decision=deload_decision,
             drop_confirmed=_truth(body.get("drop_confirmed")),
-            top_set_requested=top_set_requested,
+            top_set_intent=top_set_intent,
         )
+        build_started = time.perf_counter()
         try:
             resolved = resolver.build_resolved(
                 conn,
@@ -5156,6 +5091,7 @@ class Handler(BaseHTTPRequestHandler):
                 "ok": False,
                 "stage": exc.stage,
                 "message": str(exc),
+                "build_ms": _elapsed_ms(build_started),
                 "beam": (
                     exc.beam_result.as_dict()
                     if exc.beam_result is not None else None
@@ -5189,12 +5125,14 @@ class Handler(BaseHTTPRequestHandler):
             })
         payload = prescription_dict(prescription)
         payload["ok"] = True
+        # Wall-clock for the build itself. Display-only: it is returned to the panel and
+        # stripped before the preview is frozen into a workout.
+        payload["build_ms"] = _elapsed_ms(build_started)
         payload["choices"] = choices
         payload["pending_ratings"] = list(
             (prescription.notes.get("resolver") or {}).get("pending_ratings") or []
         )
         payload["beam"] = resolved.beam.as_dict()
-        payload["top_set"] = prescription.notes.get("top_set")
         payload["projected_week"] = prescription.notes.get("volume_budget")
         payload["session_time"] = prescription.notes.get("session_time")
         payload["policy_digest"] = resolved.policy_digest
@@ -5248,10 +5186,18 @@ class Handler(BaseHTTPRequestHandler):
             technique_patterns = None
         target = body.get("target_minutes")
         target_minutes = int(target) if target not in (None, "") else None
-        top_set_raw = body.get("top_set")
-        top_set_requested = (
-            None if top_set_raw in (None, "") else _truth(top_set_raw)
-        )
+        top_set_raw = body.get("top_set_intent")
+        if top_set_raw in (None, ""):
+            top_set_intent = None
+        elif isinstance(top_set_raw, str) and top_set_raw in (
+            "off", "preferred", "required"
+        ):
+            top_set_intent = top_set_raw
+        else:
+            raise FieldError(
+                "top_set_intent must be off, preferred or required",
+                {"top_set_intent": "must be off, preferred or required"},
+            )
         # Resolve deload before building: it must run before minimum session and final
         # validation, not after validation.
         resolved = settings_profile.feature_settings(conn, for_date)
@@ -5282,7 +5228,7 @@ class Handler(BaseHTTPRequestHandler):
             technique_throttle=technique_throttle,
             technique_throttle_pattern=technique_patterns,
             drop_confirmed=_truth(body.get("drop_confirmed")),
-            top_set_requested=top_set_requested,
+            top_set_intent=top_set_intent,
         )
         if scheduled_suggestion is not None:
             prescription = deload_mod.suggest(prescription, scheduled_suggestion)
@@ -5916,19 +5862,91 @@ class Handler(BaseHTTPRequestHandler):
         )
         return self._state(conn)
 
+    def _resolver_dwell(self, conn) -> dict:
+        """The mutable dwell counters plus the target in force (DEC-RESOLVER-15)."""
+        from strength_coach.features import dwell
+        from strength_coach.prescribe.resolver_settings import ResolverSettings
+
+        settings = ResolverSettings.load(conn, datetime.date.today().isoformat())
+        return {"counts": dwell.counts(conn), "target": settings.dwell_target}
+
+    def _save_resolver_dwell(self, conn, body: dict) -> dict:
+        from strength_coach.features import dwell
+
+        exercise_id = _field_call(
+            validation.exercise_id, "exercise_id", body.get("exercise_id")
+        )
+        try:
+            count = int(body.get("count"))
+        except (TypeError, ValueError) as exc:
+            raise FieldError(
+                "count must be a non-negative integer",
+                {"count": "must be a non-negative integer"},
+            ) from exc
+        if count < 0:
+            raise FieldError(
+                "count must be a non-negative integer",
+                {"count": "must be a non-negative integer"},
+            )
+        dwell.set_count(conn, exercise_id, count)
+        return self._resolver_dwell(conn)
+
     def _save_suitability(self, conn, body: dict) -> dict:
         exercise_id = _field_call(
             validation.exercise_id, "exercise_id", body.get("exercise_id")
         )
-        repositories.append_exercise_suitability(
-            conn,
-            exercise_id=exercise_id,
-            rated_on=str(body.get("rated_on") or datetime.date.today().isoformat()),
-            can_do=_truth(body.get("can_do", True)),
-            will_do=_truth(body.get("will_do", True)),
-            feels_bad=_truth(body.get("feels_bad", False)),
-            note=body.get("note") or None,
-        )
+        rated_on = str(body.get("rated_on") or datetime.date.today().isoformat())
+        try:
+            datetime.date.fromisoformat(rated_on)
+        except ValueError as exc:
+            raise FieldError(
+                "rated_on must be YYYY-MM-DD", {"rated_on": "must be YYYY-MM-DD"}
+            ) from exc
+        can_do = _truth(body.get("can_do", True))
+        will_do = _truth(body.get("will_do", True))
+        feels_bad = _truth(body.get("feels_bad", False))
+        note = body.get("note") or None
+
+        def same_rating(row: dict) -> bool:
+            return (
+                (bool(row["can_do"]), bool(row["will_do"]), bool(row["feels_bad"]))
+                == (can_do, will_do, feels_bad)
+                and (row.get("note") or None) == note
+            )
+
+        def conflict() -> FieldError:
+            # One row per exercise/day is the schema and the append-only history rule; the
+            # resolver preview's inline buttons can otherwise send the same rating twice (a
+            # double click) or try to change the day's record. Neither may be a 500.
+            return FieldError(
+                f"{exercise_id} is already rated for {rated_on}; "
+                "exercise suitability keeps one rating per day, so this change was not "
+                "saved. Record a different rating on a later date.",
+                {"rated_on": "already rated on this date"},
+            )
+
+        existing = queries.suitability_on(conn, exercise_id, rated_on)
+        if existing is not None:
+            if same_rating(existing):
+                return self._state(conn)
+            raise conflict()
+        try:
+            repositories.append_exercise_suitability(
+                conn,
+                exercise_id=exercise_id,
+                rated_on=rated_on,
+                can_do=can_do,
+                will_do=will_do,
+                feels_bad=feels_bad,
+                note=note,
+            )
+        except sqlite3.IntegrityError as exc:
+            # Two requests can race between the read above and the insert. Re-read the
+            # winner: an identical repeat is a success, a different one is the same conflict.
+            existing = queries.suitability_on(conn, exercise_id, rated_on)
+            if existing is not None and same_rating(existing):
+                return self._state(conn)
+            raise conflict() from exc
         return self._state(conn)
 
     def _breaks(self, conn, body: dict | None = None) -> dict:

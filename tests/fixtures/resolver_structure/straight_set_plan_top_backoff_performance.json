@@ -1,0 +1,45 @@
+{
+  "name": "straight_set_plan_top_backoff_performance",
+  "source": "straight-set plan performed as a top-set-like exposure plus back-offs",
+  "plan": {
+    "exercise_id": "ssb_squat",
+    "sets": 4,
+    "set_groups": []
+  },
+  "performed": [
+    {
+      "exercise_id": "ssb_squat",
+      "set_index": 1,
+      "load_kg": 180,
+      "reps": 4,
+      "rir": 1
+    },
+    {
+      "exercise_id": "ssb_squat",
+      "set_index": 2,
+      "load_kg": 160,
+      "reps": 5,
+      "rir": 3
+    },
+    {
+      "exercise_id": "ssb_squat",
+      "set_index": 3,
+      "load_kg": 160,
+      "reps": 5,
+      "rir": 3
+    },
+    {
+      "exercise_id": "ssb_squat",
+      "set_index": 4,
+      "load_kg": 160,
+      "reps": 5,
+      "rir": 3
+    }
+  ],
+  "expected": {
+    "working_sets": 4,
+    "structure": "top_set_like_plus_back_off",
+    "confidence": "high",
+    "not": "descending_only"
+  }
+}

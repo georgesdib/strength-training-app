@@ -11,10 +11,8 @@ import math
 from dataclasses import dataclass
 from pathlib import Path
 
-import yaml
-
 from strength_coach.store import queries, repositories
-from strength_coach.utils import exercises, paths
+from strength_coach.utils import exercises, paths, yaml_files
 
 KINDS = ("test", "max_attempt", "competition", "unplanned", "other")
 REGIONS = ("upper", "lower", "axial", "mixed", "unknown")
@@ -42,7 +40,7 @@ class ExposureConfig:
     @classmethod
     def load(cls, path: str | Path | None = None) -> ExposureConfig:
         source = Path(path or paths.config_dir("high-intensity-exposure.v1.yaml"))
-        raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
+        raw = yaml_files.load_yaml_file(source) or {}
         return cls(
             lookback_days=int(raw.get("lookback_days", 7)),
             active_back_symptom_days=int(raw.get("active_back_symptom_days", 14)),

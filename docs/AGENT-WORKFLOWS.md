@@ -1,7 +1,7 @@
 # Agent workflows — strength-training-app
 
 Detailed procedures for working in the Python server. The lean entry point is
-../AGENTS.md; workspace-wide rules are in ../../AGENTS.md.
+`../AGENTS.md`; workspace-wide rules are in `../../AGENTS.md`.
 
 ## 1. Orientation
 
@@ -11,11 +11,11 @@ prescription. The server is authoritative for readiness, prescriptions, loads, s
 progression and scoring.
 
 Read only what the task needs:
-- ROADMAP.md — live phase status and next actions.
-- docs/DECISIONS.md — expensive-to-reverse decisions.
-- docs/DATA-MODEL.md — canonical schema.
-- docs/API.md — HTTP contracts.
-- docs/README.md and docs/manifest.yaml — public documentation index and metadata.
+- `ROADMAP.md` — live phase status and next actions. Completed history is in ROADMAP-DONE.md; read that only for an audit or a past-deliverable question.
+- `docs/DECISIONS.md` — expensive-to-reverse decisions.
+- `docs/DATA-MODEL.md` — canonical schema.
+- `docs/API.md` — HTTP contracts.
+- `docs/README.md` and `docs/manifest.yaml` — public documentation index and metadata.
 
 Keep CI workflow files aligned with main. Main is integration; development is where work
 happens.
@@ -91,7 +91,7 @@ asks or in the release workflow:
     .venv/bin/python -m pytest -m "integration or regression or slow" --dist loadfile
 
 A change is done when:
-1. Relevant tests pass, and new behaviour has a test that fails without it.
+1. Relevant tests pass.
 2. Measured-fact changes still match private/docs/EVIDENCE.md, or both are updated.
 3. Config changes carry a domain reason.
 4. Judgement calls are recorded as assumptions/open questions.
@@ -151,10 +151,7 @@ when the suite grows materially.
 - docs/README.md is the human index; docs/manifest.yaml is the machine index.
 - tests/test_docs_manifest.py and tests/test_docs_consistency.py enforce coverage, links,
   DEC/LIM references and the public/private boundary.
-- The iOS client plan, iPhone user guide and device acceptance live in the sibling StrengthApp
-  repository; do not add client-owned documents here. Server-owned iOS API contracts stay in
-  docs/design/ because the server is authoritative for the API. Link across repositories with
-  absolute GitHub URLs; the portfolio placement policy is
+- The iOS client plan, iPhone user guide and device acceptance live in the sibling StrengthApp repository; do not add client-owned documents here. Server-owned iOS API contracts stay in `docs/design/` because the server is authoritative for the API. Link across repositories with absolute GitHub URLs; the portfolio placement policy is
   [docs/DOCUMENTATION.md](https://github.com/georgesdib/strength-app/blob/main/docs/DOCUMENTATION.md).
 
 Do not duplicate the full docs map here. The manifest and docs/README.md are the source.
@@ -164,9 +161,7 @@ Do not duplicate the full docs map here. The manifest and docs/README.md are the
 Everything built in the CLI should also be available in the local web UI where practicable,
 in the same change. The UI calls the same core function as the CLI, never re-implements it.
 
-If a capability cannot reasonably live in the UI (interactive prompt, destructive migration,
-host-level operation), record the exception in docs/WEB-UI.md and ROADMAP.md rather than
-leaving it silently missing.
+If a capability cannot reasonably live in the UI (interactive prompt, destructive migration, host-level operation), record the exception in docs/WEB-UI.md and ROADMAP.md rather than leaving it silently missing.
 
 The in-browser terminal was removed (DEC-WEB-02). Do not reintroduce a state-changing
 browser command runner without authentication.
@@ -184,13 +179,13 @@ Config-only edits do not need a restart; any change under strength_coach/ does.
 
 - Adding a hard rule.
 - Changing a threshold that affects a prescription.
-- Interpreting an ambiguous rule; add it to OPEN-QUESTIONS.md.
-- Phase status changes; update ROADMAP.md in the same commit.
+- Interpreting an ambiguous rule; add it to `OPEN-QUESTIONS.md`.
+- Phase status changes; update `ROADMAP.md` in the same commit.
 - Fixing data that looks wrong: flag/quarantine, never silently delete.
 
 State the ambiguity, options and recommendation, then wait.
 
 ## 8. Migrations
 
-See AGENT-MIGRATIONS.md for schema, append-only, transaction, preservation and test rules.
-See AGENT-DEBUGGING.md for logs, failure triage and data quarantine.
+See `AGENT-MIGRATIONS.md` for schema, append-only, transaction, preservation and test rules.
+See `AGENT-DEBUGGING.md` for logs, failure triage and data quarantine.

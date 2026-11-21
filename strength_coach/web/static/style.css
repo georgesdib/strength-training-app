@@ -447,6 +447,8 @@ body.menu-open { overflow: hidden; }
 .workout-set-card-head, .workout-plan-card-head { display: flex; align-items: center;
   justify-content: space-between; gap: 10px; }
 .workout-set-values, .workout-plan-prescription { margin: 6px 0; color: var(--muted); }
+.workout-set-groups { margin: 6px 0; padding-left: 18px; color: var(--muted); }
+.workout-set-groups li { margin: 2px 0; }
 .workout-set-actions, .workout-plan-actions { display: flex; flex-wrap: wrap;
   align-items: center; gap: 8px; margin-top: 8px; }
 .workout-plan-actions .inline-field { flex: 1 1 130px; min-width: 0; }

@@ -26,7 +26,7 @@ from typing import Any
 
 import yaml
 
-from strength_coach.utils import exercises, paths
+from strength_coach.utils import exercises, paths, yaml_files
 
 SCHEMA_VERSION = "1.0.0"
 
@@ -268,7 +268,7 @@ def _read(source: Path) -> tuple[dict[str, Any], bytes]:
         return {}, b""
     raw_bytes = source.read_bytes()
     try:
-        raw = yaml.safe_load(raw_bytes.decode("utf-8")) or {}
+        raw = yaml_files.load_yaml_file(source) or {}
     except (UnicodeDecodeError, yaml.YAMLError) as exc:
         raise DemandError(f"could not parse {source}: {exc}") from exc
     if not isinstance(raw, Mapping):

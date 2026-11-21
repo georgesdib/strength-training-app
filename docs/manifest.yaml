@@ -137,6 +137,15 @@ documents:
   status: canonical
   audience: public
   nav: true
+- id: dwell-and-rotation
+  path: docs/DWELL-AND-ROTATION.md
+  title: Dwell — exposure-based preference with probabilistic exploration
+  description: 'done-exposure counters, the dwell factor, the exploration probability, the cap and reset,
+    the rejected alternatives and the worked example'
+  category: methodology
+  status: canonical
+  audience: public
+  nav: true
 - id: frequency-and-volume
   path: docs/FREQUENCY-AND-VOLUME.md
   title: FREQUENCY AND VOLUME — what `--sessions-per-week` actually changes
@@ -166,6 +175,25 @@ documents:
   path: docs/MINIMUM-SESSION.md
   title: MINIMUM EFFECTIVE SESSION — MOD-MIN-001
   description: '`MOD-MIN-001` user-selected volume-only fallback: targets, floors, precedence, refusal and provenance'
+  category: methodology
+  status: canonical
+  audience: public
+  nav: true
+- id: resolver-algorithm
+  path: docs/RESOLVER-ALGORITHM.md
+  title: Resolver algorithm — canonical reference
+  description: 'production pipeline from pools to beam and evaluator: dwell ordering, hierarchy, volume
+    band, top-set/warm-up formulas, fingerprint, code map and worked examples'
+  category: methodology
+  status: canonical
+  audience: public
+  nav: true
+- id: resolver-main-lifts-vs-accessories
+  path: docs/RESOLVER-MAIN-LIFTS-VS-ACCESSORIES.md
+  title: Resolver — main lifts vs accessories
+  description: 'production joint resolver: slot roles, pattern freedom, candidate pools, hard eligibility,
+    required patterns, bounded beam, full prescription evaluation, feasibility, provenance and the
+    main/support/accessory distinction'
   category: methodology
   status: canonical
   audience: public
@@ -771,6 +799,14 @@ documents:
   status: archived
   audience: public
   nav: true
+- id: roadmap-done
+  path: ROADMAP-DONE.md
+  title: ROADMAP — completed work
+  description: 'completed v0.1-v1.x roadmap sections split out of ROADMAP.md for audits and past-deliverable questions; not a default read'
+  category: archive
+  status: archived
+  audience: maintainer
+  nav: false
 - id: archive-ui-design-implementation-plan
   path: docs/archive/UI-DESIGN-IMPLEMENTATION-PLAN.md
   title: Strength Training App UI Design — audit and implementation plan
@@ -953,8 +989,8 @@ documents:
   nav: false
 - id: design-ios-watch-contract
   path: docs/design/IOS-WATCH-CONTRACT.md
-  title: iOS Phase 6 watchOS companion contract (6.0-6.1 complete; 6.2+ not started)
-  description: '6.0 (S1-S4) and 6.1 (server watch contract) complete 2026-11-10; 6.2+ not started; remediated 2026-11-09: watch as the set-logging client for a plan with an explicit execution target on iOS 27.0/watchOS 27.0; four-stage StrengthCore extraction, credential-epoch and home-config handoff with acknowledgement, home-server pinning (no Away switching), offline-first execution with partial flushes and backoff, HK-session lifecycle and persist-first capture, watch-only ownership with phone mirror/take-over, plan-revision and off-plan conflict handling, exactly-once HealthKit workout by external UUID, 4h plan TTL, idle warning and 24h abandonment; offline start and phone relay deferred; tests, acceptance and rollback'
+  title: iOS Phase 6 watchOS companion contract (6.0-6.7 complete; pointer)
+  description: 'Compatibility pointer to the canonical portfolio watch contract. Phases 6.0-6.7 complete; physical Apple Watch acceptance 2026-11-14; WP8 phone relay implemented and owner-accepted 2026-11-21; offline start/pending-session shell deferred; tests, acceptance and rollback'
   category: design
   status: design
   audience: maintainer

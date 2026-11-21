@@ -3,7 +3,8 @@
 This module owns only the set arithmetic and RIR resolution. It does not choose exercises,
 apply readiness/deload, run the volume budget or write persistence; those remain in the engine
 and the existing pipeline. The structure is intentionally a set-group on one item, never two
-same-exercise item rows.
+same-exercise item rows. `SetGroup.role` here is an internal build-time tag: the wire, the
+stored plan and analysis see only the ordered groups (DEC-RESOLVER-18).
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ BACK_OFF = "back_off"
 class TopSetPlan:
     applied: bool
     status: str
+    reason_code: str
     reason: str
     groups: tuple[SetGroup, ...] = ()
     top_set_rir: int | None = None
@@ -80,28 +82,31 @@ def resolved_top_set_rir(
     return value, f"DUP {scheme or 'off'}: RIR {value}"
 
 
-def eligible(
+def _classify(
     item: PrescriptionItem,
     *,
     primary_exercise: str | None,
     eligible_lifts: tuple[str, ...],
     settings: ResolverSettings,
-    requested: bool | None,
-) -> tuple[bool, str]:
-    """Whether this item is the opted-in top-set main lift."""
-    if settings.top_set_mode == "off":
-        return False, "top set mode is off"
-    if item.effort_model != "rir" or not item.essential:
-        return False, "not an essential RIR main lift"
+) -> tuple[str, str, str]:
+    """Classify the primary item as eligible, by-design blocked or unexpectedly blocked."""
     if settings.top_set_eligible == "session_main" and item.exercise_id != primary_exercise:
-        return False, "not the session primary main lift"
+        return "by_design", "blocked_by_design", "not the session primary main lift"
+    if item.effort_model != "rir" or not item.essential:
+        return "unexpected", "not_eligible", "not an essential RIR main lift"
     if item.exercise_id not in eligible_lifts:
-        return False, "lift is not top-set eligible in the resolver policy"
-    if requested is False:
-        return False, "athlete declined the top set"
-    if requested is None and settings.top_set_mode == "ask":
-        return False, "top set offered; awaiting confirmation"
-    return True, "top set requested"
+        return "unexpected", "outside_policy", (
+            "lift is not top-set eligible in the resolver policy"
+        )
+    return "eligible", "applied", "top set requested"
+
+
+def _blocked(intent: str, verdict: str, reason_code: str, reason: str) -> TopSetPlan:
+    """A by-design block is not_applicable; an unexpected one depends on the intent."""
+    if verdict == "by_design":
+        return TopSetPlan(False, "not_applicable", "blocked_by_design", reason)
+    status = "fallback" if intent == "preferred" else "unsatisfied"
+    return TopSetPlan(False, status, reason_code, reason)
 
 
 def plan_top_set(
@@ -114,7 +119,7 @@ def plan_top_set(
     competition_date: str | None,
     for_date: str,
     deload: bool,
-    requested: bool | None,
+    intent: str,
     readiness_bump: int = 0,
     blocked_reason: str | None = None,
 ) -> TopSetPlan:
@@ -124,31 +129,41 @@ def plan_top_set(
     session and the back-offs take the raised RIR. A two-step readiness drop, a continuity gap
     or a back flare keeps the straight-set fallback (DEC-RESOLVER-14).
     """
-    is_eligible, reason = eligible(
+    if intent == "off":
+        return TopSetPlan(False, "not_applicable", "intent_off", "top-set intent is off")
+    if intent not in ("preferred", "required"):
+        raise ValueError("top-set intent must be off, preferred or required")
+    verdict, reason_code, reason = _classify(
         item,
         primary_exercise=primary_exercise,
         eligible_lifts=eligible_lifts,
         settings=settings,
-        requested=requested,
     )
-    if not is_eligible:
-        return TopSetPlan(False, "not_applied", reason)
+    if verdict != "eligible":
+        return _blocked(intent, verdict, reason_code, reason)
     if deload:
-        return TopSetPlan(False, "not_applied", "deload week: straight sets")
+        return _blocked(
+            intent, "by_design", "blocked_by_design", "deload week: straight sets"
+        )
     if blocked_reason is not None:
-        return TopSetPlan(False, "not_applied", blocked_reason)
+        return _blocked(intent, "by_design", "blocked_by_design", blocked_reason)
     if readiness_bump > 1:
-        return TopSetPlan(
-            False,
-            "not_applied",
+        return _blocked(
+            intent,
+            "by_design",
+            "blocked_by_design",
             f"readiness lowered the working RIR by {readiness_bump} steps; straight sets",
         )
     window = competition_window(competition_date, for_date, settings)
+    if window == "taper":
+        return _blocked(
+            intent, "by_design", "blocked_by_design", "competition taper: straight sets"
+        )
     rir, rir_reason = resolved_top_set_rir(
         scheme=scheme, window=window, settings=settings
     )
     if rir is None:
-        return TopSetPlan(False, "not_applied", rir_reason)
+        return _blocked(intent, "unexpected", "outside_policy", rir_reason)
     rir = min(
         max(1, int(rir) + int(readiness_bump)),
         settings.top_set_fallback_above_rir,
@@ -160,7 +175,9 @@ def plan_top_set(
     else:
         rir_reason = f"{rir_reason}; final RIR {rir}"
     if item.load_kg is None or item.load_kg <= 0:
-        return TopSetPlan(False, "not_applied", "no usable main-lift load")
+        return _blocked(
+            intent, "unexpected", "no_usable_load", "no usable main-lift load"
+        )
     # Use the item's final load/RIR so readiness, continuity and back-flare reductions are
     # already reflected. The stored e1RM is a fallback when the final RIR is unavailable.
     e1rm_kg = None
@@ -171,9 +188,16 @@ def plan_top_set(
     if e1rm_kg is None:
         e1rm_kg = item.e1rm_kg
     if e1rm_kg is None:
-        return TopSetPlan(False, "not_applied", "no usable main-lift e1RM")
+        return _blocked(
+            intent, "unexpected", "no_usable_load", "no usable main-lift e1RM"
+        )
     if item.sets < 2:
-        return TopSetPlan(False, "not_applied", "one working set cannot form top plus back-off")
+        return _blocked(
+            intent,
+            "unexpected",
+            "fewer_than_two_sets",
+            "one working set cannot form top plus back-off",
+        )
     top_load = loads.solve_load(
         float(e1rm_kg), int(item.reps_low), rir, item.rounding_increment_kg
     )
@@ -181,7 +205,9 @@ def plan_top_set(
     # plus back-offs must equal the blueprint's total working sets (DEC-RESOLVER-03).
     backoff_sets = item.sets - 1
     if backoff_sets < 1:
-        return TopSetPlan(False, "not_applied", "no set left for back-off work")
+        return _blocked(
+            intent, "unexpected", "fewer_than_two_sets", "no set left for back-off work"
+        )
     backoff_load = loads.round_down(
         top_load * settings.top_set_backoff_percent, item.rounding_increment_kg
     )
@@ -207,6 +233,7 @@ def plan_top_set(
     )
     return TopSetPlan(
         True,
+        "applied",
         "applied",
         f"{rir_reason}; top set + {backoff_sets} back-off set(s) at "
         f"{settings.top_set_backoff_percent:.0%}",

@@ -34,6 +34,9 @@ for current status and next actions. [`AGENTS.md`](../AGENTS.md) holds the engin
 - [METHODOLOGY.md](METHODOLOGY.md) — versioned decision flow, limitations, never-do list
 - [RULES-FORMAT.md](RULES-FORMAT.md) — the constitution format and rule IDs
 - [SESSION-TEMPLATES.md](SESSION-TEMPLATES.md) — template/slot field guide
+- [RESOLVER-ALGORITHM.md](RESOLVER-ALGORITHM.md) — canonical production reference: pools, dwell ordering, beam, evaluator hierarchy, formulas, code map and worked examples
+- [RESOLVER-MAIN-LIFTS-VS-ACCESSORIES.md](RESOLVER-MAIN-LIFTS-VS-ACCESSORIES.md) — production joint resolver, slot roles and the main/support/accessory distinction
+- [DWELL-AND-ROTATION.md](DWELL-AND-ROTATION.md) — how the resolver prefers lifts by completed exposure and explores alternatives
 - [WORKOUT-GENERATION.md](WORKOUT-GENERATION.md) — how a prescription is built
 - [VOLUME-MANAGEMENT.md](VOLUME-MANAGEMENT.md) / [VOLUME-BUDGET.md](VOLUME-BUDGET.md) — landmarks and operator guide
 - [FREQUENCY-AND-VOLUME.md](FREQUENCY-AND-VOLUME.md) — sessions-per-week behaviour

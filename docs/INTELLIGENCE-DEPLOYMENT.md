@@ -1,8 +1,8 @@
 # TRAINING INTELLIGENCE — MCP DEPLOYMENT GUIDE
 
 **Status:** written 2026-11-14 for the INT-1b service; deployed on the home host on 2026-11-15 with
-`deploy/install-intelligence-mcp.sh`, which rendered the unit for `/home/dsh/strength-training-app`
-and user `dsh`. The unit is enabled and active (all eleven tools over Streamable HTTP,
+`deploy/install-intelligence-mcp.sh`, which rendered the unit for the host checkout and user `dsh`.
+The unit is enabled and active (all eleven tools over Streamable HTTP,
 `get_weekly_review` included) and it survives a reboot. The `/opt` paths in this page remain the
 reference for a dedicated-user deployment.
 
@@ -89,7 +89,8 @@ holds SHA-256 digests only and is written mode 0600. List and manage clients wit
 
 ## 6. Install, start, stop
 
-On a host whose checkout is not `/opt` (the home host keeps it under `/home/dsh`), use the
+On a host whose checkout is not `/opt` (the home host keeps it elsewhere; see the private host
+notes), use the
 installer. It renders this unit with the real service user, checkout, config, token and database
 paths, refuses to run the service as root, stops a manual listener on the port, installs, enables
 and verifies it:

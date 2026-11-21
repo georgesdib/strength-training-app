@@ -16,6 +16,7 @@ from strength_coach.features import (
     attendance,
     breaks,
     deload,
+    programme,
     readiness_score,
     regime_change,
     strength_trend,
@@ -209,6 +210,7 @@ def _volume_section(conn, start: str, end: str) -> tuple[Section, dict]:
 
 def _programme_section(conn, end: str) -> tuple[Section, dict]:
     decision = deload.decision(conn, end)
+    header = programme.header(conn, end)
     regime = regime_change.detect(conn, on_date=end)
     findings = list(regime.get("findings") or [])
     active = breaks.as_dict(breaks.active_on(conn, end))[:MAX_BREAKS]
@@ -239,12 +241,17 @@ def _programme_section(conn, end: str) -> tuple[Section, dict]:
         "deload_policy": "active" if decision is not None else "none_scheduled",
         "deload_reason": getattr(decision, "reason", None),
         "deload_trigger": getattr(decision, "trigger", None),
+        "deload_status": header["deload"]["status"],
+        "deload_calendar_week": header["deload"]["calendar_week"],
+        "trained_week": header.get("trained_week"),
+        "dup": header.get("dup"),
+        "competition": header.get("competition"),
         "regime_review": regime_label,
         "regime_findings": len(findings),
         "regime_findings_detail": detail,
         "breaks": active,
     }
-    return Section(value=value, method="strength_coach.features.deload.decision",
+    return Section(value=value, method="strength_coach.features.programme.header",
                    n=len(findings)), {"findings": len(findings)}
 
 
