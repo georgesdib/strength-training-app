@@ -25,11 +25,73 @@
   let seq = 0;
   let timer = null;
   let answerMarkup = "";
+  let surfaces = [];
 
   function escapeHtml(value) {
     return String(value).replace(/[&<>"]/g, function (ch) {
       return {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[ch];
     });
+  }
+
+  const LIVE_STOP = ["the", "and", "for", "with", "where", "what", "how", "can", "see",
+    "find", "show", "change", "modify", "my", "this", "that", "these", "those", "from",
+    "into", "about", "does", "do", "is", "are", "to", "of", "in", "on", "at", "it", "a",
+    "an", "i", "you", "me", "we"];
+
+  // Headings that client script renders are invisible to the server index; collect them
+  // from the live page so JS-built sections stay searchable.
+  function collectSurfaces() {
+    const seen = {};
+    const found = [];
+    document.querySelectorAll(".view").forEach(function (section) {
+      const view = (section.id || "").replace(/^view-/, "");
+      if (!view) return;
+      section.querySelectorAll("h2, h3").forEach(function (heading) {
+        const title = (heading.textContent || "").trim().replace(/\s+/g, " ");
+        if (!title) return;
+        let node = heading.parentElement;
+        let target = "";
+        while (node && node !== section) {
+          if (node.id) { target = node.id; break; }
+          node = node.parentElement;
+        }
+        if (!target) target = section.id;
+        const key = target + "|" + title;
+        if (seen[key]) return;
+        seen[key] = true;
+        found.push({title: title, view: view, target: target});
+      });
+    });
+    return found;
+  }
+
+  function liveMatches(query) {
+    const tokens = (query.toLowerCase().match(/[a-z0-9]+/g) || []).filter(function (token) {
+      return token.length >= 2 && LIVE_STOP.indexOf(token) === -1;
+    });
+    if (!tokens.length) return [];
+    const seen = {};
+    const matches = [];
+    surfaces.forEach(function (surface) {
+      const title = surface.title.toLowerCase();
+      const hit = tokens.every(function (token) { return title.indexOf(token) !== -1; });
+      if (!hit || seen[surface.target]) return;
+      seen[surface.target] = true;
+      matches.push({
+        kind: "panel", score: 1, title: surface.title, subtitle: "On screen",
+        view: surface.view, target: surface.target, doc: "", anchor: "",
+      });
+    });
+    return matches.slice(0, 6);
+  }
+
+  function withLive(results, query) {
+    const live = liveMatches(query);
+    const taken = {};
+    live.forEach(function (row) { taken[row.target] = true; });
+    return live.concat(results.filter(function (row) {
+      return !taken[row.target];
+    }));
   }
 
   function hint(message) {
@@ -101,7 +163,7 @@
           hint(result.body.error || "Search failed.");
           return;
         }
-        render(result.body.results || []);
+        render(withLive(result.body.results || [], query));
       })
       .catch(function () {
         if (mine !== seq) return;
@@ -151,6 +213,7 @@
   function open() {
     if (dialog.open) return;
     input.value = "";
+    surfaces = collectSurfaces();
     hint(HINT);
     if (typeof dialog.showModal === "function") dialog.showModal();
     else dialog.setAttribute("open", "");
@@ -220,7 +283,7 @@
           '<p class="search-item-sub">These results come from the index; the answer cannot' +
           " create links.</p></div>";
         if (askMsg) askMsg.textContent = "";
-        render(body.results || []);
+        render(withLive(body.results || [], query));
       })
       .catch(function () {
         if (askMsg) askMsg.textContent = "The assistant is unavailable.";

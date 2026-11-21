@@ -160,6 +160,9 @@ clickable authority.
   headings (`GET /api/search`); `tests/test_ui_search.py` keeps the index in step with the markup.
 - [x] 2026-11-21: the palette's **Ask the assistant** phrases an answer over those results only
   (`POST /api/intelligence/locate`, `tests/test_ui_locate.py`); it cannot create a link.
+- [x] 2026-11-21: the palette also collects headings rendered by client script from the live DOM;
+  `tests/test_ui_surface_coverage.py` keeps a ledger of client headings the server index cannot
+  see, so coverage may shrink but not grow.
 
 ## Related
 
