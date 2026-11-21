@@ -74,6 +74,22 @@ def test_dwell_prefers_a_dwell_labelled_setting(entries):
     assert "dwell" in results[0][0].title.lower()
 
 
+def test_curated_actions_point_at_real_elements():
+    text = INDEX_HTML.read_text(encoding="utf-8")
+    for item in search.ACTION_TARGETS:
+        assert f'id="{item["target"]}"' in text
+        assert f'id="view-{item["view"]}"' in text
+
+
+def test_removing_an_override_finds_the_athlete_ledger(entries):
+    results = search.rank(
+        entries, "I want to remove an e1rm override, where can I do that?"
+    )
+    assert results
+    assert results[0][0].view == "state"
+    assert results[0][0].target == "state-forms"
+
+
 def test_the_dwell_counter_question_finds_the_resolver_section(entries):
     query = "where can I see/configure the count of an exercise which is used in dwell?"
     results = search.rank(entries, query)

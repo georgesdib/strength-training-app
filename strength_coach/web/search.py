@@ -44,6 +44,10 @@ STOPWORDS = frozenset({
 ALIASES = {
     "symptom": ("soreness", "niggle", "ache", "injury", "pain"),
     "dwell": ("resolver", "rotation", "exposure"),
+    "remove": ("withdraw", "delete"),
+    "delete": ("remove", "withdraw"),
+    "revoke": ("withdraw",),
+    "undo": ("withdraw",),
     "deload": ("backoff", "back-off", "reactive"),
 }
 
@@ -272,6 +276,37 @@ def _doc_entries(root: Path) -> list[Entry]:
     return entries
 
 
+#: Actions that only exist in generated markup: the static page has no heading for them, so the
+#: index would never see the words a person uses. Each entry keeps its real container id, and
+#: tests/test_ui_search.py checks that the id and view exist, so a curated entry cannot dangle.
+ACTION_TARGETS = (
+    {
+        "title": "Withdraw or remove an e1RM override",
+        "subtitle": "Athlete · e1RM overrides",
+        "view": "state",
+        "target": "state-forms",
+        "body": (
+            "remove, delete, revoke, cancel or undo an e1RM override; the ledger is append-only, "
+            "so withdrawing records a dated tombstone and keeps the row"
+        ),
+    },
+)
+
+
+def _action_entries() -> list[Entry]:
+    return [
+        Entry(
+            kind="panel",
+            title=item["title"],
+            subtitle=item["subtitle"],
+            view=item["view"],
+            target=item["target"],
+            body=item["body"],
+        )
+        for item in ACTION_TARGETS
+    ]
+
+
 def _setting_entries() -> list[Entry]:
     entries = []
     for setting in settings_registry.SETTINGS:
@@ -293,6 +328,7 @@ def build_index(root: Path | None = None) -> tuple[Entry, ...]:
     base = (root or _ROOT).resolve()
     text = (base / "strength_coach/web/static/index.html").read_text(encoding="utf-8")
     entries: list[Entry] = []
+    entries.extend(_action_entries())
     entries.extend(_setting_entries())
     entries.extend(_view_entries(text))
     entries.extend(_panel_entries(text))
