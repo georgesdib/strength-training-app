@@ -110,6 +110,14 @@ def test_activity_summary_is_weekly_and_cheap(conn):
     assert summary["rolling"]["7d"]["equivalent_minutes"] == 110
 
 
+def test_activity_summary_classifies_in_memory_on_a_read_only_connection(conn):
+    _workout(conn, "2026-01-05T08:00:00+00:00", 30, mets=4.0)
+    _workout(conn, "2026-01-06T08:00:00+00:00", 40, mets=9.0)
+    conn.execute("PRAGMA query_only = ON")
+    summary = metrics.activity_summary(conn, weeks=4, as_of="2026-01-10")
+    assert summary["rolling"]["7d"]["equivalent_minutes"] == 110
+
+
 def test_dashboard_card_averages_the_last_four_equivalent_weeks():
     summary = {"weeks": [
         {"workouts": 1, "equivalent_minutes": 999.0},
