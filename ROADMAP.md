@@ -103,6 +103,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | v1.7.1 | longevity correctness, privacy and integration (§4.36): execution allowlist, tail exclusion, elapsed-time integration, above-band state, cache invalidation, canonical web panel, VO₂max provenance and remote-narration consent | **released 2026-11-18** |
 | — | training-day session fragments | **done 2026-11-01** (see §4.27) |
 | — | post-workout form assessment | **done 2026-10-25** |
+| — | resolver prescription structure and programme context (WP0–WP9) | **deployed from `development` to production on 2026-11-21 (code `5a3c1df`); `main` not merged or tagged** |
 | future | LLM integration: read-only intelligence delivered; constrained proposer withdrawn | **read-only delivered; no write path (§4.24)** |
 
 **Rule:** cardio work does not enter v0.3; video is descoped. The strength model (§4.16) is
@@ -115,7 +116,9 @@ training intelligence workstream. Cardio depth moves to v1.6, and the deeper lab
 set is retired (`DEC-EVAL-09`). v1.6.0 shipped the cardio stage on 2026-11-18; the impulse was retired the same day
 (`DEC-LONGEVITY-03`) in favour of the longevity assessment, which shipped as v1.7.0 with the
 post-release readiness/cardio fixes. v1.7.1 corrected the longevity assessment's consent,
-intensity, time-in-zone, cache and presentation issues without a migration.
+intensity, time-in-zone, cache and presentation issues without a migration. The resolver
+structure WP0–WP9 was then deployed from the `development` branch on 2026-11-21; it is not a
+tagged version and `main` was not merged.
 
 ### What works end to end today
 
