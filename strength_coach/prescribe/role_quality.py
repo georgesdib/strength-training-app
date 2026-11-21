@@ -18,13 +18,17 @@ from dataclasses import dataclass
 from typing import Any
 
 from strength_coach.features import volume as volume_feature
-from strength_coach.prescribe import templates
+from strength_coach.prescribe import selection_tax, templates
 from strength_coach.prescribe.models import Prescription
 from strength_coach.store import queries
 from strength_coach.utils import exercises, paths, yaml_files
 
 CONFIG_NAME = "resolver-role-quality.v1.yaml"
-VERSION = "role-quality-v1"
+VERSION = "role-quality-v2"
+
+# Surfaced in the response snapshot. The existing data measures fatigue cost, not an
+# independent stimulus magnitude; the class compares cost at the slot's fixed dose.
+STIMULUS_COST_ONLY = "stimulus_to_fatigue_compares_cost_at_fixed_slot_dose"
 
 
 def config_digest() -> str:
@@ -32,6 +36,41 @@ def config_digest() -> str:
     return hashlib.sha256(
         paths.config_dir(CONFIG_NAME).read_bytes()
     ).hexdigest()
+
+
+@dataclass(frozen=True)
+class ClassScale:
+    """One ordinal class family and its neutral value.
+
+    `tolerance` is only meaningful for the volume scales; it uses the same 15% margin as the
+    previous usefulness band and never replaces the weekly volume-band gate.
+    """
+
+    classes: Mapping[str, int]
+    neutral: int = 2
+    tolerance: float = 0.0
+
+    def value(self, name: str) -> int:
+        return int(self.classes.get(name, self.neutral))
+
+
+def _scale(raw: Mapping[str, Any], key: str, *, tolerance: float = 0.0) -> ClassScale:
+    block = raw.get(key) or {}
+    classes = block.get("classes") or {}
+    neutral = block.get("missing", block.get("neutral", 2))
+    try:
+        neutral_value = int(neutral)
+    except (TypeError, ValueError):
+        neutral_value = 2
+    try:
+        configured_tolerance = float(block.get("tolerance", tolerance))
+    except (TypeError, ValueError):
+        configured_tolerance = tolerance
+    return ClassScale(
+        classes={str(name): int(value) for name, value in classes.items()},
+        neutral=neutral_value,
+        tolerance=configured_tolerance,
+    )
 
 
 @dataclass(frozen=True)
@@ -45,6 +84,13 @@ class RoleQualityConfig:
     suitability_positive: int
     suitability_unrated: int
     suitability_caution: int
+    complementarity: ClassScale
+    volume_usefulness: ClassScale
+    redundancy: ClassScale
+    coverage: ClassScale
+    productive_volume: ClassScale
+    tax: ClassScale
+    tax_mandatory_axes: Mapping[str, tuple[str, ...]]
 
     @classmethod
     def load(cls) -> RoleQualityConfig:
@@ -54,6 +100,7 @@ class RoleQualityConfig:
         exposure = raw.get("exposure") or {}
         age = exposure.get("e1rm_age_days") or {}
         suitability = raw.get("suitability") or {}
+        tax_axes = (raw.get("tax") or {}).get("mandatory_axes") or {}
         return cls(
             role_priority=tuple(raw.get("role_priority") or ("main", "secondary", "accessory")),
             criteria={
@@ -69,6 +116,16 @@ class RoleQualityConfig:
             suitability_positive=int(suitability.get("explicit_positive") or 3),
             suitability_unrated=int(suitability.get("unrated") or 2),
             suitability_caution=int(suitability.get("eligible_with_caution") or 1),
+            complementarity=_scale(raw, "complementarity"),
+            volume_usefulness=_scale(raw, "volume_usefulness"),
+            redundancy=_scale(raw, "redundancy"),
+            coverage=_scale(raw, "coverage"),
+            productive_volume=_scale(raw, "productive_volume"),
+            tax=_scale(raw, "tax"),
+            tax_mandatory_axes={
+                str(role): tuple(str(axis) for axis in (axes or ()))
+                for role, axes in tax_axes.items()
+            },
         )
 
 
@@ -124,7 +181,16 @@ def _previous_choices(conn, *, session_type: str, before_date: str) -> dict[int,
     return choices
 
 
-def _family(exercise_id: str) -> str | None:
+def _pattern(exercise_id: str | None, taxonomy: Mapping[str, Mapping[str, Any]]) -> str | None:
+    if not exercise_id:
+        return None
+    value = taxonomy.get(str(exercise_id), {}).get("pattern")
+    return str(value) if value else None
+
+
+def _family(exercise_id: str | None) -> str | None:
+    if not exercise_id:
+        return None
     from strength_coach.prescribe import summary
 
     for label, members in summary.LIFT_GROUPS:
@@ -174,46 +240,209 @@ def _suitability_class(exercise_id: str, suitability: Mapping[str, Mapping[str, 
     return config.suitability_caution
 
 
-def _group_after(panel: Mapping[str, Any], pattern: str | None) -> tuple[float, float]:
+def _group_after(
+    panel: Mapping[str, Any], pattern: str | None
+) -> tuple[float, float] | None:
+    """Return (after, target) for the pattern's ledger group, or None when unusable.
+
+    `None` is the neutral state: a missing pattern, a missing panel group or a group without
+    a positive target is not evidence of either a deficit or a surplus.
+    """
     if not pattern:
-        return 0.0, 0.0
+        return None
     groups = panel.get("groups") or {}
-    key = volume_feature.volume_target_key(pattern)
-    group = groups.get(key) or {}
-    return float(group.get("after") or 0.0), float(group.get("target") or 0.0)
+    group = groups.get(volume_feature.volume_target_key(pattern))
+    if not isinstance(group, Mapping):
+        return None
+    try:
+        target = float(group.get("target") or 0.0)
+        after = float(group.get("after") or 0.0)
+    except (TypeError, ValueError):
+        return None
+    if target <= 0.0:
+        return None
+    return after, target
 
 
-def _complementarity_class(item: Any, main_pattern: str | None, taxonomy: Mapping[str, Mapping[str, Any]], config: RoleQualityConfig) -> int:
-    pattern = taxonomy.get(str(item.exercise_id), {}).get("pattern")
-    if main_pattern is None:
-        return config.suitability_unrated
-    if pattern == main_pattern:
-        return 1
-    if _family(str(item.exercise_id)) is not None:
-        return 2
-    return 3
+def _volume_contribution_class(
+    after: float,
+    target: float,
+    contribution: int,
+    scale: ClassScale,
+) -> int:
+    """Classify a candidate's marginal volume against its own pattern target.
+
+    The weekly band remains a gate outside this module. Here the candidate's prescribed sets
+    are removed from the post-session group volume, so "fills a deficit" means the group was
+    below target before this candidate, not merely that the pattern exists. A candidate that
+    pushes the group materially past target is not rewarded as a deficit filler.
+    """
+    if target <= 0.0 or after <= 0.0 or contribution <= 0:
+        return scale.neutral
+    tolerance = max(0.0, scale.tolerance)
+    before = max(0.0, after - float(contribution))
+    if before >= target:
+        return scale.value("redundant")
+    if after <= target * (1.0 + tolerance):
+        return scale.value("fills_deficit")
+    return scale.value("within_target")
 
 
-def _volume_usefulness_class(after: float, target: float) -> int:
-    if target <= 0:
-        return 2
-    if after < target:
-        return 3
-    if after <= target * 1.15:
-        return 2
-    return 1
-
-
-def _coverage_class(
-    item: Any,
-    covered_patterns: set[str],
+def _complementarity_class(
+    exercise_id: str,
+    main_exercise_id: str | None,
+    main_pattern: str | None,
     taxonomy: Mapping[str, Mapping[str, Any]],
     config: RoleQualityConfig,
 ) -> int:
-    pattern = taxonomy.get(str(item.exercise_id), {}).get("pattern")
+    """Compare the candidate's pattern/family with the main lift actually selected.
+
+    Family membership is only useful relative to the main lift. The materialised volume key
+    (features.volume.volume_target_key) is the existing evidence that two named patterns train
+    the same ledger family; it keeps, for example, a split squat from counting as a complement
+    to a bilateral squat. Missing taxonomy is neutral.
+    """
+    scale = config.complementarity
+    pattern = _pattern(exercise_id, taxonomy)
+    if main_pattern is None or pattern is None:
+        return scale.neutral
+    if pattern == main_pattern:
+        return scale.value("same_pattern")
+    if volume_feature.volume_target_key(pattern) == volume_feature.volume_target_key(main_pattern):
+        return scale.value("same_pattern")
+    candidate_family = _family(exercise_id)
+    main_family = _family(main_exercise_id)
+    if candidate_family is not None and candidate_family == main_family:
+        return scale.value("same_family")
+    return scale.value("complementary")
+
+
+def _redundancy_class(
+    exercise_id: str,
+    other_exercises: tuple[str, ...],
+    taxonomy: Mapping[str, Mapping[str, Any]],
+    config: RoleQualityConfig,
+) -> int:
+    """Compare the candidate with the main and the other selected exercises.
+
+    The class is not a prescribed-set check: positive sets are not evidence of redundancy.
+    A duplicate pattern, materialised pattern key or lift family is redundant; sharing a
+    primary muscle without duplicating a pattern is a partial overlap; otherwise the
+    candidate contributes a complementary stimulus. Missing classification data is neutral.
+    """
+    scale = config.redundancy
+    pattern = _pattern(exercise_id, taxonomy)
+    family = _family(exercise_id)
+    if pattern is None and family is None:
+        return scale.neutral
+    candidate_muscles = {
+        str(muscle)
+        for muscle in (taxonomy.get(exercise_id, {}).get("primary_muscles") or ())
+    }
+    comparable = False
+    partial = False
+    duplicate = False
+    for other in other_exercises:
+        if other == exercise_id:
+            comparable = True
+            duplicate = True
+            break
+        other_pattern = _pattern(other, taxonomy)
+        other_family = _family(other)
+        if pattern is not None and other_pattern is not None:
+            comparable = True
+            if (
+                pattern == other_pattern
+                or volume_feature.volume_target_key(pattern)
+                == volume_feature.volume_target_key(other_pattern)
+            ):
+                duplicate = True
+                break
+        if family is not None and other_family is not None:
+            comparable = True
+            if family == other_family:
+                duplicate = True
+                break
+        other_muscles = {
+            str(muscle)
+            for muscle in (taxonomy.get(other, {}).get("primary_muscles") or ())
+        }
+        if candidate_muscles and other_muscles:
+            comparable = True
+            if candidate_muscles & other_muscles:
+                partial = True
+    if duplicate:
+        return scale.value("duplicate")
+    if not comparable:
+        return scale.neutral
+    if partial:
+        return scale.value("partial_overlap")
+    return scale.value("complementary")
+
+
+def _coverage_class(
+    exercise_id: str,
+    other_exercises: tuple[str, ...],
+    taxonomy: Mapping[str, Mapping[str, Any]],
+    config: RoleQualityConfig,
+) -> int:
+    """Classify whether the accessory's pattern is covered by the other selected work.
+
+    The candidate's own slot is already excluded by the caller, so an accessory cannot cover
+    itself. Missing taxonomy on the candidate is neutral, and missing taxonomy on every other
+    exercise cannot establish a new uncovered pattern.
+    """
+    scale = config.coverage
+    pattern = _pattern(exercise_id, taxonomy)
     if pattern is None:
-        return config.suitability_unrated
-    return 3 if pattern not in covered_patterns else 1
+        return scale.neutral
+    family = _family(exercise_id)
+    comparable = False
+    for other in other_exercises:
+        other_pattern = _pattern(other, taxonomy)
+        other_family = _family(other)
+        if other_pattern is not None or other_family is not None:
+            comparable = True
+        if other_pattern is not None and other_pattern == pattern:
+            return scale.value("covered")
+        if family is not None and other_family == family:
+            return scale.value("covered")
+    if not comparable:
+        return scale.neutral
+    return scale.value("uncovered")
+
+
+def _stimulus_to_fatigue_class(
+    exercise_id: str,
+    essential: bool,
+    tax_config: selection_tax.TaxConfig,
+    config: RoleQualityConfig,
+) -> int:
+    """Rank lower mandatory-axis tax above higher tax at the slot's fixed dose.
+
+    `config/selection-tax.v1.yaml` is an ordinal fatigue-cost assumption, not a stimulus
+    measurement. The slot supplies the intended dose, so this class is the cost side of the
+    ratio; it does not invent a stimulus magnitude. Missing or incomplete tax data is neutral,
+    and the mandatory axes remain role-specific (accessory: axial and skill).
+    """
+    scale = config.tax
+    tax = tax_config.for_exercise(exercise_id)
+    if tax is None:
+        return scale.neutral
+    axes = config.tax_mandatory_axes.get(
+        "essential" if essential else "accessory", ()
+    )
+    if not axes:
+        return scale.neutral
+    values = [getattr(tax, axis, None) for axis in axes]
+    if any(value is None for value in values):
+        return scale.neutral
+    worst = max(int(value) for value in values)
+    if worst <= 1:
+        return scale.value("low")
+    if worst == 2:
+        return scale.value("moderate")
+    return scale.value("high")
 
 
 @dataclass(frozen=True)
@@ -245,29 +474,24 @@ def snapshot(
     config = RoleQualityConfig.load()
     taxonomy = exercises.taxonomy().entities
     suitability = queries.exercise_suitability(conn)
+    tax_config = selection_tax.TaxConfig.load()
     panel = prescription.notes.get("volume_panel") or {}
     previous = _previous_choices(conn, session_type=base.session_type, before_date=for_date)
     main_slot = _main_slot(base)
     items = {item.order_index: item for item in prescription.items}
-    slots_by_item = {
-        slot.id: assignment.get(slot.id) for slot in base.slots
-    }
-    main_exercise = slots_by_item.get(main_slot.id) if main_slot is not None else None
-    main_pattern = taxonomy.get(str(main_exercise), {}).get("pattern") if main_exercise else None
-    covered_patterns = {
-        str(taxonomy.get(str(exercise_id), {}).get("pattern"))
-        for slot_id, exercise_id in slots_by_item.items()
-        if exercise_id and slot_id != (main_slot.id if main_slot else None)
-    }
+    selected_by_slot = {slot.id: assignment.get(slot.id) for slot in base.slots}
+    roles_by_slot = {slot.id: _slot_role(slot, main_slot) for slot in base.slots}
+    main_exercise = selected_by_slot.get(main_slot.id) if main_slot is not None else None
+    main_pattern = _pattern(main_exercise, taxonomy)
     roles: dict[str, list[dict[str, Any]]] = {
         "main": [], "secondary": [], "accessory": []
     }
     limitations: set[str] = set()
     for position, slot in enumerate(base.slots):
-        role = _slot_role(slot, main_slot)
+        role = roles_by_slot[slot.id]
         if role == "power":
             continue
-        exercise_id = assignment.get(slot.id)
+        exercise_id = selected_by_slot.get(slot.id)
         if exercise_id is None:
             continue
         item = items.get(position)
@@ -275,6 +499,16 @@ def snapshot(
             limitations.add("missing_item")
             continue
         previous_id = previous.get(position)
+        # The candidate's own slot is excluded, so an accessory cannot cover itself and a
+        # secondary is never compared with itself. Power work is fixed by its quality stop and
+        # is not part of the quality hierarchy.
+        other_exercises = tuple(
+            other_id
+            for other in base.slots
+            if other.id != slot.id
+            and roles_by_slot[other.id] != "power"
+            and (other_id := selected_by_slot.get(other.id)) is not None
+        )
         if role == "main":
             classes = {
                 "specificity": _specificity_class(exercise_id, previous_id, taxonomy, config),
@@ -282,18 +516,48 @@ def snapshot(
                 "suitability": _suitability_class(exercise_id, suitability, config),
             }
         elif role == "secondary":
-            after, target = _group_after(panel, taxonomy.get(exercise_id, {}).get("pattern"))
+            pattern = _pattern(exercise_id, taxonomy)
+            group = _group_after(panel, pattern)
+            after, target = group if group is not None else (0.0, 0.0)
+            volume_class = (
+                _volume_contribution_class(
+                    after, target, int(getattr(item, "sets", 0) or 0),
+                    config.volume_usefulness,
+                )
+                if group is not None
+                else config.volume_usefulness.neutral
+            )
             classes = {
-                "complementarity": _complementarity_class(item, main_pattern, taxonomy, config),
-                "volume_usefulness": _volume_usefulness_class(after, target),
-                "redundancy": 2 if int(getattr(item, "sets", 0) or 0) > 0 else 1,
+                "complementarity": _complementarity_class(
+                    exercise_id, main_exercise, main_pattern, taxonomy, config
+                ),
+                "volume_usefulness": volume_class,
+                "redundancy": _redundancy_class(
+                    exercise_id, other_exercises, taxonomy, config
+                ),
             }
         else:
+            pattern = _pattern(exercise_id, taxonomy)
+            group = _group_after(panel, pattern)
+            after, target = group if group is not None else (0.0, 0.0)
+            volume_class = (
+                _volume_contribution_class(
+                    after, target, int(getattr(item, "sets", 0) or 0),
+                    config.productive_volume,
+                )
+                if group is not None
+                else config.productive_volume.neutral
+            )
             classes = {
-                "coverage": _coverage_class(item, covered_patterns, taxonomy, config),
-                "productive_volume": 2 if int(getattr(item, "sets", 0) or 0) > 0 else 1,
-                "stimulus_to_fatigue": 2,
+                "coverage": _coverage_class(
+                    exercise_id, other_exercises, taxonomy, config
+                ),
+                "productive_volume": volume_class,
+                "stimulus_to_fatigue": _stimulus_to_fatigue_class(
+                    exercise_id, slot.essential, tax_config, config
+                ),
             }
+            limitations.add(STIMULUS_COST_ONLY)
         roles[role].append({
             "slot_id": slot.id,
             "exercise_id": exercise_id,
@@ -304,14 +568,15 @@ def snapshot(
     vector: list[Any] = [int(band_penalty), int(intent_penalty)]
     for role in config.role_priority:
         entries = roles.get(role, [])
+        criteria = config.criteria.get(role, ())
         if not entries:
-            vector.extend((0, 0, 0))
+            vector.extend(0 for _ in criteria)
             continue
         for entry in entries:
-            vector.extend(-int(value) for value in entry["classes"].values())
+            ordered = criteria or tuple(entry["classes"])
+            vector.extend(-int(entry["classes"].get(name, 0)) for name in ordered)
     return RoleQualitySnapshot(
         roles={role: tuple(values) for role, values in roles.items()},
         vector=tuple(vector),
         limitations=tuple(sorted(limitations)),
     )
-

@@ -417,7 +417,20 @@ python tools/resolver_benchmark.py --db /path/to/copied/coach.db --runs 5 --fore
 ```
 
 The tool copies the database to a temporary directory, enables the resolver on the copy, and
-prints min/p50/max plus the prescribed items. Report the machine with the result.
+prints cold start, min/p50/p95/max, finalist evaluations, prescription builds, candidate count and
+beam truncation plus the prescribed items. Report the machine with the result.
+
+The same harness has a synthetic fixed-history mode, so the corrected WP6 path and the same
+builds with the role-quality snapshot disabled can be compared on identical inputs:
+
+```text
+python tools/resolver_benchmark.py --synthetic --case secondary_complementarity --runs 10
+python tools/resolver_benchmark.py --synthetic --case straight --runs 10
+```
+
+It writes JSON, including the environment, the fixture's candidate pools, cold start and
+steady-state percentiles. Laptop seconds are not ODROID seconds; the ODROID-C4 measurement is
+pending until the command is run there.
 
 ### 11.8 Rejected
 
@@ -428,3 +441,26 @@ prints min/p50/max plus the prescribed items. Report the machine with the result
 2. **Caching the parsed rule document.** Already implemented in `rules/loader.load_document`
    (content-hash keyed); nothing to add.
 3. **Multiprocessing.** §6 still stands: one CPU-heavy build at a time, no process backend.
+
+### 11.9 WP6 role-quality closeout (2026-11-21)
+
+The WP6 corrective closeout changed the role-quality class computation, not the beam, candidate
+cap or evaluation budget. The reproducible comparison is the synthetic
+`secondary_complementarity` case (a full main + secondary + accessory fixture with two
+finalists): the corrected path and the same builds with `role_quality.snapshot` disabled report
+the same finalist evaluations and prescription builds, so the delta is the snapshot cost rather
+than a search-width change.
+
+Measured 2026-11-21 on the MacBook (macOS-27.2.1 arm64, Python 3.15.2, 8 CPUs), one cold build
+then 20 steady-state runs, single process, no CPU pinning:
+
+| Host | Case | Corrected p50 / p95 | Same builds, role-quality snapshot disabled | Finalists / builds |
+|---|---|---|---|---|
+| MacBook | `secondary_complementarity` | 0.230 / 0.260 s | 0.197 / 0.235 s | 2 / 2 |
+| MacBook | `straight` (10 runs) | 0.111 / 0.189 s | 0.061 / 0.087 s | 2 / 2 |
+| ODROID-C4 | `secondary_complementarity` | pending | pending | 2 / 2 (fixture) |
+
+These are development-machine measurements, not deployment guarantees. The ODROID-C4
+measurement remains pending; the historical two-finalist row of 1.21/1.24 s recorded during the
+original WP6 work is not reproduced by a checked-in p95 benchmark and is not a current
+guarantee.

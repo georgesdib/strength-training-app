@@ -1,8 +1,7 @@
-"""WP0 checks for the role-quality configuration and synthetic fixtures.
+"""WP0/WP6 checks for the role-quality configuration and synthetic fixtures.
 
-These tests do not exercise the evaluator: the configuration is unwired until WP6.
-They keep the approved class values and the fixture shapes from drifting before the
-implementation that consumes them exists.
+These tests keep the approved class values, the wired WP6 criteria and the fixture shapes
+from drifting.
 """
 
 from __future__ import annotations
@@ -28,6 +27,12 @@ def test_role_quality_config_records_the_wp0_decisions() -> None:
     assert raw["criteria"]["main"] == [
         "specificity", "exposure", "suitability",
     ]
+    assert raw["criteria"]["secondary"] == [
+        "complementarity", "volume_usefulness", "redundancy",
+    ]
+    assert raw["criteria"]["accessory"] == [
+        "coverage", "productive_volume", "stimulus_to_fatigue",
+    ]
     assert "continuity" not in raw
     assert raw["specificity"]["classes"] == {
         "same_lift": 3,
@@ -40,6 +45,44 @@ def test_role_quality_config_records_the_wp0_decisions() -> None:
     assert raw["suitability"]["unrated"] == 2
     assert raw["tax"]["mandatory_axes"]["accessory"] == ["axial", "skill"]
     assert raw["programme_header"]["method"] == "strength_coach.features.programme.header"
+
+
+def test_role_quality_config_documents_the_wired_criteria() -> None:
+    raw = yaml.safe_load(CONFIG.read_text(encoding="utf-8"))
+    text = CONFIG.read_text(encoding="utf-8")
+    assert "unwired" not in text
+    assert "WP6 wires it" not in text
+
+    assert raw["complementarity"]["classes"] == {
+        "same_pattern": 1,
+        "same_family": 1,
+        "complementary": 3,
+    }
+    assert raw["complementarity"]["missing"] == 2
+    assert raw["complementarity"]["key_source"] == (
+        "strength_coach.features.volume.volume_target_key"
+    )
+
+    for name in ("volume_usefulness", "productive_volume"):
+        assert raw[name]["tolerance"] == 0.15
+        assert raw[name]["classes"] == {
+            "fills_deficit": 3,
+            "within_target": 2,
+            "redundant": 1,
+        }
+        assert raw[name]["missing"] == 2
+
+    assert raw["redundancy"]["classes"] == {
+        "duplicate": 1,
+        "partial_overlap": 2,
+        "complementary": 3,
+    }
+    assert raw["redundancy"]["missing"] == 2
+    assert raw["coverage"]["classes"] == {"uncovered": 3, "covered": 1}
+    assert raw["coverage"]["missing"] == 2
+    assert raw["tax"]["classes"] == {"low": 3, "moderate": 2, "high": 1}
+    assert raw["tax"]["missing"] == 2
+    assert raw["tax"]["stimulus"] == "slot_dose"
 
 
 def test_legacy_fixture_keeps_roles_and_group_sum() -> None:

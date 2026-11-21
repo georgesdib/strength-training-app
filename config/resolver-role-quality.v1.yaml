@@ -1,8 +1,8 @@
-# Role-quality evaluator configuration — WP0 decisions, unwired.
+# Role-quality evaluator configuration — WP6, shipped.
 #
 # This file records the owner-approved class values for the resolver's role-specific
-# quality level (DEC-RESOLVER-19, DEC-RESOLVER-21). Nothing loads it yet: WP6 wires it,
-# and a change here does not alter a prescription before that.
+# quality level (DEC-RESOLVER-19, DEC-RESOLVER-21) and is wired into the WP6 snapshot.
+# A change here moves the resolver fingerprint and the A/B diagnostic.
 #
 # The classes are ordinal, not weights. Within a role the criteria are compared in the
 # order listed in `criteria`; across roles, `role_priority` decides first. Missing data
@@ -38,6 +38,82 @@ specificity:
     same_pattern: 1
     other_permitted_pattern: 0
 
+complementarity:
+  # Relative to the main lift selected for this assignment, never "is any family known".
+  # The materialised volume key (features.volume.volume_target_key) supplies the existing
+  # relationship between named patterns; LIFT_GROUPS supplies the display family. A candidate
+  # that shares the main lift's pattern, ledger key or family is redundant, not complementary.
+  family_source: strength_coach.prescribe.summary.LIFT_GROUPS
+  pattern_source: taxonomy.pattern
+  key_source: strength_coach.features.volume.volume_target_key
+  classes:
+    same_pattern: 1
+    same_family: 1
+    complementary: 3
+  missing: 2
+
+volume_usefulness:
+  # Assessed against the candidate's own movement-pattern volume target, after removing the
+  # candidate's prescribed sets. A pattern already at target without this candidate is
+  # redundant; a genuine deficit is useful only while the result stays within tolerance.
+  # The weekly volume band remains a separate gate and is not re-scored here.
+  tolerance: 0.15
+  classes:
+    fills_deficit: 3
+    within_target: 2
+    redundant: 1
+  missing: 2
+
+redundancy:
+  # Compared with the main lift and the other selected exercises, excluding the candidate's
+  # own slot. Pattern, ledger key and lift family are duplicates; a shared primary muscle
+  # without a duplicate pattern is a partial overlap. Prescribed set count is not a signal.
+  classes:
+    duplicate: 1
+    partial_overlap: 2
+    complementary: 3
+  missing: 2
+
+coverage:
+  # Accessories only: the candidate's own slot is excluded from the coverage set, so an
+  # exercise cannot cover itself. Missing taxonomy is neutral and is never counted as a new
+  # uncovered pattern.
+  classes:
+    uncovered: 3
+    covered: 1
+  missing: 2
+
+productive_volume:
+  # Accessories only. Same existing volume target and tolerance as volume_usefulness; no
+  # per-muscle target and no second volume model.
+  tolerance: 0.15
+  classes:
+    fills_deficit: 3
+    within_target: 2
+    redundant: 1
+  missing: 2
+
+tax:
+  # Ordinal fatigue-cost metadata. `lower_is_better` follows DEC-RESOLVER-21; the slot's
+  # fixed dose is the stimulus, so this class does not invent a stimulus magnitude.
+  source: config/selection-tax.v1.yaml
+  lower_is_better: true
+  mandatory_axes:
+    essential:
+      - axial
+      - systemic
+      - skill
+    accessory:
+      - axial
+      - skill
+  classes:
+    low: 3
+    moderate: 2
+    high: 1
+  missing: 2
+  stimulus: slot_dose
+  rom: reported_not_ranked
+
 # Repetition and variation are owned by the dwell model (resolver.dwell.*), not by role
 # quality: the cap, the deterministic exploration draw and the bounded factor order the pool
 # before the beam. Role quality does not score dwell counts or last used (D20, DEC-RESOLVER-22).
@@ -62,20 +138,6 @@ suitability:
     - will_do
     - feels_bad
     - pattern
-
-tax:
-  source: config/selection-tax.v1.yaml
-  lower_is_better: true
-  mandatory_axes:
-    essential:
-      - axial
-      - systemic
-      - skill
-    accessory:
-      - axial
-      - skill
-  missing: neutral
-  rom: reported_not_ranked
 
 programme_header:
   # One fact method for the envelope; the helpers are internal inputs.

@@ -88,7 +88,9 @@ If u < resolver.dwell.probability, the slot's last choice is demoted to the end 
 class. It is retained as a fallback, not removed. The last choice is the most recent working date
 for an exercise in clean_set, so a shaped template that renumbers slots keeps the same key.
 
-Precedence in the pool is: structural pattern, factor within pattern, draw, catalogue order.
+Precedence in the pool is: structural pattern, factor within pattern, draw demotion within the
+class, catalogue order. Required-pattern coverage is not a pool sort key; it is enforced by the
+beam's structural reserve before truncation.
 
 ## 5. Beam search
 
@@ -131,19 +133,56 @@ values, plus the flattened vector and limitations. It is not a training target.
 
 ### 6.1 Role classes
 
-Main: specificity (same lift 3, same family 2, same pattern 1, other permitted pattern 0;
-missing neutral 2), exposure (intensity at or above 0.80 with full e1RM quality/age 2, partial
-1, missing 1, below band 0), suitability (explicit positive 3, unrated 2, caution 1).
+Every class is ordinal and higher is better. Missing data returns the configured neutral value;
+it is never treated as evidence of a deficit, a surplus or a complement. The configured class
+values and criterion order are in `config/resolver-role-quality.v1.yaml`; the snapshot version is
+`role-quality-v2`.
 
-Secondary: complementarity with the main pattern (different pattern 3, same family 2, same
-pattern 1), volume usefulness (below target 3, within 2, over 1), and a redundancy class
-(2 for a productive item, 1 otherwise).
+**Main**
 
-Accessory: coverage of a pattern not already covered (3 if uncovered, 1 if covered), productive
-volume (2 for a positive set count, 1 otherwise), and stimulus-to-fatigue (2 neutral default;
-missing data is not guessed).
+- specificity: same lift 3, same `summary.LIFT_GROUPS` family 2, same taxonomy pattern 1,
+  another permitted pattern 0; unknown previous choice 2.
+- exposure: intensity at or above 0.80 with full e1RM quality/age 2, partial 1, missing 1,
+  below the heavy band 0. This is a band check, not a point estimate.
+- suitability: explicit positive 3, unrated 2, eligible with caution 1. Injury, `can_do`,
+  `will_do`, `feels_bad` and pattern remain pass/fail filters, never points.
 
-The configuration is config/resolver-role-quality.v1.yaml. It is part of the input fingerprint.
+**Secondary**
+
+- complementarity is relative to the main lift actually selected, not "is any family known".
+  A candidate that shares the main lift's pattern, materialised volume key
+  (`features.volume.volume_target_key`) or `LIFT_GROUPS` family is redundant
+  (same pattern 1, same family 1). A different permitted pattern is complementary 3. Missing
+  candidate or main pattern is neutral 2.
+- volume usefulness uses the candidate's own movement-pattern ledger group. The candidate's
+  prescribed sets are removed from the post-session group volume, so a genuine deficit
+  (group below target before this candidate, result within the 15% tolerance) is 3; a pattern
+  already at target before the candidate is redundant 1; a deficit filled past the tolerance is
+  2. Missing or unusable volume information is neutral 2. The weekly volume band remains a
+  separate gate and is not re-scored here.
+- redundancy is relative to the main lift and the other selected non-power exercises, excluding
+  the candidate's own slot. A duplicate pattern, materialised pattern key or lift family is 1;
+  a shared primary muscle without a duplicate pattern is a partial overlap 2; a different
+  pattern and no shared primary muscle is complementary 3. Prescribed set count and
+  "compound" status are not signals. Missing classification data is neutral 2.
+
+**Accessory**
+
+- coverage excludes the candidate's own slot. A pattern or family already supplied by the main
+  lift or another selected exercise is covered 1; an otherwise uncovered pattern is 3. Missing
+  candidate taxonomy is neutral 2, and missing taxonomy on every other exercise cannot establish
+  a new uncovered pattern. Multiple accessories each see the other selected accessories, so the
+  rule is symmetric and slot-order independent.
+- productive volume uses the same deficit/target/tolerance rule as volume usefulness. It is not
+  a positive-set-count check and does not reward volume materially beyond target.
+- stimulus-to-fatigue compares the mandatory tax axes from `config/selection-tax.v1.yaml`
+  (accessory: axial and skill; essential: axial, systemic and skill). Low cost 3, moderate 2,
+  high 1; missing tax is neutral 2. The existing tax data measures ordinal fatigue cost, not an
+  independent stimulus magnitude, so the slot's fixed dose is treated as the stimulus. The
+  snapshot records the limitation `stimulus_to_fatigue_compares_cost_at_fixed_slot_dose`.
+  This criterion never outranks feasibility, intent, the volume band or the main/secondary
+  hierarchy.
+
 
 ## 7. Loads and Epley inversion
 
@@ -307,7 +346,10 @@ dual logging is not supported: one owner_device_id per session.
 | Dwell | features/dwell.py | factor, rotation_value, counts, record_completion |
 | Beam | prescribe/beam.py | search, BeamConfig, BeamResult |
 | Evaluator | prescribe/evaluator.py | evaluate_assignment, score_components, _components |
-| Role quality | prescribe/role_quality.py | snapshot, RoleQualityConfig |
+| Role quality | prescribe/role_quality.py | snapshot, RoleQualityConfig, ClassScale |
+| Tax input | prescribe/selection_tax.py | TaxConfig, Tax, lower_tax |
+| Fixed-history A/B | prescribe/evaluator_ab.py | _run_case, CASES, _markdown |
+| Resolver benchmark | tools/resolver_benchmark.py | _synthetic_measure, _timed, _percentile |
 | Top set | prescribe/top_set.py | plan_for_item, resolved_top_set_rir |
 | Loads | prescribe/loads.py, domain/e1rm.py | solve_load, round_down, epley_rir_adjusted, load_for_reps |
 | Warm-up | prescribe/warmup.py | for_item |
@@ -373,6 +415,50 @@ Working loads: 180, 160, 160, 160. Gap = 20 kg = 8 increments of 2.5. First RIR 
 first reps 4 <= rest reps 5. Result: top_set_like_plus_back_off, high confidence, segments
 top_set_like_effort + back_off_sequence. No raw set or training metric changes.
 
+### 15.8 Secondary comparison: complementarity and redundancy
+
+Main `ssb_squat` (pattern `squat`, volume key `squat`). Support candidates:
+
+- `bench_press` (`horizontal_push`): different pattern -> complementarity 3.
+- `split_squat` (`squat_unilateral`, volume key `squat`): same materialised pattern ->
+  complementarity 1.
+
+Complementarity is evaluated before volume and redundancy, so `bench_press` wins. This is the
+unchanged `secondary_complementarity` A/B row.
+
+For redundancy, use a main `ssb_squat`, a selected accessory `bench_press_narrow`
+(`horizontal_push`), and support candidates `bench_press` and `dumbbell_row`:
+
+- `bench_press` duplicates the accessory's pattern -> redundancy 1.
+- `dumbbell_row` (`horizontal_pull`) adds a different pattern and shares no primary muscle with
+  the main or accessory -> redundancy 3.
+
+Both have complementarity 3, so redundancy decides. This is the `secondary_redundancy` A/B row.
+Tests: `tests/test_role_quality.py::test_complementarity_is_relative_to_the_selected_main_lift`,
+`::test_redundancy_compares_selected_work_not_set_count` and
+`::test_redundancy_can_decide_between_equally_complementary_supports`.
+
+### 15.9 Accessory comparison: coverage and stimulus-to-fatigue
+
+Main `ssb_squat`, support `bench_press`. Accessory candidates:
+
+- `dumbbell_row` (`horizontal_pull`): no other selected exercise has that pattern -> coverage 3.
+- `bench_press_narrow` (`horizontal_push`): the support already covers the pattern -> coverage 1.
+
+Coverage is the first accessory criterion, so `dumbbell_row` wins even though the weekly
+horizontal-pull volume is already at target and its productive-volume class is lower. This is
+the `accessory_coverage` A/B row.
+
+For stimulus-to-fatigue, when coverage and productive volume tie, compare the mandatory tax
+axes. Accessory candidates `front_squat` (axial 2, skill 3 -> high cost 1) and
+`hanging_leg_raise` (axial 1, skill 1 -> low cost 3) have different patterns and neither is
+covered, so coverage ties at 3. The low-cost candidate wins. Missing tax (for example
+`lying_leg_curls`) stays neutral 2 and is never assumed to be cheaper. This is the
+`accessory_stimulus` A/B row. Tests:
+`tests/test_role_quality.py::test_coverage_excludes_the_candidate_itself`,
+`::test_accessory_coverage_can_decide_the_winner` and
+`::test_stimulus_to_fatigue_can_decide_between_equally_covering_accessories`.
+
 ## 16. Failure modes and diagnostics
 
 | Symptom | Meaning | Where |
@@ -400,7 +486,7 @@ message; use the stage and fields.
 | resolver.top_set.mode | off | top-set intent |
 | resolver.top_set.backoff_percent | 0.85 | back-off load |
 | resolver.top_set.fallback_above_rir | 2 | top-set RIR ceiling |
-| config/resolver-role-quality.v1.yaml | family/specificity/exposure/suitability classes | evaluator |
+| config/resolver-role-quality.v1.yaml | role criteria, class scales and neutral values | evaluator |
 | config/derived-structure.v1.yaml | load/RIR tolerances, gap, back-off count | analysis only |
 | config/volume.v1.yaml | targets, tolerance 0.10, band_min 1 | volume ledger |
 | config/minimum-session.v1.yaml | floors 2/1, 30 s per set | shaped sessions |
@@ -411,7 +497,7 @@ message; use the stage and fields.
 Run the narrowest relevant tests, then the full backend suite:
 
     cd strength-training-app
-    .venv/bin/python -m pytest tests/test_resolver_wiring.py tests/test_beam.py       tests/test_role_quality.py tests/test_evaluator_ab.py       tests/test_generator.py tests/test_dwell_ab.py -q
+    .venv/bin/python -m pytest tests/test_resolver_wiring.py tests/test_beam.py       tests/test_role_quality.py tests/test_evaluator_ab.py       tests/test_evaluator_ab_report.py tests/test_resolver_role_quality_config.py       tests/test_generator.py tests/test_dwell_ab.py -q
     .venv/bin/python -m pytest -q
     .venv/bin/ruff check strength_coach/prescribe tests
 
@@ -419,6 +505,16 @@ The synthetic A/B and dwell reports are reproducible with:
 
     .venv/bin/python -m strength_coach.prescribe.evaluator_ab
     .venv/bin/python -m strength_coach.prescribe.dwell_ab
+
+The resolver performance report is reproducible with:
+
+    .venv/bin/python tools/resolver_benchmark.py --synthetic       --case secondary_complementarity --runs 10
+    .venv/bin/python tools/resolver_benchmark.py --synthetic --case straight --runs 10
+
+It reports cold start, steady-state p50/p95, finalist evaluations, prescription builds,
+candidate count and beam truncation for the corrected path and for the same builds with the
+role-quality snapshot disabled. Laptop numbers are not ODROID numbers; the ODROID-C4
+measurement is pending until the command is run there.
 
 ## 19. Superseded and specialist documents
 
