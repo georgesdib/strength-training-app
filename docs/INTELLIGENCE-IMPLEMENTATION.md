@@ -1126,6 +1126,26 @@ limit enforced. The first retrieved chunk is clipped to the remaining context bu
 created with a restrictive umask and SQLite sidecars are protected. Status reports every configured
 source, including missing roots and dirty state.
 
+## 36. UI locate — "where in the UI" over the search index (2026-11-21)
+
+**Delivered.** `POST /api/intelligence/locate` and an **Ask the assistant** control in the search
+palette. The server resolves the query through `GET /api/search` first, then asks the configured
+model to phrase where the answer lives, using only those targets (plus optional retrieved project
+sources). The response carries the answer, a `verified` flag, the deterministic `results` and the
+source paths; the palette renders the results as the clickable part with the prose above them.
+
+**Grounding.** The model never produces a link. `verify()` rejects an answer that contains a link,
+names an arrow path whose segments are not among the supplied labels, or cites a document outside
+the results; a rejected answer is still shown, marked unverified, and accompanied by the results.
+
+**Policy.** One call per question, the existing daily budget and `RunTrace` (input hash, token
+count); the prompt and the answer are not stored. Search keeps working with no model configured;
+the endpoint returns 400 and the palette reports it.
+
+**Tests.** `tests/test_ui_locate.py`: known path accepted, invented place and link rejected,
+document allow-list, prompt grounding, endpoint round trip with the budget, validation and the
+disabled-model path.
+
 ## Related
 
 - **Architecture:** [ARCHITECTURE.md](ARCHITECTURE.md)

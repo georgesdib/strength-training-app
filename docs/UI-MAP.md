@@ -52,7 +52,10 @@ current destinations; they do not duplicate their forms or imply new data contra
 Global surfaces outside the six areas: the **Search** palette (`Ctrl/Cmd+K`, or the topbar
 **Search** button) over views, panels, profile settings and doc headings, and the **Docs** viewer
 in Administration. A search result activates the same deep links this map documents —
-`#view?panel=<id>` for a surface or field, `#docs?doc=...&anchor=...` for a document.
+`#view?panel=<id>` for a surface or field, `#docs?doc=...&anchor=...` for a document. The palette
+also offers **Ask the assistant**: the model phrases where a result lives, but the answer is
+marked unverified unless every place it names is one of the results, and the results stay the
+clickable authority.
 
 ## View map
 
@@ -155,6 +158,8 @@ in Administration. A search result activates the same deep links this map docume
   recorded here; the panel/link/Related contract still holds.
 - [x] 2026-11-21: `Ctrl/Cmd+K` search over the view/panel map, the settings registry and doc
   headings (`GET /api/search`); `tests/test_ui_search.py` keeps the index in step with the markup.
+- [x] 2026-11-21: the palette's **Ask the assistant** phrases an answer over those results only
+  (`POST /api/intelligence/locate`, `tests/test_ui_locate.py`); it cannot create a link.
 
 ## Related
 
