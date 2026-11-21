@@ -181,9 +181,9 @@ documents:
   nav: true
 - id: resolver-algorithm
   path: docs/RESOLVER-ALGORITHM.md
-  title: Resolver algorithm — step by step
-  description: 'the full exercise-selection algorithm: inputs, pools, eligibility, dwell cap, exploration
-    draw, score formulas, tie-breaks, repair, validation and failure modes'
+  title: Resolver algorithm — canonical reference
+  description: 'production pipeline from pools to beam and evaluator: dwell ordering, hierarchy, volume
+    band, top-set/warm-up formulas, fingerprint, code map and worked examples'
   category: methodology
   status: canonical
   audience: public

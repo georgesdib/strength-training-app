@@ -4,6 +4,7 @@
 probabilistic exploration (DEC-RESOLVER-15).
 **Code:** strength_coach/features/dwell.py, strength_coach/prescribe/generator.py.
 **Settings:** Settings -> Resolver and Settings profile (group Resolver).
+**Canonical pipeline:** [RESOLVER-ALGORITHM.md](RESOLVER-ALGORITHM.md).
 **Supersedes:** the deterministic seven-session rotation schedule of DEC-RESOLVER-02.
 
 **Resolver wiring status (2026-11-20, WP7a).** The cap, deterministic draw and bounded factor are

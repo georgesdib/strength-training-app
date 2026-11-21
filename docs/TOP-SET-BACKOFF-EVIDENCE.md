@@ -5,6 +5,7 @@
 `required`; the opt-in default and this review's conclusion are unchanged.  
 **Question:** Is a top set followed by back-off sets more effective than the current programme
 for strength, hypertrophy and longevity?  
+**Canonical pipeline:** [RESOLVER-ALGORITHM.md](RESOLVER-ALGORITHM.md).
 **Decision:** No default programme change. Keep the current straight-set prescription. The
 evidence is more supportive than an earlier version of this note implied, but it is still
 indirect and does not establish superiority over the current prescription. The structure exists

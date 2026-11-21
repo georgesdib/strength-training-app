@@ -1,7 +1,8 @@
 # Resolver — main lifts vs accessories
 
-**Status:** canonical implementation reference for the production resolver's joint search and
-for the distinction between main lifts, support lifts and accessories.
+**Status:** role-taxonomy and joint-search background for main lifts, support lifts and
+accessories. The canonical end-to-end production pipeline is
+[RESOLVER-ALGORITHM.md](RESOLVER-ALGORITHM.md).
 **Code:** `strength_coach/prescribe/resolver.py` (orchestration),
 `strength_coach/prescribe/generator.py` (eligibility and candidate pools),
 `strength_coach/prescribe/beam.py` (bounded search),
@@ -9,9 +10,9 @@ for the distinction between main lifts, support lifts and accessories.
 **Policy:** `config/template-resolver.v1.yaml`, `config/variants.v1.yaml`,
 `config/templates/session-types.v1.yaml`.
 **Settings:** Settings → Resolver and Settings profile (group Resolver).
-**Companion:** [RESOLVER-ALGORITHM.md](RESOLVER-ALGORITHM.md) documents the standalone generator's
-step-by-step ranking. This document explains the production joint resolver and what changes when
-a slot is a main lift, a support lift or an accessory.
+**Companion:** [RESOLVER-ALGORITHM.md](RESOLVER-ALGORITHM.md) is the canonical pipeline. This
+document explains the production joint resolver and what changes when a slot is a main lift, a
+support lift or an accessory.
 
 The resolver is a deterministic, policy-driven exercise selector. It does not choose the
 highest-scoring exercise independently for every slot. It builds eligible candidate pools,
@@ -519,8 +520,8 @@ Known limits:
 
 ## Related
 
-- **Algorithm:** [RESOLVER-ALGORITHM.md](RESOLVER-ALGORITHM.md) — the standalone generator's
-  full scoring and failure modes.
+- **Algorithm:** [RESOLVER-ALGORITHM.md](RESOLVER-ALGORITHM.md) — canonical production
+  pipeline, formulas and failure modes.
 - **Dwell model:** [DWELL-AND-ROTATION.md](DWELL-AND-ROTATION.md) — counters, factor,
   exploration probability and cap.
 - **Session templates:** [SESSION-TEMPLATES.md](SESSION-TEMPLATES.md) — slot fields and blueprint

@@ -1,393 +1,447 @@
-# Resolver algorithm — step by step
-
-**Status:** canonical implementation reference for resolver exercise selection.
-**Code:** strength_coach/prescribe/generator.py (entry point: generate).
-**Model:** [DWELL-AND-ROTATION.md](DWELL-AND-ROTATION.md) explains the exposure-based preference and probabilistic exploration.
-**Settings:** Settings -> Resolver and Settings profile (group Resolver).
-**Production path:** [RESOLVER-MAIN-LIFTS-VS-ACCESSORIES.md](RESOLVER-MAIN-LIFTS-VS-ACCESSORIES.md)
-documents the joint resolver used in production. This page documents the standalone generator
-(`generate()`) whose individual score and rotation draw are diagnostic; production uses
-`candidate_pools()` with the bounded beam and full prescription evaluator instead.
-
-The selector is best described as **exposure-based preference with probabilistic exploration**:
-the score carries a preference built from completed exposures, and a seeded draw occasionally
-explores an alternative. The dwell target is a cap, not a rotation schedule.
-
-This document walks the whole selection algorithm in the order the code runs it, with the
-formulas it uses. It selects exercises only: loads, reps, RIR, top sets and volume modifiers
-are the existing prescription engine's job and are not re-derived here.
-
-## 1. Scope and contract
-
-The resolver answers one question: **which eligible exercise fills each slot of one session
-type on one date?** It never invents an exercise, never changes the session type, and never
-writes to the store. It reads the policy, the template, the athlete's history and state, and
-returns a complete assignment plus the reasons, the runners-up and the provenance digests.
-
-Inputs:
-
-| Input | Source |
-|---|---|
-| for_date | caller |
-| session_type | caller (one of squat, hinge, bench_squat, bench_hinge) |
-| structural policy | config/template-resolver.v1.yaml, config/variants.v1.yaml |
-| session template | config/templates/session-types.v1.yaml |
-| scalar settings | effective-dated settings profile + registry defaults |
-| readiness, injury signal, recent stress | features |
-| suitability ratings | exercise_suitability (latest row per exercise) |
-| dwell counters | exercise_dwell_state (mutable cycle state) |
-| training history | rules context: clean_set up to the day before for_date |
-
-Outputs: a GeneratedSession with, per slot, the chosen exercise, its score, a human-readable
-reason list, up to five ranked alternatives and whether a rating is still pending; plus the
-template, warnings, suggestions and the policy/catalogue digests.
-
-Prescription structure is not resolver output. The engine owns loads, sets, warm-up ramps and
-the optional top-set/back-off structure; the resolver chooses exercises and scores complete
-built prescriptions. Structure reaches a client as an ordered `set_groups` list with no stored
-role, and the engine's build-time role is never serialized ([API.md](API.md#planned-set-groups),
-`DEC-RESOLVER-18`).
-
-## 2. The pipeline at a glance
-
-    1. load policy, template, catalogue, settings, context
-    2. compute readiness, injury, recent stress, suitability, dwell counters
-    3. build each slot's raw candidate pool (template + catalogue)
-    4. apply hard eligibility (patterns, vetoes, injury, suitability)
-    5. apply the dwell cap (count >= target is excluded, unless all are)
-    6. per slot: fixed power slot, or an exploration draw
-    7. per slot: score every remaining candidate
-    8. per slot: pick the highest score, break ties deterministically
-    9. repair any required movement pattern that the greedy pass missed
-    10. validate the projected weekly spinal cost
-    11. emit the assignment, reasons, alternatives and digests
-
-Steps 6-8 run slot by slot in template order, so a later slot sees the earlier slots'
-choices through the redundancy and coverage terms.
-
-## 3. Step 0 — load the world
-
-    policy   = ResolverPolicy.load()                       # structural YAML
-    settings = ResolverSettings.load(conn, for_date)       # profile + registry
-    template = SessionTemplate.load(session_type)
-    catalogue = load_candidate_catalogue(policy)           # variants.v1.yaml
-    taxonomy = exercises.taxonomy().entities
-
-The policy digest and the catalogue digest are computed now and returned with the session, so
-the exact inputs can be reconstructed later (DEC-RESOLVER-12).
-
-## 4. Step 1 — context, history and state
-
-    context    = RuleContext.from_store(conn, end=for_date, ...)
-    accounting = context.prior_to(for_date)                # strictly before the day
-    assessment = readiness_score.compute(conn, for_date)
-    injury     = injury_signal.compute(conn, for_date, ...)
-    stress     = recent_stress.compute(context.sets, for_date, ...)
-    suitability = queries.exercise_suitability(conn)       # latest rating per exercise
-    dwell_counts = dwell.counts(conn)                      # {exercise_id: count}
-
-Only work strictly before for_date is used for coverage; the day's own sets cannot influence
-the plan that produced them.
-
-## 5. Step 2 — candidate pools
-
-A slot has either one fixed exercise or a list of variants. The pool is the template's own
-list followed by the catalogue's additions, de-duplicated in order. A policy slot_pool
-replaces the catalogue for that slot (used by the hinge main lift).
-
-    def _candidate_ids(session_type, slot, policy, catalogue):
-        if slot.power:
-            return slot.exercises                  # fixed, never substituted
-        explicit = policy.slot_pools.get(session_type, {}).get(slot.id)
-        if explicit:
-            return tuple(explicit)
-        ids = list(slot.exercises)
-        ids.extend(catalogue.get(session_type, {}).get(slot.id, ()))
-        return tuple(dict.fromkeys(ids))
+# Resolver algorithm — canonical reference
 
-The pool is the search space. Nothing outside it can ever be prescribed by the resolver.
+**Status:** canonical production reference for exercise selection, prescription structure and
+the resolver's supporting analysis. WP9 closeout, 2026-11-21.
+**Code:** strength_coach/prescribe/resolver.py (production entry), generator.py (pools),
+beam.py (search), evaluator.py and role_quality.py (finalist hierarchy).
 
-## 6. Step 3 — hard eligibility
+This document describes what the production resolver actually runs. It replaces the earlier
+step-by-step description of the standalone generator, which remains only as a diagnostic test
+path. Where a specialist document has deeper evidence, it is linked rather than copied.
 
-Two filters run before any scoring:
+## 1. Scope and invariants
 
-    vetoes = constraints.evaluate(conn, all_candidates)     # constraints + injury links
-    auto, suggestions = classify(pool, permitted, vetoes, ...)
+The resolver answers one question: **which eligible exercise fills each slot of one session on
+one date, and does the built prescription survive the evaluator's hierarchy?** It never invents
+an exercise, changes the session type, or writes to the store.
 
-classify returns one of three states per candidate:
+Invariants:
 
-    excluded   : not in the slot's permitted patterns, or vetoed, or an active injury link,
-                 or can_do = 0, or (will_do = 0 / feels_bad = 1 with their block flags on)
-    suggestion : unrated under require_can_do, or will_do = 0 / feels_bad = 1 while blocking
-                 is on; shown for a rating but never auto-selected
-    auto       : everything else
+- Python is authoritative. No LLM computes selection, load, RIR, volume or fatigue.
+- Candidate pools are finite and explicit. Nothing outside the pool can be prescribed.
+- Hard feasibility precedes every soft comparison. There is no composite score.
+- The pre-build dwell layer owns repetition/variation; role quality does not re-score dwell.
+- The evaluator owns specificity, exposure, suitability, complementarity, coverage and
+  stimulus-to-fatigue. Each signal has one owner.
+- Missing data is neutral or unknown, never an optimistic guess.
+- Append-only history is read, never rewritten. Corrections become new records.
 
-The suitability rules (DEC-RESOLVER-02 / DEC-RESOLVER-09) are:
+Inputs: for_date, session_type, policy, template/catalogue, settings profile, readiness, injury
+signal, recent stress, suitability, dwell counters, history, and optional minimum-session /
+deload / top-set / VBT inputs.
 
-    rating is None          -> require_can_do ? (unrated_mode == "confirm" ? suggestion
-                                                                  : excluded) : auto
-    rating.can_do  == False -> excluded
-    rating.will_do == False -> will_do_blocks  ? suggestion : excluded
-    rating.feels_bad == True-> feels_bad_blocks? suggestion : excluded
-    otherwise               -> auto
+Outputs: a ResolvedPrescription with the chosen assignment, exact final prescription, candidate
+pools, beam diagnostics, evaluator snapshot, top-set block and input fingerprint.
 
-If a slot has no auto candidate but has unrated suggestions, those suggestions are carried
-into the preview as provisional candidates so the athlete can rate one (pending_rating stays
-true and Start remains gated). If a slot has no candidate at all, generation fails with a
-field-level error; there is no blueprint fallback that bypasses these rules.
+## 2. Production pipeline
 
-## 7. Step 4 — the dwell cap
+1. build_prescription dispatches to the resolver when Settings -> Resolver is enabled.
+2. resolver.build_resolved loads policy, template, catalogue, settings, context, History.
+3. generator.candidate_pools builds each slot's raw pool and applies hard eligibility.
+4. The dwell cap removes candidates at or above the target; if all are at the cap, the pool is
+   kept with a warning.
+5. The dwell order applies the bounded factor and the deterministic draw within each structural
+   pattern; catalogue order is the remaining tie-break.
+6. beam.search explores complete assignments. It keeps at most width = 4 partials, at most 6
+   candidates per slot, and fully evaluates at most 4 finalists.
+7. evaluator.evaluate_assignment builds each finalist through the normal prescription pipeline
+   with use_resolver=False and returns hard feasibility, components and the role-quality snapshot.
+8. The beam compares finalists by the lexicographic quality_key, then rank cost, then assignment.
+9. The winning prescription is final; it is not rebuilt. Structural violations and ownership are
+   checked again.
+10. The input fingerprint and generated-session snapshot are attached to the plan notes.
 
-The per-exercise counter c (completed exposures in the current cycle) caps automatic
-selection:
+## 3. Candidate pools and hard eligibility
 
-    if not slot.power:
-        kept = [x for x in auto if counts.get(x, 0) < target]
-        auto = kept if kept else auto          # all-over fallback keeps the pool
-        warn if the fallback fired
+A slot pool is the template's own list, followed by catalogue additions, de-duplicated in order.
+A policy slot_pool replaces the catalogue for that slot. Power slots use their fixed exercise.
 
-Normal completions wrap the counter to 0 at the target, so a candidate is rarely at the cap
-when a session is generated. The cap exists for a lowered target or an edited counter. If
-every candidate is over, the generator still has to produce a session, so it keeps the pool
-and warns.
+Hard exclusions happen before ranking:
 
-## 8. Step 5 — the fixed power slot
+- pattern not permitted for the slot;
+- constraint veto or active injury link;
+- can_do = 0;
+- will_do = 0 or feels_bad = 1 when their block flags are on;
+- unavailable/unrated exercise when the unrated mode excludes it.
 
-A power slot is prescribed by intent and quality, not chosen by score. Its fixed exercise must
-still pass eligibility; if it does not, generation fails rather than substituting:
+Suggestion-only candidates may appear in a preview but do not enter an automatic assignment.
 
-    if slot.power:
-        if default_state is not auto (or a suggestion for an unrated default):
-            raise GenerationError(...)
-        chosen = default_id
-        score  = 1.0
-        reasons = ("fixed power slot",)
+## 4. Dwell ordering (WP7a)
 
-## 9. Step 6 — the exploration draw
+The cap is unchanged: a candidate with done_count >= resolver.dwell.target is excluded. When
+every candidate is at the cap the pool is returned unchanged with a warning.
 
-Rotation is probabilistic and reproducible. The draw is a pure function of the date, session
-type and slot id:
+The bounded factor is:
 
-    key  = "\x1f".join((for_date, session_type, slot_id))
-    draw = int(sha256(key).hexdigest()[:16], 16) / 2**64       # in [0, 1)
+    f(c) = 1 - exp(-c / tau)
 
-    rotate = last_id is not None and draw < settings.dwell_probability
+with c = done_count, tau = resolver.dwell.tau (default 0.5). f(0) = 0 and f saturates below 1.
+The factor orders candidates only inside the same structural pattern. It never crosses a pattern,
+never overrides eligibility or the cap, and never becomes a final score.
 
-last_id is the exercise this slot used in the most recent earlier session of the same type,
-read from workout history (completed workouts first, prescription fallback, merged by date).
-If rotate fires and last_id is still auto-eligible, it is removed from the ranking for this
-session only, and the best alternative wins. If removing it leaves nothing, the full pool is
-ranked and a warning is recorded.
+The exploration draw is deterministic:
 
-Because the draw depends only on stable inputs, a preview and the prescription saved from it
-make the same decision; changing the probability can change the outcome, changing the date
-almost certainly will.
+    u = first 64 bits of SHA-256(date + separator + session_type + separator + slot_id)
+        divided by 2^64
 
-## 10. Step 7 — the score
+If u < resolver.dwell.probability, the slot's last choice is demoted to the end of its pattern
+class. It is retained as a fallback, not removed. The last choice is the most recent working date
+for an exercise in clean_set, so a shaped template that renumbers slots keeps the same key.
 
-Every remaining candidate is scored independently, then the slot takes the best. The score has
-five weighted components, a coverage bonus/penalty and a redundancy penalty:
+Precedence in the pool is: structural pattern, factor within pattern, draw, catalogue order.
 
-    weights = {readiness, fatigue, spinal, injury, dwell}      # from the profile
-    total   = sum(weights)
+## 5. Beam search
 
-    weighted = sum(weights[k] * value[k] for k in weights) / total
-    score    = clamp(weighted + coverage_factor * (coverage - 0.5) - redundancy)
+The beam is a bounded best-first search over complete assignments.
 
-with clamp(x) = max(0, min(1, x)). Defaults: readiness 0.30, fatigue 0.10, spinal 0.15,
-injury 0.15, dwell 0.10; the weights normalise over their own total, so adding the dwell
-weight redistributes the others rather than changing the scale.
+- width = 4 partial assignments;
+- max_candidates_per_slot = 6;
+- max_full_evaluations = 4.
 
-> **2026-11-19 target amendment (not yet implemented).** The score described in this section is
-> the fixed-path `generate()` score. The production resolver evaluator is replaced by the
-> role-aware hierarchy in the [resolver prescription structure
-> plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/RESOLVER-PRESCRIPTION-STRUCTURE.md):
-> feasibility, programme consistency with the volume band as a gate, role-specific quality for
-> main, secondary and accessory, volume distribution, recovery and tie-break. It is not a
-> composite and does not change the fixed path.
+Partial order cost is the sum of candidate ranks in the pool. Required-pattern candidates are
+reserved before truncation, so a pattern that only one candidate covers is not lost to position.
+An evaluated finalist records whether the search was exhaustive, pruned, candidate-capped or
+evaluation-budget-capped.
 
-### 10.1 Readiness R
+## 6. Evaluator hierarchy (WP6)
 
-The per-exercise readiness value in [0, 1] from the readiness score, capped by any
-exercise-specific ceiling. Unknown overall readiness is acknowledged explicitly by the caller;
-the selection value is then READINESS_MISSING = 1.0 (no readiness penalty) for every
-candidate, and a per-exercise ceiling still caps it. Readiness never raises a load here; it
-only ranks candidates.
+Hard feasibility is separate from the hierarchy:
 
-### 10.2 Fatigue F
+- executable;
+- no validation/constraint issues;
+- weekly spinal cap not exceeded;
+- exact assignment preserved;
+- session/template not replaced;
+- no structural required-pattern violation.
 
-Recent hard work for the candidate, from the decayed-set stress model:
+Finalist comparison is lexicographic:
 
-    F = 1 - decayed_sets / high_decayed_sets        # 48 h half-life, 10-day window
-    F = 1.0                                          if there is no entry
+1. Band gate: outside the adjusted weekly volume band ranks below every inside-band finalist.
+2. Non-negotiable intent: an unsatisfied required top-set intent ranks below an applied one.
+3. Role-quality classes, main then secondary then accessory. Each role's criteria are compared
+   in the configured order. Missing data is neutral.
+4. Volume closeness inside the band: the symmetric volume error is the sum of per-group absolute
+   deviations divided by the sum of targets.
+5. Recovery/practicality: time over the planned target, then warnings.
+6. The old additive score is retained only as a transparent fallback in the key.
+7. Rank cost, then stable assignment order.
 
-STRESS_MISSING = 1.0 means "no record in the window" is treated as no recent fatigue, not as
-a neutral-worse 0.5. That choice is deliberate: scoring unknown below a small real exposure
-made a recently trained lift outrank an idle one.
+The role-quality snapshot is response-only. It records each role's slots, exercise and class
+values, plus the flattened vector and limitations. It is not a training target.
 
-### 10.3 Spinal S
+### 6.1 Role classes
 
-Projected whole-week spinal cost with this candidate in this slot, versus the cap:
+Main: specificity (same lift 3, same family 2, same pattern 1, other permitted pattern 0;
+missing neutral 2), exposure (intensity at or above 0.80 with full e1RM quality/age 2, partial
+1, missing 1, below band 0), suitability (explicit positive 3, unrated 2, caution 1).
 
-    S = clamp(1 - (current_week_cost + candidate_delta) / spinal_cap)
+Secondary: complementarity with the main pattern (different pattern 3, same family 2, same
+pattern 1), volume usefulness (below target 3, within 2, over 1), and a redundancy class
+(2 for a productive item, 1 otherwise).
 
-current_week_cost is the authoritative rule's cost for completed work before the day; the
-delta includes the already-selected slots, this candidate and the blueprint defaults for
-slots not yet chosen, aggregated per exercise so duplicate slots do not overwrite each other.
+Accessory: coverage of a pattern not already covered (3 if uncovered, 1 if covered), productive
+volume (2 for a positive set count, 1 otherwise), and stimulus-to-fatigue (2 neutral default;
+missing data is not guessed).
 
-### 10.4 Injury I
+The configuration is config/resolver-role-quality.v1.yaml. It is part of the input fingerprint.
 
-    I = 1.00   no active low-back review/monitoring link for the candidate
-    I = 0.85   low back in monitoring and the candidate is linked
-    I = 0.65   low back in review and the candidate is linked
+## 7. Loads and Epley inversion
 
-Active injury links are hard exclusions (step 3), not scores; the other regions are covered by
-the readiness ceiling, so this term does not double-count them (DEC-INJURY-04).
+The engine does not invent a load. For a working set:
 
-### 10.5 Dwell D
+    e1RM = load * (1 + (reps + RIR) / 30)
 
-    D = 1 - exp(-c / tau)          # c = counter, tau = resolver.dwell.tau
+The inverse is:
 
-D(0) = 0 (a lift that has never been done in this cycle is unattractive) and D approaches 1
-quickly (tau = 0.5 gives D(1) = 0.86, D(2) = 0.98). The term makes the current lift sticky
-without turning the counter into a hard pin.
+    load = e1RM / (1 + (reps + RIR) / 30)
 
-### 10.6 Coverage C
+The result is rounded down to the item's rounding increment:
 
-For every weekly volume target (low, high):
+    round_down(x, inc) = floor(x / inc) * inc
 
-    total = completed_sets + assigned_sets
-    under += max(0, low - total)
-    over  += max(0, total - high)
-    C = clamp(1 - (w_under * under + w_over * over)
-                  / max(1, sum(max(1, low) for each target)))
+This inverse is used by the top-set solver. A normal load is computed from the e1RM target and
+the prescribed reps/RIR; readiness, continuity, deload and back-flare modifiers act before this
+step.
 
-coverage_factor comes from resolver.coverage.priority: balanced 0.15, under_target 0.25,
-strict 0.35. The (C - 0.5) centring means a target-neutral session is not rewarded, and the
-factor decides how much pattern coverage can outweigh the other components.
+## 8. Prescription structure
 
-### 10.7 Redundancy P
+### 8.1 Straight sets
 
-    P = min(0.5, 0.1 * excess)
-    excess = sum(max(0, count(pattern) - max_per_pattern))
-           + sum(max(0, count(primary_muscle) - max_per_primary_muscle))
+No set_groups. The item carries sets, reps range, load, RIR target and rest. The client renders
+one planned row.
 
-This stops a session becoming five variations of one pattern or one primary muscle. The
-defaults (2 and 2) are policy, not evidence-derived optima.
+### 8.2 Top set plus back-offs
 
-## 11. Step 8 — pick and tie-break
+Eligibility requires a main lift, a usable load/e1RM, at least two sets, and no blocker
+(deload, taper, two-step readiness drop, flare, outside policy).
 
-    candidates.sort(key=rank_key)
-    chosen = candidates[0]
+The top-set RIR is selected by the main scheme and competition window, raised by one readiness
+step at most, and capped at resolver.top_set.fallback_above_rir.
 
-    rank_key(least_recent) = (-score, last_date, exercise_id)
-    rank_key(canonical)    = (-score, exercise_id)
-    rank_key(blueprint)    = (-score, candidates.index(exercise_id))
+    top_load = round_down(e1RM / (1 + (reps_low + top_rir) / 30), increment)
+    backoff_load = round_down(top_load * backoff_percent, increment)
 
-least_recent prefers the lift that has not been trained for longest (a missing entry sorts
-oldest), then the alphabetical id. canonical is purely alphabetical. blueprint uses the pool
-order. The tie-break is a setting (resolver.tie_break) so the same data always produces the
-same session.
+The back-off count is item.sets - 1 and must be at least one. The groups are:
 
-## 12. Step 9 — required-pattern repair
+    [top_set: 1 set at top_load, top_rir]
+    [back_off: sets-1 at backoff_load, item.rir_target]
 
-Every session type declares required movement patterns. After the greedy pass, the assigned
-patterns are checked with a small bipartite matching: each required pattern needs a distinct
-slot that can provide it.
+This is a set configuration, not extra volume. The groups are ordered and carry no stored role
+on the wire; group_index is the identity.
 
-    def patterns_assignable(required, patterns_by_slot):
-        # augmenting-path match, deterministic slot order
-        return all(assign(key, set()) for key in required)
+Status is applied, not_applicable, fallback or unsatisfied. blocked_by_design is not a failure;
+unexpected blockers are fallback under preferred and unsatisfied under required.
 
-If a pattern is missing, the repair pass tries accessory slots (never main or secondary) whose
-permitted patterns include the missing key, re-scores their candidates and swaps the best one
-in. It repeats up to 2 * slots + 1 times. If it cannot settle, generation fails; it does not
-silently ship an incomplete session.
+### 8.3 Warm-up ramps
 
-## 13. Step 10 — spinal validation
+Warm-ups use the heaviest planned group load, not the item summary load:
 
-The final assignment is projected into the weekly spinal cost again, this time with the
-authoritative rule:
+    50% x 5, 70% x 3, 85% x 1 (config defaults), rounded down
+    plus an empty-bar set when it is below the first rung and below the working load.
 
-    total = weekly_spinal_cost(rule, accounting, extras)
-    if total > cap + 1e-9:
-        raise GenerationError(...)
+Warm-ups are attached after the load-changing modifiers and are not part of working volume.
 
-The provisional score in step 7 uses the same rule to rank; this is the final safety check, so
-a ranking approximation cannot let an unsafe session through.
+### 8.4 RIR 6
 
-## 14. Step 11 — output and provenance
+RIR 6 is the warm-up sentinel unconditionally. It is never working volume, never matched to a
+planned working group and never part of derived working structure. A stored working flag that
+disagrees is only a data-quality note. Imports are never rejected for RIR 6.
 
-    GeneratedSession(
-        for_date, session_type, template, slots, pending_ratings, suggestions, warnings,
-        policy_digest, catalogue_digest,
-    )
+## 9. Volume ledger and band
 
-Each slot carries its exercise, pattern, score, reasons (including the dwell counter/target
-and any exploration draw), up to five alternatives and pending_rating. The reasons are the audit
-trail: a session can be explained without re-running the resolver.
+The weekly ledger uses hard working sets (or configured effective sets). For each managed
+pattern, after is completed plus this session's pattern sets. The target is the effective target
+for the date.
 
-## 15. Availability and preview
+The total band is:
 
-Two read-only friends of the generator use the same eligibility and dwell rules:
+    total_band = tolerance * total_target
+    low = total_target - total_band
+    high = total_target + total_band
 
-* available_session_types(conn, for_date) returns which of the four types have an eligible
-  candidate in every slot and can assign all required patterns to distinct slots. It never
-  scores; a suggestion-only slot does not count as available.
-* candidate_pools(conn, for_date, session_type) returns each slot's auto pool in template +
-  catalogue order, with the dwell cap applied and the suggestions listed separately. The
-  preview shows these pools; the joint evaluator may use their order as a deterministic
-  tie-break cost, but the pool itself is not a preference ordering.
+The per-pattern band is:
 
-## 16. Worked example
+    pattern_band = max(band_min, tolerance * pattern_target)
+    under  if value < target - pattern_band
+    within if target - band <= value <= target + band
+    over   if value > target + band
 
-Session squat, date 2026-11-19. Assume bench_press_narrow counter = 3, bench_press = 0,
-tau = 0.5, T = 7, dwell weight 0.10, and the other components equal except fatigue:
-narrow 0.88, bench_press 1.00 (no entry in the stress window). Weights normalise over 0.80:
+Default tolerance is 0.10 and band_min is 1 set. The engine prunes or tops up only within the
+configured allocation rules; the resolver never widens the band or the beam to manufacture a
+winner.
 
-    narrow:      0.375*0.50 + 0.125*0.88 + 0.1875*0.86 + 0.1875*1.00
-                 + 0.125*0.998 + 0.15*(1.00-0.50)
-               = 0.846
-    bench_press: 0.375*0.50 + 0.125*1.00 + 0.1875*0.86 + 0.1875*1.00
-                 + 0.125*0.000 + 0.15*(1.00-0.50)
-               = 0.736
+## 10. Minimum session and accessory-only
 
-narrow wins because it is in its cycle. After its 7th exposure the counter wraps to 0, narrow
-scores 0.721 and bench_press wins. An exploration draw below 0.10 would remove narrow for one
-session even while it is incumbent; if the replacement is not performed, its counter stays 0
-and the next session can return to narrow.
+The minimum-session shape runs before the resolver:
 
-## 17. Failure modes
+- retain the most important slots for the target minutes;
+- clamp main-lift sets to main_lift_floor_sets (default 2);
+- clamp accessories to accessory_floor_sets (default 1);
+- remove non-essential work before touching essentials;
+- never add a slot the resolver would then have to remove.
 
-| Failure | Cause | Behaviour |
+The time estimate is:
+
+    sum(sets * (set_seconds + rest_s)) + warmup_sets * warmup_set_seconds, divided by 60
+
+Defaults: 30 seconds per execution, 30 seconds per warm-up set. The result is a planning estimate,
+not a measured duration. Accessory-only has no main lift, no required main pattern, and top set
+is not_applicable by design.
+
+## 11. Fingerprint and generated snapshot
+
+prescription-input-v4 fingerprints the material inputs: date, session type, assignment, template
+and policy digests, catalogue digest, resolved settings, resolver settings, candidate pools,
+beam config, evaluator version and role-quality config digest.
+
+The generated_session snapshot carries:
+- assignment and slot specs;
+- template/policy/catalogue digests;
+- candidate pools and beam result;
+- evaluator snapshot (including quality);
+- top-set block;
+- pending ratings.
+
+The snapshot is response/audit data. It never changes a prescription.
+
+## 12. Actual data and derived structure (WP5)
+
+Adherence, VBT and derived structure share one order matcher. Planned groups are matched to
+performed sets by cumulative working order, not a stored role. A substitution is attributed by
+substitutes_plan_item_index and recorded as a changed slot; its quality uses the saved prefill
+when present and is unavailable otherwise. An addition is extra work.
+
+Derived structure is post-workout description only:
+
+    preparatory progression
+    heavy working exposure
+    top_set_like_plus_back_off
+    back_off_sequence
+    straight_working_sets
+    multiple_heavy_exposures
+    ambiguous / insufficient
+
+Thresholds are config/derived-structure.v1.yaml: load equality within one rounding increment, a
+top-set gap of at least two increments, at least two back-off sets, RIR tolerance one. Confidence
+is high with load/RIR/reps, medium with one missing, low with load only, unknown when evidence is
+insufficient. It never changes a raw set, working volume, e1RM, fatigue or policy.
+
+## 13. Execution layer (WP8)
+
+The resolver is not the execution layer. A plan is frozen at start. Substitutions and additions
+are append-only execution events. The phone is the only author of a substitution; the watch
+renders and logs it. A replacement is rejected once a set is attributed to the slot.
+
+The watch talks to the server directly. When that transport fails and the phone is reachable, the
+phone relays the same operation with the watch token and original operation id; the server still
+sees the watch as the execution device. This is a transport fallback, not a second writer. True
+dual logging is not supported: one owner_device_id per session.
+
+## 14. Code map
+
+| Stage | File | Functions |
 |---|---|---|
-| slot has no automatically eligible candidate | all vetoed, unrated with exclude, or all suggestions | GenerationError with the slot id; no fallback |
-| fixed power exercise is not eligible | injury/constraint/suitability on a fixed lift | GenerationError; power is never substituted |
-| required pattern cannot be assigned | pools cannot cover the patterns with distinct slots | GenerationError before scoring |
-| projected weekly spinal cost over the cap | final validation | GenerationError; the session is not emitted |
-| unknown session type | bad caller input | GenerationError |
+| Dispatch | prescribe/engine.py | build_prescription |
+| Resolver entry | prescribe/resolver.py | build_resolved, _build_resolved, prescription_input_fingerprint |
+| Pools | prescribe/generator.py | candidate_pools, _dwell_ordered_pool, _last_used, _apply_dwell_exclusion |
+| Dwell | features/dwell.py | factor, rotation_value, counts, record_completion |
+| Beam | prescribe/beam.py | search, BeamConfig, BeamResult |
+| Evaluator | prescribe/evaluator.py | evaluate_assignment, score_components, _components |
+| Role quality | prescribe/role_quality.py | snapshot, RoleQualityConfig |
+| Top set | prescribe/top_set.py | plan_for_item, resolved_top_set_rir |
+| Loads | prescribe/loads.py, domain/e1rm.py | solve_load, round_down, epley_rir_adjusted, load_for_reps |
+| Warm-up | prescribe/warmup.py | for_item |
+| Volume | prescribe/volume_budget.py, features/volume.py | week_panel, band, per_pattern_band |
+| Minimum session | prescribe/minimum_session.py | build_resolver_shape, estimate_minutes |
+| Adherence | adherence.py | analyse, _set_metrics |
+| Matching | features/set_matching.py | classify_set, group_for_ordinal |
+| Derived structure | features/derived_structure.py | derive, StructureConfig |
+| Gateway | StrengthCore/Execution/WatchRelayModels.swift, StrengthApp/Core/WatchPairing.swift | WatchRelayRequest, relay |
+| Watch transport | StrengthWatch/WatchSessionController.swift | send(_:) |
 
-## 18. Tuning map
+## 15. Worked examples
 
-| Setting | Default | Effect |
+### 15.1 Straight sets
+
+Plan: SSB squat 4 x 5 @ RIR 2, e1RM 140 kg, increment 2.5.
+Load = 140 / (1 + (5 + 2)/30) = 140 / 1.2333 = 113.5 -> 112.5 kg after round-down.
+No groups. The client shows one row. The evaluator checks executable load, no issues, spinal cap,
+volume band and recovery; role classes compare the main candidate's specificity/exposure/
+suitability.
+
+### 15.2 Top set plus back-offs
+
+Performed history: 180 x 4 @ RIR 1, then 160 x 5 @ RIR 3 three times.
+Forward e1RM from the top set = 180 * (1 + (4+1)/30) = 210 kg.
+Top set target: 4 reps @ RIR 1 -> 210 / (1 + 5/30) = 180 kg.
+Back-off at 85%, 2.5 kg increment: 180 * 0.85 = 153 -> 152.5 kg.
+Groups: top_set 1 x 4 @ 180 / RIR 1; back_off 3 x 5 @ 152.5 / RIR 2.
+The same sequence read back through WP5 is top_set_like_plus_back_off with high confidence.
+
+### 15.3 Deload
+
+The deload provider reduces the main-lift load and sets, adjusts the weekly band for the
+intentional reduction, and blocks top-set structure by design. The result is not a failed
+top set or a failed volume gate; it is not_applicable/inside the adjusted band.
+
+### 15.4 Competition taper
+
+Taper is a competition window, not a deload. Top-set structure is blocked by design, the load
+and set dose follow the taper policy, and the adjusted band is used. The report says
+blocked_by_design, not unsatisfied.
+
+### 15.5 Minimum session
+
+Target 30 minutes, accessory-only. The shape keeps only the accessory slots needed to cover the
+retained patterns, clamps each to at least one set, and passes those slots to the resolver. The
+time estimate uses 30 s execution plus rest per set, plus warm-up allowance. Top set is
+not_applicable. The volume gate is neutral because the shape deliberately undershoots the normal
+weekly target.
+
+### 15.6 Substitution
+
+The phone writes one execution event for a plan slot with the replacement exercise and a
+server-solved prefill. The performed set carries substitutes_plan_item_index. Adherence marks the
+slot as substituted, counts it as filled, and compares quality with the substitute prefill when
+present. The original lift's target is never used for the substitute. A late substitution is
+rejected once a set is attributed to the slot.
+
+### 15.7 Derived structure
+
+Rows: 180 x 4 @ RIR 1, 160 x 5 @ RIR 3, 160 x 5 @ RIR 3, 160 x 5 @ RIR 3.
+Working loads: 180, 160, 160, 160. Gap = 20 kg = 8 increments of 2.5. First RIR 1 < rest RIR 3;
+first reps 4 <= rest reps 5. Result: top_set_like_plus_back_off, high confidence, segments
+top_set_like_effort + back_off_sequence. No raw set or training metric changes.
+
+## 16. Failure modes and diagnostics
+
+| Symptom | Meaning | Where |
 |---|---|---|
-| resolver.dwell.target | 7 | Exposures per cycle before the counter wraps |
-| resolver.dwell.tau | 0.5 | Scale of the dwell factor; larger keeps the counter relevant longer |
-| resolver.dwell.probability | 0.10 | Chance a slot explores its best alternative instead of keeping its last choice |
-| resolver.weights.dwell | 0.10 | Weight of the dwell factor in the score |
-| resolver.weights.readiness / fatigue / spinal / injury | 0.30 / 0.10 / 0.15 / 0.15 | The other score weights |
-| resolver.coverage.priority | balanced | Coverage factor 0.15 / 0.25 / 0.35 |
-| resolver.tie_break | least_recent | Final ordering after the score |
+| no feasible assignment | hard feasibility failed, or beam pruned all | BeamResult / ResolverBuildError stage assignment_search |
+| prescription_evaluation | a finalist build raised | evaluator stage |
+| final_integrity | structural/ownership/fingerprint check failed | resolver final stage |
+| candidate_cap_applied | a slot had more than 6 candidates | BeamResult |
+| truncated | candidate or evaluation budget removed options | BeamResult |
+| band outside | posted session is outside adjusted volume band | volume panel |
+| top set fallback/unsatisfied | preferred/required structure could not be applied | top_set block |
+| role snapshot missing | test double or non-resolver path | evaluator quality |
 
-See [DWELL-AND-ROTATION.md](DWELL-AND-ROTATION.md) for the exposure-based preference and
-exploration model, and the shapes it rejected.
+Every resolver failure is structured with stage, message, cause and beam details. Do not parse a
+message; use the stage and fields.
+
+## 17. Settings and config map
+
+| Setting/config | Default | Owner |
+|---|---|---|
+| resolver.enabled | off | settings registry |
+| resolver.dwell.target | 7 | dwell cap |
+| resolver.dwell.tau | 0.5 | factor |
+| resolver.dwell.probability | 0.10 | draw |
+| resolver.top_set.mode | off | top-set intent |
+| resolver.top_set.backoff_percent | 0.85 | back-off load |
+| resolver.top_set.fallback_above_rir | 2 | top-set RIR ceiling |
+| config/resolver-role-quality.v1.yaml | family/specificity/exposure/suitability classes | evaluator |
+| config/derived-structure.v1.yaml | load/RIR tolerances, gap, back-off count | analysis only |
+| config/volume.v1.yaml | targets, tolerance 0.10, band_min 1 | volume ledger |
+| config/minimum-session.v1.yaml | floors 2/1, 30 s per set | shaped sessions |
+| beam width / cap / budget | 4 / 6 / 4 | beam |
+
+## 18. Verification
+
+Run the narrowest relevant tests, then the full backend suite:
+
+    cd strength-training-app
+    .venv/bin/python -m pytest tests/test_resolver_wiring.py tests/test_beam.py       tests/test_role_quality.py tests/test_evaluator_ab.py       tests/test_generator.py tests/test_dwell_ab.py -q
+    .venv/bin/python -m pytest -q
+    .venv/bin/ruff check strength_coach/prescribe tests
+
+The synthetic A/B and dwell reports are reproducible with:
+
+    .venv/bin/python -m strength_coach.prescribe.evaluator_ab
+    .venv/bin/python -m strength_coach.prescribe.dwell_ab
+
+## 19. Superseded and specialist documents
+
+This page is the canonical production reference. The following remain for deeper derivation or
+historical evidence:
+
+- DWELL-AND-ROTATION.md — dwell model, parameters and counter audit.
+- TOP-SET-BACKOFF-EVIDENCE.md — top-set rationale and evidence.
+- RESOLVER-MAIN-LIFTS-VS-ACCESSORIES.md — role taxonomy and main/support/accessory background.
+- docs/WATCH-GATEWAY.md — WP8 relay protocol and physical acceptance.
+- docs/plans/RESOLVER-PRESCRIPTION-STRUCTURE.md — the cross-repository plan and decision log.
+
+The earlier description of generate() as the production path is superseded. generate() remains a
+deterministic diagnostic path; production uses candidate_pools -> beam -> evaluator.
 
 ## Related
 
-- **Production joint resolver:** [RESOLVER-MAIN-LIFTS-VS-ACCESSORIES.md](RESOLVER-MAIN-LIFTS-VS-ACCESSORIES.md) — candidate pools, beam, evaluator and the main/accessory distinction.
-- **Dwell model:** [DWELL-AND-ROTATION.md](DWELL-AND-ROTATION.md) — counters, factor, probability, cap and reset.
-- **Generation pipeline:** [WORKOUT-GENERATION.md](WORKOUT-GENERATION.md) — how selection fits the wider prescription.
-- **Session templates:** [SESSION-TEMPLATES.md](SESSION-TEMPLATES.md) — slots, variants and candidate pools.
-- **Decisions:** [DECISIONS.md](DECISIONS.md) — DEC-RESOLVER-15 and the resolver decisions it amends.
-- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) — resolver selection and exploration questions.
-- **Roadmap:** [ROADMAP.md](../ROADMAP.md) — implementation status.
+- **Dwell:** [DWELL-AND-ROTATION.md](DWELL-AND-ROTATION.md) — model, parameters and counter audit.
+- **Top set:** [TOP-SET-BACKOFF-EVIDENCE.md](TOP-SET-BACKOFF-EVIDENCE.md) — rationale and evidence.
+- **Roles:** [RESOLVER-MAIN-LIFTS-VS-ACCESSORIES.md](RESOLVER-MAIN-LIFTS-VS-ACCESSORIES.md) — role taxonomy.
+- **API:** [API.md](API.md) — resolver response and execution payloads.
+- **Gateway:** [WATCH-GATEWAY.md](https://github.com/georgesdib/StrengthApp/blob/development/docs/WATCH-GATEWAY.md)
+  — WP8 phone relay.
+- **Decisions:** [DECISIONS.md](DECISIONS.md) — DEC-RESOLVER-18 through DEC-RESOLVER-30.
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) — resolver questions that remain.
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md) — implementation and release status.
