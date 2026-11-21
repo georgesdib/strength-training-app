@@ -65,6 +65,12 @@
     return found;
   }
 
+  function navLabel(view) {
+    const button = document.querySelector('#nav button[data-view="' + view + '"]');
+    const label = button ? (button.textContent || "").trim() : "";
+    return label || view;
+  }
+
   function liveMatches(query) {
     const tokens = (query.toLowerCase().match(/[a-z0-9]+/g) || []).filter(function (token) {
       return token.length >= 2 && LIVE_STOP.indexOf(token) === -1;
@@ -78,7 +84,7 @@
       if (!hit || seen[surface.target]) return;
       seen[surface.target] = true;
       matches.push({
-        kind: "panel", score: 1, title: surface.title, subtitle: "On screen",
+        kind: "panel", score: 1, title: surface.title, subtitle: navLabel(surface.view),
         view: surface.view, target: surface.target, doc: "", anchor: "",
       });
     });
@@ -259,7 +265,7 @@
     fetch("/api/intelligence/locate", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({query: query}),
+      body: JSON.stringify({query: query, live: liveMatches(query)}),
     })
       .then(function (response) {
         return response.json().then(function (body) {

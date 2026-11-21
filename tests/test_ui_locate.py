@@ -146,6 +146,27 @@ def test_locate_flags_an_invented_place_but_keeps_the_results(web, monkeypatch):
     assert body["results"]
 
 
+def test_locate_accepts_live_rendered_surfaces(web):
+    base, _path = web
+    status, body = _locate(
+        base,
+        {
+            "query": "add a constraint",
+            "live": [
+                {
+                    "title": "Add constraint",
+                    "view": "state",
+                    "target": "state-forms",
+                    "subtitle": "Athlete",
+                }
+            ],
+        },
+    )
+    assert status == 200
+    assert body["results"][0]["target"] == "state-forms"
+    assert body["results"][0]["title"] == "Add constraint"
+
+
 def test_locate_requires_text(web):
     base, _path = web
     with pytest.raises(urllib.error.HTTPError) as failure:

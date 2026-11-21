@@ -446,6 +446,38 @@ def _session_rows(conn, limit: int = 20) -> list[dict]:
     return out
 
 
+def _merge_live(live: list, targets: list[dict]) -> list[dict]:
+    """Put client-collected surfaces (headings rendered by script) ahead of the indexed results."""
+    merged: list[dict] = []
+    seen: set[str] = set()
+    for item in live[:8]:
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("title") or "").strip()
+        view = str(item.get("view") or "").strip()
+        target = str(item.get("target") or "").strip()
+        if not (title and view and target) or target in seen:
+            continue
+        seen.add(target)
+        merged.append({
+            "kind": "panel",
+            "score": 1.0,
+            "title": title[:120],
+            "subtitle": str(item.get("subtitle") or "").strip()[:80],
+            "view": view[:40],
+            "target": target[:120],
+            "doc": "",
+            "anchor": "",
+        })
+    for row in targets:
+        key = str(row.get("target") or "")
+        if key and key in seen:
+            continue
+        seen.add(key)
+        merged.append(row)
+    return merged[:10]
+
+
 def _docs() -> list[dict]:
     labels = docs_manifest.manifest().category_labels
     return [
@@ -4382,6 +4414,10 @@ class Handler(BaseHTTPRequestHandler):
             raise ValueError(str(exc)) from exc
 
         found = ui_search.search(query, limit=8)
+        live = body.get("live")
+        targets = (
+            _merge_live(live, found["results"]) if isinstance(live, list) else found["results"]
+        )
         knowledge = load_knowledge()
         chunks = retrieval.search(knowledge.index_path, query, top_k=6, max_chars=12_000)
         trace = RunTrace.start(
@@ -4391,13 +4427,13 @@ class Handler(BaseHTTPRequestHandler):
         )
         trace.event(
             "input",
-            {"chars": len(query), "targets": len(found["results"]), "sources": len(chunks)},
+            {"chars": len(query), "targets": len(targets), "sources": len(chunks)},
         )
         try:
             result = run_locate(
                 client,
                 query,
-                found["results"],
+                targets,
                 [
                     {
                         "path": chunk.path,
@@ -4422,7 +4458,7 @@ class Handler(BaseHTTPRequestHandler):
             "answer": result.answer,
             "verified": result.verified,
             "warning": result.warning,
-            "results": found["results"],
+            "results": targets,
             "sources": list(result.sources),
             "tokens": result.tokens,
             "model": client.model,
