@@ -548,6 +548,33 @@ def append_e1rm_override(
     return int(cursor.lastrowid)
 
 
+def append_e1rm_withdrawal(
+    conn: sqlite3.Connection,
+    *,
+    exercise_id: str,
+    effective_from: str,
+    reason: str,
+    source: str = "user",
+) -> int:
+    """Withdraw a manual e1RM from a date without deleting its row.
+
+    The override remains auditable and any prescription that cited it keeps a valid
+    `e1rm_override:<id>` reference. The withdrawal is itself append-only; a later override
+    re-enables the manual load basis.
+    """
+    note = str(reason).strip()
+    if not note:
+        raise ValueError("an e1RM withdrawal reason is required")
+    cursor = conn.execute(
+        """
+        INSERT INTO e1rm_override_withdrawal (exercise_id, effective_from, reason, source)
+        VALUES (?, ?, ?, ?)
+        """,
+        (exercise_id, effective_from, note, source),
+    )
+    return int(cursor.lastrowid)
+
+
 def append_athlete_profile(
     conn: sqlite3.Connection,
     *,

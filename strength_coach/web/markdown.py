@@ -60,6 +60,11 @@ def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", plain).strip("-") or "section"
 
 
+def slug(text: str) -> str:
+    """Public heading slug: the anchor id `render()` would give this heading."""
+    return _slug(text)
+
+
 def render(text: str, *, docs_root: Path | None = None,
            base_dir: Path | None = None) -> str:
     def link_for(target: str) -> str:

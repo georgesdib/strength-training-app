@@ -200,6 +200,7 @@ def test_ui_linked_docs_have_related_footer(server):
     }
     assert state["constraints"][0]["forbidden_exercises"] == ["back_extension"]
     assert isinstance(state["e1rm_calibration"], list)
+    assert isinstance(state["e1rm_override_ledger"], list)
     # P1 coverage is part of the same payload so the page cannot show one without the other.
     assert isinstance(state["e1rm_tests_needed"], list)
     assert {"ssb_squat", "bench_press", "trap_bar_deadlift"} <= {
@@ -472,6 +473,9 @@ def test_validation_errors_name_the_field(server):
         ("/api/state/constraint", {"kind": "rom", "region": "low_back"}, "kind"),
         ("/api/state/suitability", {"exercise_id": "not_a_lift"}, "exercise_id"),
         ("/api/state/e1rm", {"exercise_id": "ssb_squat", "e1rm_kg": "bad"}, "e1rm_kg"),
+        ("/api/state/e1rm/withdraw", {
+            "exercise_id": "ssb_squat", "reason": "wrong entry", "effective_from": "bad",
+        }, "effective_from"),
         ("/api/state/test", {"exercise_id": "ssb_squat", "kg": 100, "reps": 99}, "reps"),
         ("/api/readiness", {"date": "2024-01-08", "values": {"sleep": 9}}, "sleep"),
         ("/api/exercises", {
@@ -537,6 +541,29 @@ def test_state_can_be_edited(server):
     assert state["e1rm_overrides"]
     assert any(row["source"] == "measured" for row in state["e1rm_overrides"])
     assert state["symptoms"]
+
+
+def test_e1rm_override_withdrawal_appends_a_tombstone(server):
+    post(server, "/api/state/e1rm", {
+        "exercise_id": "ssb_squat", "e1rm_kg": 155,
+        "effective_from": "2024-01-02", "reason": "manual",
+    })
+    state = post(server, "/api/state/e1rm/withdraw", {
+        "exercise_id": "ssb_squat", "effective_from": "2024-01-03",
+        "reason": "wrong entry",
+    })
+    rows = [
+        row for row in state["e1rm_override_ledger"]
+        if row["exercise_id"] == "ssb_squat"
+    ]
+    assert rows[0]["kind"] == "withdrawal"
+    assert rows[0]["status"] == "withdrawn"
+    assert any(row["kind"] == "override" and row["status"] == "superseded" for row in rows)
+    assert any(row["kind"] == "override" and row["e1rm_kg"] == 155 for row in rows)
+
+    code, body = post_status(server, "/api/state/e1rm/withdraw", {"exercise_id": "ssb_squat"})
+    assert code == 400
+    assert "reason" in json.loads(body)["fields"]
 
 
 def test_same_day_suitability_repeat_is_idempotent(server, tmp_path):

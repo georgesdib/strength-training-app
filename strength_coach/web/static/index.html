@@ -21,6 +21,7 @@
     <button id="menu-toggle" class="menu-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="sidebar">☰</button>
     <div class="brand">Strength<span>Coach</span></div>
     <div class="local">local only · <code>127.0.0.1:8000</code></div>
+    <button id="global-search-open" class="search-open" type="button" aria-haspopup="dialog" aria-controls="search-palette" title="Search views, settings and docs (Ctrl+K)">Search <kbd>Ctrl K</kbd></button>
   </header>
   <aside id="sidebar" class="sidebar" hidden aria-label="Main menu">
     <div class="sidebar-head"><span>Menu</span>
@@ -1555,6 +1556,18 @@
     </dialog>
   </main>
 
+  <dialog id="search-palette" class="search-palette" aria-label="Search the interface">
+    <div class="search-box">
+      <input id="search-input" type="search" autocomplete="off" spellcheck="false" placeholder="Search views, settings and docs" aria-label="Search query" aria-controls="search-results">
+      <kbd>Esc</kbd>
+    </div>
+    <div id="search-results" class="search-results" role="listbox" aria-label="Search results"></div>
+    <div class="search-ask">
+      <button id="search-ask" type="button" class="ghost">Ask the assistant <kbd>Ctrl ↵</kbd></button>
+      <span id="search-ask-msg" class="muted" role="status"></span>
+    </div>
+  </dialog>
+
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   <footer class="foot">Same core as <code>strength-coach</code>. The CLI remains the automation interface.</footer>
   <script src="/static/core.js"></script>
@@ -1570,5 +1583,6 @@
   <script src="/static/history.js"></script>
   <script src="/static/workout.js"></script>
   <script src="/static/summary.js"></script>
+  <script src="/static/search.js"></script>
 </body>
 </html>

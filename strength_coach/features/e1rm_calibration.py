@@ -21,7 +21,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from strength_coach.features import derived, e1rm_decay
+from strength_coach.features import derived, e1rm_decay, e1rm_override_ledger
 from strength_coach.store import queries
 from strength_coach.utils import exercises, paths, yaml_files
 
@@ -114,6 +114,8 @@ class LiftCalibration:
     @property
     def status(self) -> str:
         if not self.points:
+            if self.active_source == "override":
+                return "no measured test; manual override"
             return "no measured test; formula only"
         if self.correction_applied:
             return f"applied x{self.correction_factor:.3f}"
@@ -229,7 +231,7 @@ def build(
     formula e1RM and last set are still useful context, and the status says "formula only".
     """
     cfg = config or E1RMCalibrationConfig.load()
-    overrides = [
+    measured_overrides = [
         row for row in queries.e1rm_overrides(conn)
         if row.get("source") == "measured"
         and (as_of is None or str(row["effective_from"]) <= as_of)
@@ -242,7 +244,7 @@ def build(
 
     points: dict[str, list[CalibrationPoint]] = {}
     if not sets.empty:
-        for override in overrides:
+        for override in measured_overrides:
             exercise_id = _canonical(str(override["exercise_id"]), entities)
             measured_on = str(override["effective_from"])
             prior = sets[
@@ -293,20 +295,13 @@ def build(
                     "set_count": int(len(group)),
                 }
 
-    # Applicable overrides on the as-of date, keyed by canonical lift. Both sources are
-    # reported; the override wins the load basis exactly as it does in the engine.
-    active_overrides: dict[str, dict[str, Any]] = {}
-    for override in overrides:
-        key = _canonical(str(override["exercise_id"]), entities)
-        if str(override["effective_from"]) > day.date().isoformat():
-            continue
-        if override.get("expires_on") and str(override["expires_on"]) < day.date().isoformat():
-            continue
-        previous = active_overrides.get(key)
-        if previous is None or (
-            str(override["effective_from"]), int(override["override_id"])
-        ) >= (str(previous["effective_from"]), int(previous["override_id"])):
-            active_overrides[key] = override
+    # Active overrides on the as-of date, keyed by canonical lift. The ledger applies the
+    # same withdrawal and latest-record rules as the engine, so a user override is reported
+    # here too (this used to be built from the measured-only list).
+    active_overrides: dict[str, e1rm_override_ledger.LedgerRow] = {}
+    for row in e1rm_override_ledger.build(conn, on_date=day.date().isoformat()):
+        if row.kind == e1rm_override_ledger.KIND_OVERRIDE and row.status == "active":
+            active_overrides[_canonical(row.exercise_id, entities)] = row
 
     cfg_decay = decay_config or e1rm_decay.DecayConfig.load()
     out: list[LiftCalibration] = []
@@ -323,10 +318,10 @@ def build(
             age = (day.date() - pd.Timestamp(formula_on).date()).days
             formula_effective = float(formula_raw) * factor * e1rm_decay.factor(age, cfg_decay)
         override = active_overrides.get(key)
-        override_raw = None if override is None else float(override["e1rm_kg"])
+        override_raw = None if override is None else float(override.e1rm_kg)
         override_effective = None
         if override is not None:
-            age = (day.date() - pd.Timestamp(str(override["effective_from"])).date()).days
+            age = (day.date() - pd.Timestamp(override.effective_from).date()).days
             override_effective = override_raw * e1rm_decay.factor(age, cfg_decay)
         source = "override" if override_effective is not None else (
             "formula" if formula_effective is not None else None

@@ -79,6 +79,7 @@ from strength_coach.features import deload as deload_feature
 from strength_coach.features import demands as demands_feature
 from strength_coach.features import derived as derived_feature
 from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
+from strength_coach.features import e1rm_override_ledger as e1rm_override_ledger_feature
 from strength_coach.features import exercise_history as exercise_history_feature
 from strength_coach.features import exposure as exposure_ratio_feature
 from strength_coach.features import fatigue_fitness as fatigue_fitness_feature
@@ -3583,6 +3584,11 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, _docs())
             elif path.startswith("/api/docs/"):
                 self._json(200, self._doc(path[len("/api/docs/"):]))
+            elif path == "/api/search":
+                query = parse_qs(urlparse(self.path).query)
+                limit = max(1, min(50, int(query.get("limit", ["20"])[0] or 20)))
+                from strength_coach.web import search as ui_search
+                self._json(200, ui_search.search(query.get("q", [""])[0], limit=limit))
             elif path.startswith("/docs/"):
                 self._doc_page(path[len("/docs/"):])
             elif path.startswith("/api/review/"):
@@ -3737,6 +3743,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._narrate(c, body)))
             elif path == "/api/intelligence/chat":
                 self._json(200, self._with_conn(lambda c: self._chat(c, body)))
+            elif path == "/api/intelligence/locate":
+                self._json(200, self._with_conn(lambda c: self._locate(c, body)))
             elif path == "/api/intelligence/explain":
                 self._json(200, self._with_conn(lambda c: self._explain(c, body)))
             elif path == "/api/intelligence/knowledge/settings":
@@ -3858,6 +3866,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._save_suitability(c, body)))
             elif path == "/api/state/e1rm":
                 self._json(200, self._with_conn(lambda c: self._save_e1rm(c, body)))
+            elif path == "/api/state/e1rm/withdraw":
+                self._json(200, self._with_conn(lambda c: self._withdraw_e1rm(c, body)))
             elif path == "/api/state/symptom":
                 self._json(200, self._with_conn(lambda c: self._save_symptom(c, body)))
             elif path == "/api/state/block":
@@ -4344,6 +4354,78 @@ class Handler(BaseHTTPRequestHandler):
             "tokens": result.tokens,
             "model": client.model,
             "raw": result.raw,
+        }
+
+    def _locate(self, conn, body: dict) -> dict:
+        import hashlib
+
+        from strength_coach.intelligence.knowledge import retrieval
+        from strength_coach.intelligence.knowledge.allowlist import load_config as load_knowledge
+        from strength_coach.intelligence.model import ensure_daily_budget, run_locate
+        from strength_coach.trace.run import RunTrace
+        from strength_coach.web import search as ui_search
+
+        query = body.get("query")
+        if not isinstance(query, str) or not query.strip():
+            raise FieldError("query must be text", {"query": "required"})
+        query = query.strip()
+        if len(query) > 200:
+            raise FieldError("query is too long", {"query": "max 200 characters"})
+
+        settings = load_settings()
+        if not settings.enabled:
+            raise ValueError("LLM is disabled or incomplete; configure it in Settings")
+        client = build_client(settings)
+        try:
+            ensure_daily_budget(conn, settings.daily_tokens)
+        except Exception as exc:
+            raise ValueError(str(exc)) from exc
+
+        found = ui_search.search(query, limit=8)
+        knowledge = load_knowledge()
+        chunks = retrieval.search(knowledge.index_path, query, top_k=6, max_chars=12_000)
+        trace = RunTrace.start(
+            conn,
+            input_hash=hashlib.sha256(query.encode("utf-8")).hexdigest(),
+            llm_model=client.model,
+        )
+        trace.event(
+            "input",
+            {"chars": len(query), "targets": len(found["results"]), "sources": len(chunks)},
+        )
+        try:
+            result = run_locate(
+                client,
+                query,
+                found["results"],
+                [
+                    {
+                        "path": chunk.path,
+                        "heading": chunk.heading,
+                        "line_start": chunk.line_start,
+                        "line_end": chunk.line_end,
+                        "text": chunk.text,
+                    }
+                    for chunk in chunks
+                ],
+            )
+        except Exception:
+            trace.finish(status="llm_failed")
+            conn.commit()
+            raise
+        trace.event("llm_output", {"tokens": result.tokens, "verified": result.verified})
+        trace.add_tokens(result.tokens or 0)
+        trace.finish(status="ok")
+        conn.commit()
+        return {
+            "query": query,
+            "answer": result.answer,
+            "verified": result.verified,
+            "warning": result.warning,
+            "results": found["results"],
+            "sources": list(result.sources),
+            "tokens": result.tokens,
+            "model": client.model,
         }
 
     @staticmethod
@@ -5490,6 +5572,10 @@ class Handler(BaseHTTPRequestHandler):
                 row for row in symptoms if row.get("attributed_session_id")
             ],
             "e1rm_overrides": queries.e1rm_overrides(conn),
+            "e1rm_override_ledger": [
+                row.as_dict()
+                for row in e1rm_override_ledger_feature.build(conn, on_date=today)
+            ],
             "declared_breaks": breaks_feature.as_dict(breaks_feature.all_breaks(conn)),
             "e1rm_calibration": e1rm_calibration_feature.as_dict(calibration),
             "e1rm_tests_needed": e1rm_calibration_feature.coverage_as_dict(
@@ -6006,6 +6092,35 @@ class Handler(BaseHTTPRequestHandler):
             effective_from=str(body.get("effective_from") or datetime.date.today().isoformat()),
             expires_on=body.get("expires_on") or None,
             reason=body.get("reason") or None,
+        )
+        return self._state(conn)
+
+    def _withdraw_e1rm(self, conn, body: dict) -> dict:
+        """Append a dated tombstone; the override row itself is never deleted."""
+        exercise_id = _field_call(
+            validation.exercise_id, "exercise_id", body.get("exercise_id")
+        )
+        reason = str(body.get("reason") or "").strip()
+        if not reason:
+            raise FieldError(
+                "a reason is required to withdraw an e1RM override",
+                {"reason": "required"},
+            )
+        effective_from = str(
+            body.get("effective_from") or datetime.date.today().isoformat()
+        )
+        try:
+            datetime.date.fromisoformat(effective_from)
+        except ValueError as exc:
+            raise FieldError(
+                "effective_from must be YYYY-MM-DD",
+                {"effective_from": "must be YYYY-MM-DD"},
+            ) from exc
+        repositories.append_e1rm_withdrawal(
+            conn,
+            exercise_id=exercise_id,
+            effective_from=effective_from,
+            reason=reason,
         )
         return self._state(conn)
 

@@ -46,7 +46,7 @@ This is deliberate: the UI is a planning surface until the athlete starts the wo
 | Measurements | `measure` | Measures page | same metric service |
 | Exercise catalogue | `exercise list/set` | Exercises page | same catalogue/admin |
 | Athlete profile/constraints/suitability | `state` | Athlete forms | individual edits only; see gaps |
-| e1RM set/list | `e1rm set/list` | Athlete page, Exercises tab, post-workout panel | same overrides |
+| e1RM set/list/withdraw | `e1rm set/list/withdraw` | Athlete page ledger and override form, Exercises tab, post-workout panel | same overrides; withdrawal is the dated append-only tombstone, never a delete |
 | Strength test recording | `test` | Athlete page, post-workout panel | same exposure/test path |
 | Symptom logging | `symptom` | Athlete page | same region validation |
 | Exposure logging/status | `exposure ...` | Athlete page | same guard |

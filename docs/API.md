@@ -53,7 +53,7 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `POST /api/readiness/override` | `{date, scope, value, reason}` -> merged readiness + score |
 | `GET /api/readiness/calibrate` | calibration report text (no auto-apply) |
 | `GET /api/logs?limit=N` | recent in-memory application/HTTP log records (max 500; cleared on restart) |
-| `GET /api/state` | profile, constraints, suitability, e1RM, symptoms, attributed symptoms, injury signal |
+| `GET /api/state` | profile, constraints, suitability, e1RM overrides, the combined `e1rm_override_ledger` (overrides and dated withdrawals with status), symptoms, attributed symptoms, injury signal |
 | `GET /api/symptoms/attribution-options?onset=&timing=` | completed sessions and performed lifts available for an attributed symptom |
 | `GET /api/exercises` | canonical exercise catalogue for the pickers: `id`, `display`, `pattern` and `time_based` (the client labels a time-based movement in seconds rather than reps) |
 | `POST /api/programme/key` | request body -> `{cache_key}` covering version, request, resolved profile, database revision and relevant config hashes |
@@ -117,7 +117,9 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/measurements?metric_key=&from=&to=&limit=&offset=` | metric catalogue, summary and newest-first exact-record pages; offset walks older, entries stay date-ascending, date bounds are inclusive |
 | `POST /api/measurements` | `{metric, value, date, method, note}` -> summary |
 | `POST /api/state/profile` / `constraint` / `suitability` / `e1rm` / `test` / `symptom` / `block` | append-only state writes; profile includes `volume_budget_enabled` and `main_lift_policy`; goals, constraint kinds/regions, forbidden patterns/exercises and exercise ids are validated against the canonical vocabulary; `symptom` accepts optional `timing`, `attributed_session_id`, `attributed_exercise_id`, `onset_on` and `attribution_confidence`, plus the short aliases the UI uses |
+| `POST /api/state/e1rm/withdraw` | `{exercise_id, effective_from?, reason}` -> appended withdrawal tombstone and refreshed state; `reason` is required and the override row is never deleted |
 | `GET /api/docs` / `GET /api/docs/<name>` | doc list and rendered doc from `docs/manifest.yaml`; public entries only, grouped by category; `private/` and maintainer-only design docs are never served |
+| `GET /api/search?q=&limit=` | ranked navigation results over the view/panel map, the profile settings and public doc headings; kinds `view`, `panel`, `setting`, `doc` with a DOM id or doc anchor target; `limit` 1–50 (default 20); a query is 1–120 characters (400 otherwise); read-only, no persistence |
 
 ### Prescription adherence
 

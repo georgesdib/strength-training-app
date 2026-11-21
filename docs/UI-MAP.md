@@ -49,6 +49,11 @@ current destinations; they do not duplicate their forms or imply new data contra
 | **Programme Intelligence** | Prescribe, Programme, Review, Narrate, Chat, Explain |
 | **Administration** | Athlete, Import, Settings, Logs, Docs |
 
+Global surfaces outside the six areas: the **Search** palette (`Ctrl/Cmd+K`, or the topbar
+**Search** button) over views, panels, profile settings and doc headings, and the **Docs** viewer
+in Administration. A search result activates the same deep links this map documents —
+`#view?panel=<id>` for a surface or field, `#docs?doc=...&anchor=...` for a document.
+
 ## View map
 
 | View | Panels / subsections | Primary documentation | Evidence / decisions / questions / roadmap |
@@ -148,6 +153,8 @@ current destinations; they do not duplicate their forms or imply new data contra
   `performance.js`, `progress.js`, `analytics-charts.js`).
 - [x] 2026-11-21: post-audit views (Narrate, Chat, Explain) and the Chat raw-data disclosure
   recorded here; the panel/link/Related contract still holds.
+- [x] 2026-11-21: `Ctrl/Cmd+K` search over the view/panel map, the settings registry and doc
+  headings (`GET /api/search`); `tests/test_ui_search.py` keeps the index in step with the markup.
 
 ## Related
 

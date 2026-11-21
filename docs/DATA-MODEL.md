@@ -524,6 +524,24 @@ Append-only: a correction is a new row, and the latest row whose window contains
 prescription date wins. A prescription cites the row as `e1rm_override:<id>`, so the number is
 auditable even after the override is replaced.
 
+### 11.6.1 `e1rm_override_withdrawal` — the append-only tombstone
+
+| column | notes |
+|---|---|
+| withdrawal_id PK | |
+| exercise_id | canonical id |
+| effective_from | from this date the override no longer applies |
+| reason | required; why the override was withdrawn |
+| source | `user` \| `clinician` |
+| created_at | set by the store |
+
+A withdrawal is a dated record, not a delete. The latest applicable override and withdrawal
+are compared by `(effective_from, created_at)`; a withdrawal wins an exact tie. Dates before
+the withdrawal keep the override the prescription was built with, the engine falls back to the
+formula from the withdrawal date, and a later override re-enables the manual basis. The
+override row remains in place, so every `e1rm_override:<id>` citation stays valid. The State
+view shows both kinds in one append-only ledger; the CLI exposes `e1rm withdraw`.
+
 ### 11.5 `symptom_log` — the manual input the constitution needs
 
 | column | notes |

@@ -198,9 +198,10 @@ The resolver only reads the table.
 ## 8. How to configure and verify
 
 Settings -> Resolver, or the Resolver group in Settings profile. A save appends a profile
-version; a target change also reconciles the counters in the same transaction. Preview a
-session and read the slot reasons: the dwell component prints the counter and the target, and
-an exploration prints the draw and the previous choice.
+version; a target change also reconciles the counters in the same transaction. The current
+counters and target are in Settings -> Resolver -> Dwell counters. A preview reports the
+chosen candidate and its candidate pool, but its slot reasons are generic: the production
+resolver does not currently print the dwell counter, target, draw or previous choice there.
 
 Rollback: revert the resolver code and drop exercise_dwell_state. Historical profiles that
 contain the retired keys keep loading (DEC-RESOLVER-11 precedent).

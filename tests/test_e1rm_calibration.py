@@ -59,6 +59,42 @@ def test_a_test_without_a_prior_estimate_is_skipped():
         assert e1rm_calibration.build(conn) == []
 
 
+def test_a_user_override_is_reported_as_active():
+    with store_with_sets() as store:
+        conn = store.connection
+        repositories.append_e1rm_override(
+            conn, exercise_id="ssb_squat", e1rm_kg=120.0,
+            effective_from="2024-02-01", reason="manual", source="user",
+        )
+        report = e1rm_calibration.build(conn, as_of="2024-02-02")
+        [row] = report
+
+    assert row.exercise_id == "ssb_squat"
+    assert row.override_raw == 120.0
+    assert row.override_effective is not None
+    assert row.active_source == "override"
+    assert row.active_e1rm == row.override_effective
+    assert "manual override" in row.status
+
+
+def test_a_withdrawal_removes_the_active_override_from_the_report():
+    with store_with_sets() as store:
+        conn = store.connection
+        repositories.append_e1rm_override(
+            conn, exercise_id="ssb_squat", e1rm_kg=120.0,
+            effective_from="2024-02-01", reason="manual", source="user",
+        )
+        repositories.append_e1rm_withdrawal(
+            conn, exercise_id="ssb_squat", effective_from="2024-02-02",
+            reason="wrong entry",
+        )
+        report = e1rm_calibration.build(conn, as_of="2024-02-03")
+        [row] = report
+
+    assert row.override_raw is None
+    assert row.active_source == "formula"
+
+
 def test_cli_calibrate_prints_the_report(tmp_path, capsys):
     from strength_coach import cli
     from strength_coach.store import db, importer

@@ -5,6 +5,7 @@ number and never writes an artifact; the CLI records the result as a run event.
 """
 
 from strength_coach.intelligence.model.chat import ChatResult, run_chat
+from strength_coach.intelligence.model.locate import LocateResult, run_locate
 from strength_coach.intelligence.model.narrative import (
     Narrative,
     NarrativeBudgetError,
@@ -18,6 +19,8 @@ from strength_coach.intelligence.model.narrative import (
 __all__ = [
     "ChatResult",
     "run_chat",
+    "LocateResult",
+    "run_locate",
     "Narrative",
     "NarrativeBudgetError",
     "NarrativeValidationError",

@@ -2199,7 +2199,7 @@ def build_item(
                 warnings.append(
                     f"{exercise_id}: e1RM source has one eligible set; confidence limited"
                 )
-            elif thresholds.e1rm_source == config_mod.E1RM_MEDIAN:
+            elif coverage is not None and thresholds.e1rm_source == config_mod.E1RM_MEDIAN:
                 # Say what the estimate summarised: a median is not a single stored set, and
                 # the cited reference names only the most recent contributor.
                 warnings.append(

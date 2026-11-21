@@ -2417,6 +2417,53 @@ function wireChoiceSearch(inputId, groupName) {
   });
 }
 
+function e1rmLedgerHtml(rows) {
+  if (!rows || !rows.length) {
+    return "<p class='muted'>No e1RM overrides recorded.</p>";
+  }
+  const body = rows.map((row) => {
+    const withdrawal = row.kind === "withdrawal";
+    const canWithdraw = !withdrawal && (row.status === "active" || row.status === "future");
+    const action = canWithdraw
+      ? "<button class='ghost' type='button' data-e1rm-withdraw='" + esc(row.exercise_id) +
+        "' data-e1rm-from='" + esc(row.status === "future" ? row.effective_from : "") +
+        "'>Withdraw</button>"
+      : "";
+    return "<tr><td>" + esc(row.exercise_id) + "</td><td>" +
+      (withdrawal ? "&mdash;" : esc(row.e1rm_kg)) + "</td><td>" +
+      esc(row.effective_from) + "</td><td>" +
+      (row.expires_on ? esc(row.expires_on) : "&mdash;") + "</td><td>" +
+      esc(row.source) + "</td><td>" + (row.reason ? esc(row.reason) : "&mdash;") +
+      "</td><td>" + esc(row.status) + "</td><td>" + action + "</td></tr>";
+  }).join("");
+  return "<h3>All e1RM overrides</h3>" +
+    "<p class='muted'>Append-only history. Withdrawing records a dated tombstone; it does not delete the override.</p>" +
+    "<div class='table-scroll'><table><thead><tr><th>Exercise</th><th>kg</th>" +
+    "<th>Effective from</th><th>Expires</th><th>Source</th><th>Reason</th>" +
+    "<th>Status</th><th></th></tr></thead><tbody>" + body + "</tbody></table></div>";
+}
+
+async function withdrawE1rmOverride(exerciseId, effectiveFrom) {
+  const reason = prompt("Reason for withdrawing the e1RM override for " + exerciseId + ".");
+  if (reason === null) return;
+  if (!reason.trim()) {
+    notify("A reason is required to withdraw an e1RM override.", "error");
+    return;
+  }
+  const body = { exercise_id: exerciseId, reason: reason.trim() };
+  if (effectiveFrom) body.effective_from = effectiveFrom;
+  try {
+    await api("/api/state/e1rm/withdraw", {
+      method: "POST", body: JSON.stringify(body),
+    });
+    notify("e1RM override withdrawn.");
+    loadState();
+    loadOverview();
+  } catch (error) {
+    notify(error.message, "error");
+  }
+}
+
 function renderStateForms(data) {
   const p = data.profile || {};
   const opts = data.options || {};
@@ -2522,6 +2569,7 @@ function renderStateForms(data) {
         <label class="grow">Reason<input data-e1rm="reason"></label>
         <button class="primary" type="submit">Append override</button>
       </form>
+      ${e1rmLedgerHtml(data.e1rm_override_ledger || [])}
     </div>
 
     <div class="panel"><div class="panel-head"><h2>Strength test</h2><span class="muted">records a measured e1RM; exposure is automatic</span></div>
@@ -2682,6 +2730,14 @@ function renderStateForms(data) {
       exercise_id: '[data-e1rm="exercise_id"]',
       e1rm_kg: '[data-e1rm="e1rm_kg"]',
       effective_from: '[data-e1rm="effective_from"]',
+    });
+  });
+  $("#state-forms").querySelectorAll("[data-e1rm-withdraw]").forEach((button) => {
+    button.addEventListener("click", () => {
+      withdrawE1rmOverride(
+        button.getAttribute("data-e1rm-withdraw"),
+        button.getAttribute("data-e1rm-from") || null,
+      );
     });
   });
   $("#test-form").addEventListener("submit", (event) => {
