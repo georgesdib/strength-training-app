@@ -471,7 +471,7 @@ async function loadReviews() {
   try {
     const data = await api("/api/reviews");
     const tasks = data.tasks || [];
-    const actionable = tasks.filter((t) => ["due", "attention", "insufficient", "snoozed", "planned"].includes(t.status));
+    const actionable = tasks.filter((t) => ["due", "attention", "insufficient", "snoozed", "planned", "waiting"].includes(t.status));
     if (!actionable.length) {
       $("#reviews").innerHTML = "<p class='muted'>No reviews due.</p>";
       return;
@@ -489,7 +489,9 @@ async function loadReviews() {
         : `<option value="kept">kept</option><option value="changed">changed</option>
            <option value="insufficient">insufficient</option>
            <option value="not_applicable">not applicable</option>`;
-      const actions = task.periodic
+      const actions = task.status === "waiting"
+        ? `<p class="muted">Nothing to review yet; the counter has to reach the threshold.</p>`
+        : task.periodic
         ? `<details><summary>Mark reviewed</summary>
              <div class="form-row">
                <label>Decision <select id="review-decision-${esc(task.key)}">

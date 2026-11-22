@@ -37,8 +37,10 @@ derivation, and answers the question the per-set metric was standing in for.
 ## When to re-run
 
 Four sessions make the correlations unstable, so absence of signal is not proven. The probe
-re-runs on a 12-week cadence once 15 watch sessions carry telemetry. Run it on the host that
-holds the database:
+re-runs on a 12-week cadence once 15 watch sessions carry telemetry. Until then the Today card
+stays visible as a *waiting* item carrying the counter (for example "4/15 watch sessions"), so the
+prompt is never indistinguishable from one that was never added; it becomes actionable at the
+threshold and again 12 weeks after each review. Run it on the host that holds the database:
 
 ```
 python tools/hr_recovery_probe.py --db data/coach.db

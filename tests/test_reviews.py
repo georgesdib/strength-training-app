@@ -244,7 +244,9 @@ def test_hr_probe_review_waits_for_sessions_then_repeats_on_a_cadence(monkeypatc
             t for t in reviews.status(conn, "2024-01-01")["tasks"]
             if t["key"] == "hr_recovery_probe"
         )
-        assert quiet["status"] == "not_due" and quiet["details"]["watch_sessions"] == 0
+        # Visible but not actionable: the prompt exists on Today before the threshold, so the
+        # owner can see the counter rather than wondering where it went.
+        assert quiet["status"] == "waiting" and quiet["details"]["watch_sessions"] == 0
         assert quiet["snooze_days"] == 90
 
         training = make_training([{

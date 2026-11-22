@@ -377,11 +377,13 @@ def _hr_probe_task(conn, on_date: str, cfg: dict) -> ReviewTask:
             **shared,
         )
     if sessions < minimum:
+        # Visible but not actionable: the owner asked to see the prompt, and a silent card is
+        # indistinguishable from a missing one. It carries a counter, not a warning.
         return ReviewTask(
-            status="not_due", due_on=None, periodic=True, details=details,
+            status="waiting", due_on=None, periodic=True, details=details,
             summary=(
                 f"{sessions}/{minimum} watch sessions with telemetry; "
-                "too few to re-run the probe."
+                "the probe needs more before it can say anything new."
             ),
             **shared,
         )
