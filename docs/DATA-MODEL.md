@@ -457,6 +457,12 @@ rating per exercise per day. The web write path makes an identical repeated writ
 a *different* rating for a day that already has one is refused with a field error and must be
 recorded on a later date, because the append-only table cannot replace the earlier row.
 
+A retrospective reader (`queries.exercise_suitability(as_of=...)`) takes the latest rating on or
+before its date. Exercise selection and constraint evaluation pass their evaluation date, so a
+rating recorded later cannot veto or permit an earlier selection. The profile is versioned the
+same way by `effective_from`, and a `RuleContext` built for a date reads the profile version in
+force on it.
+
 ### 11.3a `exercise_dwell_state` — mutable resolver cycle counter
 
 The resolver's dwell model keeps one counter per exercise: how many completed training days

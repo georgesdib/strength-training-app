@@ -109,7 +109,7 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `POST /api/readiness/preset` | write a quick-readiness preset as ordinary entries with `source=preset` |
 | `POST /api/readiness/context` | append display-only context flags |
 | `GET /api/readiness/feedback?weeks=N&date=N` | descriptive follow-up of MOD-FAT-001 reductions, including completed workout snapshots and set adherence |
-| `GET /api/selection?date=N&session_type=X&llm=0\|1&include_different=0\|1` | exercise-selection rankings with A/B/C comparability classes |
+| `GET /api/selection?date=N&session_type=X&llm=0\|1&include_different=0\|1` | exercise-selection rankings with A/B/C comparability classes, evaluated as of `date`: history, dated suitability ratings and the profile version after that date never affect the result |
 | `GET /api/substitution?date=N&session_type=X` | Part C fatigue-informed suggestion (at most one, suggest-only) plus abstention reasons |
 | `POST /api/exercises/demands` | `{exercise_id, dimension, level, confidence?, reason?, evidence?, clear?}` -> writes the git-ignored demand overlay and returns the merged profile; `supported` needs an existing evidence id |
 | `GET /api/options` | canonical goal, constraint, severity, region, pattern, VBT-family, muscle and exercise choices |
