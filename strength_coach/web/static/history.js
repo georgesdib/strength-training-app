@@ -18,6 +18,18 @@ function finalSetRecoveryFact(hrRecovery) {
   return parts.length ? parts.join(", ") + " \u00b7 from the final set" : null;
 }
 
+// Compact per-row form of the final-set recovery: "-27/-22 bpm". Absent when unmeasured.
+function recoveryShort(finalSet) {
+  if (!finalSet) return "";
+  var parts = [];
+  if (finalSet.hrr60_bpm != null) parts.push(signedBpm(finalSet.hrr60_bpm));
+  if (finalSet.hrr120_bpm != null) parts.push(String(finalSet.hrr120_bpm > 0 ? "−" : "") +
+    Math.abs(finalSet.hrr120_bpm));
+  if (!parts.length) return "";
+  return " · " + parts.join("/") +
+    ' <span title="Bpm drop from the final set at 1 and 2 minutes. Tracks effort, not recovery.">HRR</span>';
+}
+
 function signedBpm(value) {
   return (value > 0 ? "\u2212" : "") + Math.abs(value) + " bpm";
 }
@@ -59,6 +71,7 @@ function historyFragmentLine(s) {
     esc(s.session_id) + '</strong> <span class="badge">' + esc(s.session_type) +
     '</span> <span class="muted">' + s.working_set_count + "/" + s.set_count +
     " sets" + (s.duration_min == null ? "" : " · " + fmt(s.duration_min) + " min") +
+    recoveryShort(s.final_set) +
     '</span> ' + edited + " " + review + '</div><div class="card-actions">' +
     historyFragmentActions(s) + "</div></div>";
 }

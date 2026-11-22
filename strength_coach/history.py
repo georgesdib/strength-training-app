@@ -101,6 +101,9 @@ def list_training_days(conn, *, limit: int = 50, offset: int = 0,
         ).fetchall()
         marks = {str(row["session_id"]): int(row["n"]) for row in rows}
     attribution_counts = symptom_attribution.counts_for_sessions(conn, session_ids)
+    # Each row carries its own final-set recovery so the list answers "how did that one end"
+    # without opening the detail sheet. Display-only, same caveat as everywhere else.
+    final_sets = hr_recovery.final_set_for_sessions(conn, session_ids)
     out: list[dict[str, Any]] = []
     for day in page:
         fragments = []
@@ -112,6 +115,7 @@ def list_training_days(conn, *, limit: int = 50, offset: int = 0,
             item["attributed_symptom_count"] = attribution_counts.get(
                 str(item["session_id"]), 0
             )
+            item["final_set"] = final_sets.get(str(item["session_id"]))
             fragments.append(item)
         day = {**day, "fragments": fragments}
         day["marks"] = sum(int(fragment["marks"]) for fragment in fragments)

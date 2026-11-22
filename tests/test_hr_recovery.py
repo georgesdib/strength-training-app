@@ -102,3 +102,17 @@ def test_a_session_without_samples_reports_no_final_set_recovery():
     finally:
         store.close()
 
+
+
+def test_history_rows_carry_a_final_set_slot():
+    # The list is where "how did that one end" is asked; a session without samples reports null
+    # rather than omitting the key, so the client has one shape to render.
+    store = _imported_store()
+    try:
+        days = history.list_training_days(store.connection, limit=5)
+        fragment = days["days"][0]["fragments"][0]
+    finally:
+        store.close()
+    assert "final_set" in fragment
+    assert fragment["final_set"] is None
+
