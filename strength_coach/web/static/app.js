@@ -658,6 +658,7 @@ async function loadOutcomes() {
       <p class="muted">${esc(data.note)}</p>`;
     await loadReadinessFeedback(weeks, day);
     await loadProspective(weeks, day);
+    await loadFormTrend(weeks, day);
   } catch (error) {
     $("#outcomes-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }

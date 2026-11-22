@@ -218,6 +218,12 @@ def test_form_trend_endpoint_is_read_only(server):
     assert "forms" in data
 
 
+def test_outcomes_loads_the_form_trend_panel(server):
+    # The panel starts as static markup; the outcomes review must fetch it like its neighbours.
+    _status, js = get(server, "/static/app.js")
+    assert "loadFormTrend(weeks, day)" in js
+
+
 def test_regime_endpoint_is_read_only(server):
     status, body = get(server, "/api/regime?weeks=8&date=2024-02-01")
     assert status == 200
