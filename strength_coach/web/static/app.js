@@ -706,18 +706,22 @@ async function loadFormTrend(weeks, day) {
     const query = new URLSearchParams({ weeks });
     if (day) query.set("date", day);
     const data = await api("/api/form-trend?" + query.toString());
-    const rows = (data.forms || []).map((row) => `
-      <tr><td><strong>${esc(row.exercise_id)}</strong></td>
-      <td>${row.latest_rating}/5 <span class="muted">${esc(row.latest_on)}</span></td>
-      <td>${row.current_avg ?? "—"} / ${row.baseline_avg ?? "—"}</td>
-      <td>${row.change == null ? "—" : (row.change > 0 ? "+" : "") + row.change}</td>
-      <td><span class="badge ${row.status === "down" ? "warn" : ""}">${esc(row.status)}</span></td>
-      <td class="muted">n ${row.current_n}/${row.baseline_n} · low ${row.low_current}</td></tr>`).join("");
+    const rows = (data.forms || []).map((row) => {
+      const change = row.change == null ? "—" : (row.change > 0 ? "+" : "") + row.change;
+      const trend = row.change > 0 ? "form-trend-up" : row.change < 0 ? "form-trend-down" : "";
+      return `
+      <tr><td><strong>${esc(row.exercise_id)}</strong>
+        <div class="muted">n ${row.current_n}/${row.baseline_n} · ${row.low_current} low</div></td>
+      <td>${row.latest_rating}/5 <div class="muted">${esc(row.latest_on)}</div></td>
+      <td>${row.current_avg ?? "—"} <span class="muted">/ ${row.baseline_avg ?? "—"}</span></td>
+      <td class="${trend}">${change}</td>
+      <td><span class="badge ${row.status === "down" ? "warn" : ""}">${esc(row.status)}</span></td></tr>`;
+    }).join("");
     target.innerHTML = rows
-      ? `<p class="muted">${esc(data.window.current_from)} to ${esc(data.window.current_to)}
-         · baseline ${esc(data.window.baseline_from)} to ${esc(data.window.baseline_to)}</p>
-         <table><thead><tr><th>Lift</th><th>latest</th><th>current / baseline avg</th>
-         <th>change</th><th>status</th><th>sessions</th></tr></thead>
+      ? `<p class="muted">${esc(data.window.weeks)} weeks: ${esc(data.window.current_from)} → ${esc(data.window.current_to)}
+         · baseline ${esc(data.window.baseline_from)} → ${esc(data.window.baseline_to)}</p>
+         <table class="form-trend-table"><thead><tr><th>Lift</th><th>Latest</th><th>Avg now / base</th>
+         <th>Change</th><th>Status</th></tr></thead>
          <tbody>${rows}</tbody></table>
          <p class="muted">Low-form events (≤2) in this window: <strong>${data.low_form_events ?? 0}</strong>
          across ${data.low_form_lifts ?? 0} lift(s). ${esc(data.note)}</p>`
