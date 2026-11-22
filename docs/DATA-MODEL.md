@@ -640,7 +640,9 @@ straight sets need no backfill.
 prescription structure
 plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/RESOLVER-PRESCRIPTION-STRUCTURE.md)
 is implemented by migration `0073`: a nullable `substitutes_plan_item_index` on `workout_set`
-and `clean_set`, copied on materialisation. New sets no longer write `set_role`; legacy role
+and `clean_set`, copied on materialisation. Resolver specificity reads previous exposure from the
+performed working-set rows and this attribution, never from the frozen plan, so a substitution
+counts as the exercise actually trained. New sets no longer write `set_role`; legacy role
 values stay read-only provenance and are not used for matching or decisions (plan D11/D18,
 `DEC-RESOLVER-23`). A substitution set carries the same slot in `prescription_item_index` and
 `substitutes_plan_item_index`; an addition is extra work with no plan attribution. A stale
@@ -660,7 +662,9 @@ values stay read-only provenance and are not used for matching or decisions (pla
 `workout_event` records `start`, `add_set`, `update_set`, `remove_set`, `restore_set`, `end`,
 `abandon`, `reviewed`, `import_applied` and `import_undone` with an optional `target_set_id`;
 it is append-only. Actual-set corrections and imports replay these events rather than mutating
-`workout_set`.
+`workout_set`. A retried set is recognised only by the complete immutable payload, and both the
+automatic `set_index` allocation and the attribution check run inside the same write transaction
+as the insert.
 
 Execution changes add `substitution` and `addition` rows to the same append-only stream. Their
 `payload_json` carries `client_event_id`, the slot (`plan_item_index` or `after_item_index`),
