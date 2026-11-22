@@ -1847,6 +1847,11 @@ class Handler(BaseHTTPRequestHandler):
 
     IOS_ACTIVITY_MAX_METRICS = 2000
 
+    # Metrics the phone aggregates over a window before sending: steps and standing time are
+    # periodic assessments, so one row per window beats a daily series whose declared
+    # aggregation is a mean (config/measurements.v1.yaml).
+    IOS_WINDOW_METRIC_KINDS = frozenset({"steps_per_day", "sitting_hours_per_day"})
+
     def _ios_healthkit_metrics(self, conn, metrics: list) -> dict:
         """Write standalone metrics; a single implausible value must not fail the whole sync.
 
@@ -1860,18 +1865,41 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(item, dict):
                 raise FieldError("each metric must be an object")
             kind = str(item.get("kind") or "")
-            if kind != "vo2max":
+            if kind == "vo2max":
+                try:
+                    created = cardio.record_vo2max(
+                        conn,
+                        external_id=self._ios_activity_key(item.get("key")).hex(),
+                        measured_at=item.get("measured_at"),
+                        value=float(item.get("value")),
+                        method=str(item.get("method") or "HealthKit"),
+                        noted_at=datetime.datetime.now(datetime.UTC).isoformat(),
+                    )
+                except cardio.CardioIngestError:
+                    skipped += 1
+                    continue
+                written += int(created)
+                continue
+            if kind not in self.IOS_WINDOW_METRIC_KINDS:
                 raise FieldError(f"unsupported metric kind {kind!r}")
+            # A windowed assessment arrives already aggregated by the phone: one row per window,
+            # keyed by the window so a re-sync of the same week is a no-op rather than a second
+            # data point in a series whose aggregation is a mean.
+            day = str(item.get("measured_at") or "")[:10]
             try:
-                created = cardio.record_vo2max(
+                created = measurements_feature.record_once(
                     conn,
-                    external_id=self._ios_activity_key(item.get("key")).hex(),
-                    measured_at=item.get("measured_at"),
+                    metric_key=kind,
                     value=float(item.get("value")),
+                    measured_on=day,
                     method=str(item.get("method") or "HealthKit"),
-                    noted_at=datetime.datetime.now(datetime.UTC).isoformat(),
+                    source="device",
+                    external_id=self._ios_activity_key(item.get("key")).hex(),
                 )
-            except cardio.CardioIngestError:
+            except measurements_feature.MeasurementError:
+                skipped += 1
+                continue
+            except (TypeError, ValueError):
                 skipped += 1
                 continue
             written += int(created)
