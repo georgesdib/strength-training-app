@@ -1043,6 +1043,14 @@ documents:
   status: design
   audience: maintainer
   nav: false
+- id: design-wp3-rep-motion-capture
+  path: docs/design/WP3-REP-MOTION-CAPTURE.md
+  title: WP3 rep-motion capture
+  description: Implementation plan for per-rep motion capture, phase storage and the descriptive tempo report.
+  category: design
+  status: design
+  audience: maintainer
+  nav: false
 - id: agent-debugging
   path: docs/AGENT-DEBUGGING.md
   title: Agent debugging
