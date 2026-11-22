@@ -93,9 +93,8 @@ make is absent on the ODROID image).
 it, so it is seconds, not minutes. Run `./check.sh full` once before a push — that is CI's
 blocking selection, and CI only runs on `main`, so a `development` push has no second opinion.
 Never loop the full selection and never use it to "see if things still pass" after a docs edit;
-`./check.sh` or `./check.sh docs` is the correct lane. The default block is ~2,500 tests and
-~11 minutes on the ODROID, which is why the wide run is a push-time decision, not an editing
-habit. If a whole lane is needed, run it once as a managed background job and read the result
+`./check.sh` or `./check.sh docs` is the correct lane. The wide run is minutes, not seconds
+(measured below), which is why it is a push-time decision, not an editing habit. If a whole lane is needed, run it once as a managed background job and read the result
 once (see *Waiting for long suites*).
 
 `regression` is part of the default lane since 2026-11-22: the four tests are cheap and encode
@@ -149,7 +148,18 @@ macOS 12.7.6, Python 3.14.8, pytest 9.2.0, xdist `-n auto`):
 | `.venv/bin/python -m pytest` (default suite) | 1706 passed | 104.6 s | ~105 s |
 | `.venv/bin/python -m pytest -m ""` (all layers) | 1747 passed | 107.0 s | ~108 s |
 
-These are iMac figures for scheduling one background run; they say nothing about the
+Measured 2026-11-22 on the backend host this task ran on, after the lanes landed (xdist
+`-n auto`):
+
+| Command | Result | Wall time |
+|---|---|---:|
+| `./check.sh full` (CI selection, with CI's `test_ios_workflow.py` ignore) | 2401 passed, 1 skipped | 367 s |
+| default selection (includes `test_ios_workflow.py`) | 2474 collected | ~11 min observed on the same host |
+
+The fast lane runs only the files mapped from the change and takes seconds; it has no stable
+timing to record because the mapped set follows the edit.
+
+The 2026-11-10 iMac figures above still describe that host, and they say nothing about the
 ODROID-C4, which hosts both the backend development server and backend main server and is
 the benchmarking host. Keep those server contexts distinct when choosing an endpoint or
 interpreting results. Resolver-build timings in [`PERFORMANCE-PROFILE.md`](PERFORMANCE-PROFILE.md)
