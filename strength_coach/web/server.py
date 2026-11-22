@@ -5148,6 +5148,7 @@ class Handler(BaseHTTPRequestHandler):
         if task_key not in {
             "readiness_thresholds", "exercise_substitution", "fatigue_signals",
             "phase5a_review", "afc_device_acceptance", "afc_5a_historical",
+            "hr_recovery_probe",
         }:
             raise ValueError("unknown periodic review task")
         action = str(body.get("action") or "completed").strip().lower()

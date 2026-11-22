@@ -497,7 +497,7 @@ async function loadReviews() {
                </select></label>
                <label class="grow">Note <input id="review-note-${esc(task.key)}" placeholder="optional"></label>
                <button type="button" data-action="review-complete" data-task-key="${esc(task.key)}">Save review</button>
-               <button type="button" class="ghost" data-action="review-snooze" data-task-key="${esc(task.key)}">Snooze 2 weeks</button>
+               <button type="button" class="ghost" data-action="review-snooze" data-task-key="${esc(task.key)}">Snooze ${esc(String(task.snooze_days ?? 14))} days</button>
              </div></details>`
         : `<p class="muted">Use the linked workflow; this is a data-state reminder.</p>`;
       return `<div class="panel" style="margin-bottom:8px">

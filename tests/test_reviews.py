@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import datetime as dt
 
+from conftest import make_readiness, make_training
+
+from strength_coach import history
 from strength_coach.features import reviews
-from strength_coach.store import db, repositories
+from strength_coach.store import db, importer, repositories
 
 
 def test_phase3_research_is_a_visible_planned_follow_up():
@@ -189,3 +192,90 @@ def test_afc_followups_are_tracked_and_wait_for_the_gate():
         assert done["afc_device_acceptance"]["status"] == "done"
     finally:
         store.close()
+
+
+def _one_telemetry_session(conn):
+    """One imported session carrying a watch execution event and a linked workout.
+
+    The app creates the session and the workout under the same identifier, so the fixture does
+    too; a made-up workout id would test a shape production never writes.
+    """
+    imported = history.list_sessions(conn)["sessions"][0]["session_id"]
+    conn.execute(
+        "INSERT INTO workout_session (workout_id, for_date, plan_json, readiness_json, started_at)"
+        " VALUES (?, '2024-01-01', '{}', '{}', '2024-01-01T18:00:00+00:00')",
+        (imported,),
+    )
+    conn.execute(
+        "INSERT INTO workout_execution_event (event_id, workout_id, event_type, occurred_at,"
+        " received_at, device_id) VALUES ('ev-1', ?, 'set_completed',"
+        " '2024-01-01T18:05:00+00:00', '2024-01-01T18:05:00+00:00', 'watch')",
+        (imported,),
+    )
+    conn.execute(
+        "INSERT INTO external_workout (external_workout_id, external_key, origin, activity_type,"
+        " started_at, ended_at, duration_s, source_name, imported_at)"
+        " VALUES ('w-1', ?, 'healthkit', 'HKWorkoutActivityTypeTraditionalStrengthTraining',"
+        " '2024-01-01T18:00:00+00:00', '2024-01-01T19:00:00+00:00', 3600, 'Apple Watch',"
+        " '2024-01-01T19:05:00+00:00')",
+        (b"\x02" * 16,),
+    )
+    conn.execute(
+        "INSERT INTO workout_link (link_id, external_workout_id, session_id, action, method,"
+        " band_version) VALUES ('l-1', 'w-1', ?, 'link', 'manual', 'link_v1')",
+        (imported,),
+    )
+
+
+def test_hr_probe_review_waits_for_sessions_then_repeats_on_a_cadence(monkeypatch):
+    # The prompt must not nag: below the session threshold it stays out of the Today list, and it
+    # returns only after the 12-week interval once reviewed.
+    store = db.Store(":memory:")
+    try:
+        conn = store.connection
+        monkeypatch.setattr(
+            reviews, "_config",
+            lambda: {"hr_recovery_probe": {
+                "min_sessions": 1, "interval_weeks": 12, "snooze_days": 90,
+                "label": "Re-run the heart-rate recovery probe",
+            }},
+        )
+        quiet = next(
+            t for t in reviews.status(conn, "2024-01-01")["tasks"]
+            if t["key"] == "hr_recovery_probe"
+        )
+        assert quiet["status"] == "not_due" and quiet["details"]["watch_sessions"] == 0
+        assert quiet["snooze_days"] == 90
+
+        training = make_training([{
+            "Date": "2024-01-01", "Exercise": "Competition Bench Press",
+            "Weight_Used": "80", "RIR": "2", "Reps_Done": "5",
+        }])
+        readiness = make_readiness([{"Date": "2024-01-01"}])
+        importer.import_export(
+            conn, training, readiness,
+            training_sha256=importer.sha256_frame(training),
+            readiness_sha256=importer.sha256_frame(readiness),
+        )
+        _one_telemetry_session(conn)
+        due = next(
+            t for t in reviews.status(conn, "2024-01-02")["tasks"]
+            if t["key"] == "hr_recovery_probe"
+        )
+        assert due["status"] == "due"
+        assert due["periodic"] is True
+        assert "watch sessions" in due["summary"]
+
+        repositories.append_maintenance_review(
+            conn, task_key="hr_recovery_probe", action="completed",
+            reviewed_on="2024-01-02", decision="kept", note="re-ran the probe",
+        )
+        after = next(
+            t for t in reviews.status(conn, "2024-01-03")["tasks"]
+            if t["key"] == "hr_recovery_probe"
+        )
+        assert after["status"] == "not_due"
+        assert after["due_on"] == "2024-03-26"
+    finally:
+        store.close()
+

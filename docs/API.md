@@ -39,7 +39,7 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/history?limit=&offset=&start=&end=` | paginated session-fragment history |
 | `GET /api/history/days?limit=&offset=&start=&end=` | paginated training days with their fragments |
 | `GET /api/exercise-history?exercise_id=&limit=&offset=&on_or_before=` | read-only completed-session history for one exercise, grouped by session; limit counts sessions and defaults to 5 |
-| `GET /api/history/<id>` | current session sets, feedback and completed-workout prescription adherence |
+| `GET /api/history/<id>` | current session sets, feedback and completed-workout prescription adherence; `heart_rate` carries Apple's `avg_bpm`/`max_bpm` from the workout currently linked to the session, or `null` when none is linked (never a zero), and is read by both the web and iOS history screens |
 | `POST /api/history/<id>/edit` | append-only correction of sets and session metadata; accepts `session_rpe`, `duration_min`, `productivity` (1-5), `notes` and `reason`, and returns the corrected session with merged feedback |
 | `POST /api/history/<id>/vbt` | set/rep VBT overrides (also accepted inside `/edit`) |
 | `POST /api/history/<id>/void` | void or unvoid a whole session |

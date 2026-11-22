@@ -207,7 +207,45 @@ def detail(conn, session_id: str) -> dict:
             "execution": workout.execution_view(conn, str(data["workout_id"])),
         })
         data["vbt"] = source.get("vbt") or vbt_analysis.unavailable("vbt_unavailable")
+    data["heart_rate"] = _heart_rate(conn, str(session_id))
     return data
+
+
+def _heart_rate(conn, session_id: str) -> dict[str, Any] | None:
+    """Average and peak heart rate from the workout currently linked to this session.
+
+    Apple records both on the workout; nothing here is derived and a session with no linked
+    workout reports null rather than zero, so "not recorded" never reads as "zero effort".
+    Per-set recovery is deliberately absent: the 2026-11-22 probe (tools/hr_recovery_probe.py)
+    found it indistinguishable from the set's own load and duration.
+    """
+    row = conn.execute(
+        """
+        SELECT w.avg_heart_rate, w.max_heart_rate, w.activity_type, w.started_at
+          FROM external_workout w
+         WHERE EXISTS (
+                 SELECT 1 FROM workout_link l
+                  WHERE l.external_workout_id = w.external_workout_id
+                    AND l.session_id = ?
+                    AND l.action = 'link'
+                    AND NOT EXISTS (
+                        SELECT 1 FROM workout_link u
+                         WHERE u.action = 'unlink' AND u.supersedes_id = l.link_id
+                    )
+               )
+         ORDER BY w.started_at DESC
+         LIMIT 1
+        """,
+        (session_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return {
+        "avg_bpm": None if row["avg_heart_rate"] is None else round(float(row["avg_heart_rate"])),
+        "max_bpm": None if row["max_heart_rate"] is None else round(float(row["max_heart_rate"])),
+        "activity_type": row["activity_type"],
+        "source": "apple_health",
+    }
 
 
 def _session_workout(conn, session: dict) -> tuple[dict | None, str | None]:

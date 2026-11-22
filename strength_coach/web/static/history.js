@@ -2,6 +2,17 @@
 var historyOffset = 0;
 var historyTotal = 0;
 var historyDetail = null;
+
+// Apple records these on the workout itself; a session with no linked workout shows nothing
+// rather than a zero, so "not recorded" never reads as "no effort".
+function heartRateFact(heartRate) {
+  if (!heartRate) return null;
+  var avg = heartRate.avg_bpm == null ? null : Math.round(heartRate.avg_bpm);
+  var max = heartRate.max_bpm == null ? null : Math.round(heartRate.max_bpm);
+  if (avg == null && max == null) return null;
+  if (avg != null && max != null) return avg + " avg / " + max + " max bpm";
+  return (avg != null ? avg + " avg bpm" : max + " max bpm");
+}
 var historyLimit = 25;
 
 // Read-only fact for the details sheet; a missing value is said out loud, never left blank.
@@ -487,6 +498,7 @@ function openHistoryDetails(sessionId) {
       fact("Exercises", data.exercise_count) +
       fact("Tonnage", data.tonnage_kg == null ? null : Math.round(data.tonnage_kg) + " kg") +
       fact("Main lifts", (data.main_lifts || []).join(", ")) +
+      fact("Heart rate", heartRateFact(data.heart_rate)) +
       fact("Flags", (Array.isArray(data.flags) ? data.flags : []).join(", ")) +
       fact("Prescription", data.prescription_id) +
       fact("Workout", data.workout_id) +

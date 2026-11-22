@@ -2,7 +2,9 @@
 
 ## [Unreleased]
 
-- Nothing yet.
+- Session detail shows Apple's average and peak heart rate from the linked workout, on the web and
+  on the phone. Nothing is derived. Per-set heart-rate recovery was measured and rejected; the
+  Today view now carries a quiet reminder to re-run the probe once 15 watch sessions exist.
 
 ## [1.7.0] — 2026-11-18
 
