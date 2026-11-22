@@ -5,6 +5,35 @@ var historyDetail = null;
 
 // Apple records these on the workout itself; a session with no linked workout shows nothing
 // rather than a zero, so "not recorded" never reads as "no effort".
+// Anchored to the last set, not the finish tap: the tap can be minutes later, by which time the
+// heart rate has already fallen. Shown, never used; the caveat travels with the number.
+function finalSetRecoveryFact(hrRecovery) {
+  var finalSet = hrRecovery && hrRecovery.final_set;
+  if (!finalSet) return null;
+  var parts = [];
+  ["60", "120"].forEach(function (horizon) {
+    var value = finalSet["hrr" + horizon + "_bpm"];
+    if (value != null) parts.push(signedBpm(value) + " at " + (horizon === "60" ? "1" : "2") + " min");
+  });
+  return parts.length ? parts.join(", ") + " \u00b7 from the final set" : null;
+}
+
+// Compact per-row form of the final-set recovery: "-27/-22 bpm". Absent when unmeasured.
+function recoveryShort(finalSet) {
+  if (!finalSet) return "";
+  var parts = [];
+  if (finalSet.hrr60_bpm != null) parts.push(signedBpm(finalSet.hrr60_bpm));
+  if (finalSet.hrr120_bpm != null) parts.push(String(finalSet.hrr120_bpm > 0 ? "−" : "") +
+    Math.abs(finalSet.hrr120_bpm));
+  if (!parts.length) return "";
+  return " · " + parts.join("/") +
+    ' <span title="Bpm drop from the final set at 1 and 2 minutes. Tracks effort, not recovery.">HRR</span>';
+}
+
+function signedBpm(value) {
+  return (value > 0 ? "\u2212" : "") + Math.abs(value) + " bpm";
+}
+
 function heartRateFact(heartRate) {
   if (!heartRate) return null;
   var avg = heartRate.avg_bpm == null ? null : Math.round(heartRate.avg_bpm);
@@ -42,6 +71,7 @@ function historyFragmentLine(s) {
     esc(s.session_id) + '</strong> <span class="badge">' + esc(s.session_type) +
     '</span> <span class="muted">' + s.working_set_count + "/" + s.set_count +
     " sets" + (s.duration_min == null ? "" : " · " + fmt(s.duration_min) + " min") +
+    recoveryShort(s.final_set) +
     '</span> ' + edited + " " + review + '</div><div class="card-actions">' +
     historyFragmentActions(s) + "</div></div>";
 }
@@ -508,6 +538,7 @@ function openHistoryDetails(sessionId) {
       fact("Tonnage", data.tonnage_kg == null ? null : Math.round(data.tonnage_kg) + " kg") +
       fact("Main lifts", (data.main_lifts || []).join(", ")) +
       fact("Heart rate", heartRateFact(data.heart_rate)) +
+      fact("Final-set recovery", finalSetRecoveryFact(data.hr_recovery)) +
       fact("Flags", (Array.isArray(data.flags) ? data.flags : []).join(", ")) +
       fact("Prescription", data.prescription_id) +
       fact("Workout", data.workout_id) +
