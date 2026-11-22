@@ -1,0 +1,512 @@
+# Single reviewable source for the generated exercise-catalogue lists.
+# tools/build_catalogue.py --write emits config/selection-tax.v1.yaml,
+# config/variants.v1.yaml, config/templates/inference.v1.yaml and the load_basis/pairs
+# half of config/selection-comparability.v1.yaml from this file. Edit here, not there.
+schema_version: 1.0.0
+pools:
+  squat_main:
+  - ssb_squat
+  - competition_squat
+  - front_squat
+  - front_squat_to_box
+  - high_bar_squat
+  - hack_squat
+  - belt_squat
+  - deep_squat
+  - landmine_squat
+  - squat_to_box
+  - squat_2s_pause
+  - squat_2s_pause_halfway_down
+  - squat_2s_pause_halfway_up
+  - squat_from_pins
+  - squat_narrow_stance
+  - squat_partial_range_of_motion
+  - squat_w_chains
+  - squat_w_bands
+  bench_support:
+  - bench_press
+  - bench_press_narrow
+  - bench_press_pause
+  - bench_press_from_pins
+  - bench_press_w_chains
+  - bench_press_w_bands
+  - bench_press_w_cambered_bar
+  - bench_press_elevated_legs
+  - bench_press_medium_grip
+  - bench_press_reverse_grip
+  - bench_press_negative
+  - bench_press_explosive
+  - floor_press
+  - board_press
+  - incline_press
+  - decline_bench_press
+  - incline_db_bench_press
+  - dumbbell_bench_press
+  accessory_row:
+  - dumbbell_row
+  - bent_over_row
+  - seated_cable_row
+  - dumbbell_chest_supported_row
+  - t_bar_row
+  - seal_row
+  - 1_arm_row
+  accessory_pull_up:
+  - pull_up
+  - lat_pulldown
+  - close_grip_pulldown
+  erector:
+  - back_extension
+  - hyperextension
+  - reverse_hyperextension
+  accessory_vertical_press:
+  - overhead_press_seated
+  - landmine_press
+  - dumbbell_press_alternating
+  - overhead_press_behind_the_neck
+  accessory_split_squat:
+  - split_squat
+  - side_lunges
+  - bulgarian_split_squat
+  accessory_knee_flexion:
+  - lying_leg_curls
+  - nordic_curl
+  core_anti_extension:
+  - ab_wheel
+  core_flexion:
+  - hanging_leg_raise
+  bench_main:
+  - bench_press_narrow
+  - bench_press_pause
+slots:
+  squat:
+    squat_main: squat_main
+    bench_support: bench_support
+    accessory_row: accessory_row
+    accessory_pull_up: accessory_pull_up
+    erector: erector
+    accessory_vertical_press: accessory_vertical_press
+    accessory_split_squat: accessory_split_squat
+    accessory_knee_flexion: accessory_knee_flexion
+    core_anti_extension: core_anti_extension
+    core_flexion: core_flexion
+  hinge:
+    bench_main: bench_main
+    accessory_pull_up: accessory_pull_up
+    accessory_row: accessory_row
+    erector: erector
+    accessory_vertical_press: accessory_vertical_press
+    accessory_split_squat: accessory_split_squat
+    accessory_knee_flexion: accessory_knee_flexion
+    core_anti_extension: core_anti_extension
+    core_flexion: core_flexion
+  bench_squat:
+    bench_main: bench_support
+    squat_support: squat_main
+    accessory_row: accessory_row
+    accessory_pull_up: accessory_pull_up
+    erector: erector
+    accessory_vertical_press: accessory_vertical_press
+    accessory_split_squat: accessory_split_squat
+    core_anti_extension: core_anti_extension
+    core_flexion: core_flexion
+  bench_hinge:
+    bench_main: bench_support
+    accessory_row: accessory_row
+    accessory_pull_up: accessory_pull_up
+    erector: erector
+    accessory_vertical_press: accessory_vertical_press
+    accessory_split_squat: accessory_split_squat
+    core_anti_extension: core_anti_extension
+    core_flexion: core_flexion
+tax:
+  1_arm_row:
+    axial: 1
+    systemic: 1
+    skill: 1
+    rom: 2
+  ab_wheel:
+    axial: 1
+    systemic: 1
+    skill: 1
+    rom: 1
+  back_extension:
+    axial: 1
+    systemic: 1
+    skill: 1
+    rom: 1
+  belt_squat:
+    axial: 1
+    systemic: 2
+    skill: 1
+    rom: 2
+  bench_press:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  bench_press_elevated_legs:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  bench_press_explosive:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  bench_press_from_pins:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  bench_press_medium_grip:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  bench_press_narrow:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  bench_press_negative:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  bench_press_pause:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  bench_press_reverse_grip:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  bench_press_w_bands:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  bench_press_w_cambered_bar:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  bench_press_w_chains:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  bent_over_row:
+    axial: 1
+    systemic: 2
+    skill: 2
+    rom: 2
+  board_press:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  close_grip_pulldown:
+    axial: 1
+    systemic: 1
+    skill: 1
+    rom: 2
+  competition_squat:
+    axial: 2
+    systemic: 2
+    skill: 2
+    rom: 2
+  decline_bench_press:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  deep_squat:
+    axial: 2
+    systemic: 2
+    skill: 2
+    rom: 3
+  dumbbell_bench_press:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  dumbbell_chest_supported_row:
+    axial: 1
+    systemic: 1
+    skill: 1
+    rom: 2
+  dumbbell_press_alternating:
+    axial: 1
+    systemic: 1
+    skill: 1
+    rom: 2
+  dumbbell_row:
+    axial: 1
+    systemic: 2
+    skill: 2
+    rom: 2
+  floor_press:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  front_squat:
+    axial: 2
+    systemic: 3
+    skill: 3
+    rom: 2
+  front_squat_to_box:
+    axial: 2
+    systemic: 3
+    skill: 3
+    rom: 1
+  hack_squat:
+    axial: 1
+    systemic: 2
+    skill: 1
+    rom: 2
+  hanging_leg_raise:
+    axial: 1
+    systemic: 1
+    skill: 1
+    rom: 1
+  high_bar_squat:
+    axial: 2
+    systemic: 2
+    skill: 2
+    rom: 2
+  hyperextension:
+    axial: 1
+    systemic: 1
+    skill: 1
+    rom: 1
+  incline_db_bench_press:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  incline_press:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  landmine_press:
+    axial: 1
+    systemic: 1
+    skill: 1
+    rom: 2
+  landmine_squat:
+    axial: 1
+    systemic: 2
+    skill: 1
+    rom: 2
+  lat_pulldown:
+    axial: 1
+    systemic: 1
+    skill: 1
+    rom: 2
+  overhead_press_behind_the_neck:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  overhead_press_seated:
+    axial: 1
+    systemic: 1
+    skill: 2
+    rom: 2
+  pull_up:
+    axial: 1
+    systemic: 2
+    skill: 2
+    rom: 2
+  reverse_hyperextension:
+    axial: 1
+    systemic: 1
+    skill: 1
+    rom: 1
+  seal_row:
+    axial: 1
+    systemic: 1
+    skill: 1
+    rom: 2
+  seated_cable_row:
+    axial: 1
+    systemic: 1
+    skill: 1
+    rom: 2
+  side_lunges:
+    axial: 1
+    systemic: 1
+    skill: 1
+    rom: 2
+  split_squat:
+    axial: 1
+    systemic: 2
+    skill: 2
+    rom: 2
+  bulgarian_split_squat:
+    axial: 1
+    systemic: 2
+    skill: 3
+    rom: 3
+  squat_2s_pause:
+    axial: 2
+    systemic: 2
+    skill: 2
+    rom: 2
+  squat_2s_pause_halfway_down:
+    axial: 2
+    systemic: 2
+    skill: 2
+    rom: 2
+  squat_2s_pause_halfway_up:
+    axial: 2
+    systemic: 2
+    skill: 2
+    rom: 2
+  squat_from_pins:
+    axial: 2
+    systemic: 2
+    skill: 2
+    rom: 2
+  squat_narrow_stance:
+    axial: 2
+    systemic: 2
+    skill: 2
+    rom: 2
+  squat_partial_range_of_motion:
+    axial: 2
+    systemic: 2
+    skill: 2
+    rom: 1
+  squat_to_box:
+    axial: 2
+    systemic: 2
+    skill: 2
+    rom: 1
+  squat_w_bands:
+    axial: 2
+    systemic: 2
+    skill: 2
+    rom: 2
+  squat_w_chains:
+    axial: 2
+    systemic: 2
+    skill: 2
+    rom: 2
+  ssb_squat:
+    axial: 2
+    systemic: 2
+    skill: 2
+    rom: 2
+  t_bar_row:
+    axial: 1
+    systemic: 2
+    skill: 2
+    rom: 2
+load_basis:
+  barbell:
+  - competition_squat
+  - high_bar_squat
+  - deep_squat
+  - squat_to_box
+  - squat_2s_pause
+  - squat_2s_pause_halfway_down
+  - squat_2s_pause_halfway_up
+  - squat_from_pins
+  - squat_narrow_stance
+  - squat_partial_range_of_motion
+  - squat_w_chains
+  - squat_w_bands
+  - bench_press
+  - bench_press_narrow
+  - bench_press_pause
+  - bench_press_from_pins
+  - bench_press_w_chains
+  - bench_press_w_bands
+  - bench_press_elevated_legs
+  - bench_press_medium_grip
+  - bench_press_reverse_grip
+  - bench_press_negative
+  - bench_press_explosive
+  - floor_press
+  - board_press
+  - incline_press
+  - decline_bench_press
+  dumbbell:
+  - dumbbell_bench_press
+  - incline_db_bench_press
+  machine:
+  - hack_squat
+  - belt_squat
+  - landmine_squat
+  - lat_pulldown
+  - close_grip_pulldown
+  bodyweight:
+  - pull_up
+  safety_bar:
+  - ssb_squat
+  front_rack:
+  - front_squat
+  - front_squat_to_box
+comparability_pairs:
+  B:
+  - - ssb_squat
+    - competition_squat
+  - - ssb_squat
+    - high_bar_squat
+  - - front_squat
+    - front_squat_to_box
+  - - lat_pulldown
+    - close_grip_pulldown
+  C:
+  - - bench_press
+    - incline_press
+  - - bench_press
+    - decline_bench_press
+  - - bench_press
+    - bench_press_w_cambered_bar
+  - - bench_press_narrow
+    - bench_press_w_cambered_bar
+  - - ssb_squat
+    - front_squat
+  - - ssb_squat
+    - front_squat_to_box
+inference:
+  hinge_lift: trap_bar_deadlift
+  hinge_support_lifts:
+  - single_leg_db_rdl
+  squat_lifts:
+  - ssb_squat
+  - competition_squat
+  - front_squat
+  - high_bar_squat
+  - hack_squat
+  - belt_squat
+  - landmine_squat
+  bench_lifts:
+  - bench_press
+  - bench_press_pause
+  - bench_press_narrow
+  - bench_press_medium_grip
+  - bench_press_elevated_legs
+  - bench_press_explosive
+  - bench_press_from_pins
+  - bench_press_negative
+  - bench_press_reverse_grip
+  - bench_press_w_bands
+  - bench_press_w_cambered_bar
+  - bench_press_w_chains
+  - board_press
+  - floor_press
+  - decline_bench_press
+  - incline_press
+  - dumbbell_bench_press
+  - incline_db_bench_press
+  - speed_bench_press
+  double_session_set_threshold: 35

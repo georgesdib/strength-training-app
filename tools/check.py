@@ -151,7 +151,7 @@ def lane_docs() -> int:
     generators = (
         ["tools/programme_summary.py", "--write"],
         ["tools/workout_generation_example.py", "--write"],
-        ["tools/catalogue.py", "--write"],
+        ["tools/build_catalogue.py", "--write"],
     )
     for generator in generators:
         if not _exists(generator[0]):

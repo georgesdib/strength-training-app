@@ -52,31 +52,38 @@ never be re-added: it makes the next edit look intentional when it is only a dum
 Do not use `history_equivalent_of` for a different variant with different loads
 (pull-up vs lat pulldown).
 
-### 1.1 What a new id must touch (and what the checker does instead)
+### 1.1 What a new id must touch (and what the generator does instead)
 
-One id is referenced in about a dozen places. Judgment stays hand-authored; the mechanical
-parts are generated. `python tools/catalogue.py` names every missing key in one pass, and
+One id is referenced in about a dozen places. Judgment lives in one reviewable source,
+[`config/catalogue.v1.yaml`](../config/catalogue.v1.yaml), and the list-shaped files are
+generated from it. `python tools/catalogue.py` names every missing key in one pass, and
 `tests/test_exercise_catalogue.py` fails on the same list.
 
 | Place | What it needs | Who writes it |
 |---|---|---|
 | `config/exercises/taxonomy.v1.yaml` | identity, log names, pattern, muscles, `vbt_family` | hand |
 | `config/exercises/demands.v1.yaml` | optional demand claims and evidence ids | hand |
-| `config/selection-tax.v1.yaml` | axial/systemic/skill/rom ordinals | hand, or a recorded exception |
-| `config/variants.v1.yaml` | candidate pool membership and order | hand |
 | `config/templates/session-types.v1.yaml` | a slot, if the lift is programmed | hand |
-| `config/templates/inference.v1.yaml`, `config/selection-comparability.v1.yaml` | classification and load-basis lists | hand |
 | `config/rules/programme.v1.yaml` | rule collections such as `$primary_compounds` | hand |
-| `config/resolver-role-quality.v1.yaml` | `stimulus.ratings` | **generated** |
-| `docs/EXERCISE-DEMANDS.md` | coverage block | **generated** |
+| `config/catalogue.v1.yaml` | tax ordinals, candidate pools and their order, load basis, comparability pairs, inference membership | hand (the source) |
+| `config/selection-tax.v1.yaml` | axial/systemic/skill/rom ordinals | generated from the source (or a recorded exception) |
+| `config/variants.v1.yaml` | candidate pools per session and slot | generated from the source |
+| `config/templates/inference.v1.yaml`, `config/selection-comparability.v1.yaml` | inference lists, load-basis groups, explicit pairs | generated from the source |
+| `config/resolver-role-quality.v1.yaml` | `stimulus.ratings` | generated (rubric) |
+| `docs/EXERCISE-DEMANDS.md` | coverage block | generated |
 
-    python tools/catalogue.py           # check; prints the missing file and key
-    python tools/catalogue.py --write   # regenerate ratings and the coverage block
-    ./check.sh                          # fast lane; includes the catalogue test
+    python tools/build_catalogue.py --write   # regenerate the generated files
+    python tools/catalogue.py                 # semantic check; names the missing key
+    ./check.sh docs                           # regenerate, then run the docs tests
+
+Generated files carry a header and no inline rationale: the reasoning for a rank order or a
+comparability class belongs in this document and the `DEC-CATALOGUE` decisions, where it is
+reviewed once instead of being copied into a dozen list entries.
 
 A gap that is deliberate - an id the programme cannot select, a lift with no tax ordinal yet -
 is recorded with a reason in [`config/catalogue-exceptions.yaml`](../config/catalogue-exceptions.yaml).
 A stale exception fails the check, so the file cannot rot.
+
 ## 2. Add it to a slot
 
 [`config/templates/session-types.v1.yaml`](../config/templates/session-types.v1.yaml):

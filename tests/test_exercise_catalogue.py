@@ -14,6 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 
+import build_catalogue  # noqa: E402
 import catalogue  # noqa: E402
 
 
@@ -34,8 +35,16 @@ def test_the_cli_agrees_with_the_library() -> None:
     assert completed.returncode == 0, completed.stdout + completed.stderr
 
 
+def test_the_generated_files_are_current() -> None:
+    stale = build_catalogue.check()
+    assert not stale, (
+        "generated catalogue files are stale:\n  " + "\n  ".join(stale)
+        + "\n\nrun: ./check.sh docs (or python tools/build_catalogue.py --write)"
+    )
+
+
 def test_generated_ratings_follow_the_documented_rubric() -> None:
-    ratings = catalogue.derived_ratings()
+    ratings = build_catalogue.derived_ratings()
     # 3 = high local stimulus on a compound; 2 = high on an isolation or moderate on a compound.
     assert ratings["dumbbell_row"] == 3
     assert ratings["bench_press"] == 3
