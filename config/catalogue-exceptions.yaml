@@ -1,0 +1,18 @@
+# Known catalogue gaps, so tools/catalogue.py fails on new drift only. Every entry needs a
+# reason, and an entry that no longer describes a gap fails the check, so this file cannot rot.
+reviewed_on: "2026-11-22"
+
+# Rated demand claims for ids the programme cannot select today.
+unreachable_rated:
+  rdl: "prescribable only through the compensation slot, never a template or candidate id"
+
+# Reachable ids with no selection-tax ordinal. Absence is legal (it only blocks a
+# less-taxing claim), but it should be a recorded choice, not an oversight.
+missing_tax:
+  box_jump: "power slot; no substitution suggestion is offered for it"
+  broad_jump: "power slot; no substitution suggestion is offered for it"
+  medicine_ball_chest_pass: "power slot; no substitution suggestion is offered for it"
+  lying_leg_curls: "knee-flexion slot; the alternative is nordic_curl, not a lower-cost swap"
+  nordic_curl: "knee-flexion candidate; absence blocks only a less-taxing claim"
+  sumo_deadlift: "bench-hinge support; the only alternative is the trap bar, already heavier"
+  trap_bar_deadlift: "main hinge lift; there is no lower-cost main-hinge substitute"

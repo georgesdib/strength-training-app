@@ -52,6 +52,31 @@ never be re-added: it makes the next edit look intentional when it is only a dum
 Do not use `history_equivalent_of` for a different variant with different loads
 (pull-up vs lat pulldown).
 
+### 1.1 What a new id must touch (and what the checker does instead)
+
+One id is referenced in about a dozen places. Judgment stays hand-authored; the mechanical
+parts are generated. `python tools/catalogue.py` names every missing key in one pass, and
+`tests/test_exercise_catalogue.py` fails on the same list.
+
+| Place | What it needs | Who writes it |
+|---|---|---|
+| `config/exercises/taxonomy.v1.yaml` | identity, log names, pattern, muscles, `vbt_family` | hand |
+| `config/exercises/demands.v1.yaml` | optional demand claims and evidence ids | hand |
+| `config/selection-tax.v1.yaml` | axial/systemic/skill/rom ordinals | hand, or a recorded exception |
+| `config/variants.v1.yaml` | candidate pool membership and order | hand |
+| `config/templates/session-types.v1.yaml` | a slot, if the lift is programmed | hand |
+| `config/templates/inference.v1.yaml`, `config/selection-comparability.v1.yaml` | classification and load-basis lists | hand |
+| `config/rules/programme.v1.yaml` | rule collections such as `$primary_compounds` | hand |
+| `config/resolver-role-quality.v1.yaml` | `stimulus.ratings` | **generated** |
+| `docs/EXERCISE-DEMANDS.md` | coverage block | **generated** |
+
+    python tools/catalogue.py           # check; prints the missing file and key
+    python tools/catalogue.py --write   # regenerate ratings and the coverage block
+    ./check.sh                          # fast lane; includes the catalogue test
+
+A gap that is deliberate - an id the programme cannot select, a lift with no tax ordinal yet -
+is recorded with a reason in [`config/catalogue-exceptions.yaml`](../config/catalogue-exceptions.yaml).
+A stale exception fails the check, so the file cannot rot.
 ## 2. Add it to a slot
 
 [`config/templates/session-types.v1.yaml`](../config/templates/session-types.v1.yaml):

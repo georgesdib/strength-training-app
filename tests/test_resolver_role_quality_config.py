@@ -132,7 +132,11 @@ def test_stimulus_ratings_are_seeded_from_the_demand_profiles() -> None:
         for exercise_id, dims in demands.items()
         if (dims.get("local_muscular") or {}).get("level") in {"high", "moderate", "low"}
     }
-    assert set(ratings) == rated
+    # Only reachable ids carry a rating: tools/catalogue.py generates the block from the ids the
+    # programme can select, and a rated-but-unreachable lift (rdl, via the compensation slot) is
+    # recorded in config/catalogue-exceptions.yaml instead.
+    from strength_coach.prescribe.demand_scope import reachable_ids
+    assert set(ratings) == rated & set(reachable_ids())
 
 
 def test_legacy_fixture_keeps_roles_and_group_sum() -> None:

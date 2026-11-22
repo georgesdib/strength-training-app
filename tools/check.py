@@ -50,6 +50,7 @@ AREA_TESTS: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
                                       "tests/test_resolver_policy.py")),
     (("strength_coach/features/",), ("tests/test_demands.py", "tests/test_volume.py",
                                      "tests/test_fatigue_selection.py")),
+    (("tools/",), ("tests/test_exercise_catalogue.py", "tests/test_docs_consistency.py")),
 )
 
 # Nothing changed (or no mapping applied): a small cross-cutting smoke set, not the full suite.
@@ -150,7 +151,7 @@ def lane_docs() -> int:
     generators = (
         ["tools/programme_summary.py", "--write"],
         ["tools/workout_generation_example.py", "--write"],
-        ["tools/catalogue.py", "--write-docs"],
+        ["tools/catalogue.py", "--write"],
     )
     for generator in generators:
         if not _exists(generator[0]):
