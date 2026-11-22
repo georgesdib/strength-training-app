@@ -5,6 +5,23 @@ var historyDetail = null;
 
 // Apple records these on the workout itself; a session with no linked workout shows nothing
 // rather than a zero, so "not recorded" never reads as "no effort".
+// Anchored to the last set, not the finish tap: the tap can be minutes later, by which time the
+// heart rate has already fallen. Shown, never used; the caveat travels with the number.
+function finalSetRecoveryFact(hrRecovery) {
+  var finalSet = hrRecovery && hrRecovery.final_set;
+  if (!finalSet) return null;
+  var parts = [];
+  ["60", "120"].forEach(function (horizon) {
+    var value = finalSet["hrr" + horizon + "_bpm"];
+    if (value != null) parts.push(signedBpm(value) + " at " + (horizon === "60" ? "1" : "2") + " min");
+  });
+  return parts.length ? parts.join(", ") + " \u00b7 from the final set" : null;
+}
+
+function signedBpm(value) {
+  return (value > 0 ? "\u2212" : "") + Math.abs(value) + " bpm";
+}
+
 function heartRateFact(heartRate) {
   if (!heartRate) return null;
   var avg = heartRate.avg_bpm == null ? null : Math.round(heartRate.avg_bpm);
@@ -508,6 +525,7 @@ function openHistoryDetails(sessionId) {
       fact("Tonnage", data.tonnage_kg == null ? null : Math.round(data.tonnage_kg) + " kg") +
       fact("Main lifts", (data.main_lifts || []).join(", ")) +
       fact("Heart rate", heartRateFact(data.heart_rate)) +
+      fact("Final-set recovery", finalSetRecoveryFact(data.hr_recovery)) +
       fact("Flags", (Array.isArray(data.flags) ? data.flags : []).join(", ")) +
       fact("Prescription", data.prescription_id) +
       fact("Workout", data.workout_id) +

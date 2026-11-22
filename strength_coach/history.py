@@ -214,12 +214,14 @@ def detail(conn, session_id: str) -> dict:
     for item in data["sets"]:
         value = recovery.get(int(item["set_id"]))
         item["hrr60_bpm"] = None if value is None else value["bpm"]
+    final_set = hr_recovery.after_final_set(conn, str(session_id))
     data["hr_recovery"] = (
         {
             "sets_with_value": len(recovery),
             "caveat": hr_recovery.CAVEAT,
+            "final_set": final_set,
         }
-        if recovery
+        if (recovery or final_set)
         else None
     )
     return data

@@ -306,3 +306,56 @@ def report(conn) -> dict[str, Any]:
         "caveat": CAVEAT,
     }
 
+
+
+#: Horizons after the final set that the post-workout view reports, in seconds.
+FINAL_SET_HORIZONS = (60, 120)
+
+
+def _final_set_anchor(conn, session_id: str) -> float | None:
+    """Completion time of the last set, which is the physiological end of the session."""
+    row = conn.execute(
+        "SELECT workout_id FROM session WHERE session_id = ?", (str(session_id),)
+    ).fetchone()
+    if row is None or not row["workout_id"]:
+        return None
+    event = conn.execute(
+        "SELECT occurred_at FROM workout_execution_event "
+        "WHERE workout_id = ? AND event_type = 'set_completed' "
+        "ORDER BY occurred_at DESC LIMIT 1",
+        (str(row["workout_id"]),),
+    ).fetchone()
+    return None if event is None else _epoch(event["occurred_at"])
+
+
+def _after_final_set(series_rows: list[tuple[float, float]], anchor: float) -> dict[str, Any] | None:
+    """Recovery from the last set, reported at 1 and 2 minutes.
+
+    Anchored to the set's completion, not to the workout's `ended_at` tap: the tap can come
+    minutes later, by which time the heart rate has already fallen and the number would measure
+    how long the user took to stop the workout. Absent when the start sample is missing, and each
+    horizon is independently absent rather than interpolated.
+    """
+    hr_end = _endpoint(series_rows, anchor, END_TOLERANCE_S)
+    if hr_end is None:
+        return None
+    recovery: dict[str, Any] = {"hr_end_bpm": round(hr_end), "anchor": "last_set_completed"}
+    for horizon in FINAL_SET_HORIZONS:
+        value = _nearest(series_rows, anchor + horizon, SIXTY_TOLERANCE_S)
+        recovery[f"hrr{horizon}_bpm"] = None if value is None else round(hr_end - value)
+    if all(recovery[f"hrr{horizon}_bpm"] is None for horizon in FINAL_SET_HORIZONS):
+        return None
+    recovery["caveat"] = CAVEAT
+    return recovery
+
+
+def after_final_set(conn, session_id: str) -> dict[str, Any] | None:
+    """Recovery after the session's last set, or None when it cannot be measured."""
+    anchor = _final_set_anchor(conn, session_id)
+    if anchor is None:
+        return None
+    series_rows = series(conn, session_id)
+    if not series_rows:
+        return None
+    return _after_final_set(series_rows, anchor)
+

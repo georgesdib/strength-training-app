@@ -67,3 +67,38 @@ def test_the_report_is_plain_json_serialisable():
         json.dumps(hr_recovery.report(store.connection))
     finally:
         store.close()
+
+
+def test_final_set_recovery_anchors_on_the_last_set_not_the_finish_tap():
+    # Series: 150 bpm at the last set, 128 a minute later, 118 two minutes later. A finish tap
+    # three minutes after the set must not be what the number is measured from.
+    anchor = 1000.0
+    series = [(anchor, 150.0), (anchor + 60.0, 128.0), (anchor + 120.0, 118.0),
+              (anchor + 180.0, 110.0)]
+    recovery = hr_recovery._after_final_set(series, anchor)
+    assert recovery["hr_end_bpm"] == 150
+    assert recovery["hrr60_bpm"] == 22
+    assert recovery["hrr120_bpm"] == 32
+    assert recovery["anchor"] == "last_set_completed"
+    assert recovery["caveat"] == hr_recovery.CAVEAT
+
+
+def test_final_set_recovery_reports_each_horizon_independently():
+    anchor = 1000.0
+    # No sample near +120 s: the 1-minute value survives, the 2-minute one is absent.
+    series = [(anchor, 150.0), (anchor + 60.0, 128.0)]
+    recovery = hr_recovery._after_final_set(series, anchor)
+    assert recovery["hrr60_bpm"] == 22
+    assert recovery["hrr120_bpm"] is None
+    # No start sample: nothing is reported at all rather than measured from the wrong point.
+    assert hr_recovery._after_final_set([(anchor - 90.0, 150.0)], anchor) is None
+
+
+def test_a_session_without_samples_reports_no_final_set_recovery():
+    store = _imported_store()
+    try:
+        session_id = history.list_sessions(store.connection)["sessions"][0]["session_id"]
+        assert hr_recovery.after_final_set(store.connection, session_id) is None
+    finally:
+        store.close()
+
