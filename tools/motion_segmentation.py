@@ -88,12 +88,22 @@ def _samples(recording: dict) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     if not samples:
         raise ValueError("recording has no samples")
     t = np.array([float(sample["t"]) for sample in samples], dtype="float64")
-    accel = np.array(
-        [[sample["ax"], sample["ay"], sample["az"]] for sample in samples], dtype="float64"
-    )
     gravity = np.array(
         [[sample["gx"], sample["gy"], sample["gz"]] for sample in samples], dtype="float64"
     )
+    fused = np.array(
+        [[sample["ax"], sample["ay"], sample["az"]] for sample in samples], dtype="float64"
+    )
+    if all(sample.get("rax") is not None for sample in samples):
+        # Raw accelerometer includes gravity; subtracting it leaves linear acceleration. It is
+        # unfiltered, unlike CoreMotion's fused userAcceleration, which attenuates slow movement.
+        raw = np.array(
+            [[sample["rax"], sample["ray"], sample["raz"]] for sample in samples],
+            dtype="float64",
+        )
+        accel = raw - gravity
+    else:
+        accel = fused
     order = np.argsort(t)
     return t[order], accel[order], gravity[order]
 
@@ -235,7 +245,15 @@ def _integrate_detrended(t, values, anchors) -> np.ndarray:
 
 def analyse(recording: dict) -> SetAnalysis:
     gap = recording.get("gap") or {}
-    if gap and not gap.get("isHealthy", True):
+    healthy = gap.get("isHealthy")
+    if healthy is None:
+        # Older captures did not encode the derived flag; judge it from the counts rather than
+        # assuming the capture was fine. A 122-296 ms hole is survivable; a 4 s stall is not.
+        healthy = (
+            float(gap.get("maxGapSeconds") or 0) <= 0.25
+            and float(gap.get("droppedFraction") or 0) <= 0.05
+        )
+    if gap and not healthy:
         return SetAnalysis(
             abstention="gaps", reason="capture has delivery gaps", gap_ok=False
         )
@@ -372,14 +390,27 @@ def main(argv: list[str] | None = None) -> int:
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--file", type=Path, help="one recording JSON")
     source.add_argument("--dir", type=Path, help="a directory of recordings")
+    parser.add_argument("--axis", choices=("vertical", "horizontal"),
+                        help="override the recorded axis")
     parser.add_argument("--reference", type=Path, help="reference per-rep JSON list")
     parser.add_argument("--json", type=Path, help="write the result as JSON")
     args = parser.parse_args(argv)
 
-    paths = [args.file] if args.file else sorted(args.dir.glob("*.json"))
+    if args.file:
+        paths = [args.file]
+    else:
+        paths = sorted(
+            path for path in args.dir.glob("*.json") if not path.name.startswith(".")
+        )
+    if not paths:
+        print("no recordings found")
+        return 2
     results = []
     for path in paths:
-        analysis = analyse(load_recording(path))
+        recording = load_recording(path)
+        if args.axis:
+            recording = {**recording, "context": {**(recording.get("context") or {}), "axis": args.axis}}
+        analysis = analyse(recording)
         payload = {"file": path.name, **asdict(analysis)}
         results.append(payload)
         if analysis.abstention:
