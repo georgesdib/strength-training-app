@@ -508,6 +508,15 @@ unattributed set has both as null.
   server validates indexes/values, derives `velocity_mps` from the reps when the mean is omitted,
   and returns `reps_detail`/`rep_summary`. This is descriptive detail; it does not change load,
   RIR, prescriptions or scoring. The existing web import/API contract remains authoritative.
+- **Per-rep motion detail.** The same array may carry `lower_ms`, `lift_ms`, `pause_ms`, `rom_m`,
+  `steadiness` and `confidence` per rep, with a set-level `motion_version` such as `tempo/1`.
+  A payload that carries any motion field is validated under stricter rules: every rep index
+  `1..reps` exactly once, and either a velocity on every rep or on none. Failures return
+  `400 invalid_motion_payload` with `reason` in `feature_disabled`, `index_gap`,
+  `index_duplicate`, `count_mismatch`, `mixed_velocity`, `range`, `version_missing`,
+  `version_format`; nothing is stored. Velocity-only payloads keep the previous rules unchanged.
+  The frozen plan carries `motion_axis` per item as a watch hint, and `device_reps` on session
+  detail gains the same fields with a nullable `velocity_mps`. Descriptive only.
 - **Issued plans.** POST /api/ios/v1/prescriptions persists the normal prescription and returns a
   single-use issued plan with a 60-minute TTL. The phone starts it by id only; plan content never
   comes from the phone. One live plan is allowed per device; a newer issue supersedes the older one.

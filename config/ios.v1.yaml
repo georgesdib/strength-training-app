@@ -13,6 +13,10 @@
 # watch_enabled gates minting a watch device; existing watch credentials are revoked explicitly.
 mutations_enabled: true
 watch_enabled: true
+# Accepts per-rep motion detail (phase durations, range of motion, confidence). Off rejects a
+# motion payload whole; velocity-only set logging is unaffected. Closed until the watch that
+# captures it ships.
+watch_motion_enabled: false
 issued_plan_ttl_seconds: 14400
 plan_request_ttl_seconds: 900
 receipt_retention_days: 30

@@ -72,6 +72,7 @@ entities:
     # Not counted toward the weekly spinal cap: the SSB is the most upright squat variant
     # (Hecker 2019: trunk flexion -7.3 deg vs a standard bar). See docs/SPINAL-COST.md.
     vbt_family: squat
+    motion_axis: vertical
     default_rir_target: [2, 3]
     loadable: true
     time_based: false
@@ -97,6 +98,7 @@ entities:
     high_fatigue_spinal: true
     spinal_cost: 1
     vbt_family: squat
+    motion_axis: vertical
     loadable: true
     time_based: false
 
@@ -115,6 +117,7 @@ entities:
     primary_muscles: [chest, triceps, front_delts]
     erector_family: false
     vbt_family: bench
+    motion_axis: vertical
     default_rir_target: [2, 3]
     loadable: true
     time_based: false
@@ -143,6 +146,7 @@ entities:
     main_lift: true
     primary_compound: true
     vbt_family: bench
+    motion_axis: vertical
     default_rir_target: [2, 3]
     loadable: true
     time_based: false
@@ -168,6 +172,7 @@ entities:
     # Its own family: a trap-bar pull does not share a load-velocity curve with sumo or RDL,
     # so pooling them would manufacture a target (DEC-TRAPBAR-02, docs/VBT-EVIDENCE.md).
     vbt_family: trap_bar
+    motion_axis: vertical
     default_rir_target: [2, 3]      # target band; the allowed window is 1-4 (DEC-RIR-02)
     loadable: true
     time_based: false
@@ -189,6 +194,7 @@ entities:
     # conventional pull. Half-step is a design choice, not a measured value (docs/SPINAL-COST.md).
     spinal_cost: 2.5
     vbt_family: sumo
+    motion_axis: vertical
     loadable: true
     time_based: false
 
@@ -258,6 +264,7 @@ entities:
     erector_family: true
     direct_erector: false
     vbt_family: rdl
+    motion_axis: vertical
     loadable: true
     time_based: false
 
@@ -269,6 +276,7 @@ entities:
     # Its own VBT family: the long lever and seated/standing variants do not share a
     # load-velocity curve with a deadlift or a squat variant. Own family avoids pooling.
     vbt_family: good_morning
+    motion_axis: vertical
     high_fatigue_spinal: true
     spinal_cost: 3        # long lever arm = high lumbar moment
     substitutable_for_back_extension: false
@@ -290,6 +298,7 @@ entities:
     e1rm_applicable: true
     # Own VBT family: partial ROM changes the load-velocity curve; never pool with a full pull.
     vbt_family: rack_pull
+    motion_axis: vertical
     high_fatigue_spinal: true
     spinal_cost: 3        # supramaximal loads are the point of the movement
     substitutable_for_back_extension: false
@@ -326,6 +335,7 @@ entities:
     erector_family: true
     direct_erector: false
     vbt_family: conventional_deadlift
+    motion_axis: vertical
     loadable: true
     time_based: false
 
@@ -518,6 +528,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: horizontal_pull
+    motion_axis: horizontal
     erector_family: false
 
   1_arm_tricep_pushdown:
@@ -566,6 +577,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: squat
+    motion_axis: vertical
     erector_family: false
 
   bench_dips:
@@ -590,6 +602,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: horizontal_push
+    motion_axis: vertical
     erector_family: false
 
   bench_press_explosive:
@@ -602,6 +615,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: horizontal_push
+    motion_axis: vertical
     erector_family: false
 
   bench_press_from_pins:
@@ -614,6 +628,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: horizontal_push
+    motion_axis: vertical
     erector_family: false
 
   bench_press_medium_grip:
@@ -626,6 +641,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: horizontal_push
+    motion_axis: vertical
     erector_family: false
 
   bench_press_negative:
@@ -638,6 +654,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: horizontal_push
+    motion_axis: vertical
     erector_family: false
 
   bench_press_reverse_grip:
@@ -650,6 +667,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: horizontal_push
+    motion_axis: vertical
     erector_family: false
 
   bench_press_w_bands:
@@ -662,6 +680,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: horizontal_push
+    motion_axis: vertical
     erector_family: false
 
   bench_press_w_cambered_bar:
@@ -674,6 +693,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: horizontal_push
+    motion_axis: vertical
     erector_family: false
 
   bench_press_w_chains:
@@ -686,6 +706,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: horizontal_push
+    motion_axis: vertical
     erector_family: false
 
   bent_over_row:
@@ -698,6 +719,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: horizontal_pull
+    motion_axis: horizontal
     erector_family: false
 
   bird_dog:
@@ -722,6 +744,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: horizontal_push
+    motion_axis: vertical
     erector_family: false
 
   cable_bent_over_triceps_extension:
@@ -770,6 +793,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: hinge
+    motion_axis: vertical
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
@@ -786,6 +810,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: hinge
+    motion_axis: vertical
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
@@ -802,6 +827,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: hinge
+    motion_axis: vertical
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
@@ -818,6 +844,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: hinge
+    motion_axis: vertical
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
@@ -834,6 +861,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: hinge
+    motion_axis: vertical
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
@@ -850,6 +878,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: hinge
+    motion_axis: vertical
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
@@ -866,6 +895,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: hinge
+    motion_axis: vertical
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
@@ -882,6 +912,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: hinge
+    motion_axis: vertical
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
@@ -898,6 +929,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: hinge
+    motion_axis: vertical
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
@@ -914,6 +946,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: hinge
+    motion_axis: vertical
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
@@ -930,6 +963,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: hinge
+    motion_axis: vertical
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
@@ -946,6 +980,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: hinge
+    motion_axis: vertical
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
@@ -962,6 +997,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: hinge
+    motion_axis: vertical
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
@@ -978,6 +1014,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: hinge
+    motion_axis: vertical
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
@@ -994,6 +1031,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: horizontal_push
+    motion_axis: vertical
     erector_family: false
 
   deep_squat:
@@ -1006,6 +1044,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: squat
+    motion_axis: vertical
     erector_family: false
 
   deficit_deadlift_conventional:
@@ -1018,6 +1057,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: hinge
+    motion_axis: vertical
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
@@ -1034,6 +1074,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: hinge
+    motion_axis: vertical
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
@@ -1050,6 +1091,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: hinge
+    motion_axis: vertical
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
@@ -1066,6 +1108,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: hinge
+    motion_axis: vertical
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
@@ -1082,6 +1125,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: hinge
+    motion_axis: vertical
     erector_family: true
     direct_erector: false
     high_fatigue_spinal: true
@@ -1122,6 +1166,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: horizontal_push
+    motion_axis: vertical
     erector_family: false
 
   dumbbell_chest_supported_row:
@@ -1136,6 +1181,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: horizontal_pull
+    motion_axis: horizontal
     erector_family: false
 
   dumbbell_kickbacks:
@@ -1160,6 +1206,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: vertical_push
+    motion_axis: vertical
     erector_family: false
 
   dumbbell_pullover:
@@ -1184,6 +1231,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: horizontal_pull
+    motion_axis: horizontal
     erector_family: false
 
   dumbbell_tricep_extension:
@@ -1256,6 +1304,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: horizontal_push
+    motion_axis: vertical
     erector_family: false
 
   french_press:
@@ -1292,6 +1341,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: squat
+    motion_axis: vertical
     erector_family: false
 
   front_squat_to_box:
@@ -1304,6 +1354,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: squat
+    motion_axis: vertical
     erector_family: false
 
   hack_squat:
@@ -1316,6 +1367,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: squat
+    motion_axis: vertical
     erector_family: false
 
   half_kneeling_single_arm_cable_row:
@@ -1340,6 +1392,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: squat
+    motion_axis: vertical
     erector_family: false
 
   high_to_low_cable_chop:
@@ -1376,6 +1429,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: horizontal_push
+    motion_axis: vertical
     erector_family: false
 
   incline_press:
@@ -1388,6 +1442,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: horizontal_push
+    motion_axis: vertical
     erector_family: false
 
   incline_sit_ups:
@@ -1500,6 +1555,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: vertical_push
+    motion_axis: vertical
     erector_family: false
 
   overhead_press_behind_the_neck:
@@ -1512,6 +1568,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: vertical_push
+    motion_axis: vertical
     erector_family: false
 
   overhead_press_seated:
@@ -1524,6 +1581,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: vertical_push
+    motion_axis: vertical
     erector_family: false
 
   overhead_tricep_extension:
@@ -1633,6 +1691,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: horizontal_pull
+    motion_axis: horizontal
     erector_family: false
 
   seated_cable_row:
@@ -1734,6 +1793,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: horizontal_push
+    motion_axis: vertical
     erector_family: false
 
   squat_2s_pause_halfway_down:
@@ -1746,6 +1806,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: squat
+    motion_axis: vertical
     erector_family: false
 
   squat_2s_pause_halfway_up:
@@ -1758,6 +1819,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: squat
+    motion_axis: vertical
     erector_family: false
 
   squat_2s_pause:
@@ -1770,6 +1832,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: squat
+    motion_axis: vertical
     erector_family: false
 
   squat_down_slow_up_fast:
@@ -1782,6 +1845,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: squat
+    motion_axis: vertical
     erector_family: false
 
   squat_from_pins:
@@ -1794,6 +1858,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: squat
+    motion_axis: vertical
     erector_family: false
 
   squat_narrow_stance:
@@ -1806,6 +1871,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: squat
+    motion_axis: vertical
     erector_family: false
 
   squat_negatives:
@@ -1818,6 +1884,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: squat
+    motion_axis: vertical
     erector_family: false
 
   squat_partial_range_of_motion:
@@ -1830,6 +1897,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: squat
+    motion_axis: vertical
     erector_family: false
 
   squat_slow_downwards_and_upwards:
@@ -1842,6 +1910,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: squat
+    motion_axis: vertical
     erector_family: false
 
   squat_to_box:
@@ -1854,6 +1923,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: squat
+    motion_axis: vertical
     erector_family: false
 
   squat_w_bands:
@@ -1866,6 +1936,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: squat
+    motion_axis: vertical
     erector_family: false
 
   squat_w_chains:
@@ -1878,6 +1949,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: squat
+    motion_axis: vertical
     erector_family: false
 
   standing_single_arm_cable_curls_shoulder_flexed:
@@ -1926,6 +1998,7 @@ entities:
     loadable: true
     time_based: false
     vbt_family: horizontal_pull
+    motion_axis: horizontal
     erector_family: false
 
   tib_bar_calves:

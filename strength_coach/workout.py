@@ -12,6 +12,7 @@ import datetime as dt
 import io
 import json
 import math
+import re
 import sqlite3
 import uuid
 from collections.abc import Mapping
@@ -159,13 +160,31 @@ def start(
         """,
         (
             workout_id, prescription_id, for_date, resolved_type,
-            json.dumps(plan_data, separators=(",", ":")),
+            json.dumps(_with_motion_axes(plan_data), separators=(",", ":")),
             json.dumps(readiness_data, separators=(",", ":")),
             started_at, note, owner_device_id, started_at,
         ),
     )
     _event(conn, workout_id, "start", {"readiness": readiness_data})
     return get(conn, workout_id)
+
+
+def _with_motion_axes(plan_data: Mapping[str, Any]) -> dict[str, Any]:
+    """Attach the capture axis to each item of the plan being frozen.
+
+    The axis is a watch hint, not a training input: the server never reads it back. Attaching
+    it at freeze time means a later taxonomy edit cannot rewrite what the athlete's plan said.
+    """
+    plan = dict(plan_data or {})
+    items = []
+    for item in plan.get("items") or []:
+        entry = dict(item)
+        axis = exercises.motion_axis_for(str(entry.get("exercise_id") or ""))
+        if axis:
+            entry["motion_axis"] = axis
+        items.append(entry)
+    plan["items"] = items
+    return plan
 
 
 def active_workout(conn) -> dict | None:
@@ -1102,29 +1121,52 @@ def _current_reps(conn, workout_id: str) -> dict[int, dict]:
             "reps": reps,
             "source": row["source"],
             "batch_id": row["batch_id"],
+            "motion_version": row["motion_version"],
         }
     return state
 
 
+def _normalise_rep(item: Mapping[str, Any]) -> dict:
+    """One rep as stored in `workout_rep_event.reps_json`.
+
+    Legacy items produce exactly the object they produced before — `rep_index` then
+    `velocity_mps` — so an existing client's stored payload is byte-identical. Motion keys are
+    added only when present.
+    """
+    out: dict[str, Any] = {"rep_index": int(item["rep_index"])}
+    if item.get("velocity_mps") is not None:
+        out["velocity_mps"] = float(item["velocity_mps"])
+    for field in MOTION_FIELDS:
+        if item.get(field) is not None:
+            out[field] = item[field]
+    return out
+
+
 def _append_reps(conn, workout_id: str, set_id: int, reps: list[dict], *,
-                 source: str, batch_id: str | None = None) -> dict | None:
+                 source: str, batch_id: str | None = None,
+                 motion_version: str | None = None) -> dict | None:
     """Append a rep snapshot and return the prior one, for undo."""
     prior = _current_reps(conn, workout_id).get(int(set_id))
     clean = [
-        {"rep_index": int(item["rep_index"]),
-         "velocity_mps": float(item["velocity_mps"])}
+        _normalise_rep(item)
         for item in sorted(reps, key=lambda item: int(item["rep_index"]))
     ]
     conn.execute(
-        "INSERT INTO workout_rep_event (workout_id, set_id, reps_json, source, batch_id) "
-        "VALUES (?, ?, ?, ?, ?)",
-        (workout_id, int(set_id), json.dumps(clean, separators=(",", ":")), source, batch_id),
+        "INSERT INTO workout_rep_event "
+        "(workout_id, set_id, reps_json, source, batch_id, motion_version) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (workout_id, int(set_id), json.dumps(clean, separators=(",", ":")), source,
+         batch_id, motion_version),
     )
     return prior
 
 
 def _rep_summary(reps: list[dict]) -> dict | None:
     if not reps:
+        return None
+    # A tempo-only set has phases and no velocities. Summarising it would produce a zero
+    # mean, which reads as a measurement rather than as an absence.
+    if any(item.get("velocity_mps") is None for item in reps):
         return None
     ordered = sorted(reps, key=lambda item: int(item["rep_index"]))
     first = float(ordered[0]["velocity_mps"])
@@ -1187,44 +1229,153 @@ def _positive_int(value, label: str) -> int:
     return parsed
 
 
-def _rep_velocity_detail(reps: int | None, values) -> list[dict]:
-    """Validate optional per-rep velocities before a set is written."""
+# Optional per-rep motion detail. These names are the capture contract, not an internal
+# choice: docs/contracts/IOS-WATCH-CONTRACT.md fixes them.
+MOTION_FIELDS = ("lower_ms", "lift_ms", "pause_ms", "rom_m", "steadiness", "confidence")
+_MOTION_VERSION_RE = re.compile(r"^[a-z][a-z0-9_]*/[0-9]+$")
+
+
+class MotionPayloadError(ValueError):
+    """A per-rep motion payload failed validation.
+
+    `reason` is the closed vocabulary the capture contract promises, so a client can branch on
+    it instead of parsing a sentence.
+    """
+
+    def __init__(self, reason: str, message: str) -> None:
+        super().__init__(message)
+        self.reason = reason
+
+
+def _has_motion(item: Mapping[str, Any]) -> bool:
+    return any(item.get(field) is not None for field in MOTION_FIELDS)
+
+
+def _motion_integer(item: Mapping[str, Any], field: str, *, low: int, high: int) -> int | None:
+    value = item.get(field)
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise MotionPayloadError("range", f"per-rep {field} must be an integer")
+    if isinstance(value, float) and not value.is_integer():
+        raise MotionPayloadError("range", f"per-rep {field} must be an integer")
+    number = int(value)
+    if number < low or number > high:
+        raise MotionPayloadError("range", f"per-rep {field} is out of range")
+    return number
+
+
+def _motion_number(
+    item: Mapping[str, Any], field: str, *, low: float, high: float, allow_zero: bool = False
+) -> float | None:
+    value = item.get(field)
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise MotionPayloadError("range", f"per-rep {field} must be a number")
+    number = float(value)
+    if not math.isfinite(number):
+        raise MotionPayloadError("range", f"per-rep {field} must be finite")
+    if number < low or number > high or (number == low and not allow_zero):
+        raise MotionPayloadError("range", f"per-rep {field} is out of range")
+    return number
+
+
+def _rep_velocity_detail(
+    reps: int | None, values, *, motion_version: str | None = None
+) -> list[dict]:
+    """Validate optional per-rep velocities and motion detail before a set is written.
+
+    A velocity-only payload keeps the previous rules exactly: a velocity is required, unknown
+    keys are dropped, and fewer reps than the set's rep count are accepted. The stricter motion
+    rules apply only once a motion field appears, because a client that sends fewer velocities
+    than reps is legal today and must stay legal.
+    """
     if not values:
         return []
     if not isinstance(values, list):
         raise ValueError("rep_velocities must be a list")
     if reps is None:
-        raise ValueError("reps are required with per-rep velocities")
+        raise ValueError("reps are required with per-rep detail")
     rep_count = _positive_int(reps, "reps")
-    ordered: dict[int, float] = {}
+
+    entries: list[tuple[int, Any]] = []
     for position, item in enumerate(values, start=1):
-        if isinstance(item, dict):
-            rep_index = _positive_int(
-                item.get("rep_index", position), "per-rep index"
+        entries.append((position, item if isinstance(item, dict) else {"velocity_mps": item}))
+
+    motion = any(_has_motion(item) for _, item in entries)
+    if motion:
+        if not motion_version:
+            raise MotionPayloadError(
+                "version_missing", "motion detail requires motion_version"
             )
-            raw_velocity = item.get("velocity_mps")
-        else:
-            rep_index = position
-            raw_velocity = item
-        if isinstance(raw_velocity, bool):
-            raise ValueError("per-rep velocity must be finite and positive")
-        try:
-            velocity = float(raw_velocity)
-        except (TypeError, ValueError) as exc:
-            raise ValueError("per-rep velocity must be finite and positive") from exc
-        if not math.isfinite(velocity) or velocity <= 0:
-            raise ValueError("per-rep velocity must be finite and positive")
-        if rep_index > rep_count:
-            raise ValueError(
-                f"per-rep index {rep_index} exceeds reps {rep_count}"
+        if not _MOTION_VERSION_RE.match(str(motion_version)):
+            raise MotionPayloadError(
+                "version_format", "motion_version must look like name/1"
             )
+        if len(entries) != rep_count:
+            raise MotionPayloadError(
+                "count_mismatch",
+                f"motion detail covers {len(entries)} of {rep_count} reps",
+            )
+
+    ordered: dict[int, dict] = {}
+    for position, item in entries:
+        rep_index = _positive_int(item.get("rep_index", position), "per-rep index")
+        # A motion payload reports an out-of-range index as a gap below, with the contract's
+        # own reason; the legacy message is kept for velocity-only payloads.
+        if rep_index > rep_count and not motion:
+            raise ValueError(f"per-rep index {rep_index} exceeds reps {rep_count}")
         if rep_index in ordered:
-            raise ValueError(f"duplicate per-rep index {rep_index}")
-        ordered[rep_index] = velocity
-    return [
-        {"rep_index": index, "velocity_mps": round(velocity, 3)}
-        for index, velocity in sorted(ordered.items())
-    ]
+            raise MotionPayloadError(
+                "index_duplicate", f"duplicate per-rep index {rep_index}"
+            )
+        raw_velocity = item.get("velocity_mps")
+        detail: dict[str, Any] = {"rep_index": rep_index}
+        if raw_velocity is not None:
+            if isinstance(raw_velocity, bool):
+                raise ValueError("per-rep velocity must be finite and positive")
+            try:
+                velocity = float(raw_velocity)
+            except (TypeError, ValueError) as exc:
+                raise ValueError("per-rep velocity must be finite and positive") from exc
+            if not math.isfinite(velocity) or velocity <= 0:
+                raise ValueError("per-rep velocity must be finite and positive")
+            detail["velocity_mps"] = round(velocity, 3)
+        elif not motion:
+            raise ValueError("per-rep velocity must be finite and positive")
+        if motion:
+            lower = _motion_integer(item, "lower_ms", low=1, high=59999)
+            lift = _motion_integer(item, "lift_ms", low=1, high=59999)
+            pause = _motion_integer(item, "pause_ms", low=0, high=59999)
+            rom = _motion_number(item, "rom_m", low=0.0, high=3.0)
+            steadiness = _motion_number(
+                item, "steadiness", low=0.0, high=1_000_000.0, allow_zero=True
+            )
+            confidence = _motion_number(
+                item, "confidence", low=0.0, high=1.0, allow_zero=True
+            )
+            for field, value in (
+                ("lower_ms", lower), ("lift_ms", lift), ("pause_ms", pause),
+                ("rom_m", rom), ("steadiness", steadiness), ("confidence", confidence),
+            ):
+                if value is not None:
+                    detail[field] = value
+        ordered[rep_index] = detail
+
+    if motion:
+        if sorted(ordered) != list(range(1, rep_count + 1)):
+            raise MotionPayloadError(
+                "index_gap", "motion detail must cover every rep index exactly once"
+            )
+        with_velocity = sum(1 for item in ordered.values() if "velocity_mps" in item)
+        if 0 < with_velocity < len(ordered):
+            raise MotionPayloadError(
+                "mixed_velocity",
+                "a set carries a velocity for every rep or for none",
+            )
+    return [ordered[index] for index in sorted(ordered)]
+
 
 
 def _plan_item_index(workout: Mapping[str, Any], exercise_id: str,
@@ -1329,6 +1480,7 @@ def add_set(
     plan_item_index: int | None = None,
     substitutes_plan_item_index: int | None = None,
     rep_velocities: list[dict] | None = None,
+    motion_version: str | None = None,
     performed_at: str | None = None,
 ) -> dict:
     workout = get(conn, workout_id)
@@ -1350,11 +1502,13 @@ def add_set(
     set_index = int(set_index)
     if set_index < 1:
         raise ValueError("set_index must be positive")
-    rep_detail = _rep_velocity_detail(reps, rep_velocities)
+    rep_detail = _rep_velocity_detail(reps, rep_velocities, motion_version=motion_version)
     if rep_detail and velocity is None:
-        velocity = round(
-            sum(item["velocity_mps"] for item in rep_detail) / len(rep_detail), 3
-        )
+        velocities = [
+            item["velocity_mps"] for item in rep_detail if item.get("velocity_mps") is not None
+        ]
+        if velocities:
+            velocity = round(sum(velocities) / len(velocities), 3)
     item_index, substitutes_index = _set_attribution(
         workout, exercise_id, plan_item_index, substitutes_plan_item_index
     )
@@ -1414,7 +1568,7 @@ def add_set(
         if rep_detail:
             _append_reps(
                 conn, workout_id, int(cursor.lastrowid), rep_detail,
-                source=source,
+                source=source, motion_version=motion_version,
             )
     return get(conn, workout_id)
 
@@ -2347,13 +2501,31 @@ def _materialise(conn, workout: Mapping[str, Any], *, ended: str, duration: floa
             ),
         )
         detail = rep_state.get(int(row["set_id"]))
-        for rep in (detail or {}).get("reps") or []:
-            conn.execute(
-                "INSERT INTO clean_rep (clean_set_id, rep_index, velocity_mps, source) "
-                "VALUES (?, ?, ?, ?)",
-                (int(clean_cursor.lastrowid), int(rep["rep_index"]),
-                 float(rep["velocity_mps"]), str((detail or {}).get("source") or "import")),
-            )
+        reps = list((detail or {}).get("reps") or [])
+        source = str((detail or {}).get("source") or "import")
+        # clean_rep keeps velocity detail only: velocity_mps is NOT NULL there, and a
+        # tempo-only set must not fabricate one.
+        if reps and all(rep.get("velocity_mps") is not None for rep in reps):
+            for rep in reps:
+                conn.execute(
+                    "INSERT INTO clean_rep (clean_set_id, rep_index, velocity_mps, source) "
+                    "VALUES (?, ?, ?, ?)",
+                    (int(clean_cursor.lastrowid), int(rep["rep_index"]),
+                     float(rep["velocity_mps"]), source),
+                )
+        method_version = (detail or {}).get("motion_version")
+        if reps and method_version and any(_has_motion(rep) for rep in reps):
+            for rep in reps:
+                conn.execute(
+                    "INSERT INTO clean_rep_phase "
+                    "(clean_set_id, rep_index, lower_ms, lift_ms, pause_ms, rom_m, "
+                    " steadiness, confidence, method_version, source) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (int(clean_cursor.lastrowid), int(rep["rep_index"]),
+                     rep.get("lower_ms"), rep.get("lift_ms"), rep.get("pause_ms"),
+                     rep.get("rom_m"), rep.get("steadiness"), rep.get("confidence"),
+                     str(method_version), source),
+                )
     if session_rpe is not None or notes or productivity is not None:
         repositories.append_session_feedback(
             conn, session_id=workout_id, srpe=session_rpe,

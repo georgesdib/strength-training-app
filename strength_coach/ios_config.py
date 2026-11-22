@@ -37,10 +37,15 @@ DEFAULT_IDLE_WARN_SECONDS = 10800
 DEFAULT_IDLE_ABANDON_SECONDS = 86400
 # The watch app ships separately; minting stays closed until the owner enables it.
 DEFAULT_WATCH_ENABLED = False
+# Per-rep motion capture is not in any shipped client yet, so accepting it by default would
+# only let an unknown writer put unvalidated phase data in the clean layer. Closed until the
+# watch that produces it ships.
+DEFAULT_WATCH_MOTION_ENABLED = False
 
 FIELDS = (
     "mutations_enabled",
     "watch_enabled",
+    "watch_motion_enabled",
     "issued_plan_ttl_seconds",
     "plan_request_ttl_seconds",
     "receipt_retention_days",
@@ -51,6 +56,7 @@ FIELDS = (
 DEFAULTS = {
     "mutations_enabled": DEFAULT_MUTATIONS_ENABLED,
     "watch_enabled": DEFAULT_WATCH_ENABLED,
+    "watch_motion_enabled": DEFAULT_WATCH_MOTION_ENABLED,
     "issued_plan_ttl_seconds": DEFAULT_ISSUED_PLAN_TTL_SECONDS,
     "plan_request_ttl_seconds": DEFAULT_PLAN_REQUEST_TTL_SECONDS,
     "receipt_retention_days": DEFAULT_RECEIPT_RETENTION_DAYS,
@@ -61,6 +67,7 @@ DEFAULTS = {
 RANGES = {
     "mutations_enabled": {"kind": "bool"},
     "watch_enabled": {"kind": "bool"},
+    "watch_motion_enabled": {"kind": "bool"},
     "issued_plan_ttl_seconds": {
         "kind": "int", "min": MIN_TTL_SECONDS, "max": MAX_TTL_SECONDS,
     },
@@ -78,6 +85,7 @@ RANGES = {
 LABELS = {
     "mutations_enabled": "Enable iOS mutations",
     "watch_enabled": "Enable watch device minting",
+    "watch_motion_enabled": "Accept per-rep motion detail",
     "issued_plan_ttl_seconds": "Issued plan TTL (seconds)",
     "plan_request_ttl_seconds": "Plan request TTL (seconds)",
     "receipt_retention_days": "Receipt retention (days)",
@@ -93,6 +101,10 @@ DESCRIPTIONS = {
     "watch_enabled": (
         "Allows the phone to mint a watch device and token. Existing watch credentials are "
         "ended by revoking them, not by this switch."
+    ),
+    "watch_motion_enabled": (
+        "Accepts per-rep phase durations, range of motion and confidence on an add-set "
+        "payload. Off rejects them whole; set logging is otherwise unaffected."
     ),
     "issued_plan_ttl_seconds": (
         "How long a ready plan can be started, measured from the moment it becomes ready. "
@@ -129,6 +141,7 @@ class IOSConfig:
     receipt_retention_days: int
     plan_request_ttl_seconds: int = DEFAULT_PLAN_REQUEST_TTL_SECONDS
     watch_enabled: bool = DEFAULT_WATCH_ENABLED
+    watch_motion_enabled: bool = DEFAULT_WATCH_MOTION_ENABLED
     idle_warn_seconds: int = DEFAULT_IDLE_WARN_SECONDS
     idle_abandon_seconds: int = DEFAULT_IDLE_ABANDON_SECONDS
 
@@ -158,6 +171,10 @@ def _parse_config(data: dict) -> IOSConfig:
         mutations_enabled=_boolean(data.get("mutations_enabled"), "mutations_enabled"),
         watch_enabled=_boolean(
             data.get("watch_enabled", DEFAULT_WATCH_ENABLED), "watch_enabled"
+        ),
+        watch_motion_enabled=_boolean(
+            data.get("watch_motion_enabled", DEFAULT_WATCH_MOTION_ENABLED),
+            "watch_motion_enabled",
         ),
         issued_plan_ttl_seconds=_bounded_int(
             data.get("issued_plan_ttl_seconds"), "issued_plan_ttl_seconds",

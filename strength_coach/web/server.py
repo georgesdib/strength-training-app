@@ -2746,7 +2746,7 @@ class Handler(BaseHTTPRequestHandler):
         self._ios_closed_fields(body, {
             "exercise_id", "load_kg", "reps", "rir", "velocity_mps",
             "set_index", "plan_item_index", "substitutes_plan_item_index",
-            "rep_velocities", "performed_at",
+            "rep_velocities", "motion_version", "performed_at",
         })
         self._ios_workout(conn, workout_id)
         exercise_id = body.get("exercise_id")
@@ -2815,12 +2815,23 @@ class Handler(BaseHTTPRequestHandler):
                 fields={"performed_at": "must be an ISO-8601 string"},
             )
         raw_reps = body.get("rep_velocities")
+        motion_version = body.get("motion_version")
         rep_velocities: list[dict] | None = None
         if raw_reps is not None:
             if not isinstance(raw_reps, list):
                 raise ios_workflow.IOSWorkflowError(
                     400, "validation_failed", "rep_velocities must be a list",
                     fields={"rep_velocities": "must be a list"},
+                )
+            motion = bool(motion_version) or any(
+                isinstance(item, dict)
+                and any(item.get(field) is not None for field in workout.MOTION_FIELDS)
+                for item in raw_reps
+            )
+            if motion and not ios_config.load_config().watch_motion_enabled:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "invalid_motion_payload", "motion capture is disabled",
+                    fields={"reason": "feature_disabled"},
                 )
             rep_velocities = []
             seen_indexes: set[int] = set()
@@ -2832,7 +2843,6 @@ class Handler(BaseHTTPRequestHandler):
                     )
                 try:
                     rep_index = _integer(item.get("rep_index", position))
-                    rep_velocity = _number(item.get("velocity_mps"))
                 except (TypeError, ValueError) as exc:
                     raise ios_workflow.IOSWorkflowError(
                         400, "validation_failed", str(exc),
@@ -2843,7 +2853,7 @@ class Handler(BaseHTTPRequestHandler):
                         400, "validation_failed", "per-rep index must be positive",
                         fields={f"rep_velocities[{position - 1}].rep_index": "must be positive"},
                     )
-                if rep_index > reps:
+                if reps is not None and rep_index > reps:
                     raise ios_workflow.IOSWorkflowError(
                         400, "validation_failed",
                         f"per-rep index {rep_index} exceeds reps {reps}",
@@ -2854,16 +2864,43 @@ class Handler(BaseHTTPRequestHandler):
                         400, "validation_failed", "duplicate per-rep index",
                         fields={f"rep_velocities[{position - 1}].rep_index": "duplicate"},
                     )
-                if rep_velocity is None or rep_velocity <= 0:
-                    raise ios_workflow.IOSWorkflowError(
-                        400, "validation_failed", "per-rep velocity must be positive",
-                        fields={f"rep_velocities[{position - 1}].velocity_mps": "must be positive"},
-                    )
+                entry: dict = {"rep_index": rep_index}
+                raw_velocity = item.get("velocity_mps")
+                if raw_velocity is None:
+                    if not motion:
+                        raise ios_workflow.IOSWorkflowError(
+                            400, "validation_failed", "per-rep velocity must be positive",
+                            fields={
+                                f"rep_velocities[{position - 1}].velocity_mps":
+                                    "must be positive"
+                            },
+                        )
+                else:
+                    try:
+                        rep_velocity = float(raw_velocity)
+                    except (TypeError, ValueError) as exc:
+                        raise ios_workflow.IOSWorkflowError(
+                            400, "validation_failed", "per-rep velocity must be positive",
+                            fields={
+                                f"rep_velocities[{position - 1}].velocity_mps":
+                                    "must be positive"
+                            },
+                        ) from exc
+                    if not isinstance(raw_velocity, (int, float)) or isinstance(raw_velocity, bool)                             or rep_velocity <= 0:
+                        raise ios_workflow.IOSWorkflowError(
+                            400, "validation_failed", "per-rep velocity must be positive",
+                            fields={
+                                f"rep_velocities[{position - 1}].velocity_mps":
+                                    "must be positive"
+                            },
+                        )
+                    entry["velocity_mps"] = rep_velocity
+                if motion:
+                    for field in workout.MOTION_FIELDS:
+                        if item.get(field) is not None:
+                            entry[field] = item[field]
                 seen_indexes.add(rep_index)
-                rep_velocities.append({
-                    "rep_index": rep_index,
-                    "velocity_mps": rep_velocity,
-                })
+                rep_velocities.append(entry)
         try:
             return workout.add_set(
                 conn, workout_id,
@@ -2877,8 +2914,14 @@ class Handler(BaseHTTPRequestHandler):
                 plan_item_index=plan_item_index,
                 substitutes_plan_item_index=substitutes_plan_item_index,
                 rep_velocities=rep_velocities,
+                motion_version=motion_version,
                 performed_at=performed_at,
             )
+        except workout.MotionPayloadError as exc:
+            raise ios_workflow.IOSWorkflowError(
+                400, "invalid_motion_payload", str(exc),
+                fields={"reason": exc.reason},
+            ) from exc
         except ValueError as exc:
             raise ios_workflow.IOSWorkflowError(
                 400, "validation_failed", str(exc)

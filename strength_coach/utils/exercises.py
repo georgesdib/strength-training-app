@@ -79,6 +79,16 @@ class ResolvedExercise:
         return self.props.get("vbt_family")
 
     @property
+    def motion_axis(self) -> str | None:
+        """Axis the watch measures rep phases along; None means no motion capture.
+
+        Server-owned because exercise taxonomy is. The watch never infers the axis: a row and
+        a squat are not distinguishable from wrist motion alone, and guessing would silently
+        invert eccentric and concentric.
+        """
+        return self.props.get("motion_axis")
+
+    @property
     def counts_toward_back_extension_dose(self) -> bool:
         """DEC-BACKEXT-02: historical hyperextensions DO feed the dose ramp.
 
@@ -90,6 +100,11 @@ class ResolvedExercise:
         if self.props.get("history_equivalent_of") == "back_extension":
             return True
         return bool(self.props.get("counts_toward_back_extension_dose", False))
+
+
+# The only axes the watch can segment along. Vertical covers squat, deadlift, bench and
+# press patterns; horizontal covers rows. Anything else must stay absent rather than guess.
+MOTION_AXES = ("vertical", "horizontal")
 
 
 class UnknownExerciseError(KeyError):
@@ -130,6 +145,13 @@ class Taxonomy:
         patterns: list[tuple[re.Pattern[str], Mapping[str, Any]]] = []
         for item in raw.get("classification_patterns") or []:
             patterns.append((re.compile(item["pattern"]), dict(item)))
+        for entity_id, props in entities.items():
+            axis = props.get("motion_axis")
+            if axis is not None and axis not in MOTION_AXES:
+                raise ValueError(
+                    f"exercise {entity_id}: motion_axis must be one of "
+                    + ", ".join(MOTION_AXES)
+                )
         return cls(
             version=str(raw.get("schema_version", "unversioned")),
             entities=entities,
@@ -257,6 +279,7 @@ _PROP_KEYS = frozenset(
         "direct_erector",
         "erector_family",
         "vbt_family",
+        "motion_axis",
         "loadable",
         "time_based",
         "rep_semantics",
@@ -296,6 +319,13 @@ def canonical_patterns() -> tuple[str, ...]:
 
 def canonical_vbt_families() -> tuple[str, ...]:
     return taxonomy_values("vbt_family")
+
+
+def motion_axis_for(exercise_id: str) -> str | None:
+    """The capture axis for one exercise, or None when motion is not captured."""
+    entity = taxonomy().entities.get(str(exercise_id)) or {}
+    axis = entity.get("motion_axis")
+    return str(axis) if axis else None
 
 
 def canonical_muscles() -> tuple[str, ...]:

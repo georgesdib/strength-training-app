@@ -674,7 +674,13 @@ Optional per-rep velocity detail has its own append-only tables:
 - `workout_rep_event` — per-set snapshot while the workout is in progress (`reps_json`, source,
 batch); a correction is a new event, not an update;
 - `clean_rep` — one row per rep after materialisation, linked to `clean_set.set_id`; the set mean
-remains `clean_set.velocity_mps`.
+remains `clean_set.velocity_mps`;
+- `clean_rep_phase` — optional per-rep phase detail (migration `0076`: `lower_ms`, `lift_ms`,
+  `pause_ms`, `rom_m`, `steadiness`, `confidence`, `method_version`, `source`), keyed
+  `(clean_set_id, rep_index)`. It carries no velocity, so a tempo-only capture lives here and not in
+  `clean_rep`, whose `velocity_mps` stays `NOT NULL`. `workout_rep_event` gained
+  `motion_version` for the same payload. Append-only, descriptive: no rule, prescription or
+  readiness module reads it.
 
 On completion, `workout.py` materialises the workout into the normal pipeline once:
 

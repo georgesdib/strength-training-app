@@ -145,12 +145,29 @@ def detail(conn, session_id: str) -> dict:
         "WHERE child.supersedes_id = s.set_id) ORDER BY r.rep_index",
         (str(session_id),),
     ).fetchall()
-    device_reps: dict[int, list[dict]] = {}
+    phase_rows = conn.execute(
+        "SELECT r.clean_set_id, r.rep_index, r.lower_ms, r.lift_ms, r.pause_ms, "
+        "r.rom_m, r.steadiness, r.confidence FROM clean_rep_phase r "
+        "JOIN clean_set s ON s.set_id = r.clean_set_id "
+        "WHERE s.session_id = ? AND NOT EXISTS (SELECT 1 FROM clean_set child "
+        "WHERE child.supersedes_id = s.set_id) ORDER BY r.rep_index",
+        (str(session_id),),
+    ).fetchall()
+    # One entry per rep, whichever detail exists. A tempo-only capture has a rep here with
+    # no velocity, which is why velocity_mps is nullable in this payload.
+    device_reps: dict[int, dict[int, dict]] = {}
     for row in rep_rows:
-        device_reps.setdefault(int(row["clean_set_id"]), []).append({
+        device_reps.setdefault(int(row["clean_set_id"]), {})[int(row["rep_index"])] = {
             "rep_index": int(row["rep_index"]),
             "velocity_mps": float(row["velocity_mps"]),
-        })
+        }
+    for row in phase_rows:
+        entry = device_reps.setdefault(int(row["clean_set_id"]), {}).setdefault(
+            int(row["rep_index"]), {"rep_index": int(row["rep_index"])}
+        )
+        for field in ("lower_ms", "lift_ms", "pause_ms", "rom_m", "steadiness", "confidence"):
+            if row[field] is not None:
+                entry[field] = row[field]
     data["sets"] = [
         {
             "set_id": item["set_id"],
@@ -165,7 +182,10 @@ def detail(conn, session_id: str) -> dict:
             "prescription_item_index": item["prescription_item_index"],
             "set_role": item["set_role"],
             "flags": json.loads(item["flags"] or "[]"),
-            "device_reps": device_reps.get(int(item["set_id"]), []),
+            "device_reps": [
+                device_reps.get(int(item["set_id"]), {})[index]
+                for index in sorted(device_reps.get(int(item["set_id"]), {}))
+            ],
         }
         for item in full_sets
     ]

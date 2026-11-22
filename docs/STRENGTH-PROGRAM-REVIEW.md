@@ -27,7 +27,7 @@ after a template change. A stale block fails `tests/test_programme_summary.py`.
 not the single-leg RDL.
 
 <!-- BEGIN GENERATED PROGRAMME SUMMARY -->
-<!-- source:sha256:fbbbc1ed40b4c3ae -->
+<!-- source:sha256:1e86ec13252fedde -->
 
 | session type | work | sets | spinal cost |
 |---|---|---|---:|
