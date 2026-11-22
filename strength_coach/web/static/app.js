@@ -467,6 +467,19 @@ async function loadRepVelocityProgress() {
   }
 }
 
+// The probe's numbers, read-only: the owner should not have to run a CLI to remember what the
+// last measurement said. Nothing here is a decision or a threshold.
+function measurementHtml(task) {
+  const m = task.details && task.details.measurement;
+  if (!m) return "";
+  const within = m.within_session_sd == null ? "—" : m.within_session_sd;
+  const between = m.between_session_sd == null ? "—" : m.between_session_sd;
+  const load = m.corr_load == null ? "—" : m.corr_load;
+  return `<p class="muted">Last measurement: ${esc(String(m.sets_matched))}/${esc(String(m.set_completions))} sets, ` +
+    `within ${esc(String(within))} vs between ${esc(String(between))} bpm, r(load) ${esc(String(load))}.</p>` +
+    `<ul class="list">${(m.verdict || []).map((line) => `<li>${esc(line)}</li>`).join("")}</ul>`;
+}
+
 async function loadReviews() {
   try {
     const data = await api("/api/reviews");
@@ -506,6 +519,7 @@ async function loadReviews() {
         <div class="panel-head"><h3>${esc(task.label)}</h3>
           <span class="badge ${task.status === "ok" ? "" : "warn"}">${esc(task.status)}</span></div>
         <p><strong>${esc(task.summary)}</strong></p>
+        ${measurementHtml(task)}
         <p class="muted">${esc(task.why)}</p>
         <ul class="list">${details}</ul>
         ${dont ? `<p class="muted"><strong>Do not:</strong></p><ul class="list">${dont}</ul>` : ""}

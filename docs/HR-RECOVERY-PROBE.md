@@ -1,55 +1,61 @@
-# Per-set heart-rate recovery: probe and decision
+# Per-set heart-rate recovery: probe, display and decision
 
-**Status:** decided 2026-11-22 — not a feature. Re-measured on a cadence by
-[`tools/hr_recovery_probe.py`](../tools/hr_recovery_probe.py); the prompt lives in the Today
-view under **Periodic reviews** (`hr_recovery_probe`).
+**Status:** decided 2026-11-22 — shown as context, never used as an input. The number appears next
+to the set that produced it in session detail (web and phone) with its caveat, and the Today view
+carries a review card (`hr_recovery_probe`) that reports the measurement and prompts a re-run on a
+12-week cadence. `strength_coach.features.hr_recovery` is the single implementation;
+[`tools/hr_recovery_probe.py`](../tools/hr_recovery_probe.py) is the CLI over it.
 
 ## Why this exists
 
-Apple Watch sessions already carry everything needed to compute a per-set heart-rate recovery
-number: `health_sample` stores heart rate every ~5 s during a workout plus a ten-minute tail,
-`workout_link` binds the workout to the session, and `workout_execution_event` records
-`set_started` / `set_completed` taps. The question was never whether it *could* be computed; it
-was whether it says anything.
+Apple Watch sessions already carry what a per-set recovery number needs: `health_sample` stores
+heart rate about every 5 s during a workout plus a ten-minute tail, `workout_link` binds the
+workout to the session, and `workout_execution_event` records the `set_completed` taps. The
+question was never whether it could be computed; it was whether it says anything.
 
 ## What the measurement showed
 
-Four watch sessions, 71 completed sets, 64 with both endpoints inside tolerance (coverage 0.90):
+Four watch sessions, 71 set completions, 64 with both endpoints inside tolerance (coverage 0.901):
 
-| Check | Result |
+| Measure | Value |
 |---|---|
-| `delta60` (HR at set end minus one minute later) | median 12 bpm, SD 13.5, range -18 to +43 |
-| Within- vs between-session spread | 12.8 vs 7.1 bpm — noise is the signal |
-| Correlation with set duration | -0.57 |
-| Correlation with load | +0.51 |
-| Correlation with reps | -0.16 |
+| Delta 60 s after the set | median 12 bpm, SD 12.8, range roughly -18 to +43 |
+| Within- vs between-session spread | 12.8 vs 7.1 bpm — the noise is the signal |
+| Correlation with load | +0.283 |
+| Correlation with set duration | about -0.5 in the first looser run (see note) |
 
-So the number mostly re-encodes how hard the set was, which the prescription already knows,
-and it varies more within a session than between sessions. The rest-window variant does worse:
-median HR is 3 bpm *higher* when the next set starts.
+Decisive failure: **within-session noise exceeds the between-session signal**. The load
+correlation is below its 0.40 bar with the strict endpoint matcher this module uses; the earlier
+ad-hoc run, which matched the end-of-set sample by nearest rather than last-preceding, measured
++0.51 and -0.57 for duration. Either way the conference is the same: the number tracks how hard
+the set was, and it varies more inside one session than between sessions.
 
-## What was shipped instead
+## How it is shown
 
-Average and peak heart rate from the linked workout are shown on session detail, for the phone
-app and the web UI (`history.detail().heart_rate`). That is Apple's own number, needs no
-derivation, and answers the question the per-set metric was standing in for.
+- Session detail (web and phone) adds `hrr60_bpm` per set and a footnote stating the caveat:
+  "tracks set duration and load; not a recovery measure". A set without both endpoints shows
+  nothing — the derivation never interpolates.
+- The Today card shows the corpus figures and the verdict, read-only.
+- Nothing reads the value back: not adherence, not readiness, not the prescription, not the
+  watch. It exists so the owner can see what was measured rather than take it on trust.
+
+Values are only computed for sets whose clean rows still point at their workout set. A set created
+or replaced by a session edit reports no value, which is why the per-set count (46 on the same
+corpus at the time of writing) is lower than the corpus measurement's 64.
 
 ## When to re-run
 
-Four sessions make the correlations unstable, so absence of signal is not proven. The probe
-re-runs on a 12-week cadence once 15 watch sessions carry telemetry. Until then the Today card
-stays visible as a *waiting* item carrying the counter (for example "4/15 watch sessions"), so the
-prompt is never indistinguishable from one that was never added; it becomes actionable at the
-threshold and again 12 weeks after each review. Run it on the host that holds the database:
+Four sessions cannot prove absence of signal, so the question is re-measured rather than settled
+for ever. The Today card waits visibly until 15 watch sessions carry telemetry, then asks for a
+review; a review is due again 12 weeks later. Run the probe on the host that holds the database:
 
 ```
 python tools/hr_recovery_probe.py --db data/coach.db
 ```
 
-It prints a `verdict` block applying the decision rule in its module docstring: coverage ≥ 0.70,
-within-session SD < between-session SD, |r| ≤ 0.40 against load and set duration, and |r| ≥ 0.30
-against reps. Every bar must clear before the feature question reopens. Do not move the bars
-after seeing a result, and do not copy the database off the server to run it.
+It applies the decision rule fixed in the module: coverage >= 0.70, within-session SD below
+between-session SD, and |corr(delta, load)| <= 0.40. Do not move the bars after seeing a result,
+and do not copy the database off the server to run it.
 
 ## Open question it exposed
 

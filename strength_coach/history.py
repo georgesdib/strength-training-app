@@ -17,8 +17,8 @@ from strength_coach import adherence, workout
 from strength_coach.analytics import core as derived_core
 from strength_coach.analytics import revision as analytics_revision
 from strength_coach.domain import load as load_mod
+from strength_coach.features import hr_recovery, training_day, vbt_analysis
 from strength_coach.features import session_feedback as session_feedback_feature
-from strength_coach.features import training_day, vbt_analysis
 from strength_coach.store import db, queries, repositories, symptom_attribution
 from strength_coach.utils import exercises
 
@@ -208,6 +208,20 @@ def detail(conn, session_id: str) -> dict:
         })
         data["vbt"] = source.get("vbt") or vbt_analysis.unavailable("vbt_unavailable")
     data["heart_rate"] = _heart_rate(conn, str(session_id))
+    # Display only, and labelled: the value is known to track effort rather than recovery, so it
+    # decorates the set it came from and never feeds adherence, readiness or the prescription.
+    recovery = hr_recovery.set_deltas(conn, str(session_id))
+    for item in data["sets"]:
+        value = recovery.get(int(item["set_id"]))
+        item["hrr60_bpm"] = None if value is None else value["bpm"]
+    data["hr_recovery"] = (
+        {
+            "sets_with_value": len(recovery),
+            "caveat": hr_recovery.CAVEAT,
+        }
+        if recovery
+        else None
+    )
     return data
 
 

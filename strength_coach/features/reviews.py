@@ -13,7 +13,7 @@ from typing import Any
 import yaml
 
 from strength_coach.domain.symptoms import flare_from
-from strength_coach.features import test_cadence
+from strength_coach.features import hr_recovery, test_cadence
 from strength_coach.store import queries
 from strength_coach.utils import paths
 
@@ -365,6 +365,10 @@ def _hr_probe_task(conn, on_date: str, cfg: dict) -> ReviewTask:
         "interval_weeks": int(cfg.get("interval_weeks", 12)),
         "last_completed": completed,
     }
+    if sessions:
+        # Read-only context: the same computation the probe reports, so the card and the command
+        # cannot tell different stories. About 0.3 s on the current corpus.
+        details["measurement"] = hr_recovery.report(conn)
     shared = {
         "key": key, "label": label, "kind": "periodic", "why": str(cfg.get("why", "")),
         "steps": tuple(cfg.get("steps") or ()), "dont": tuple(cfg.get("dont") or ()),

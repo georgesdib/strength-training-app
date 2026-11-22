@@ -3,8 +3,10 @@
 ## [Unreleased]
 
 - Session detail shows Apple's average and peak heart rate from the linked workout, on the web and
-  on the phone. Nothing is derived. Per-set heart-rate recovery was measured and rejected; the
-  Today view now carries a quiet reminder to re-run the probe once 15 watch sessions exist.
+  on the phone, plus a per-set heart-rate recovery value (`hrr60_bpm`) labelled with its caveat:
+  the metric tracks set effort, not recovery, so it is displayed and never used. The Today view
+  carries a review card that reports the measurement and prompts a re-run once 15 watch sessions
+  exist, then every 12 weeks.
 
 ## [1.7.0] — 2026-11-18
 

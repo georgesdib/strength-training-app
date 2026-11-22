@@ -453,7 +453,9 @@ function openHistoryDetails(sessionId) {
           (item.rir == null ? "—" : item.rir) + "</td><td>" +
           esc((Array.isArray(item.flags) ? item.flags : []).join(", ") || "—") + "</td><td>" +
           (item.velocity_mps == null ? "—" : item.velocity_mps) + "</td><td>" +
-          (item.vbt_mean == null ? "—" : item.vbt_mean) + "</td></tr>";
+          (item.vbt_mean == null ? "—" : item.vbt_mean) + "</td><td>" +
+          (item.hrr60_bpm == null ? "—" : (item.hrr60_bpm > 0 ? "−" : "") +
+            Math.abs(item.hrr60_bpm)) + "</td></tr>";
       }).join("");
       var repTables = group.map(function (item, index) {
         var reps = (item.vbt_reps || []).length ? item.vbt_reps : (item.device_reps || []);
@@ -469,10 +471,17 @@ function openHistoryDetails(sessionId) {
         "<p class='muted'>" + group.length + " set(s)</p>" +
         "<div class='table-scroll'><table><thead><tr><th>#</th><th>Load kg</th><th>" +
         unitLabel + "</th>" +
-        "<th>RIR</th><th>Flags</th><th>Device VBT</th><th>VBT override</th></tr></thead><tbody>" +
+        "<th>RIR</th><th>Flags</th><th>Device VBT</th><th>VBT override</th>" +
+        "<th title='Heart rate 60 s after the set. Tracks effort, not recovery.'>HRR</th>" +
+        "</tr></thead><tbody>" +
         setRows + "</tbody></table></div>" +
         (repTables ? "<details class='history-reps'><summary>Rep details (velocity)</summary>" +
           repTables + "</details>" : "") +
+        (data.hr_recovery
+          ? "<p class='muted'>HRR is the heart-rate drop 60 s after a set (" +
+            data.hr_recovery.sets_with_value + " set(s) measured). It " +
+            esc(data.hr_recovery.caveat) + "; it is shown, not used.</p>"
+          : "") +
         "</section>";
     }).join("");
     var facts =
