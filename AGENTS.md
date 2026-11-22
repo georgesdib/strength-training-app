@@ -45,7 +45,8 @@ must not define training policy.
 
 ## Definition of done — short form
 
-1. Narrowest relevant tests pass.
+1. Narrowest relevant tests pass — `./check.sh` (fast lane; see `docs/AGENT-WORKFLOWS.md` §4),
+   and `./check.sh full` once before pushing.
 2. ruff check passes for the changed area.
 3. New config has a domain-reason comment; judgement calls become assumptions.
 4. Documentation is updated where behaviour changed; docs-consistency checks pass if docs changed.

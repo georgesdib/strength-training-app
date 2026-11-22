@@ -77,18 +77,34 @@ utils ← domain ← ingest/store ← features ← rules/prescribe/critique ← 
 
 ## 4. Tests and definition of done
 
-Run the narrowest relevant tests while iterating. The default suite excludes integration,
-golden, regression and slow layers.
+Use the lanes; do not memorise pytest flags.
 
-    .venv/bin/python -m pytest tests/test_prescribe.py tests/test_rules_policy.py
-    .venv/bin/python -m pytest --lf
-    .venv/bin/python -m pytest -m "not integration and not golden and not regression and not slow"
-    .venv/bin/python -m pytest -n 0
+    ./check.sh                 # fast lane: ruff + the tests mapped from the files changed vs HEAD
+    ./check.sh --files strength_coach/features/demands.py
+    ./check.sh lint            # ruff on changed files only
+    ./check.sh docs            # regenerate generated doc blocks, then run the docs tests
+    ./check.sh full            # exactly what CI runs: ruff + CI markers + ios-workflow ignore
+    ./check.sh install-hook    # optional pre-push hook that runs the fast lane
 
-Run the default suite once before handing off. Optional layers run only when the owner
-asks or in the release workflow:
+`make check|full|docs|lint` is the same thing where GNU make exists (`check.sh` exists because
+make is absent on the ODROID image).
 
-    .venv/bin/python -m pytest -m "integration or regression or slow" --dist loadfile
+**Policy.** While editing, run `./check.sh` only: it maps a changed path to the tests that cover
+it, so it is seconds, not minutes. Run `./check.sh full` once before a push — that is CI's
+blocking selection, and CI only runs on `main`, so a `development` push has no second opinion.
+Never loop the full selection and never use it to "see if things still pass" after a docs edit;
+`./check.sh` or `./check.sh docs` is the correct lane. The default block is ~2,500 tests and
+~11 minutes on the ODROID, which is why the wide run is a push-time decision, not an editing
+habit. If a whole lane is needed, run it once as a managed background job and read the result
+once (see *Waiting for long suites*).
+
+`regression` is part of the default lane since 2026-11-22: the four tests are cheap and encode
+invariants that caught real bugs. `integration` and `slow` stay opt-in (release work or an
+explicit request):
+
+    .venv/bin/python -m pytest -m "integration or slow" --dist loadfile
+
+`golden` tests are not excluded by the default markers; they pin user-facing order and output.
 
 A change is done when:
 1. Relevant tests pass.
