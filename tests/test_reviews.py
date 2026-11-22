@@ -281,3 +281,18 @@ def test_hr_probe_review_waits_for_sessions_then_repeats_on_a_cadence(monkeypatc
     finally:
         store.close()
 
+
+
+def test_every_review_renders_its_steps_as_text():
+    # A step is a sentence, not a mapping: an unquoted colon in the YAML turns the line into
+    # {key: value} and the card then prints "[object Object]" instead of the instruction.
+    store = db.Store(":memory:")
+    try:
+        tasks = reviews.status(store.connection, "2024-01-01")["tasks"]
+    finally:
+        store.close()
+    for task in tasks:
+        for field in ("steps", "dont"):
+            for entry in task[field]:
+                assert isinstance(entry, str), (task["key"], field, entry)
+

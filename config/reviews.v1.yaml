@@ -192,7 +192,7 @@ hr_recovery_probe:
     signal. Four sessions cannot settle that, so the question is re-measured on a cadence instead
     of being built on one reading.
   steps:
-  - Run the probe: python tools/hr_recovery_probe.py --db data/coach.db, on the host holding the database.
+  - "Run the probe: python tools/hr_recovery_probe.py --db data/coach.db, on the host holding the database."
   - Read the verdict block; it applies the decision rule written in the module docstring.
   - Record the new numbers and the decision in docs/HR-RECOVERY-PROBE.md, then mark this reviewed.
   dont:
