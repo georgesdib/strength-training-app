@@ -84,11 +84,20 @@ def test_a_pause_inside_a_rep_is_measured_not_split():
     assert analysis.reps[0].pause_ms >= 400
 
 
-def test_an_unhealthy_gap_report_abstains():
+def test_a_stalled_capture_is_salvaged_from_its_longest_run():
+    # A dropped stream is not automatically useless: the reps usually sit inside one contiguous
+    # run, so the analyser uses the longest one and says that it did.
     x = _profile(reps=2, lower_s=1.0, lift_s=0.5, rest_s=0.4, rom=0.3)
     analysis = seg.analyse(_recording(x, gap_ok=False))
+    assert analysis.abstention is None
+    assert analysis.salvaged
+    assert len(analysis.reps) == 2
+
+
+def test_a_capture_too_short_to_salvage_abstains():
+    recording = _recording(np.zeros(10), gap_ok=False)
+    analysis = seg.analyse(recording)
     assert analysis.abstention == "gaps"
-    assert not analysis.gap_ok
 
 
 def test_a_recording_without_samples_abstains():

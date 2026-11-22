@@ -38,6 +38,10 @@ import numpy as np
 
 # Sampling assumptions. The watch records at the hardware maximum; 100 Hz is the design point.
 NOMINAL_RATE_HZ = 100.0
+# A capture with a stall longer than this is salvaged by analysing its longest contiguous run.
+MAX_USABLE_GAP_SECONDS = 0.25
+# Any interval longer than this inside a capture is a delivery stall, not a sampling artefact.
+MAX_INTERNAL_GAP_SECONDS = 0.25
 # A rest is a low mean acceleration whose variation over the window is also low.
 REST_ACCEL_G = 0.02
 REST_VARIATION_G = 0.01
@@ -79,6 +83,8 @@ class SetAnalysis:
     reason: str | None = None
     axis: str | None = None
     gap_ok: bool = False
+    # True when the capture had a stall and only its longest contiguous run was analysed.
+    salvaged: bool = False
 
 
 def load_recording(path: str | Path) -> dict:
@@ -262,18 +268,33 @@ def analyse(recording: dict) -> SetAnalysis:
         # Older captures did not encode the derived flag; judge it from the counts rather than
         # assuming the capture was fine. A 122-296 ms hole is survivable; a 4 s stall is not.
         healthy = (
-            float(gap.get("maxGapSeconds") or 0) <= 0.25
+            float(gap.get("maxGapSeconds") or 0) <= MAX_USABLE_GAP_SECONDS
             and float(gap.get("droppedFraction") or 0) <= 0.05
-        )
-    if gap and not healthy:
-        return SetAnalysis(
-            abstention="gaps", reason="capture has delivery gaps", gap_ok=False
         )
 
     try:
         t, accel, gravity = _samples(recording)
     except ValueError as error:
         return SetAnalysis(abstention="no_samples", reason=str(error))
+
+    salvaged = False
+    if gap and not healthy:
+        # A stalled capture is not automatically useless: the reps usually sit inside one
+        # contiguous run. Analyse the longest run and say so, instead of discarding the set.
+        runs: list[tuple[int, int]] = []
+        start = 0
+        for index in range(1, len(t)):
+            if t[index] - t[index - 1] > MAX_INTERNAL_GAP_SECONDS:
+                runs.append((start, index - 1))
+                start = index
+        runs.append((start, len(t) - 1))
+        start, end = max(runs, key=lambda pair: t[pair[1]] - t[pair[0]])
+        if end - start < 20:
+            return SetAnalysis(
+                abstention="gaps", reason="capture has delivery gaps", gap_ok=False
+            )
+        t, accel, gravity = t[start:end + 1], accel[start:end + 1], gravity[start:end + 1]
+        salvaged = True
 
     axis = (recording.get("context") or {}).get("axis") or "vertical"
     along = _axis_projection(t, accel, gravity, axis)
@@ -359,6 +380,7 @@ def analyse(recording: dict) -> SetAnalysis:
         duration_s=round(float(t[-1] - t[0]), 3),
         axis=axis,
         gap_ok=True,
+        salvaged=salvaged,
     )
 
 
