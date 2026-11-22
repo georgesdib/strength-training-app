@@ -2312,3 +2312,85 @@ def test_today_includes_the_programme_header(ios):
     assert header is not None
     assert set(header) >= {"trained_week", "deload"}
     assert "calendar_week" in header["deload"]
+
+
+def _window_metrics(kind, value, *, day="2026-11-17", key=None,
+                    method="HealthKit: 7-day mean"):
+    return [{
+        "key": key or uuid.uuid4().hex, "kind": kind, "measured_at": day,
+        "value": value, "method": method,
+    }]
+
+
+def test_healthkit_steps_and_sitting_land_as_device_measurements(ios):
+    """Windowed assessments arrive already aggregated: one row per window, source device."""
+    token, _ = _paired(ios)
+    metrics = (
+        _window_metrics("steps_per_day", 8421.5)
+        + _window_metrics("sitting_hours_per_day", 7.25,
+                          method="HealthKit: 24h - Apple Watch stand time")
+    )
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/samples", method="POST",
+        payload={"samples": [], "metrics": metrics}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, body
+    assert body["metrics"] == {"written": 2, "skipped": 0}
+
+    stored = _row(ios["path"],
+                  "SELECT value, source, measured_on, method FROM measurement "
+                  "WHERE metric_key='steps_per_day'")
+    assert float(stored["value"]) == 8421.5
+    assert stored["source"] == "device"
+    assert stored["measured_on"] == "2026-11-17"
+    assert stored["method"] == "HealthKit: 7-day mean"
+    sitting = _row(ios["path"],
+                   "SELECT value, source, method FROM measurement "
+                   "WHERE metric_key='sitting_hours_per_day'")
+    assert float(sitting["value"]) == 7.25
+    assert sitting["source"] == "device"
+    assert "stand time" in sitting["method"]
+
+
+def test_window_metric_replay_is_a_no_op(ios):
+    """The window key is the identity, so re-syncing the same week writes nothing."""
+    token, _ = _paired(ios)
+    metrics = _window_metrics("steps_per_day", 9000.0, key=uuid.uuid4().hex)
+    for _ in range(2):
+        status, body = _request(
+            ios["base"], "/api/ios/v1/healthkit/samples", method="POST",
+            payload={"samples": [], "metrics": metrics}, token=token, key=uuid.uuid4().hex,
+        )
+        assert status == 200, body
+    assert body["metrics"] == {"written": 0, "skipped": 0}
+    assert int(_scalar(ios["path"],
+        "SELECT COUNT(*) FROM measurement WHERE metric_key='steps_per_day'")) == 1
+
+
+def test_window_metric_out_of_range_is_skipped_not_fatal(ios):
+    """One implausible reading must not cost the rest of the batch."""
+    token, _ = _paired(ios)
+    metrics = (
+        _window_metrics("steps_per_day", 900000.0)
+        + _window_metrics("sitting_hours_per_day", 6.5,
+                          method="HealthKit: 24h - Apple Watch stand time")
+    )
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/samples", method="POST",
+        payload={"samples": [], "metrics": metrics}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, body
+    assert body["metrics"] == {"written": 1, "skipped": 1}
+    assert int(_scalar(ios["path"],
+        "SELECT COUNT(*) FROM measurement WHERE metric_key='steps_per_day'")) == 0
+
+
+def test_unknown_metric_kind_is_still_rejected(ios):
+    token, _ = _paired(ios)
+    status, body = _request(
+        ios["base"], "/api/ios/v1/healthkit/samples", method="POST",
+        payload={"samples": [], "metrics": _window_metrics("sleep_hours", 7.5)},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 400
+    assert "unsupported metric kind" in json.dumps(body)

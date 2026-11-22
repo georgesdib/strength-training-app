@@ -46,6 +46,8 @@ GET /api/outcomes?weeks=8&date=YYYY-MM-DD
 - cardio sessions by modality and weeks with data;
 - WHO 150–300 minutes/week as **context only**;
 - steps, sitting, bodyweight, body fat, grip, VO2max estimate, sit-to-stand where measured;
+  steps and sitting may arrive from the phone's HealthKit sync as one `device`-sourced value per
+  completed calendar week (sitting is derived as 24 h minus Apple Watch stand time), never as a daily series;
 - an observed bodyweight history table from readiness dates (manual-over-import precedence; missing
   dates are not filled);
 - sleep/energy/stress/soreness readiness trends (n, average, first/last);
