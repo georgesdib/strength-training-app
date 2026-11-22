@@ -17,6 +17,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from strength_coach.domain import plan_identity
 from strength_coach.features import volume as volume_feature
 from strength_coach.prescribe import selection_tax, templates
 from strength_coach.prescribe.models import Prescription
@@ -158,10 +159,91 @@ def _main_slot(base: templates.SessionTemplate) -> templates.Slot | None:
     return None
 
 
-def _previous_choices(conn, *, session_type: str, before_date: str) -> dict[int, str]:
+def _plan_items(plan: Any) -> list[Mapping[str, Any]]:
+    """The frozen plan items of a completed workout, ignoring malformed entries."""
+    items = plan.get("items") if isinstance(plan, Mapping) else None
+    if not isinstance(items, list):
+        return []
+    return [
+        item for item in items
+        if isinstance(item, Mapping) and item.get("exercise_id")
+    ]
+
+
+def _plan_slot_by_exercise(plan: Any) -> dict[str, str]:
+    """Map a frozen plan item's planned exercise to its template slot id, when frozen.
+
+    Only resolver-built plans store the generated-session snapshot (slot id -> selection), and
+    those are the plans minimum-session shaping and reordering can change. A plan without the
+    snapshot keeps the positional fallback below.
+    """
+    notes = plan.get("notes") if isinstance(plan, Mapping) else None
+    resolver = notes.get("resolver") if isinstance(notes, Mapping) else None
+    generated = resolver.get("generated_session") if isinstance(resolver, Mapping) else None
+    if not isinstance(generated, Mapping):
+        return {}
+    pairs: list[tuple[str, str]] = []
+    slots = generated.get("slots")
+    if isinstance(slots, list):
+        for slot in slots:
+            if not isinstance(slot, Mapping):
+                continue
+            slot_id = slot.get("id")
+            exercise_id = slot.get("exercise_id")
+            if isinstance(slot_id, str) and isinstance(exercise_id, str):
+                pairs.append((slot_id, exercise_id))
+    if not pairs:
+        assignment = generated.get("assignment")
+        if isinstance(assignment, Mapping):
+            pairs = [
+                (str(slot_id), str(exercise_id))
+                for slot_id, exercise_id in assignment.items()
+                if slot_id and exercise_id
+            ]
+    by_exercise: dict[str, str] = {}
+    for slot_id, exercise_id in sorted(pairs):
+        by_exercise.setdefault(exercise_id, slot_id)
+    return by_exercise
+
+
+def _performed_identity(row: Mapping[str, Any]) -> int | None:
+    """The plan slot a performed set replaced, from its own append-only attribution."""
+    for column in ("substitutes_plan_item_index", "prescription_item_index"):
+        value = row.get(column)
+        if value is None:
+            continue
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def _previous_choices(
+    conn,
+    *,
+    session_type: str,
+    before_date: str,
+    slot_ids: tuple[str, ...] = (),
+) -> dict[int, str]:
+    """Exercise actually performed in each slot of the last completed session of this type.
+
+    The plan says what was prescribed; it does not say what the athlete did. A substitution
+    (competition squat replaced by belt squat) must count as belt squat exposure, so the source
+    is the performed working sets of the completed session, resolved to their original plan
+    slot through the set's own attribution (substitutes_plan_item_index, then
+    prescription_item_index). Prescribed-but-unperformed items never appear.
+
+    Slot key: the position in today's template when the frozen plan carries the resolver's slot
+    snapshot (so shaping/reordering cannot shift identity), otherwise the plan item's frozen
+    identity (`order_index`), the same key the previous implementation used. Several working
+    sets for one slot resolve to the last one performed, and a set with no attribution (legacy
+    rows) resolves only when exactly one plan item names that exercise. Everything else is
+    ignored rather than guessed.
+    """
     row = conn.execute(
         """
-        SELECT plan_json FROM workout_session
+        SELECT workout_id, plan_json FROM workout_session
          WHERE session_type = ? AND for_date < ? AND status = 'completed'
          ORDER BY for_date DESC, started_at DESC LIMIT 1
         """,
@@ -175,18 +257,39 @@ def _previous_choices(conn, *, session_type: str, before_date: str) -> dict[int,
         plan = json.loads(row["plan_json"])
     except (TypeError, ValueError):
         return {}
-    items = plan.get("items") if isinstance(plan, Mapping) else None
-    if not isinstance(items, list):
+    items = _plan_items(plan)
+    if not items:
         return {}
-    choices: dict[int, str] = {}
+    by_identity: dict[int, Mapping[str, Any]] = {}
     for position, item in enumerate(items):
-        if not isinstance(item, Mapping) or not item.get("exercise_id"):
+        by_identity.setdefault(plan_identity.item_identity(item, position), item)
+    slot_by_exercise = _plan_slot_by_exercise(plan)
+    slot_index = {slot_id: position for position, slot_id in enumerate(slot_ids)}
+    choices: dict[int, str] = {}
+    for performed in queries.session_clean_sets(conn, row["workout_id"]):
+        if not int(performed.get("is_working_set") or 0):
             continue
-        try:
-            identity = int(item.get("order_index", position))
-        except (TypeError, ValueError):
-            identity = position
-        choices[identity] = str(item["exercise_id"])
+        exercise_id = str(performed.get("exercise_id") or "")
+        if not exercise_id:
+            continue
+        identity = _performed_identity(performed)
+        item = by_identity.get(identity) if identity is not None else None
+        if item is None:
+            # Legacy rows carry no attribution: accept only an unambiguous exercise match.
+            matches = [
+                (plan_identity.item_identity(candidate, position), candidate)
+                for position, candidate in enumerate(items)
+                if str(candidate.get("exercise_id")) == exercise_id
+            ]
+            if len(matches) != 1:
+                continue
+            identity, item = matches[0]
+        key = int(identity)
+        slot_id = slot_by_exercise.get(str(item.get("exercise_id")))
+        if slot_id is not None and slot_id in slot_index:
+            key = slot_index[slot_id]
+        # Performed order: a slot trained twice in one session reports what was done last.
+        choices[key] = exercise_id
     return choices
 
 
@@ -527,7 +630,12 @@ def snapshot(
     suitability = queries.exercise_suitability(conn)
     tax_config = selection_tax.TaxConfig.load()
     panel = prescription.notes.get("volume_panel") or {}
-    previous = _previous_choices(conn, session_type=base.session_type, before_date=for_date)
+    previous = _previous_choices(
+        conn,
+        session_type=base.session_type,
+        before_date=for_date,
+        slot_ids=tuple(slot.id for slot in base.slots),
+    )
     main_slot = _main_slot(base)
     items = {item.order_index: item for item in prescription.items}
     selected_by_slot = {slot.id: assignment.get(slot.id) for slot in base.slots}

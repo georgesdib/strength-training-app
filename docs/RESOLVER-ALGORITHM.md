@@ -141,7 +141,13 @@ values and criterion order are in `config/resolver-role-quality.v1.yaml`; the sn
 **Main**
 
 - specificity: same lift 3, same `summary.LIFT_GROUPS` family 2, same taxonomy pattern 1,
-  another permitted pattern 0; unknown previous choice 2.
+  another permitted pattern 0; unknown previous choice 2. The previous choice is the exercise
+  actually performed in that slot in the last completed session of the same type, read from its
+  performed working sets and their own attribution (`substitutes_plan_item_index`, then
+  `prescription_item_index`), so a substitution counts as the substitute and a prescribed but
+  unperformed item is ignored. The slot is keyed by template slot id when the frozen plan carries
+  the resolver's slot snapshot, otherwise by the plan item's frozen identity (`order_index`);
+  several sets for one slot resolve to the last one performed.
 - exposure: intensity at or above 0.80 with full e1RM quality/age 2, partial 1, missing 1,
   below the heavy band 0. This is a band check, not a point estimate.
 - suitability: explicit positive 3, unrated 2, eligible with caution 1. Injury, `can_do`,

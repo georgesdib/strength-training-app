@@ -1315,6 +1315,107 @@ def _set_attribution(
         return None, None
 
 
+def _same_number(left, right) -> bool:
+    """Compare two optional REAL columns without treating 100 and 100.0 as different."""
+    if left is None or right is None:
+        return left is None and right is None
+    try:
+        return abs(float(left) - float(right)) < 1e-9
+    except (TypeError, ValueError):
+        return False
+
+
+def _same_int(left, right) -> bool:
+    """Compare two optional INTEGER columns, never coercing a fractional value."""
+    if left is None or right is None:
+        return left is None and right is None
+    try:
+        return int(left) == int(right)
+    except (TypeError, ValueError):
+        return False
+
+
+def _performed_stamp(value: dt.datetime | None) -> str | None:
+    """Canonical performed timestamp: UTC, milliseconds, timezone representation irrelevant.
+
+    Storage truncates to milliseconds, so canonicalising the same way keeps a retry of an
+    equivalent ISO-8601 value (a Z suffix, another offset, or leftover microseconds) a true
+    replay instead of a false conflict, while still separating distinct instants.
+    """
+    if value is None:
+        return None
+    utc = value.astimezone(dt.UTC)
+    return utc.replace(
+        microsecond=(utc.microsecond // 1000) * 1000
+    ).isoformat(timespec="milliseconds")
+
+
+def _rep_detail_matches(
+    stored: list[dict] | None,
+    wanted: list[dict],
+) -> bool:
+    """Compare the per-rep velocity snapshot as canonical (index, rounded value) pairs."""
+    stored = list(stored or [])
+    if len(stored) != len(wanted):
+        return False
+    for left, right in zip(stored, wanted, strict=True):
+        if not _same_int(left.get("rep_index"), right.get("rep_index")):
+            return False
+        if not _same_number(left.get("velocity_mps"), right.get("velocity_mps")):
+            return False
+    return True
+
+
+def _set_payload_matches(
+    conn,
+    existing: Mapping[str, Any],
+    *,
+    workout_id: str,
+    exercise_id: str,
+    set_index: int,
+    load_kg: float | None,
+    reps,
+    rir,
+    velocity: float | None,
+    rep_detail: list[dict],
+    source: str,
+    item_index: int | None,
+    substitutes_index: int | None,
+    performed: dt.datetime | None,
+) -> bool:
+    """Is this request the same immutable set the stored row already holds?
+
+    Every field the client can send is compared, so a different set is never mistaken for a
+    replay. Server-assigned values (set_id, event ids) are excluded; created_at is compared
+    only when the client supplied performed_at, because otherwise it is the server's own
+    arrival time and a retry necessarily produces a different one.
+    """
+    if str(existing["exercise_id"]) != str(exercise_id):
+        return False
+    if not _same_int(existing["set_index"], set_index):
+        return False
+    if not _same_number(existing["load_kg"], load_kg):
+        return False
+    if not _same_int(existing["reps"], reps) or not _same_int(existing["rir"], rir):
+        return False
+    if not _same_number(existing["velocity"], velocity):
+        return False
+    if str(existing["source"] or "") != str(source):
+        return False
+    if not _same_int(existing["prescription_item_index"], item_index):
+        return False
+    if not _same_int(existing["substitutes_plan_item_index"], substitutes_index):
+        return False
+    if performed is not None:
+        stored_stamp = _performed_stamp(_parse(existing["created_at"]))
+        if stored_stamp != _performed_stamp(performed):
+            return False
+    stored_reps = _current_reps(conn, workout_id).get(int(existing["set_id"]))
+    return _rep_detail_matches(
+        (stored_reps or {}).get("reps"), rep_detail
+    )
+
+
 def add_set(
     conn,
     workout_id: str,
@@ -1331,65 +1432,72 @@ def add_set(
     rep_velocities: list[dict] | None = None,
     performed_at: str | None = None,
 ) -> dict:
-    workout = get(conn, workout_id)
-    if workout is None:
-        raise ValueError("workout not found")
-    if workout["status"] != "in_progress":
-        raise ValueError("workout is not in progress")
-    if not exercise_id:
-        raise ValueError("exercise_id is required")
-    if source not in {"manual", "import", "device"}:
-        raise ValueError("source must be manual, import or device")
-    if set_index is None:
-        row = conn.execute(
-            "SELECT COALESCE(MAX(set_index), 0) AS n FROM workout_set WHERE workout_id = ? "
-            "AND exercise_id = ?",
-            (workout_id, exercise_id),
-        ).fetchone()
-        set_index = int(row["n"]) + 1
-    set_index = int(set_index)
-    if set_index < 1:
-        raise ValueError("set_index must be positive")
-    rep_detail = _rep_velocity_detail(reps, rep_velocities)
-    if rep_detail and velocity is None:
-        velocity = round(
-            sum(item["velocity_mps"] for item in rep_detail) / len(rep_detail), 3
-        )
-    item_index, substitutes_index = _set_attribution(
-        workout, exercise_id, plan_item_index, substitutes_plan_item_index
-    )
-    performed = _parse(performed_at)
-    if performed_at is not None:
-        start = _parse(workout.get("started_at"))
-        now = dt.datetime.now(dt.UTC)
-        if performed is None:
-            raise ValueError("performed_at must be an ISO-8601 timestamp")
-        if start is not None and performed < start:
-            raise ValueError("performed_at must not be before the workout start")
-        if performed > now + dt.timedelta(minutes=1):
-            raise ValueError("performed_at must not be in the future")
+    """Append one performed set; an exact retry is idempotent, a different one is rejected.
+
+    The whole read-validate-allocate-insert sequence runs inside the write transaction, so an
+    automatic set index cannot be allocated from a snapshot another writer has already moved
+    past, and a concurrent execution change is serialised with the attribution decision
+    (DEC-RESOLVER-23). A retry after a lost response is recognised from the complete immutable
+    payload, never from a matching index alone.
+    """
     with db.transaction(conn):
+        workout = get(conn, workout_id)
+        if workout is None:
+            raise ValueError("workout not found")
+        if workout["status"] != "in_progress":
+            raise ValueError("workout is not in progress")
+        if not exercise_id:
+            raise ValueError("exercise_id is required")
+        if source not in {"manual", "import", "device"}:
+            raise ValueError("source must be manual, import or device")
+        if set_index is None:
+            row = conn.execute(
+                "SELECT COALESCE(MAX(set_index), 0) AS n FROM workout_set "
+                "WHERE workout_id = ? AND exercise_id = ?",
+                (workout_id, exercise_id),
+            ).fetchone()
+            set_index = int(row["n"]) + 1
+        set_index = int(set_index)
+        if set_index < 1:
+            raise ValueError("set_index must be positive")
+        rep_detail = _rep_velocity_detail(reps, rep_velocities)
+        if rep_detail and velocity is None:
+            velocity = round(
+                sum(item["velocity_mps"] for item in rep_detail) / len(rep_detail), 3
+            )
+        item_index, substitutes_index = _set_attribution(
+            workout, exercise_id, plan_item_index, substitutes_plan_item_index
+        )
+        performed = _parse(performed_at)
+        if performed_at is not None:
+            start = _parse(workout.get("started_at"))
+            now = dt.datetime.now(dt.UTC)
+            if performed is None:
+                raise ValueError("performed_at must be an ISO-8601 timestamp")
+            if start is not None and performed < start:
+                raise ValueError("performed_at must not be before the workout start")
+            if performed > now + dt.timedelta(minutes=1):
+                raise ValueError("performed_at must not be in the future")
         existing = conn.execute(
             "SELECT * FROM workout_set WHERE workout_id = ? AND exercise_id = ? "
             "AND set_index = ?",
             (workout_id, exercise_id, set_index),
         ).fetchone()
         if existing is not None:
-            # A retry after a lost response must not append a second set, but a matching
-            # index alone is not proof of a replay: compare the payload so a different set
-            # is rejected instead of being silently discarded.
-            def same_number(left, right) -> bool:
-                if left is None or right is None:
-                    return left is None and right is None
-                return abs(float(left) - float(right)) < 1e-9
-
-            if (
-                same_number(existing["load_kg"], load_kg)
-                and existing["reps"] == reps
-                and existing["rir"] == rir
-                and same_number(existing["velocity"], velocity)
-                and existing["prescription_item_index"] == item_index
-                and existing["substitutes_plan_item_index"] == substitutes_index
+            if _set_payload_matches(
+                conn, existing,
+                workout_id=workout_id,
+                exercise_id=exercise_id,
+                set_index=set_index,
+                load_kg=load_kg,
+                reps=reps,
+                rir=rir,
+                velocity=velocity,
+                rep_detail=rep_detail,
+                source=source,
+                item_index=item_index,
+                substitutes_index=substitutes_index,
+                performed=performed,
             ):
                 return get(conn, workout_id)
             raise ValueError(
@@ -1636,138 +1744,143 @@ def record_execution_change(
         parsed = str(uuid.UUID(str(client_event_id)))
     except (TypeError, ValueError, AttributeError) as exc:
         raise ValueError("event_id must be a UUID") from exc
-    workout = get(conn, workout_id)
-    if workout is None:
-        raise ValueError("workout not found")
-    if workout["status"] != "in_progress":
-        raise ValueError("workout is not in progress")
-    exercise_id = _validate_exercise(exercise_id)
-    items = list((workout.get("plan") or {}).get("items") or [])
-    if kind == "substitution":
-        if after_item_index is not None:
-            raise ValueError("after_item_index applies only to an addition")
-        if plan_item_index is None:
-            raise ValueError("plan_item_index is required for a substitution")
-        identity, item = _plan_item_identity(items, plan_item_index)
-        if str(item.get("exercise_id")) == exercise_id:
-            raise ValueError("a substitution must name a different exercise")
-        sets = int(item.get("sets") or 1)
-        low = int(item.get("reps_low") or 1)
-        high = int(item.get("reps_high") or low)
-        rir = item.get("rir_target")
-        rest_s = item.get("rest_s")
-        essential = bool(item.get("essential"))
-        order_index = identity
-        slot_key = {"plan_item_index": identity}
-    else:
-        if plan_item_index is not None:
-            raise ValueError("plan_item_index applies only to a substitution")
-        if after_item_index is None:
-            raise ValueError("after_item_index is required for an addition")
-        identity, item = _plan_item_identity(items, after_item_index)
-        low = 1 if reps_low is None else int(reps_low)
-        high = low if reps_high is None else int(reps_high)
-        if not 1 <= low <= high <= 50:
-            raise ValueError("reps_low and reps_high must be 1-50 with low <= high")
-        if rir_target is not None and not 0 <= int(rir_target) <= 10:
-            raise ValueError("rir_target must be 0-10")
-        sets = 1
-        rest_s = item.get("rest_s")
-        essential = False
-        order_index = identity
-        slot_key = {"after_item_index": identity}
-    effective_rir = rir_target if kind == "addition" else rir
+    # Status, plan identity, client-id idempotency, the performed-slot check, the solved
+    # payload and the insert must be one decision. BEGIN IMMEDIATE serialises this against
+    # a concurrent set recording, so a substitution can never be slipped in after the slot
+    # was performed, and a duplicate event id is always compared with its stored payload.
+    with db.transaction(conn):
+        workout = get(conn, workout_id)
+        if workout is None:
+            raise ValueError("workout not found")
+        if workout["status"] != "in_progress":
+            raise ValueError("workout is not in progress")
+        exercise_id = _validate_exercise(exercise_id)
+        items = list((workout.get("plan") or {}).get("items") or [])
+        if kind == "substitution":
+            if after_item_index is not None:
+                raise ValueError("after_item_index applies only to an addition")
+            if plan_item_index is None:
+                raise ValueError("plan_item_index is required for a substitution")
+            identity, item = _plan_item_identity(items, plan_item_index)
+            if str(item.get("exercise_id")) == exercise_id:
+                raise ValueError("a substitution must name a different exercise")
+            sets = int(item.get("sets") or 1)
+            low = int(item.get("reps_low") or 1)
+            high = int(item.get("reps_high") or low)
+            rir = item.get("rir_target")
+            rest_s = item.get("rest_s")
+            essential = bool(item.get("essential"))
+            order_index = identity
+            slot_key = {"plan_item_index": identity}
+        else:
+            if plan_item_index is not None:
+                raise ValueError("plan_item_index applies only to a substitution")
+            if after_item_index is None:
+                raise ValueError("after_item_index is required for an addition")
+            identity, item = _plan_item_identity(items, after_item_index)
+            low = 1 if reps_low is None else int(reps_low)
+            high = low if reps_high is None else int(reps_high)
+            if not 1 <= low <= high <= 50:
+                raise ValueError("reps_low and reps_high must be 1-50 with low <= high")
+            if rir_target is not None and not 0 <= int(rir_target) <= 10:
+                raise ValueError("rir_target must be 0-10")
+            sets = 1
+            rest_s = item.get("rest_s")
+            essential = False
+            order_index = identity
+            slot_key = {"after_item_index": identity}
+        effective_rir = rir_target if kind == "addition" else rir
 
-    existing = conn.execute(
-        "SELECT event_id, event_type, payload_json FROM workout_event "
-        "WHERE workout_id = ? AND json_extract(payload_json, '$.client_event_id') = ?",
-        (workout_id, parsed),
-    ).fetchone()
-    if existing is not None:
-        stored = json.loads(existing["payload_json"] or "{}")
-        if (
-            str(existing["event_type"]) != kind
-            or not _change_matches_payload(
-                stored,
-                kind=kind,
-                exercise_id=exercise_id,
-                reps_low=low,
-                reps_high=high,
-                rir_target=effective_rir,
-                slot_key=slot_key,
-            )
-        ):
-            raise ValueError("event_id was already used for a different change")
-        return execution_view(conn, workout_id)
-
-    if kind == "substitution":
-        performed = conn.execute(
-            "SELECT 1 FROM workout_set WHERE workout_id = ? AND "
-            "(prescription_item_index = ? OR substitutes_plan_item_index = ?) "
-            "LIMIT 1",
-            (workout_id, identity, identity),
-        ).fetchone()
-        if performed is not None:
-            raise ValueError(
-                "cannot substitute a plan item after sets have been logged"
-            )
-
-    prefill = _change_prefill(
-        conn,
-        workout=workout,
-        exercise_id=exercise_id,
-        sets=sets,
-        reps_low=low,
-        reps_high=high,
-        rir_target=effective_rir,
-        rest_s=rest_s,
-        essential=essential,
-        order_index=order_index,
-        requested=bool(prefill_requested),
-    )
-    payload = {
-        "client_event_id": parsed,
-        "exercise_id": exercise_id,
-        "reps_low": low,
-        "reps_high": high,
-        "rir_target": effective_rir,
-        **slot_key,
-        **prefill,
-    }
-    if device_id:
-        payload["device_id"] = str(device_id)
-    try:
-        with db.transaction(conn):
-            _event(conn, workout_id, kind, payload)
-            _touch(conn, workout_id)
-    except sqlite3.IntegrityError as exc:
-        # A concurrent request won the unique client-id index. Reload it and compare the
-        # request content: only a true replay returns the view; a conflicting payload is
-        # rejected instead of being mistaken for a successful retry.
-        stored_row = conn.execute(
-            "SELECT event_type, payload_json FROM workout_event "
+        existing = conn.execute(
+            "SELECT event_id, event_type, payload_json FROM workout_event "
             "WHERE workout_id = ? AND json_extract(payload_json, '$.client_event_id') = ?",
             (workout_id, parsed),
         ).fetchone()
-        if stored_row is None:
-            raise
-        stored = json.loads(stored_row["payload_json"] or "{}")
-        if (
-            str(stored_row["event_type"]) != kind
-            or not _change_matches_payload(
-                stored,
-                kind=kind,
-                exercise_id=exercise_id,
-                reps_low=low,
-                reps_high=high,
-                rir_target=effective_rir,
-                slot_key=slot_key,
-            )
-        ):
-            raise ValueError(
-                "event_id was already used for a different change"
-            ) from exc
-        return execution_view(conn, workout_id)
+        if existing is not None:
+            stored = json.loads(existing["payload_json"] or "{}")
+            if (
+                str(existing["event_type"]) != kind
+                or not _change_matches_payload(
+                    stored,
+                    kind=kind,
+                    exercise_id=exercise_id,
+                    reps_low=low,
+                    reps_high=high,
+                    rir_target=effective_rir,
+                    slot_key=slot_key,
+                )
+            ):
+                raise ValueError("event_id was already used for a different change")
+            return execution_view(conn, workout_id)
+
+        if kind == "substitution":
+            performed = conn.execute(
+                "SELECT 1 FROM workout_set WHERE workout_id = ? AND "
+                "(prescription_item_index = ? OR substitutes_plan_item_index = ?) "
+                "LIMIT 1",
+                (workout_id, identity, identity),
+            ).fetchone()
+            if performed is not None:
+                raise ValueError(
+                    "cannot substitute a plan item after sets have been logged"
+                )
+
+        prefill = _change_prefill(
+            conn,
+            workout=workout,
+            exercise_id=exercise_id,
+            sets=sets,
+            reps_low=low,
+            reps_high=high,
+            rir_target=effective_rir,
+            rest_s=rest_s,
+            essential=essential,
+            order_index=order_index,
+            requested=bool(prefill_requested),
+        )
+        payload = {
+            "client_event_id": parsed,
+            "exercise_id": exercise_id,
+            "reps_low": low,
+            "reps_high": high,
+            "rir_target": effective_rir,
+            **slot_key,
+            **prefill,
+        }
+        if device_id:
+            payload["device_id"] = str(device_id)
+        try:
+            _event(conn, workout_id, kind, payload)
+        except sqlite3.IntegrityError as exc:
+            # Defensive only: BEGIN IMMEDIATE already serialised the client-id check with this
+            # insert. If an out-of-band writer somehow stored the id first, compare the committed
+            # payload so a true replay returns the view and a conflicting one is rejected.
+            stored_row = conn.execute(
+                "SELECT event_type, payload_json FROM workout_event "
+                "WHERE workout_id = ? AND "
+                "json_extract(payload_json, '$.client_event_id') = ?",
+                (workout_id, parsed),
+            ).fetchone()
+            if stored_row is None:
+                raise
+            stored = json.loads(stored_row["payload_json"] or "{}")
+            if (
+                str(stored_row["event_type"]) != kind
+                or not _change_matches_payload(
+                    stored,
+                    kind=kind,
+                    exercise_id=exercise_id,
+                    reps_low=low,
+                    reps_high=high,
+                    rir_target=effective_rir,
+                    slot_key=slot_key,
+                )
+            ):
+                raise ValueError(
+                    "event_id was already used for a different change"
+                ) from exc
+            return execution_view(conn, workout_id)
+        _touch(conn, workout_id)
     return execution_view(conn, workout_id)
 
 
@@ -2413,49 +2526,70 @@ def end(
     ended = (ended_dt.astimezone(dt.UTC).isoformat(timespec="seconds")
              if ended_dt is not None else _now())
     with db.transaction(conn):
-        _materialise(
-            conn, workout, ended=ended, duration=duration, duration_source=source,
-            session_rpe=rpe, session_rpe_recorded=not not_recorded, notes=notes,
-            productivity=productivity,
-        )
-        # The dwell counter advances with the durable clean_set rows the materialise step just
-        # wrote, once per exercise per training day. See docs/DWELL-AND-ROTATION.md.
-        profile = settings_profile.latest(conn, str(workout["for_date"]))
-        resolved = settings_profile.resolved_registry(
-            profile["overrides"] if profile else {}
-        )
-        dwell_feature.record_completion(
-            conn,
-            session_id=workout_id,
-            for_date=str(workout["for_date"]),
-            target=int(resolved["resolver.dwell.target"]),
-        )
-        # No critique is computed at completion: the rubric is a retired diagnostic
-        # (DEC-EVAL-09), and ending a workout must not depend on it.
-        conn.execute(
-            """
-            UPDATE workout_session
-            SET status = 'completed', ended_at = ?, duration_measured_s = ?,
-                duration_min = ?, duration_source = ?, session_rpe = ?,
-                session_rpe_recorded = ?, notes = COALESCE(?, notes)
-            WHERE workout_id = ?
-            """,
-            (ended, measured_seconds, duration, source, rpe,
-             0 if not_recorded else 1, notes, workout_id),
-        )
-        derived_was_ready = derived_core.is_ready(conn, derived_core.spec())
-        analytics_revision.record_mutation(
-            conn, "workout_end", session_id=workout_id,
-            detail={"workout_id": workout_id},
-        )
-        derived_core.refresh_sessions(
-            conn, [workout_id], was_ready=derived_was_ready
-        )
-        _event(conn, workout_id, "end", {"duration_min": duration,
-                                          "session_rpe": rpe,
-                                          "not_recorded": bool(not_recorded),
-                                          "productivity": productivity})
+        # Re-read under the write lock. Two concurrent completion requests can both observe
+        # in_progress in the read above, so this is the authoritative check: BEGIN IMMEDIATE
+        # serialises them and the loser sees 'completed' here instead of repeating the
+        # materialisation, dwell advance, status transition, analytics revision and end event.
+        current = get(conn, workout_id)
+        if current is None:
+            raise ValueError("workout not found")
+        if current["status"] != "completed":
+            if current["status"] != "in_progress":
+                raise ValueError("workout is not in progress")
+            _complete(conn, current, ended=ended, duration=duration, source=source,
+                      measured_seconds=measured_seconds, rpe=rpe, not_recorded=not_recorded,
+                      notes=notes, productivity=productivity)
     return get(conn, workout_id)
+
+
+def _complete(conn, workout: Mapping[str, Any], *, ended: str, duration: float,
+              source: str, measured_seconds: int, rpe: float | None,
+              not_recorded: bool, notes: str | None,
+              productivity: int | None) -> None:
+    """Run the completion side effects once, inside the caller's write transaction."""
+    workout_id = str(workout["workout_id"])
+    _materialise(
+        conn, workout, ended=ended, duration=duration, duration_source=source,
+        session_rpe=rpe, session_rpe_recorded=not not_recorded, notes=notes,
+        productivity=productivity,
+    )
+    # The dwell counter advances with the durable clean_set rows the materialise step just wrote,
+    # once per exercise per training day. See docs/DWELL-AND-ROTATION.md.
+    profile = settings_profile.latest(conn, str(workout["for_date"]))
+    resolved = settings_profile.resolved_registry(
+        profile["overrides"] if profile else {}
+    )
+    dwell_feature.record_completion(
+        conn,
+        session_id=workout_id,
+        for_date=str(workout["for_date"]),
+        target=int(resolved["resolver.dwell.target"]),
+    )
+    # No critique is computed at completion: the rubric is a retired diagnostic
+    # (DEC-EVAL-09), and ending a workout must not depend on it.
+    conn.execute(
+        """
+        UPDATE workout_session
+        SET status = 'completed', ended_at = ?, duration_measured_s = ?,
+            duration_min = ?, duration_source = ?, session_rpe = ?,
+            session_rpe_recorded = ?, notes = COALESCE(?, notes)
+        WHERE workout_id = ?
+        """,
+        (ended, measured_seconds, duration, source, rpe,
+         0 if not_recorded else 1, notes, workout_id),
+    )
+    derived_was_ready = derived_core.is_ready(conn, derived_core.spec())
+    analytics_revision.record_mutation(
+        conn, "workout_end", session_id=workout_id,
+        detail={"workout_id": workout_id},
+    )
+    derived_core.refresh_sessions(
+        conn, [workout_id], was_ready=derived_was_ready
+    )
+    _event(conn, workout_id, "end", {"duration_min": duration,
+                                     "session_rpe": rpe,
+                                     "not_recorded": bool(not_recorded),
+                                     "productivity": productivity})
 
 
 def abandon_stale(conn, before_iso: str) -> int:

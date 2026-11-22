@@ -262,8 +262,13 @@ def _history_context(context, exercise_id: str, window_days: int = 84) -> Histor
 
 
 def _light_context(conn, on_date: str, exercise_ids: tuple[str, ...]) -> RuleContext:
-    """Only the candidate history is needed; loading the full enriched log made the UI slow."""
-    sets = queries.clean_sets(conn, exercise_ids=exercise_ids)
+    """Only the candidate history is needed; loading the full enriched log made the UI slow.
+
+    The frame is bounded by `on_date` like every other context: an unbounded load let sets and
+    variants performed after a historical evaluation date decide that date's current variant,
+    rotation and history context.
+    """
+    sets = queries.clean_sets(conn, end=on_date, exercise_ids=exercise_ids)
     sessions = queries.sessions(conn, end=on_date)
     return RuleContext(
         sets=sets,
@@ -311,15 +316,21 @@ def select(
     if context is None:
         wanted = tuple(sorted({item for ids in slot_ids.values() for item in ids}))
         context = _light_context(conn, on_date, wanted)
+    else:
+        # Never trust the caller's loaded range: a context built to a later end (or from a
+        # whole-history frame) would otherwise let a future set, symptom or profile change a
+        # past selection. The slice is inclusive, so a session on the date still counts.
+        context = context.as_of(conn, on_date)
     assessment = readiness_score.compute(conn, on_date)
     injury = injury_signal.compute(conn, on_date, ramp_week=context.block_week_index)
     stress = recent_stress.compute(context.sets, on_date)
     stress_cfg = recent_stress.StressConfig.load()
-    suitability = queries.exercise_suitability(conn)
+    # Ratings are dated observations: a rating recorded after on_date must not vote.
+    suitability = queries.exercise_suitability(conn, as_of=on_date)
     taxes = selection_tax.TaxConfig.load()
     readiness_baseline, baseline_n = _readiness_baseline(conn, on_date)
     all_ids = sorted({item for ids in slot_ids.values() for item in ids})
-    veto_report = constraints_mod.evaluate(conn, all_ids)
+    veto_report = constraints_mod.evaluate(conn, all_ids, as_of=on_date)
     vetoed = {exercise_id for exercise_id, _ in veto_report.vetoes}
     active_regions = {
         region.region: set(region.linked_exercises)
