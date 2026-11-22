@@ -2413,49 +2413,70 @@ def end(
     ended = (ended_dt.astimezone(dt.UTC).isoformat(timespec="seconds")
              if ended_dt is not None else _now())
     with db.transaction(conn):
-        _materialise(
-            conn, workout, ended=ended, duration=duration, duration_source=source,
-            session_rpe=rpe, session_rpe_recorded=not not_recorded, notes=notes,
-            productivity=productivity,
-        )
-        # The dwell counter advances with the durable clean_set rows the materialise step just
-        # wrote, once per exercise per training day. See docs/DWELL-AND-ROTATION.md.
-        profile = settings_profile.latest(conn, str(workout["for_date"]))
-        resolved = settings_profile.resolved_registry(
-            profile["overrides"] if profile else {}
-        )
-        dwell_feature.record_completion(
-            conn,
-            session_id=workout_id,
-            for_date=str(workout["for_date"]),
-            target=int(resolved["resolver.dwell.target"]),
-        )
-        # No critique is computed at completion: the rubric is a retired diagnostic
-        # (DEC-EVAL-09), and ending a workout must not depend on it.
-        conn.execute(
-            """
-            UPDATE workout_session
-            SET status = 'completed', ended_at = ?, duration_measured_s = ?,
-                duration_min = ?, duration_source = ?, session_rpe = ?,
-                session_rpe_recorded = ?, notes = COALESCE(?, notes)
-            WHERE workout_id = ?
-            """,
-            (ended, measured_seconds, duration, source, rpe,
-             0 if not_recorded else 1, notes, workout_id),
-        )
-        derived_was_ready = derived_core.is_ready(conn, derived_core.spec())
-        analytics_revision.record_mutation(
-            conn, "workout_end", session_id=workout_id,
-            detail={"workout_id": workout_id},
-        )
-        derived_core.refresh_sessions(
-            conn, [workout_id], was_ready=derived_was_ready
-        )
-        _event(conn, workout_id, "end", {"duration_min": duration,
-                                          "session_rpe": rpe,
-                                          "not_recorded": bool(not_recorded),
-                                          "productivity": productivity})
+        # Re-read under the write lock. Two concurrent completion requests can both observe
+        # in_progress in the read above, so this is the authoritative check: BEGIN IMMEDIATE
+        # serialises them and the loser sees 'completed' here instead of repeating the
+        # materialisation, dwell advance, status transition, analytics revision and end event.
+        current = get(conn, workout_id)
+        if current is None:
+            raise ValueError("workout not found")
+        if current["status"] != "completed":
+            if current["status"] != "in_progress":
+                raise ValueError("workout is not in progress")
+            _complete(conn, current, ended=ended, duration=duration, source=source,
+                      measured_seconds=measured_seconds, rpe=rpe, not_recorded=not_recorded,
+                      notes=notes, productivity=productivity)
     return get(conn, workout_id)
+
+
+def _complete(conn, workout: Mapping[str, Any], *, ended: str, duration: float,
+              source: str, measured_seconds: int, rpe: float | None,
+              not_recorded: bool, notes: str | None,
+              productivity: int | None) -> None:
+    """Run the completion side effects once, inside the caller's write transaction."""
+    workout_id = str(workout["workout_id"])
+    _materialise(
+        conn, workout, ended=ended, duration=duration, duration_source=source,
+        session_rpe=rpe, session_rpe_recorded=not not_recorded, notes=notes,
+        productivity=productivity,
+    )
+    # The dwell counter advances with the durable clean_set rows the materialise step just wrote,
+    # once per exercise per training day. See docs/DWELL-AND-ROTATION.md.
+    profile = settings_profile.latest(conn, str(workout["for_date"]))
+    resolved = settings_profile.resolved_registry(
+        profile["overrides"] if profile else {}
+    )
+    dwell_feature.record_completion(
+        conn,
+        session_id=workout_id,
+        for_date=str(workout["for_date"]),
+        target=int(resolved["resolver.dwell.target"]),
+    )
+    # No critique is computed at completion: the rubric is a retired diagnostic
+    # (DEC-EVAL-09), and ending a workout must not depend on it.
+    conn.execute(
+        """
+        UPDATE workout_session
+        SET status = 'completed', ended_at = ?, duration_measured_s = ?,
+            duration_min = ?, duration_source = ?, session_rpe = ?,
+            session_rpe_recorded = ?, notes = COALESCE(?, notes)
+        WHERE workout_id = ?
+        """,
+        (ended, measured_seconds, duration, source, rpe,
+         0 if not_recorded else 1, notes, workout_id),
+    )
+    derived_was_ready = derived_core.is_ready(conn, derived_core.spec())
+    analytics_revision.record_mutation(
+        conn, "workout_end", session_id=workout_id,
+        detail={"workout_id": workout_id},
+    )
+    derived_core.refresh_sessions(
+        conn, [workout_id], was_ready=derived_was_ready
+    )
+    _event(conn, workout_id, "end", {"duration_min": duration,
+                                     "session_rpe": rpe,
+                                     "not_recorded": bool(not_recorded),
+                                     "productivity": productivity})
 
 
 def abandon_stale(conn, before_iso: str) -> int:

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import datetime as dt
+import threading
+
 import pytest
 
 from strength_coach import history, workout
@@ -776,3 +779,91 @@ def test_end_failure_rolls_back_the_completion(conn, monkeypatch):
         "SELECT COUNT(*) AS c FROM session WHERE session_id = ?",
         (started["workout_id"],),
     ).fetchone()["c"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Concurrent completion (release-integrity audit, WP2)
+# ---------------------------------------------------------------------------
+
+
+def _prepared_file_store(tmp_path):
+    """A migrated file database plus one started workout, for cross-connection tests."""
+    path = tmp_path / "coach.db"
+    with db.Store(path) as store:
+        started = workout.start(
+            store.connection, for_date="2024-01-01", plan=PLAN, readiness=READINESS,
+        )
+        workout.add_set(
+            store.connection, started["workout_id"],
+            exercise_id="trap_bar_deadlift", load_kg=100, reps=5, rir=2,
+        )
+    return path, started["workout_id"]
+
+
+def test_two_concurrent_completions_run_the_side_effects_once(tmp_path, monkeypatch):
+    # Both requests observe in_progress before either transaction starts, which is exactly the
+    # audit's race. The second must lose at the re-check inside the write transaction rather
+    # than materialising a second session, advancing dwell twice or appending a second end
+    # event. The barrier is injected on the pre-transaction read, not on completion itself.
+    path, workout_id = _prepared_file_store(tmp_path)
+    real_get = workout.get
+    barrier = threading.Barrier(2)
+    local = threading.local()
+
+    def synced_get(conn, wid):
+        snapshot = real_get(conn, wid)
+        if (
+            wid == workout_id
+            and snapshot is not None
+            and snapshot["status"] == "in_progress"
+            and not getattr(local, "waited", False)
+        ):
+            local.waited = True
+            barrier.wait(timeout=10)
+        return snapshot
+
+    monkeypatch.setattr(workout, "get", synced_get)
+    results: list[dict] = []
+    errors: list[BaseException] = []
+
+    def complete():
+        conn = db.connect(path)
+        try:
+            results.append(
+                workout.end(conn, workout_id, session_rpe=7, duration_min=30)
+            )
+        except BaseException as exc:  # pragma: no cover - surfaced by the assertion below
+            errors.append(exc)
+        finally:
+            conn.close()
+
+    threads = [threading.Thread(target=complete) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=20)
+
+    assert not errors
+    assert [row["status"] for row in results] == ["completed", "completed"]
+    with db.Store(path) as store:
+        conn = store.connection
+        assert conn.execute(
+            "SELECT COUNT(*) FROM session WHERE session_id = ?", (workout_id,)
+        ).fetchone()[0] == 1
+        assert conn.execute(
+            "SELECT COUNT(*) FROM workout_event "
+            "WHERE workout_id = ? AND event_type = 'end'", (workout_id,)
+        ).fetchone()[0] == 1
+        assert conn.execute(
+            "SELECT COUNT(*) FROM analytics_revision WHERE kind = 'workout_end'"
+        ).fetchone()[0] == 1
+        assert conn.execute(
+            "SELECT COUNT(*) FROM clean_set WHERE session_id = ?", (workout_id,)
+        ).fetchone()[0] == 1
+        assert conn.execute(
+            "SELECT done_count FROM exercise_dwell_state WHERE exercise_id = ?",
+            ("trap_bar_deadlift",),
+        ).fetchone()[0] == 1
+
+
+# ---------------------------------------------------------------------------
