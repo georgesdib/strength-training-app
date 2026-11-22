@@ -1315,6 +1315,107 @@ def _set_attribution(
         return None, None
 
 
+def _same_number(left, right) -> bool:
+    """Compare two optional REAL columns without treating 100 and 100.0 as different."""
+    if left is None or right is None:
+        return left is None and right is None
+    try:
+        return abs(float(left) - float(right)) < 1e-9
+    except (TypeError, ValueError):
+        return False
+
+
+def _same_int(left, right) -> bool:
+    """Compare two optional INTEGER columns, never coercing a fractional value."""
+    if left is None or right is None:
+        return left is None and right is None
+    try:
+        return int(left) == int(right)
+    except (TypeError, ValueError):
+        return False
+
+
+def _performed_stamp(value: dt.datetime | None) -> str | None:
+    """Canonical performed timestamp: UTC, milliseconds, timezone representation irrelevant.
+
+    Storage truncates to milliseconds, so canonicalising the same way keeps a retry of an
+    equivalent ISO-8601 value (a Z suffix, another offset, or leftover microseconds) a true
+    replay instead of a false conflict, while still separating distinct instants.
+    """
+    if value is None:
+        return None
+    utc = value.astimezone(dt.UTC)
+    return utc.replace(
+        microsecond=(utc.microsecond // 1000) * 1000
+    ).isoformat(timespec="milliseconds")
+
+
+def _rep_detail_matches(
+    stored: list[dict] | None,
+    wanted: list[dict],
+) -> bool:
+    """Compare the per-rep velocity snapshot as canonical (index, rounded value) pairs."""
+    stored = list(stored or [])
+    if len(stored) != len(wanted):
+        return False
+    for left, right in zip(stored, wanted, strict=True):
+        if not _same_int(left.get("rep_index"), right.get("rep_index")):
+            return False
+        if not _same_number(left.get("velocity_mps"), right.get("velocity_mps")):
+            return False
+    return True
+
+
+def _set_payload_matches(
+    conn,
+    existing: Mapping[str, Any],
+    *,
+    workout_id: str,
+    exercise_id: str,
+    set_index: int,
+    load_kg: float | None,
+    reps,
+    rir,
+    velocity: float | None,
+    rep_detail: list[dict],
+    source: str,
+    item_index: int | None,
+    substitutes_index: int | None,
+    performed: dt.datetime | None,
+) -> bool:
+    """Is this request the same immutable set the stored row already holds?
+
+    Every field the client can send is compared, so a different set is never mistaken for a
+    replay. Server-assigned values (set_id, event ids) are excluded; created_at is compared
+    only when the client supplied performed_at, because otherwise it is the server's own
+    arrival time and a retry necessarily produces a different one.
+    """
+    if str(existing["exercise_id"]) != str(exercise_id):
+        return False
+    if not _same_int(existing["set_index"], set_index):
+        return False
+    if not _same_number(existing["load_kg"], load_kg):
+        return False
+    if not _same_int(existing["reps"], reps) or not _same_int(existing["rir"], rir):
+        return False
+    if not _same_number(existing["velocity"], velocity):
+        return False
+    if str(existing["source"] or "") != str(source):
+        return False
+    if not _same_int(existing["prescription_item_index"], item_index):
+        return False
+    if not _same_int(existing["substitutes_plan_item_index"], substitutes_index):
+        return False
+    if performed is not None:
+        stored_stamp = _performed_stamp(_parse(existing["created_at"]))
+        if stored_stamp != _performed_stamp(performed):
+            return False
+    stored_reps = _current_reps(conn, workout_id).get(int(existing["set_id"]))
+    return _rep_detail_matches(
+        (stored_reps or {}).get("reps"), rep_detail
+    )
+
+
 def add_set(
     conn,
     workout_id: str,
@@ -1331,65 +1432,72 @@ def add_set(
     rep_velocities: list[dict] | None = None,
     performed_at: str | None = None,
 ) -> dict:
-    workout = get(conn, workout_id)
-    if workout is None:
-        raise ValueError("workout not found")
-    if workout["status"] != "in_progress":
-        raise ValueError("workout is not in progress")
-    if not exercise_id:
-        raise ValueError("exercise_id is required")
-    if source not in {"manual", "import", "device"}:
-        raise ValueError("source must be manual, import or device")
-    if set_index is None:
-        row = conn.execute(
-            "SELECT COALESCE(MAX(set_index), 0) AS n FROM workout_set WHERE workout_id = ? "
-            "AND exercise_id = ?",
-            (workout_id, exercise_id),
-        ).fetchone()
-        set_index = int(row["n"]) + 1
-    set_index = int(set_index)
-    if set_index < 1:
-        raise ValueError("set_index must be positive")
-    rep_detail = _rep_velocity_detail(reps, rep_velocities)
-    if rep_detail and velocity is None:
-        velocity = round(
-            sum(item["velocity_mps"] for item in rep_detail) / len(rep_detail), 3
-        )
-    item_index, substitutes_index = _set_attribution(
-        workout, exercise_id, plan_item_index, substitutes_plan_item_index
-    )
-    performed = _parse(performed_at)
-    if performed_at is not None:
-        start = _parse(workout.get("started_at"))
-        now = dt.datetime.now(dt.UTC)
-        if performed is None:
-            raise ValueError("performed_at must be an ISO-8601 timestamp")
-        if start is not None and performed < start:
-            raise ValueError("performed_at must not be before the workout start")
-        if performed > now + dt.timedelta(minutes=1):
-            raise ValueError("performed_at must not be in the future")
+    """Append one performed set; an exact retry is idempotent, a different one is rejected.
+
+    The whole read-validate-allocate-insert sequence runs inside the write transaction, so an
+    automatic set index cannot be allocated from a snapshot another writer has already moved
+    past, and a concurrent execution change is serialised with the attribution decision
+    (DEC-RESOLVER-23). A retry after a lost response is recognised from the complete immutable
+    payload, never from a matching index alone.
+    """
     with db.transaction(conn):
+        workout = get(conn, workout_id)
+        if workout is None:
+            raise ValueError("workout not found")
+        if workout["status"] != "in_progress":
+            raise ValueError("workout is not in progress")
+        if not exercise_id:
+            raise ValueError("exercise_id is required")
+        if source not in {"manual", "import", "device"}:
+            raise ValueError("source must be manual, import or device")
+        if set_index is None:
+            row = conn.execute(
+                "SELECT COALESCE(MAX(set_index), 0) AS n FROM workout_set "
+                "WHERE workout_id = ? AND exercise_id = ?",
+                (workout_id, exercise_id),
+            ).fetchone()
+            set_index = int(row["n"]) + 1
+        set_index = int(set_index)
+        if set_index < 1:
+            raise ValueError("set_index must be positive")
+        rep_detail = _rep_velocity_detail(reps, rep_velocities)
+        if rep_detail and velocity is None:
+            velocity = round(
+                sum(item["velocity_mps"] for item in rep_detail) / len(rep_detail), 3
+            )
+        item_index, substitutes_index = _set_attribution(
+            workout, exercise_id, plan_item_index, substitutes_plan_item_index
+        )
+        performed = _parse(performed_at)
+        if performed_at is not None:
+            start = _parse(workout.get("started_at"))
+            now = dt.datetime.now(dt.UTC)
+            if performed is None:
+                raise ValueError("performed_at must be an ISO-8601 timestamp")
+            if start is not None and performed < start:
+                raise ValueError("performed_at must not be before the workout start")
+            if performed > now + dt.timedelta(minutes=1):
+                raise ValueError("performed_at must not be in the future")
         existing = conn.execute(
             "SELECT * FROM workout_set WHERE workout_id = ? AND exercise_id = ? "
             "AND set_index = ?",
             (workout_id, exercise_id, set_index),
         ).fetchone()
         if existing is not None:
-            # A retry after a lost response must not append a second set, but a matching
-            # index alone is not proof of a replay: compare the payload so a different set
-            # is rejected instead of being silently discarded.
-            def same_number(left, right) -> bool:
-                if left is None or right is None:
-                    return left is None and right is None
-                return abs(float(left) - float(right)) < 1e-9
-
-            if (
-                same_number(existing["load_kg"], load_kg)
-                and existing["reps"] == reps
-                and existing["rir"] == rir
-                and same_number(existing["velocity"], velocity)
-                and existing["prescription_item_index"] == item_index
-                and existing["substitutes_plan_item_index"] == substitutes_index
+            if _set_payload_matches(
+                conn, existing,
+                workout_id=workout_id,
+                exercise_id=exercise_id,
+                set_index=set_index,
+                load_kg=load_kg,
+                reps=reps,
+                rir=rir,
+                velocity=velocity,
+                rep_detail=rep_detail,
+                source=source,
+                item_index=item_index,
+                substitutes_index=substitutes_index,
+                performed=performed,
             ):
                 return get(conn, workout_id)
             raise ValueError(

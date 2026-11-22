@@ -867,3 +867,93 @@ def test_two_concurrent_completions_run_the_side_effects_once(tmp_path, monkeypa
 
 
 # ---------------------------------------------------------------------------
+# Set idempotency (release-integrity audit, WP4)
+# ---------------------------------------------------------------------------
+
+
+def test_a_retry_must_match_the_complete_immutable_set_payload(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    workout_id = started["workout_id"]
+    performed = started["started_at"]
+    replica = [
+        {"rep_index": 1, "velocity_mps": 0.50},
+        {"rep_index": 2, "velocity_mps": 0.45},
+    ]
+    request = dict(
+        exercise_id="trap_bar_deadlift",
+        load_kg=100.0,
+        reps=2,
+        rir=2,
+        source="device",
+        set_index=1,
+        rep_velocities=replica,
+        performed_at=performed,
+    )
+    first = workout.add_set(conn, workout_id, **request)
+    assert len(first["sets"]) == 1
+    # The same instant in another offset, and the reps in another order, are a true replay.
+    replay = workout.add_set(
+        conn, workout_id,
+        **{
+            **request,
+            "performed_at": dt.datetime.fromisoformat(performed)
+                .astimezone(dt.timezone(dt.timedelta(hours=1))).isoformat(),
+            "rep_velocities": list(reversed(replica)),
+        },
+    )
+    assert len(replay["sets"]) == 1
+    assert replay["sets"][0]["set_id"] == first["sets"][0]["set_id"]
+
+    # Each field below changes the set, so each must be a conflict rather than a silent drop.
+    conflicts = [
+        {"source": "manual"},
+        {"performed_at": (
+            dt.datetime.fromisoformat(performed) + dt.timedelta(seconds=1)
+        ).isoformat()},
+        {"rep_velocities": [
+            {"rep_index": 1, "velocity_mps": 0.49},
+            {"rep_index": 2, "velocity_mps": 0.46},
+        ]},
+        {"rep_velocities": [{"rep_index": 1, "velocity_mps": 0.50}]},
+    ]
+    for change in conflicts:
+        with pytest.raises(ValueError, match="set_index_conflict"):
+            workout.add_set(conn, workout_id, **{**request, **change})
+    assert len(workout.get(conn, workout_id)["sets"]) == 1
+
+
+def test_concurrent_automatic_set_indices_are_not_lost(tmp_path):
+    # Automatic indices are allocated under the write lock, so two writers cannot both choose
+    # the same index and one of the sets cannot disappear into a false replay.
+    path, workout_id = _prepared_file_store(tmp_path)
+    barrier = threading.Barrier(6)
+    errors: list[BaseException] = []
+
+    def add(load: float):
+        conn = db.connect(path)
+        try:
+            barrier.wait(timeout=10)
+            workout.add_set(
+                conn, workout_id, exercise_id="competition_bench_press",
+                load_kg=load, reps=5, rir=2,
+            )
+        except BaseException as exc:  # pragma: no cover - surfaced by the assertion below
+            errors.append(exc)
+        finally:
+            conn.close()
+
+    loads = [40.0, 45.0, 50.0, 55.0, 60.0, 65.0]
+    threads = [threading.Thread(target=add, args=(load,)) for load in loads]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=20)
+
+    assert not errors
+    with db.Store(path) as store:
+        rows = store.connection.execute(
+            "SELECT set_index, load_kg FROM workout_set "
+            "WHERE exercise_id = 'competition_bench_press' ORDER BY set_index"
+        ).fetchall()
+    assert [row["set_index"] for row in rows] == [1, 2, 3, 4, 5, 6]
+    assert sorted(row["load_kg"] for row in rows) == loads
