@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 import uuid
 
 import pytest
@@ -301,3 +302,62 @@ def test_set_attribution_accepts_an_annotation_and_drops_a_stale_index(conn):
             conn, workout_id, exercise_id="trap_bar_deadlift",
             load_kg=150.0, reps=3, rir=2, substitutes_plan_item_index=0,
         )
+
+
+def test_a_concurrent_set_blocks_a_substitution_before_it_is_recorded(tmp_path):
+    # The audit's race: the set is written but not yet committed while the substitution request
+    # runs. The performed-slot check must happen after the write lock is acquired, so it sees the
+    # committed set; a check made before BEGIN IMMEDIATE would miss it and record a substitution
+    # for a slot that has already been trained.
+    path = tmp_path / "coach.db"
+    with db.Store(path) as store:
+        started = workout.start(
+            store.connection, for_date="2026-11-01", plan=PLAN, readiness=READINESS,
+        )
+    workout_id = started["workout_id"]
+    inserted = threading.Event()
+    release = threading.Event()
+    errors: list[BaseException] = []
+
+    def record_set():
+        conn = db.connect(path)
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            workout.add_set(
+                conn, workout_id, exercise_id="trap_bar_deadlift",
+                load_kg=150.0, reps=5, rir=2,
+            )
+            inserted.set()
+            release.wait(timeout=15)
+            conn.commit()
+        except BaseException as exc:  # pragma: no cover - surfaced by the assertion below
+            errors.append(exc)
+        finally:
+            conn.close()
+
+    writer = threading.Thread(target=record_set)
+    writer.start()
+    try:
+        assert inserted.wait(timeout=10)
+        # Let the substitution request reach BEGIN IMMEDIATE and wait behind the uncommitted set.
+        timer = threading.Timer(0.5, release.set)
+        timer.start()
+        conn = db.connect(path)
+        try:
+            with pytest.raises(ValueError, match="after sets have been logged"):
+                workout.record_execution_change(
+                    conn, workout_id,
+                    client_event_id=str(uuid.uuid4()),
+                    kind="substitution",
+                    exercise_id="bench_press",
+                    plan_item_index=0,
+                )
+            assert conn.execute(
+                "SELECT COUNT(*) FROM workout_event WHERE event_type = 'substitution'"
+            ).fetchone()[0] == 0
+        finally:
+            conn.close()
+    finally:
+        release.set()
+        writer.join(timeout=20)
+    assert not errors

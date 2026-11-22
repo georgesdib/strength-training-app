@@ -1636,138 +1636,143 @@ def record_execution_change(
         parsed = str(uuid.UUID(str(client_event_id)))
     except (TypeError, ValueError, AttributeError) as exc:
         raise ValueError("event_id must be a UUID") from exc
-    workout = get(conn, workout_id)
-    if workout is None:
-        raise ValueError("workout not found")
-    if workout["status"] != "in_progress":
-        raise ValueError("workout is not in progress")
-    exercise_id = _validate_exercise(exercise_id)
-    items = list((workout.get("plan") or {}).get("items") or [])
-    if kind == "substitution":
-        if after_item_index is not None:
-            raise ValueError("after_item_index applies only to an addition")
-        if plan_item_index is None:
-            raise ValueError("plan_item_index is required for a substitution")
-        identity, item = _plan_item_identity(items, plan_item_index)
-        if str(item.get("exercise_id")) == exercise_id:
-            raise ValueError("a substitution must name a different exercise")
-        sets = int(item.get("sets") or 1)
-        low = int(item.get("reps_low") or 1)
-        high = int(item.get("reps_high") or low)
-        rir = item.get("rir_target")
-        rest_s = item.get("rest_s")
-        essential = bool(item.get("essential"))
-        order_index = identity
-        slot_key = {"plan_item_index": identity}
-    else:
-        if plan_item_index is not None:
-            raise ValueError("plan_item_index applies only to a substitution")
-        if after_item_index is None:
-            raise ValueError("after_item_index is required for an addition")
-        identity, item = _plan_item_identity(items, after_item_index)
-        low = 1 if reps_low is None else int(reps_low)
-        high = low if reps_high is None else int(reps_high)
-        if not 1 <= low <= high <= 50:
-            raise ValueError("reps_low and reps_high must be 1-50 with low <= high")
-        if rir_target is not None and not 0 <= int(rir_target) <= 10:
-            raise ValueError("rir_target must be 0-10")
-        sets = 1
-        rest_s = item.get("rest_s")
-        essential = False
-        order_index = identity
-        slot_key = {"after_item_index": identity}
-    effective_rir = rir_target if kind == "addition" else rir
+    # Status, plan identity, client-id idempotency, the performed-slot check, the solved
+    # payload and the insert must be one decision. BEGIN IMMEDIATE serialises this against
+    # a concurrent set recording, so a substitution can never be slipped in after the slot
+    # was performed, and a duplicate event id is always compared with its stored payload.
+    with db.transaction(conn):
+        workout = get(conn, workout_id)
+        if workout is None:
+            raise ValueError("workout not found")
+        if workout["status"] != "in_progress":
+            raise ValueError("workout is not in progress")
+        exercise_id = _validate_exercise(exercise_id)
+        items = list((workout.get("plan") or {}).get("items") or [])
+        if kind == "substitution":
+            if after_item_index is not None:
+                raise ValueError("after_item_index applies only to an addition")
+            if plan_item_index is None:
+                raise ValueError("plan_item_index is required for a substitution")
+            identity, item = _plan_item_identity(items, plan_item_index)
+            if str(item.get("exercise_id")) == exercise_id:
+                raise ValueError("a substitution must name a different exercise")
+            sets = int(item.get("sets") or 1)
+            low = int(item.get("reps_low") or 1)
+            high = int(item.get("reps_high") or low)
+            rir = item.get("rir_target")
+            rest_s = item.get("rest_s")
+            essential = bool(item.get("essential"))
+            order_index = identity
+            slot_key = {"plan_item_index": identity}
+        else:
+            if plan_item_index is not None:
+                raise ValueError("plan_item_index applies only to a substitution")
+            if after_item_index is None:
+                raise ValueError("after_item_index is required for an addition")
+            identity, item = _plan_item_identity(items, after_item_index)
+            low = 1 if reps_low is None else int(reps_low)
+            high = low if reps_high is None else int(reps_high)
+            if not 1 <= low <= high <= 50:
+                raise ValueError("reps_low and reps_high must be 1-50 with low <= high")
+            if rir_target is not None and not 0 <= int(rir_target) <= 10:
+                raise ValueError("rir_target must be 0-10")
+            sets = 1
+            rest_s = item.get("rest_s")
+            essential = False
+            order_index = identity
+            slot_key = {"after_item_index": identity}
+        effective_rir = rir_target if kind == "addition" else rir
 
-    existing = conn.execute(
-        "SELECT event_id, event_type, payload_json FROM workout_event "
-        "WHERE workout_id = ? AND json_extract(payload_json, '$.client_event_id') = ?",
-        (workout_id, parsed),
-    ).fetchone()
-    if existing is not None:
-        stored = json.loads(existing["payload_json"] or "{}")
-        if (
-            str(existing["event_type"]) != kind
-            or not _change_matches_payload(
-                stored,
-                kind=kind,
-                exercise_id=exercise_id,
-                reps_low=low,
-                reps_high=high,
-                rir_target=effective_rir,
-                slot_key=slot_key,
-            )
-        ):
-            raise ValueError("event_id was already used for a different change")
-        return execution_view(conn, workout_id)
-
-    if kind == "substitution":
-        performed = conn.execute(
-            "SELECT 1 FROM workout_set WHERE workout_id = ? AND "
-            "(prescription_item_index = ? OR substitutes_plan_item_index = ?) "
-            "LIMIT 1",
-            (workout_id, identity, identity),
-        ).fetchone()
-        if performed is not None:
-            raise ValueError(
-                "cannot substitute a plan item after sets have been logged"
-            )
-
-    prefill = _change_prefill(
-        conn,
-        workout=workout,
-        exercise_id=exercise_id,
-        sets=sets,
-        reps_low=low,
-        reps_high=high,
-        rir_target=effective_rir,
-        rest_s=rest_s,
-        essential=essential,
-        order_index=order_index,
-        requested=bool(prefill_requested),
-    )
-    payload = {
-        "client_event_id": parsed,
-        "exercise_id": exercise_id,
-        "reps_low": low,
-        "reps_high": high,
-        "rir_target": effective_rir,
-        **slot_key,
-        **prefill,
-    }
-    if device_id:
-        payload["device_id"] = str(device_id)
-    try:
-        with db.transaction(conn):
-            _event(conn, workout_id, kind, payload)
-            _touch(conn, workout_id)
-    except sqlite3.IntegrityError as exc:
-        # A concurrent request won the unique client-id index. Reload it and compare the
-        # request content: only a true replay returns the view; a conflicting payload is
-        # rejected instead of being mistaken for a successful retry.
-        stored_row = conn.execute(
-            "SELECT event_type, payload_json FROM workout_event "
+        existing = conn.execute(
+            "SELECT event_id, event_type, payload_json FROM workout_event "
             "WHERE workout_id = ? AND json_extract(payload_json, '$.client_event_id') = ?",
             (workout_id, parsed),
         ).fetchone()
-        if stored_row is None:
-            raise
-        stored = json.loads(stored_row["payload_json"] or "{}")
-        if (
-            str(stored_row["event_type"]) != kind
-            or not _change_matches_payload(
-                stored,
-                kind=kind,
-                exercise_id=exercise_id,
-                reps_low=low,
-                reps_high=high,
-                rir_target=effective_rir,
-                slot_key=slot_key,
-            )
-        ):
-            raise ValueError(
-                "event_id was already used for a different change"
-            ) from exc
-        return execution_view(conn, workout_id)
+        if existing is not None:
+            stored = json.loads(existing["payload_json"] or "{}")
+            if (
+                str(existing["event_type"]) != kind
+                or not _change_matches_payload(
+                    stored,
+                    kind=kind,
+                    exercise_id=exercise_id,
+                    reps_low=low,
+                    reps_high=high,
+                    rir_target=effective_rir,
+                    slot_key=slot_key,
+                )
+            ):
+                raise ValueError("event_id was already used for a different change")
+            return execution_view(conn, workout_id)
+
+        if kind == "substitution":
+            performed = conn.execute(
+                "SELECT 1 FROM workout_set WHERE workout_id = ? AND "
+                "(prescription_item_index = ? OR substitutes_plan_item_index = ?) "
+                "LIMIT 1",
+                (workout_id, identity, identity),
+            ).fetchone()
+            if performed is not None:
+                raise ValueError(
+                    "cannot substitute a plan item after sets have been logged"
+                )
+
+        prefill = _change_prefill(
+            conn,
+            workout=workout,
+            exercise_id=exercise_id,
+            sets=sets,
+            reps_low=low,
+            reps_high=high,
+            rir_target=effective_rir,
+            rest_s=rest_s,
+            essential=essential,
+            order_index=order_index,
+            requested=bool(prefill_requested),
+        )
+        payload = {
+            "client_event_id": parsed,
+            "exercise_id": exercise_id,
+            "reps_low": low,
+            "reps_high": high,
+            "rir_target": effective_rir,
+            **slot_key,
+            **prefill,
+        }
+        if device_id:
+            payload["device_id"] = str(device_id)
+        try:
+            _event(conn, workout_id, kind, payload)
+        except sqlite3.IntegrityError as exc:
+            # Defensive only: BEGIN IMMEDIATE already serialised the client-id check with this
+            # insert. If an out-of-band writer somehow stored the id first, compare the committed
+            # payload so a true replay returns the view and a conflicting one is rejected.
+            stored_row = conn.execute(
+                "SELECT event_type, payload_json FROM workout_event "
+                "WHERE workout_id = ? AND "
+                "json_extract(payload_json, '$.client_event_id') = ?",
+                (workout_id, parsed),
+            ).fetchone()
+            if stored_row is None:
+                raise
+            stored = json.loads(stored_row["payload_json"] or "{}")
+            if (
+                str(stored_row["event_type"]) != kind
+                or not _change_matches_payload(
+                    stored,
+                    kind=kind,
+                    exercise_id=exercise_id,
+                    reps_low=low,
+                    reps_high=high,
+                    rir_target=effective_rir,
+                    slot_key=slot_key,
+                )
+            ):
+                raise ValueError(
+                    "event_id was already used for a different change"
+                ) from exc
+            return execution_view(conn, workout_id)
+        _touch(conn, workout_id)
     return execution_view(conn, workout_id)
 
 
