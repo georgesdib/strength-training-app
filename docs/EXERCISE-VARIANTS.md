@@ -14,9 +14,9 @@ muscle lists, and the competition-squat and conventional-deadlift muscle lists) 
 the taxonomy, so the taxonomy is the single canonical source again. An edit made in the tab still
 lands in the override file and should be ported the same way once it is settled.
 
-On 2026-11-22 the file was cleaned back to field-level differences only: every property that
-repeated the taxonomy value (the tab writes the whole property map) was removed, and entries left
-with nothing to say were deleted. It now holds ten fields across seven exercises — muscle lists,
+Edits made from the tab accumulated again after that, so on 2026-11-22 the file was reduced to
+field-level differences only: every property that repeated the taxonomy value (the tab writes the
+whole property map) was removed, and entries left with nothing to say were deleted. It now holds ten fields across seven exercises — muscle lists,
 the two `loadable: false` flags and the SSB spinal cost. A field that equals the taxonomy must
 never be re-added: it makes the next edit look intentional when it is only a dump of the defaults.
 
