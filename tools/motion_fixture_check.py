@@ -21,9 +21,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
-from tools.motion_segmentation import analyse, load_recording
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from tools.motion_segmentation import analyse, load_recording  # noqa: E402
 
 
 def check(manifest_path: Path) -> list[dict]:
