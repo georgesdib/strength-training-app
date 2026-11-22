@@ -54,11 +54,11 @@ jobs:
         # test_ios_workflow.py starts real servers and polls async plan requests;
         # under xdist it times out different tests on different runs. It is kept
         # for serial/manual runs but excluded from the blocking lane.
-        run: pytest -m "not integration and not regression and not slow" --ignore=tests/test_ios_workflow.py
+        run: pytest -m "not integration and not slow" --ignore=tests/test_ios_workflow.py
 
       - name: Unit smoke tests
         if: matrix.python-version == '3.11'
-        run: pytest tests/test_prescribe.py tests/test_rules_policy.py tests/test_store.py -m "not integration and not regression and not slow"
+        run: pytest tests/test_prescribe.py tests/test_rules_policy.py tests/test_store.py -m "not integration and not slow"
 
   package:
     name: package and smoke
