@@ -6,6 +6,7 @@ from dataclasses import replace
 
 import pytest
 
+from strength_coach import workout
 from strength_coach.prescribe import role_quality, selection_tax, templates
 from strength_coach.prescribe.models import Prescription, PrescriptionItem
 from strength_coach.store import db
@@ -406,3 +407,187 @@ def test_missing_exposure_is_neutral_not_zero() -> None:
     main = snapshot.roles["main"][0]["classes"]
     assert main["exposure"] == 1
     assert "missing_item" not in snapshot.limitations
+
+
+# ---------------------------------------------------------------------------
+# Previous exposure comes from what was performed, not from the frozen plan
+# (release-integrity audit, WP5)
+# ---------------------------------------------------------------------------
+
+READINESS = {
+    "sleep": 4, "energy": 4, "mood": 4, "soreness": 2, "stress": 3,
+    "nutrition": 4, "hydration": 4,
+}
+
+
+def _plan(*items, notes=None):
+    plan = {
+        "for_date": "2024-01-08",
+        "session_type": "squat",
+        "items": [
+            {
+                "order_index": index,
+                "exercise_id": exercise_id,
+                "sets": 3,
+                "reps_low": 3,
+                "reps_high": 5,
+                "load_kg": 100.0,
+                "rir_target": 2,
+                "essential": index == 1,
+            }
+            for index, exercise_id in enumerate(items)
+        ],
+    }
+    if notes is not None:
+        plan["notes"] = notes
+    return plan
+
+
+def _completed_session(conn, plan, sets=()):
+    started = workout.start(
+        conn, for_date="2024-01-08", plan=plan, readiness=READINESS,
+    )
+    for kwargs in sets:
+        workout.add_set(conn, started["workout_id"], **kwargs)
+    workout.end(conn, started["workout_id"], session_rpe=7, duration_min=30)
+    return started["workout_id"]
+
+
+def _choices(conn, slot_ids=()):
+    return role_quality._previous_choices(
+        conn, session_type="squat", before_date="2024-01-15", slot_ids=slot_ids,
+    )
+
+
+def test_previous_exposure_uses_the_performed_substitution() -> None:
+    base = templates.SessionTemplate.load("squat")
+    slot_ids = tuple(slot.id for slot in base.slots)
+    with db.Store(":memory:") as store:
+        conn = store.connection
+        _completed_session(
+            conn,
+            _plan("box_jump", "competition_squat"),
+            sets=[{
+                "exercise_id": "belt_squat", "load_kg": 120.0, "reps": 5, "rir": 2,
+                "substitutes_plan_item_index": 1,
+            }],
+        )
+        # The plan said competition squat; the athlete trained belt squat.
+        assert _choices(conn, slot_ids) == {1: "belt_squat"}
+
+        assignment = {slot.id: slot.exercises[0] for slot in base.slots}
+        items = tuple(
+            _item(index, slot, assignment[slot.id], intensity=0.85 if index == 1 else None)
+            for index, slot in enumerate(base.slots)
+        )
+        snapshot = role_quality.snapshot(
+            conn=conn,
+            for_date="2024-01-15",
+            base=base,
+            assignment=assignment,
+            prescription=Prescription(
+                for_date="2024-01-15",
+                session_type=base.session_type,
+                fallback_level="none",
+                rule_document_version="test",
+                items=items,
+            ),
+            band_penalty=0,
+            intent_penalty=0,
+        )
+    main = next(
+        entry for entry in snapshot.roles["main"] if entry["slot_id"] == "squat_main"
+    )
+    # ssb_squat shares belt squat's pattern but not its lift group: same_pattern, not
+    # same_lift_group, which is what the frozen plan (competition squat) would have produced.
+    assert main["classes"]["specificity"] == CFG.specificity.get("same_pattern")
+
+
+def test_previous_exposure_ignores_prescribed_but_unperformed_items() -> None:
+    with db.Store(":memory:") as store:
+        conn = store.connection
+        _completed_session(
+            conn,
+            _plan("box_jump", "competition_squat", "bench_press"),
+            sets=[{
+                "exercise_id": "competition_squat", "load_kg": 100.0, "reps": 5, "rir": 2,
+            }],
+        )
+        assert _choices(conn) == {1: "competition_squat"}
+
+
+def test_previous_exposure_is_the_last_set_performed_for_a_slot() -> None:
+    with db.Store(":memory:") as store:
+        conn = store.connection
+        _completed_session(
+            conn,
+            _plan("box_jump", "competition_squat"),
+            sets=[
+                {
+                    "exercise_id": "ssb_squat", "load_kg": 100.0, "reps": 5, "rir": 2,
+                    "substitutes_plan_item_index": 1,
+                },
+                {
+                    "exercise_id": "belt_squat", "load_kg": 120.0, "reps": 5, "rir": 2,
+                    "substitutes_plan_item_index": 1,
+                },
+            ],
+        )
+        assert _choices(conn) == {1: "belt_squat"}
+
+
+def _legacy_attributionless_session(conn, plan) -> None:
+    """A completed session whose set row predates plan attribution (NULL slot columns)."""
+    started = workout.start(conn, for_date="2024-01-08", plan=plan, readiness=READINESS)
+    conn.execute(
+        "INSERT INTO workout_set (workout_id, exercise_id, set_index, load_kg, reps, rir, "
+        "source, created_at) VALUES (?, 'competition_squat', 1, 100.0, 5, 2, 'import', ?)",
+        (started["workout_id"], workout._now()),
+    )
+    workout.end(conn, started["workout_id"], session_rpe=7, duration_min=30)
+
+
+def test_previous_exposure_resolves_a_legacy_set_without_attribution() -> None:
+    with db.Store(":memory:") as store:
+        conn = store.connection
+        _legacy_attributionless_session(conn, _plan("box_jump", "competition_squat"))
+        assert _choices(conn) == {1: "competition_squat"}
+
+
+def test_previous_exposure_ignores_an_ambiguous_legacy_exercise() -> None:
+    with db.Store(":memory:") as store:
+        conn = store.connection
+        _legacy_attributionless_session(
+            conn, _plan("box_jump", "competition_squat", "competition_squat"),
+        )
+        assert _choices(conn) == {}
+
+
+def test_previous_exposure_keeps_slot_identity_when_positions_shift() -> None:
+    generated = {
+        "assignment": {"power": "box_jump", "squat_main": "competition_squat"},
+        "slots": [
+            {"id": "power", "exercise_id": "box_jump"},
+            {"id": "squat_main", "exercise_id": "competition_squat"},
+        ],
+    }
+    with db.Store(":memory:") as store:
+        conn = store.connection
+        _completed_session(
+            conn,
+            _plan(
+                "box_jump", "competition_squat",
+                notes={"resolver": {"generated_session": generated}},
+            ),
+            sets=[{
+                "exercise_id": "belt_squat", "load_kg": 120.0, "reps": 5, "rir": 2,
+                "substitutes_plan_item_index": 1,
+            }],
+        )
+        # Today's template puts the main slot first; the performed exposure follows the slot,
+        # not the frozen position.
+        assert _choices(conn, ("squat_main", "power")) == {0: "belt_squat"}
+        # The same frozen plan without a snapshot keeps the positional fallback.
+        assert role_quality._previous_choices(
+            conn, session_type="squat", before_date="2024-01-15",
+        ) == {1: "belt_squat"}
