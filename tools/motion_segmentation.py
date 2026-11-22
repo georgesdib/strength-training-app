@@ -43,6 +43,9 @@ REST_ACCEL_G = 0.02
 REST_VARIATION_G = 0.01
 # Relative floors, because sensor scale and movement intensity vary between sets.
 REST_VARIATION_FRACTION = 0.05
+# Multiple of the set's own 10th-percentile window statistics, so a noisy set does not lose every
+# rest and a very quiet one does not treat movement as stillness.
+REST_FLOOR_MULTIPLE = 2.5
 REST_MIN_MS = 200
 # Shorter than this is a jitter, not a rep.
 MIN_REP_MS = 300
@@ -144,13 +147,22 @@ def _rest_mask(accel) -> np.ndarray:
     deviations = windows.std(axis=2)
     mean_magnitude = np.linalg.norm(means, axis=1)
     variation = np.linalg.norm(deviations, axis=1)
-    variation_peak = float(variation.max()) if variation.size else 0.0
-    variation_threshold = max(REST_VARIATION_G, REST_VARIATION_FRACTION * variation_peak)
+    # Real captures have a noise floor far above the synthetic fixtures, and it varies with strap
+    # fit and with which sensor channel supplied the signal. Derive both thresholds from the
+    # set's own quietest windows instead of using constants.
+    accel_floor = float(np.percentile(mean_magnitude, 10)) if mean_magnitude.size else 0.0
+    variation_floor = float(np.percentile(variation, 10)) if variation.size else 0.0
+    accel_threshold = max(REST_ACCEL_G, accel_floor * REST_FLOOR_MULTIPLE)
+    variation_threshold = max(
+        REST_VARIATION_G,
+        variation_floor * REST_FLOOR_MULTIPLE,
+        REST_VARIATION_FRACTION * (float(variation.max()) if variation.size else 0.0),
+    )
 
     still = np.zeros(len(accel), dtype=bool)
     half = minimum // 2
     still[half:half + len(variation)] = (
-        (mean_magnitude < REST_ACCEL_G) & (variation < variation_threshold)
+        (mean_magnitude < accel_threshold) & (variation < variation_threshold)
     )
     # A rest must last, not just flicker: require the whole minimum window to be still.
     counts = np.convolve(still.astype(int), np.ones(minimum), mode="same")
