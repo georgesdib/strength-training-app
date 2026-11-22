@@ -683,7 +683,7 @@ documents:
 - id: hr-recovery-probe
   path: docs/HR-RECOVERY-PROBE.md
   title: Per-set heart-rate recovery — probe and decision
-  description: why per-set HR recovery is not a feature, the probe that decided it, and when to re-run it
+  description: why per-set HR recovery is displayed but never decided on, the probe behind it, and when to re-run it
   category: evidence
   status: evidence
   audience: public

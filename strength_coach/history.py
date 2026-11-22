@@ -236,8 +236,9 @@ def _heart_rate(conn, session_id: str) -> dict[str, Any] | None:
 
     Apple records both on the workout; nothing here is derived and a session with no linked
     workout reports null rather than zero, so "not recorded" never reads as "zero effort".
-    Per-set recovery is deliberately absent: the 2026-11-22 probe (tools/hr_recovery_probe.py)
-    found it indistinguishable from the set's own load and duration.
+    Per-set recovery is not part of this payload: the 2026-11-22 probe (tools/hr_recovery_probe.py)
+    found it indistinguishable from the set's own load and duration, so it is displayed per set
+    by the history detail and never read back.
     """
     row = conn.execute(
         """

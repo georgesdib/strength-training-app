@@ -1,9 +1,12 @@
 # Per-set heart-rate recovery: probe, display and decision
 
-**Status:** decided 2026-11-22 — shown as context, never used as an input. The number appears next
-to the set that produced it in session detail (web and phone) with its caveat, and the Today view
-carries a review card (`hr_recovery_probe`) that reports the measurement and prompts a re-run on a
-12-week cadence. `strength_coach.features.hr_recovery` is the single implementation;
+**Status:** released 2026-11-22 — display only. The number appears next to the set that produced it
+in session detail (web and phone) with its caveat, the session reports the final set's recovery at
+one and two minutes, and the Today view carries a review card (`hr_recovery_probe`) that reports the
+measurement and prompts a re-run on a 12-week cadence. Nothing reads this value back. It shipped to
+production on 2026-11-22; no version tag was created, so the changelog entry remains under
+`[Unreleased]`.
+`strength_coach.features.hr_recovery` is the single implementation;
 [`tools/hr_recovery_probe.py`](../tools/hr_recovery_probe.py) is the CLI over it.
 
 ## Why this exists
@@ -27,7 +30,7 @@ Four watch sessions, 71 set completions, 64 with both endpoints inside tolerance
 Decisive failure: **within-session noise exceeds the between-session signal**. The load
 correlation is below its 0.40 bar with the strict endpoint matcher this module uses; the earlier
 ad-hoc run, which matched the end-of-set sample by nearest rather than last-preceding, measured
-+0.51 and -0.57 for duration. Either way the conference is the same: the number tracks how hard
++0.51 and -0.57 for duration. Either way the conclusion is the same: the number tracks how hard
 the set was, and it varies more inside one session than between sessions.
 
 ## How it is shown
@@ -65,6 +68,12 @@ and do not copy the database off the server to run it.
 
 ## Open question it exposed
 
-`corr(hr_end, set_duration)` is negative, which is not physiological. The watch's set taps are
-user input, not sensor events, so any timing-derived analysis (tempo, time under tension, wasted
-setup) inherits that error and would need the taps fixed first.
+**Accepted as a design choice, 2026-11-22** (`LIM-72`). `corr(hr_end, set_duration)` is negative,
+which is not physiological. The watch's set boundaries are user taps, not sensor events, so "set
+duration" measures tap-to-tap time and includes whatever the athlete did before tapping. The app
+will not infer or synthesise set boundaries — the tap is the record of intent — so every
+timing-derived quantity (tempo, time under tension, velocity, per-set recovery windows) is bounded
+by tap precision and is therefore not computed. This is also the boundary that constrained the
+closed watch motion metrics project
+([`WATCH-MOTION-METRICS.md`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/WATCH-MOTION-METRICS.md)).
+Revisit only if set boundaries can be observed without a tap, validated against labelled captures.

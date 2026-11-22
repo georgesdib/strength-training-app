@@ -1,6 +1,6 @@
 # LIMITATIONS REGISTER
 
-**Status:** living register, updated 2026-11-21. It is the only public place accepted
+**Status:** living register, updated 2026-11-22. It is the only public place accepted
 limitations are listed; the roadmap keeps no second table. Private historical-data limitations
 are kept in the git-ignored private record only.
 **Purpose:** keep every known limitation from the audits in one place so later work can revisit
@@ -81,6 +81,7 @@ This register does not override the detailed audit reports. It indexes them.
 | LIM-69 | Cardio minutes are classified per **workout**: Apple's average METs first, then Apple's average heart rate or, when Apple supplied none, the mean of heart-rate samples inside the workout interval (association `workout` only; recovery tails are excluded). A lifting session's average heart rate can therefore read moderate or vigorous without sustained aerobic work, and an interval session's rests dilute a genuinely vigorous bout. Time-in-zone is the sample-based alternative; it covers only continuity-eligible workouts and reports temporal coverage rather than extrapolating it | accepted (design choice) | CARDIO-STAGE (portfolio plan, classification cascade); LONGEVITY-ASSESSMENT | keep the weekly figure labelled as an estimate with its tier split, and never merge the sample-based panel into it; a per-minute reclassification of every workout needs a validated method |
 | LIM-70 | VO₂max carries no age/sex reference category by design: age and sex are not stored, and Apple Health already bands Cardio Fitness by them. The app reports the value, its date, its source and a `current`/`stale`/`absent` status, so it cannot say whether the value is appropriate for the athlete | accepted (owner, 2026-11-18) | `DEC-LONGEVITY-04` | revisit only if a reference population and the personal data needed to apply it are both agreed |
 | LIM-71 | The WP8 phone relay needs an active, reachable iPhone. A suspended or unavailable phone leaves the watch in a waiting/timeout state; the watch cannot start a session offline from both devices, and a relayed operation is only acknowledged after the server accepts it | accepted | WP8 physical acceptance, `WATCH-GATEWAY.md`, contract §21 | a pending-session/offline-start design is approved, or the relay gains a reliable background path |
+| LIM-72 | Watch set boundaries are user taps, not sensor events, so any timing-derived quantity (tempo, time under tension, velocity, per-set recovery windows) is measured tap-to-tap and inherits tap latency and the delay before the athlete taps. The negative `corr(hr_end, set_duration)` in the 2026-11-22 recovery probe is a symptom. **Accepted as a design choice 2026-11-22:** the tap is the athlete's record of intent, the app will not infer or synthesise set boundaries, and no timing-derived metric is computed. This is also the boundary that constrained the closed watch motion metrics project | accepted (design choice) | HR-RECOVERY-PROBE, portfolio watch motion metrics plan | set boundaries can be observed without a tap (sensor-side detection validated against labelled captures) or the tap UX is redesigned |
 
 ## Rules
 
