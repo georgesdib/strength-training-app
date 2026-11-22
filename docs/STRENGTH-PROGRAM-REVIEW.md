@@ -27,12 +27,12 @@ after a template change. A stale block fails `tests/test_programme_summary.py`.
 not the single-leg RDL.
 
 <!-- BEGIN GENERATED PROGRAMME SUMMARY -->
-<!-- source:sha256:0bf926d290f1a76f -->
+<!-- source:sha256:fbbbc1ed40b4c3ae -->
 
 | session type | work | sets | spinal cost |
 |---|---|---|---:|
 | **squat** | Box Jump 3×3–5 @ quality stop; SSB Squat 5×3–5 @ RIR 2–3; Bench Press 4×3–5 @ RIR 2–3; Back Extension 3×10–12 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Lying Leg Curls / Nordic Curl 3×8–12 @ RIR 2–3; Ab Wheel 3×6–10 @ RIR 2–3 | 24 | 1 |
-| **hinge** | Broad Jump 3×3–5 @ quality stop; Trap-Bar Deadlift 5×3–5 @ RIR 2–3; Bench Press (narrow grip) / Bench Press (pause) 4×3–5 @ RIR 2–3; Pull-up / Lat Pulldown 3×6–10 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Split Squat 3×8–10 @ RIR 2–3; Lying Leg Curls / Nordic Curl 3×8–12 @ RIR 2–3 | 24 | 2 |
+| **hinge** | Broad Jump 3×3–5 @ quality stop; Trap-Bar Deadlift 5×3–5 @ RIR 2–3; Bench Press (narrow grip) / Bench Press (pause) 4×3–5 @ RIR 2–3; Pull-up / Lat Pulldown 3×6–10 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Split Squat / Bulgarian Split Squat 3×8–10 @ RIR 2–3; Lying Leg Curls / Nordic Curl 3×8–12 @ RIR 2–3 | 24 | 2 |
 | **bench_squat** | Medicine-Ball Chest Pass 3×3–5 @ quality stop; Bench Press 4×3–5 @ RIR 2–3; Competition Squat 4×3–5 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Overhead Press (seated) 3×6–10 @ RIR 2–3; Ab Wheel 3×6–10 @ RIR 2–3 | 20 | 1 |
 | **bench_hinge** | Medicine-Ball Chest Pass 3×3–5 @ quality stop; Bench Press 4×3–5 @ RIR 2–3; Sumo Deadlift 3×3–5 @ RIR 2–3; Pull-up / Lat Pulldown 3×6–10 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Overhead Press (seated) 3×6–10 @ RIR 2–3; Hanging Leg Raise 3×8–12 @ RIR 2–3 | 22 | 2.5 |
 

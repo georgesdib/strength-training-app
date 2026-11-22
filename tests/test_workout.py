@@ -433,7 +433,8 @@ def test_parse_import_maps_exercises_rpe_and_missing_velocity():
     assert rows[0]["exercise_id"] == "push_press"
     assert rows[0]["rir"] == 6 and rows[0]["warmup"] is True
     assert rows[1]["rir"] == 4 and rows[0]["velocity_mps"] is None
-    assert rows[3]["exercise_id"] == "bench_press_wide_grip"
+    # DEC-VARIANT-06: the wide-grip spelling is the bench press.
+    assert rows[3]["exercise_id"] == "bench_press"
     assert rows[3]["rir"] == 3
     assert rows[4]["rir"] == 2
     assert rows[2]["load_kg"] == 50.0

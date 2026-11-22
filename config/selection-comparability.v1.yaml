@@ -32,7 +32,6 @@ load_basis:
     - bench_press_w_bands
     - bench_press_elevated_legs
     - bench_press_medium_grip
-    - bench_press_wide_grip
     - bench_press_reverse_grip
     - bench_press_negative
     - bench_press_explosive

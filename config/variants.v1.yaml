@@ -36,7 +36,6 @@ slots:
     - bench_press_w_cambered_bar
     - bench_press_elevated_legs
     - bench_press_medium_grip
-    - bench_press_wide_grip
     - bench_press_reverse_grip
     - bench_press_negative
     - bench_press_explosive
@@ -70,6 +69,8 @@ slots:
     accessory_split_squat: &id005
     - split_squat
     - side_lunges
+    # Appended after the existing candidates so the established rank order is unchanged.
+    - bulgarian_split_squat
     accessory_knee_flexion: &id013
     - lying_leg_curls
     - nordic_curl
@@ -102,7 +103,6 @@ slots:
     - bench_press_w_cambered_bar
     - bench_press_elevated_legs
     - bench_press_medium_grip
-    - bench_press_wide_grip
     - bench_press_reverse_grip
     - bench_press_negative
     - bench_press_explosive

@@ -14,6 +14,12 @@ muscle lists, and the competition-squat and conventional-deadlift muscle lists) 
 the taxonomy, so the taxonomy is the single canonical source again. An edit made in the tab still
 lands in the override file and should be ported the same way once it is settled.
 
+On 2026-11-22 the file was cleaned back to field-level differences only: every property that
+repeated the taxonomy value (the tab writes the whole property map) was removed, and entries left
+with nothing to say were deleted. It now holds ten fields across seven exercises — muscle lists,
+the two `loadable: false` flags and the SSB spinal cost. A field that equals the taxonomy must
+never be re-added: it makes the next edit look intentional when it is only a dump of the defaults.
+
 ## 1. Add the canonical exercise
 
 [`config/exercises/taxonomy.v1.yaml`](../config/exercises/taxonomy.v1.yaml):
@@ -109,6 +115,13 @@ them into `side_plank` (**99** rows) and `chinese_plank` (**61** rows), leaving 
 `core_isometric` with `[abs]`; all three still record seconds in `Reps_Done`. The split is
 recorded in `exercise_remap_log` like the earlier rewrites, and pattern is read at run time, so
 no second migration is needed for the correction.
+
+**Later split and merge (2026-11-22):** `split_squat` was split into `split_squat` (rear foot
+down) and `bulgarian_split_squat` (rear foot elevated), and `bench_press_wide_grip` was retired
+into `bench_press`. Migration `0075` rewrote the affected `clean_set` rows with the same audit
+trail, so each lift now keeps its own history instead of one pooled set — the split needed it
+because a pooled e1RM reads the elevated version as the same load, and the merge needed it
+because the retired id could no longer accumulate anything (`DEC-VARIANT-06`).
 
 **Exceptions preserved:**
 

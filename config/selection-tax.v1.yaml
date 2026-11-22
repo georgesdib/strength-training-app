@@ -86,11 +86,6 @@ exercises:
     systemic: 1
     skill: 2
     rom: 2
-  bench_press_wide_grip:
-    axial: 1
-    systemic: 1
-    skill: 2
-    rom: 2
   bent_over_row:
     axial: 1
     systemic: 2
@@ -241,6 +236,13 @@ exercises:
     systemic: 2
     skill: 2
     rom: 2
+  # DEC-VARIANT-06: same pattern, but the raised rear foot shortens the base of support and adds
+  # hip range, so skill and rom move up. Ordinal assumption, not a measurement.
+  bulgarian_split_squat:
+    axial: 1
+    systemic: 2
+    skill: 3
+    rom: 3
   squat_2s_pause:
     axial: 2
     systemic: 2

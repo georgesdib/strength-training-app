@@ -327,6 +327,13 @@ conclusion is weaker than it looks.
 | 176 | Lambe R, Baldwin M, O’Grady B, et al. *The accuracy of Apple Watch measurements: a living systematic review and meta-analysis.* npj Digital Medicine, 2026;9:63. | 10.1038/s41746-025-02238-1 | 82 validation studies across 14 metrics; accuracy varies by metric, conditions and physiology. Apple Watch consumer estimates should be shown with source/provenance, not treated as clinical results. |
 | 177 | Lambe R, O’Grady B, Baldwin M, Doherty C. *Investigating the accuracy of Apple Watch VO2 max measurements: a validation study.* PLoS One, 2025;20:e0323741. | 10.1371/journal.pone.0323741 | Small validation study (n=30) found underestimation against indirect calorimetry; one study is insufficient to make a general individual correction. Label Apple Watch VO₂max as an estimate and interpret within-source trends cautiously. |
 
+## 28. Unilateral squat variants and their demands
+
+| # | Reference | DOI | Used for |
+|---|---|---|---|
+| 178 | Arakawa H, Mori M, Tanimoto M. *Greater hip moments in rear-foot-elevated split squats than in conventional back squats with the same relative intensity of loads.* J Strength Cond Res, 2023;37(5):1009-1016. | 10.1519/JSC.0000000000004351 | Hip extension moment 44 % greater at the bottom and 47 % greater at peak in the rear-foot-elevated split squat than the back squat, with greater hip abduction and external-rotation moments. Supports rating the elevated variant separately from the rear-foot-down split squat (`DEC-VARIANT-06`) and its high local-muscular demand. |
+| 179 | Mausehund L, Skard AE, Krosshaug T. *Muscle activation in unilateral barbell exercises: implications for strength training and rehabilitation.* J Strength Cond Res, 2019;33(7S):S85-S94. | 10.1519/JSC.0000000000002990 | At matched relative effort to failure, gluteus maximus and vastus lateralis activation did not differ between the split squat and the rear-foot-elevated version; the elevated version had higher biceps femoris activity and a higher hamstring:quadriceps ratio. The reason the split is about moment, hip range and base of support rather than different prime movers. |
+
 ## Not included
 
 Search results that were unrelated to this project (e.g. cerebral autoregulation, blood-flow
@@ -335,6 +342,7 @@ claim that the study is definitive; the evidence notes state the limitations.
 
 ## Where the references are used
 
+- `docs/EXERCISE-DEMANDS.md` — demand profiles, evidence ids and coverage
 - `docs/RIR-EVIDENCE.md` — effort window (1-4, target 2-3)
 - `docs/TRAINING-DYNAMICS.md` — 1RM testing, rep ranges, DUP
 - `docs/VBT-EVIDENCE.md` — velocity calibration and velocity loss

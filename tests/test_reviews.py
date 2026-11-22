@@ -55,27 +55,23 @@ def test_readiness_review_is_due_then_completed_and_snoozed():
         store.close()
 
 
-def test_volume_review_reminder_appears_only_after_budget_is_enabled():
+def test_enabling_the_volume_budget_adds_no_standing_review_reminder():
+    # The "Volume review (standing)" card was removed from Today on 2026-11-22: it had no clock
+    # and no acknowledgement, so it read as a permanent warning. The budget is inspected in the
+    # Prescribe volume panels, and enabling it must not resurrect the reminder.
     store = db.Store(":memory:")
     try:
         conn = store.connection
-        assert not any(
-            t["key"] == "volume_review" for t in reviews.status(conn, "2026-10-26")["tasks"]
-        )
+        before = [t["key"] for t in reviews.status(conn, "2026-10-26")["tasks"]]
         repositories.append_athlete_profile(
             conn, effective_from="2026-10-26",
             volume_budget_enabled=True,
         )
-        task = next(
-            t for t in reviews.status(conn, "2026-10-26")["tasks"]
-            if t["key"] == "volume_review"
-        )
+        after = [t["key"] for t in reviews.status(conn, "2026-10-26")["tasks"]]
     finally:
         store.close()
-    assert task["status"] == "attention"
-    assert task["periodic"] is False
-    assert "standing" in task["why"].lower()
-    assert "closed" in task["why"].lower()
+    assert "volume_review" not in before
+    assert after == before
 
 
 def test_review_status_reports_data_gaps_without_writing():

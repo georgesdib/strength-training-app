@@ -241,6 +241,28 @@ def test_approved_variant_pattern_and_muscle_corrections(taxonomy):
     assert taxonomy.resolve("Reverse Nordic Curl").pattern == "knee_extension"
     assert taxonomy.resolve("Split Squat").pattern == "squat_unilateral"
     assert taxonomy.resolve("Bulgarian Split Squat").pattern == "squat_unilateral"
+
+
+def test_split_squat_and_bulgarian_are_separate_entities(taxonomy):
+    # DEC-VARIANT-06: rear foot down versus elevated. Same pattern, different lift: own id,
+    # own history and own velocity family so calibration never pools the two.
+    split = taxonomy.resolve("Split Squat")
+    bulgarian = taxonomy.resolve("Bulgarian Split Squat")
+    assert split.id == "split_squat"
+    assert bulgarian.id == "bulgarian_split_squat"
+    assert split.pattern == bulgarian.pattern == "squat_unilateral"
+    assert split.vbt_family == "split_squat"
+    assert bulgarian.vbt_family == "bulgarian_split_squat"
+    assert "Bulgarian Split Squat" not in (split.get("log_names") or [])
+
+
+def test_wide_grip_bench_is_the_bench_press(taxonomy):
+    # DEC-VARIANT-06: one lift. The wide-grip spellings canonicalise to bench_press and the
+    # retired entity is gone, so no history can keep accumulating under it.
+    assert "bench_press_wide_grip" not in taxonomy.entities
+    for name in ("Bench Press (wide grip)", "Bench Press (Wide-Grip)"):
+        assert taxonomy.resolve(name).id == "bench_press"
+    assert taxonomy.resolve("Bench Press (wide grip)").vbt_family == "bench"
     tib = taxonomy.resolve("Tib Bar Calves")
     assert tib.pattern == "dorsiflexion"
     assert tib.get("primary_muscles") == ["tibialis_anterior"]

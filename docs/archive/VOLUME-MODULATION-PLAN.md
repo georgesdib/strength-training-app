@@ -817,6 +817,10 @@ deliberate golden update where a prescription changes.
 - The review is not a plan milestone. The Today **Volume review** reminder remains while the
   budget is enabled: review trims/top-ups, caps, blocked warnings, effective accounting and time,
   then decide keep/adjust/rollback. No separate opt-in.
+- **Removed 2026-11-22:** the Today card was deleted because it had no clock and no
+  acknowledgement, so it showed as a permanent warning whenever the budget was enabled. The
+  review itself still stands and is done from the Prescribe volume panels; no reminder is
+  emitted by the server.
 
 **4. Profile store and settings loader — implemented 2026-10-26.**
 - `settings_profile` append-only versions (complete override map, `effective_from`) and
@@ -1237,7 +1241,8 @@ both the target and the landmarks would make the change mostly cosmetic.
 
 ### 16.7 Standing follow-up (not a plan step)
 
-- The Today **Volume review** reminder remains the real-use review; it is not a tracked milestone.
+- The Today **Volume review** reminder was the real-use review, not a tracked milestone. It was
+  removed from Today on 2026-11-22 (see step 3); the review is done from the Prescribe volume panels.
 - Review the accepted set changes, under-MEV/overage behaviour, time and breaks; then keep, adjust
   or roll back. The plan itself is closed.
 

@@ -427,7 +427,8 @@ Main `ssb_squat` (pattern `squat`, volume key `squat`). Support candidates:
 
 - `bench_press` (`horizontal_push`): different pattern -> complementarity 3.
 - `split_squat` (`squat_unilateral`, volume key `squat`): same materialised pattern ->
-  complementarity 1.
+  complementarity 1. `bulgarian_split_squat` behaves identically here: a separate id with the
+  same pattern and volume key, so it never counts as complementary to a squat main lift.
 
 Complementarity is evaluated before volume and redundancy, so `bench_press` wins. This is the
 unchanged `secondary_complementarity` A/B row.

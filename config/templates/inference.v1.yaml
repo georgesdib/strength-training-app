@@ -18,7 +18,6 @@ bench_lifts:
 - bench_press_pause
 - bench_press_narrow
 - bench_press_medium_grip
-- bench_press_wide_grip
 - bench_press_elevated_legs
 - bench_press_explosive
 - bench_press_from_pins

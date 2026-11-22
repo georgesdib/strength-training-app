@@ -4,25 +4,35 @@
 schema_version: 1.0.0
 entities:
   bench_press_narrow:
-    display: Bench Press (narrow grip)
-    log_names:
-    - Bench Press (narrow grip)
-    pattern: horizontal_push
-    main_lift: true
-    primary_compound: true
-    vbt_family: bench
-    default_rir_target:
-    - 2
-    - 3
-    loadable: true
-    time_based: false
     primary_muscles:
     - biceps
     - chest
     - front_delts
     - triceps
-    bodyweight_type: false
-    e1rm_applicable: true
-    high_fatigue_spinal: false
-    erector_family: false
-    direct_erector: false
+  pull_up:
+    primary_muscles:
+    - lats
+    - upper_back
+    - upper_trap
+  dumbbell_row:
+    primary_muscles:
+    - lats
+    - upper_back
+  overhead_press_seated:
+    primary_muscles:
+    - front_delts
+    - triceps
+  ab_wheel:
+    loadable: false
+    primary_muscles:
+    - abs
+  ssb_squat:
+    primary_muscles:
+    - erectors
+    - glutes
+    - quadriceps
+    spinal_cost: 0.5
+  hanging_leg_raise:
+    primary_muscles:
+    - abs
+    loadable: false

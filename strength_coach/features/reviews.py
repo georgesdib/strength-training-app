@@ -332,22 +332,8 @@ def status(conn, on_date: str) -> dict:
         "afc_device_acceptance", "afc_5a_historical",
     ):
         tasks.append(_task(conn, key, on_date, config).as_dict())
-    profile = queries.athlete_profile(conn) or {}
-    if profile.get("volume_budget_enabled"):
-        # Standing review after the plan closed: it appears while the budget is enabled and
-        # never changes a prescription. It is not a roadmap milestone.
-        tasks.append(ReviewTask(
-            key="volume_review", label="Volume review (standing)", kind="reminder",
-            status="attention", due_on=on_date,
-            summary="Standing review: check trims and top-ups after 2-3 weeks of budget use.",
-            why="The volume-modulation plan is closed; this is a standing follow-up review.",
-            steps=(
-                "Use the budget for 2-3 weeks.",
-                "Review trims, top-ups, blocked warnings and the high-band guard.",
-                "Keep or adjust config; roll back to hard if a defect appears.",
-            ),
-            dont=("Do not treat this reminder as an unresolved plan item.",),
-            doc="docs/archive/VOLUME-MODULATION-PLAN.md",
-        ).as_dict())
+    # The former "Volume review (standing)" reminder was removed on 2026-11-22: it had no clock
+    # and no acknowledgement, so it read as a permanent warning on Today. The budget is inspected
+    # in the Prescribe volume panels; enabling it must not re-add a reminder here.
     due = [task for task in tasks if task["status"] in {"due", "attention"}]
     return {"on_date": on_date, "due_count": len(due), "tasks": tasks}
