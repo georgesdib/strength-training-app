@@ -221,3 +221,45 @@ def test_a_flare_that_cannot_be_trimmed_reports_the_spinal_cap():
     assert "sumo_deadlift" in prescription.notes["back_flare_review"]["held"]
     assert any(issue.startswith("SPINAL_CAP:") for issue in prescription.issues)
     assert prescription.executable is False
+
+
+def test_a_substitution_during_a_flare_takes_the_effort_hold():
+    """A replacement is performed mid-session, so MOD-BACK-001 must reach it too."""
+    from strength_coach.prescribe import engine
+
+    with store_with(SQUAT_ROWS) as store:
+        calm, _, _ = engine.resolve_replacement(
+            store.connection, for_date="2024-01-02", session_type="squat",
+            exercise_id="ssb_squat", sets=3, reps_low=5, reps_high=5,
+            rir_target=2, rest_s=180, essential=True, order_index=0,
+        )
+        log_flare(store.connection, "2024-01-02")
+        flared, _, _ = engine.resolve_replacement(
+            store.connection, for_date="2024-01-02", session_type="squat",
+            exercise_id="ssb_squat", sets=3, reps_low=5, reps_high=5,
+            rir_target=2, rest_s=180, essential=True, order_index=0,
+        )
+
+    assert calm.rir_target == 2
+    assert flared.rir_target is not None and flared.rir_target >= 3
+    assert "MOD-BACK-001" in flared.rationale_refs
+    # The hold re-solves the load at the effort actually shown, so it cannot stay lighter.
+    assert flared.load_kg is not None
+    assert flared.load_kg < calm.load_kg
+
+
+def test_a_direct_erector_substitution_during_a_flare_takes_the_dose():
+    from strength_coach.prescribe import engine
+
+    with store_with(SQUAT_ROWS) as store:
+        log_flare(store.connection, "2024-01-02")
+        item_, _, _ = engine.resolve_replacement(
+            store.connection, for_date="2024-01-02", session_type="squat",
+            exercise_id="back_extension", sets=5, reps_low=12, reps_high=12,
+            rir_target=2, rest_s=120, essential=False, order_index=19,
+        )
+
+    assert item_.flare == "dose"
+    assert "MOD-BACK-001" in item_.rationale_refs
+    assert item_.sets == 3  # the ceiling capped the extra sets
+
