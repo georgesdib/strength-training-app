@@ -2791,7 +2791,17 @@ class Handler(BaseHTTPRequestHandler):
             existing = (
                 workout.get(conn, row["workout_id"]) if row["workout_id"] else None
             )
-            if existing is not None and existing["status"] == "in_progress":
+            requested_execution = body.get("execution_id")
+            # A replayed offline start must acknowledge the execution it already owns even
+            # after another device completed it. The late-reconciliation window, not a
+            # reopened session, is what accepts the watch's queued sets afterwards.
+            if existing is not None and (
+                existing["status"] == "in_progress"
+                or (
+                    isinstance(requested_execution, str)
+                    and requested_execution == existing["workout_id"]
+                )
+            ):
                 return existing
             raise ios_workflow.IOSWorkflowError(
                 410, "plan_consumed", "issued plan has already been used",
@@ -2879,7 +2889,7 @@ class Handler(BaseHTTPRequestHandler):
         self._ios_closed_fields(body, {
             "exercise_id", "load_kg", "reps", "rir", "velocity_mps",
             "set_index", "plan_item_index", "substitutes_plan_item_index",
-            "rep_velocities", "performed_at",
+            "rep_velocities", "performed_at", "origin_device_id",
         })
         data = self._ios_workout(conn, workout_id, allow_completed=True)
         if data["status"] == "completed" and reconciliation.state(
@@ -2951,6 +2961,37 @@ class Handler(BaseHTTPRequestHandler):
                     400, "validation_failed", f"{field} must be non-negative",
                     fields={field: "must be non-negative"},
                 )
+        origin_device_id = body.get("origin_device_id")
+        if origin_device_id is not None:
+            if not isinstance(origin_device_id, str) or not origin_device_id.strip():
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", "origin_device_id must be a non-empty string",
+                    fields={"origin_device_id": "must be a non-empty string"},
+                )
+            origin_device_id = origin_device_id.strip()
+            origin = conn.execute(
+                "SELECT parent_device_id, revoked_at FROM ios_device WHERE device_id = ?",
+                (origin_device_id,),
+            ).fetchone()
+            if origin is None or origin["revoked_at"] is not None:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "origin_device_unknown",
+                    "origin_device_id is not a live device",
+                    fields={"origin_device_id": "unknown or revoked"},
+                )
+            issued = conn.execute(
+                "SELECT pairing_device_id FROM ios_issued_plan WHERE workout_id = ?",
+                (workout_id,),
+            ).fetchone()
+            if issued is not None and (
+                ios_workflow.pairing_device_id(conn, origin_device_id)
+                != issued["pairing_device_id"]
+            ):
+                raise ios_workflow.IOSWorkflowError(
+                    403, "origin_not_in_pairing",
+                    "origin_device_id does not belong to this workout's pairing",
+                    fields={"origin_device_id": "not in pairing"},
+                )
         performed_at = body.get("performed_at")
         if performed_at is not None and not isinstance(performed_at, str):
             raise ios_workflow.IOSWorkflowError(
@@ -3021,6 +3062,7 @@ class Handler(BaseHTTPRequestHandler):
                 substitutes_plan_item_index=substitutes_plan_item_index,
                 rep_velocities=rep_velocities,
                 performed_at=performed_at,
+                origin_device_id=origin_device_id,
                 # The model decides: in-progress is normal, completed is late (D8), and an
                 # abandoned session is still refused.
                 late=True,

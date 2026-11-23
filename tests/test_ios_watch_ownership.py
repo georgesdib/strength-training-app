@@ -138,6 +138,33 @@ def test_a_stale_plan_item_index_is_kept_as_extra_work(ios, monkeypatch):
     assert annotated["substitutes_plan_item_index"] == 0
 
 
+def test_origin_device_is_persisted_and_must_share_the_pairing(ios, monkeypatch):
+    _enabled(monkeypatch)
+    phone, _ = _paired(ios)
+    _watch, watch_id = _mint_watch(ios, phone)
+    status, plan = _issue(ios, phone)
+    assert status == 200, plan
+    status, started = _start(ios, phone, plan["issued_plan_id"])
+    assert status == 200, started
+    item = _first_item(started["plan"])
+
+    status, body = _add_set(
+        ios, phone, started["workout_id"], item, origin_device_id=watch_id,
+    )
+    assert status == 200, body
+    assert body["sets"][-1]["origin_device_id"] == watch_id
+
+    # A device from another pairing cannot be claimed as the origin.
+    other_phone, _ = _paired(ios)
+    _other_watch, other_watch_id = _mint_watch(ios, other_phone)
+    status, body = _add_set(
+        ios, phone, started["workout_id"], item, set_index=2,
+        origin_device_id=other_watch_id,
+    )
+    assert status == 403, body
+    assert body["code"] == "origin_not_in_pairing"
+
+
 def test_watch_cannot_author_an_execution_change(ios, monkeypatch):
     _phone, phone_device, watch, started = _pairing_workout(ios, monkeypatch)
     payload = {

@@ -1435,6 +1435,7 @@ def _set_payload_matches(
     item_index: int | None,
     substitutes_index: int | None,
     performed: dt.datetime | None,
+    origin_device_id: str | None = None,
 ) -> bool:
     """Is this request the same immutable set the stored row already holds?
 
@@ -1458,6 +1459,12 @@ def _set_payload_matches(
     if not _same_int(existing["prescription_item_index"], item_index):
         return False
     if not _same_int(existing["substitutes_plan_item_index"], substitutes_index):
+        return False
+    try:
+        stored_origin = existing["origin_device_id"]
+    except (IndexError, KeyError):
+        stored_origin = None
+    if stored_origin != origin_device_id:
         return False
     if performed is not None:
         stored_stamp = _performed_stamp(_parse(existing["created_at"]))
@@ -1485,6 +1492,7 @@ def add_set(
     rep_velocities: list[dict] | None = None,
     performed_at: str | None = None,
     late: bool = False,
+    origin_device_id: str | None = None,
 ) -> dict:
     """Append one performed set; an exact retry is idempotent, a different one is rejected.
 
@@ -1517,6 +1525,10 @@ def add_set(
             raise ValueError("exercise_id is required")
         if source not in {"manual", "import", "device"}:
             raise ValueError("source must be manual, import or device")
+        if origin_device_id is not None and (
+            not isinstance(origin_device_id, str) or not origin_device_id.strip()
+        ):
+            raise ValueError("origin_device_id must be a non-empty string")
         if set_index is None:
             row = conn.execute(
                 "SELECT COALESCE(MAX(set_index), 0) AS n FROM workout_set "
@@ -1565,6 +1577,7 @@ def add_set(
                 item_index=item_index,
                 substitutes_index=substitutes_index,
                 performed=performed,
+                origin_device_id=origin_device_id,
             ):
                 return get(conn, workout_id)
             raise ValueError(
@@ -1574,13 +1587,15 @@ def add_set(
             """
             INSERT INTO workout_set
                 (workout_id, exercise_id, set_index, load_kg, reps, rir, velocity, source,
-                 prescription_item_index, substitutes_plan_item_index, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 prescription_item_index, substitutes_plan_item_index, created_at,
+                 origin_device_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (workout_id, exercise_id, set_index, load_kg, reps, rir, velocity, source,
              item_index, substitutes_index,
              performed.astimezone(dt.UTC).isoformat(timespec="milliseconds")
-             if performed is not None else _now()),
+             if performed is not None else _now(),
+             origin_device_id),
         )
         if late_applied:
             stored = conn.execute(

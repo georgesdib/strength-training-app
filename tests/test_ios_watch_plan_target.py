@@ -5,7 +5,18 @@
 
 from __future__ import annotations
 
-from test_ios_workflow import _issue, _paired, _plan_state, _request, _start, ios
+import uuid
+
+from test_ios_workflow import (
+    _add_set,
+    _first_item,
+    _issue,
+    _paired,
+    _plan_state,
+    _request,
+    _start,
+    ios,
+)
 
 from strength_coach import ios_config
 
@@ -51,6 +62,45 @@ def test_the_pairing_sees_one_plan_and_the_watch_starts_it(ios, monkeypatch):
     assert status == 200, started
     assert started["status"] == "in_progress"
     assert started["owner_device_id"] == watch_id
+
+
+def test_a_completed_start_replay_acknowledges_the_execution_id(ios, monkeypatch):
+    _enabled(monkeypatch)
+    phone, _ = _paired(ios)
+    watch, watch_id = _mint_watch(ios, phone)
+    status, plan = _issue(ios, phone)
+    assert status == 200, plan
+    status, started = _start(ios, phone, plan["issued_plan_id"])
+    assert status == 200, started
+    status, completed = _request(
+        ios["base"], f"/api/ios/v1/workouts/{started['workout_id']}/complete",
+        method="POST", payload={
+            "not_recorded": True, "pending_devices": [watch_id],
+        }, token=phone, key=uuid.uuid4().hex,
+    )
+    assert status == 200, completed
+
+    # The watch's offline start replays after the phone finished. It must acknowledge the same
+    # execution instead of 410 plan_consumed, so its queued sets can use late reconciliation.
+    status, replay = _start(
+        ios, watch, plan["issued_plan_id"],
+        body={
+            "issued_plan_id": plan["issued_plan_id"],
+            "execution_id": plan["execution_id"],
+        },
+    )
+    assert status == 200, replay
+    assert replay["workout_id"] == started["workout_id"]
+    assert replay["status"] == "completed"
+
+    # The queued set can now use the open late-reconciliation window.
+    status, body = _add_set(
+        ios, phone, started["workout_id"], _first_item(started["plan"]),
+        origin_device_id=watch_id,
+        performed_at=started["started_at"],
+    )
+    assert status == 200, body
+    assert body["sets"][-1]["origin_device_id"] == watch_id
 
 
 def test_the_phone_starts_a_pairing_plan(ios, monkeypatch):
