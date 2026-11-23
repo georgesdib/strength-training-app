@@ -1154,7 +1154,10 @@ class Handler(BaseHTTPRequestHandler):
                     readiness = self._readiness(conn, clock["server_date"])
                     plan_payload = self._ios_plan_payload(conn, device)
                     live_plan = None
-                    plan_row = ios_workflow.current_plan(conn, device["device_id"])
+                    plan_row = ios_workflow.current_plan(
+                        conn,
+                        ios_workflow.pairing_device_id(conn, device["device_id"]),
+                    )
                     if plan_row is not None and plan_row.get("plan_json"):
                         try:
                             live_plan = json.loads(plan_row["plan_json"])
@@ -1438,11 +1441,6 @@ class Handler(BaseHTTPRequestHandler):
                     if len(parts) == 6 and parts[:4] == ["api", "ios", "v1", "workouts"]:
                         workout_id = parts[4]
                         action = parts[5]
-                        if action == "takeover":
-                            config = self._ios_require_mutations()
-                            body = self._body()
-                            self._ios_takeover(conn, device, workout_id, body)
-                            return
                         handlers = {
                             "sets": self._ios_workout_set,
                             "remove-set": self._ios_workout_remove_set,
@@ -1642,21 +1640,6 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._json(status, result)
 
-    def _ios_takeover(self, conn, device: dict, workout_id: str, body: dict) -> None:
-        if device["kind"] != "phone":
-            raise ios_workflow.IOSWorkflowError(
-                403, "not_phone", "only the phone may take over a session"
-            )
-        self._ios_closed_fields(body, {"confirm"})
-        if body.get("confirm") is not True:
-            raise ios_workflow.IOSWorkflowError(
-                400, "validation_failed", "confirm must be true",
-                fields={"confirm": "required"},
-            )
-        self._ios_workout(conn, workout_id)
-        result = workout.take_over(conn, workout_id, device["device_id"])
-        self._json(200, result)
-
     def _ios_workout_mutation(self, conn, device: dict, route: str, body: dict,
                               config: ios_config.IOSConfig, workout_id: str,
                               handler, *, access: str = "owner",
@@ -1664,15 +1647,9 @@ class Handler(BaseHTTPRequestHandler):
         def callback(c, _device, payload):
             # A retry whose response was lost must replay its stored receipt before the
             # workout state (possibly completed/abandoned) is re-checked.
-            data = self._ios_workout(c, workout_id, allow_completed=allow_completed)
-            if access == "owner" and data.get("owner_device_id") not in (
-                None, device["device_id"]
-            ):
-                raise ios_workflow.IOSWorkflowError(
-                    409, "not_owner",
-                    "this workout is owned by another device",
-                    details={"owner_device_id": data.get("owner_device_id")},
-                )
+            _ = self._ios_workout(c, workout_id, allow_completed=allow_completed)
+            # owner_device_id is provenance only. Any non-revoked device of the pairing may
+            # write; the route-level phone check below is about plan edits, not ownership.
             if access == "phone" and device["kind"] != "phone":
                 raise ios_workflow.IOSWorkflowError(
                     403, "not_phone", "only the phone may edit the plan"
@@ -2455,38 +2432,12 @@ class Handler(BaseHTTPRequestHandler):
     def _ios_prescription(self, conn, device: dict, body: dict) -> dict:
         config = self._ios_require_mutations()
         self._ios_closed_fields(
-            body, {"readiness_ack", "confirmations", "settings", "execution_target"}
+            body, {"readiness_ack", "confirmations", "settings"}
         )
         settings = self._ios_request_settings(body)
-        execution_target = body.get("execution_target", "phone")
-        if execution_target not in {"phone", "watch"}:
-            raise ios_workflow.IOSWorkflowError(
-                400, "validation_failed",
-                "execution_target must be phone or watch",
-                fields={"execution_target": "must be phone or watch"},
-            )
-        if execution_target == "phone":
-            if device["kind"] != "phone":
-                raise ios_workflow.IOSWorkflowError(
-                    403, "execution_target_forbidden",
-                    "a watch cannot request a phone plan",
-                )
-            target_device_id = device["device_id"]
-        else:
-            if device["kind"] == "watch":
-                target_device_id = device["device_id"]
-            else:
-                watch = conn.execute(
-                    "SELECT device_id FROM ios_device "
-                    "WHERE kind = 'watch' AND parent_device_id = ? AND revoked_at IS NULL",
-                    (device["device_id"],),
-                ).fetchone()
-                if watch is None:
-                    raise ios_workflow.IOSWorkflowError(
-                        409, "watch_not_paired",
-                        "no active watch is paired with this phone",
-                    )
-                target_device_id = watch["device_id"]
+        # The plan belongs to the pairing: a phone is its own pairing; a watch uses the phone
+        # that minted it. Any non-revoked device in the pairing may start it.
+        pairing = ios_workflow.pairing_device_id(conn, device["device_id"])
         acknowledge = body.get("readiness_ack", False)
         if not isinstance(acknowledge, bool):
             raise ios_workflow.IOSWorkflowError(
@@ -2588,8 +2539,7 @@ class Handler(BaseHTTPRequestHandler):
             issued_plan_id=issued_plan_id,
             execution_id=execution_id,
             device_id=device["device_id"],
-            target_device_id=target_device_id,
-            execution_target=execution_target,
+            pairing_device_id=pairing,
             for_date=today,
             requested_session_type=str(settings["session_type"]),
             settings=settings,
@@ -2611,7 +2561,6 @@ class Handler(BaseHTTPRequestHandler):
             "issued_plan_id": issued_plan_id,
             "execution_id": execution_id,
             "status": "queued",
-            "execution_target": execution_target,
             "for_date": today,
             "request_expires_at": request_expires_at,
             "plan_expires_at": None,
@@ -2713,20 +2662,10 @@ class Handler(BaseHTTPRequestHandler):
         before it could be built or started. Expired rows are not deleted; they are simply no
         longer live.
         """
-        row = ios_workflow.current_plan(conn, device["device_id"])
+        pairing = ios_workflow.pairing_device_id(conn, device["device_id"])
+        row = ios_workflow.current_plan(conn, pairing)
         if row is None:
             return {"status": "none"}
-        target_device_id = row["target_device_id"]
-        if target_device_id is not None:
-            # Fail closed on a dead execution target. Replacing or revoking a watch supersedes
-            # its live plan, so this only catches a legacy row or a race that missed that
-            # write; advertising it would offer a plan that can never be started.
-            target = conn.execute(
-                "SELECT revoked_at FROM ios_device WHERE device_id = ?",
-                (str(target_device_id),),
-            ).fetchone()
-            if target is None or target["revoked_at"] is not None:
-                return {"status": "none"}
         status = str(row["status"])
         now = ios_workflow.now_iso()
         if status in {"queued", "building"}:
@@ -2745,7 +2684,6 @@ class Handler(BaseHTTPRequestHandler):
             "elapsed_seconds": _elapsed_seconds(row["created_at"], now),
             "request_expires_at": row["request_expires_at"],
             "plan_expires_at": row["plan_expires_at"],
-            "execution_target": row["execution_target"],
             "retry_after_ms": self._ios_retry_after(status),
             "settings": ios_workflow.load_settings(row),
             "plan": None,
@@ -2795,12 +2733,11 @@ class Handler(BaseHTTPRequestHandler):
             raise ios_workflow.IOSWorkflowError(
                 404, "plan_not_found", "issued plan not found"
             )
-        if (row["execution_target"] != device["kind"]
-                or row["target_device_id"] != device["device_id"]):
+        if row["pairing_device_id"] != ios_workflow.pairing_device_id(
+            conn, device["device_id"]
+        ):
             raise ios_workflow.IOSWorkflowError(
-                409, "wrong_execution_target",
-                "this plan is for a different execution device",
-                details={"execution_target": row["execution_target"]},
+                404, "plan_not_found", "issued plan not found"
             )
         plan_status = str(row["status"])
         if plan_status in {"queued", "building"}:

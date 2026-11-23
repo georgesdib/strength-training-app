@@ -1,4 +1,4 @@
-"""Phase 6.1: a plan requested for the watch is routed to it and only it can start it."""
+"""S5: an issued plan belongs to the pairing, not a target device."""
 
 # The shared HTTP fixture and helpers are intentionally imported from test_ios_workflow.
 # ruff: noqa: F401, F811
@@ -31,67 +31,53 @@ def _mint_watch(ios, phone_token):
     return body["token"], body["device"]["device_id"]
 
 
-def test_phone_can_issue_a_watch_plan_and_only_the_watch_starts_it(ios, monkeypatch):
+def test_the_pairing_sees_one_plan_and_either_device_starts_it(ios, monkeypatch):
     _enabled(monkeypatch)
     phone, _ = _paired(ios)
     watch, _ = _mint_watch(ios, phone)
 
-    status, plan = _issue(ios, phone, body={"execution_target": "watch"})
+    status, plan = _issue(ios, phone)
     assert status == 200, plan
-    assert plan["execution_target"] == "watch"
-    assert plan["status"] == "ready"
+    assert "execution_target" not in plan
 
     status, seen = _request(ios["base"], "/api/ios/v1/plans/current", token=watch)
-    assert status == 200
+    assert status == 200, seen
     assert seen["issued_plan_id"] == plan["issued_plan_id"]
-    assert seen["execution_target"] == "watch"
-
-    status, rejected = _start(ios, phone, plan["issued_plan_id"])
-    assert status == 409, rejected
+    assert "execution_target" not in seen
 
     status, started = _start(ios, watch, plan["issued_plan_id"])
     assert status == 200, started
     assert started["status"] == "in_progress"
 
 
-def test_watch_cannot_start_a_phone_plan(ios, monkeypatch):
+def test_the_phone_starts_a_pairing_plan(ios, monkeypatch):
     _enabled(monkeypatch)
     phone, _ = _paired(ios)
-    watch, _ = _mint_watch(ios, phone)
+    _mint_watch(ios, phone)
     status, plan = _issue(ios, phone)
-    assert status == 200
-    status, rejected = _start(ios, watch, plan["issued_plan_id"])
-    assert status == 409, rejected
+    assert status == 200, plan
     status, started = _start(ios, phone, plan["issued_plan_id"])
     assert status == 200, started
 
 
-def test_replacing_the_watch_retires_the_plan_it_was_issued_to(ios, monkeypatch):
+def test_replacing_the_watch_keeps_the_pairing_plan(ios, monkeypatch):
     _enabled(monkeypatch)
     phone, _ = _paired(ios)
-    first, _ = _mint_watch(ios, phone)
-    # Read the request rather than waiting for the build: supersession is a property of the
-    # row, and the dispatcher's settle time is what makes the shared helpers flaky under load.
-    status, request = _issue(ios, phone, body={"execution_target": "watch"}, wait=False)
+    _mint_watch(ios, phone)
+    status, request = _issue(ios, phone, wait=False)
     assert status == 202, request
-    live = _plan_state(ios, first)
-    assert live["issued_plan_id"] == request["issued_plan_id"]
-    assert live["status"] != "none"
 
-    # A replacement watch is a new device id; the plan was bound to the old one and can never
-    # be started. Both callers must stop advertising it, or the phone shows a watch workout
-    # the watch itself reports as missing.
     second, _ = _mint_watch(ios, phone)
 
-    assert _plan_state(ios, phone)["status"] == "none"
-    assert _plan_state(ios, second)["status"] == "none"
+    assert _plan_state(ios, phone)["issued_plan_id"] == request["issued_plan_id"]
+    assert _plan_state(ios, second)["issued_plan_id"] == request["issued_plan_id"]
 
 
-def test_revoking_the_watch_retires_its_live_plan(ios, monkeypatch):
+def test_revoking_the_watch_keeps_the_phone_copy_of_the_plan(ios, monkeypatch):
     _enabled(monkeypatch)
     phone, _ = _paired(ios)
     watch, watch_id = _mint_watch(ios, phone)
-    status, request = _issue(ios, phone, body={"execution_target": "watch"}, wait=False)
+    status, request = _issue(ios, phone, wait=False)
     assert status == 202, request
     assert _plan_state(ios, watch)["issued_plan_id"] == request["issued_plan_id"]
 
@@ -100,29 +86,30 @@ def test_revoking_the_watch_retires_its_live_plan(ios, monkeypatch):
     )
     assert status == 200
 
-    assert _plan_state(ios, phone)["status"] == "none"
+    seen = _plan_state(ios, phone)
+    assert seen["status"] != "none"
+    assert seen["issued_plan_id"] == request["issued_plan_id"]
     status, _ = _request(ios["base"], "/api/ios/v1/plans/current", token=watch)
     assert status == 403
 
 
-def test_replacing_the_watch_keeps_a_phone_plan_intact(ios, monkeypatch):
-    _enabled(monkeypatch)
-    phone, _ = _paired(ios)
-    _mint_watch(ios, phone)
-    status, request = _issue(ios, phone, wait=False)
-    assert status == 202, request
-
-    _mint_watch(ios, phone)
-
-    seen = _plan_state(ios, phone)
-    assert seen["status"] != "none"
-    assert seen["issued_plan_id"] == request["issued_plan_id"]
-    assert seen["execution_target"] == "phone"
-
-
-def test_watch_target_without_a_paired_watch_is_rejected(ios, monkeypatch):
+def test_the_old_execution_target_field_is_gone(ios, monkeypatch):
     _enabled(monkeypatch)
     phone, _ = _paired(ios)
     status, body = _issue(ios, phone, body={"execution_target": "watch"}, wait=False)
-    assert status == 409, body
-    assert body["code"] == "watch_not_paired"
+    assert status == 400, body
+    assert "execution_target" in body["fields"]
+
+
+def test_a_watch_request_replaces_the_pairing_plan(ios, monkeypatch):
+    _enabled(monkeypatch)
+    phone, _ = _paired(ios)
+    watch, _ = _mint_watch(ios, phone)
+    status, first = _issue(ios, phone, wait=False)
+    assert status == 202, first
+    status, second = _issue(ios, watch, wait=False)
+    assert status == 202, second
+
+    seen = _plan_state(ios, phone)
+    assert seen["issued_plan_id"] == second["issued_plan_id"]
+    assert _plan_state(ios, watch)["issued_plan_id"] == second["issued_plan_id"]

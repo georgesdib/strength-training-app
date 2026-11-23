@@ -866,7 +866,7 @@ def test_start_by_id_is_idempotent_and_adopts_active_workout(ios):
     assert row["workout_id"] == first["workout_id"]
 
 
-def test_start_rejects_other_device_and_client_plan_content(ios):
+def test_start_rejects_another_pairing_and_client_plan_content(ios):
     token, _ = _paired(ios)
     status, issued = _issue(ios, token)
     assert status == 200, issued
@@ -874,9 +874,10 @@ def test_start_rejects_other_device_and_client_plan_content(ios):
     status, second = _pair(ios["base"], code, label="Other iPhone")
     assert status == 200, second
 
+    # Another phone is another pairing; the plan is not visible to it.
     status, body = _start(ios, second["token"], issued["issued_plan_id"])
-    assert status == 409, body
-    assert body["code"] == "wrong_execution_target"
+    assert status == 404, body
+    assert body["code"] == "plan_not_found"
 
     status, body = _start(
         ios, token, issued["issued_plan_id"],

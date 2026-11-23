@@ -3033,29 +3033,6 @@ def abandon_stale(conn, before_iso: str) -> int:
     return count
 
 
-def take_over(conn, workout_id: str, device_id: str) -> dict:
-    """Transfer ownership to a phone; idempotent when it already owns the session."""
-    workout = get(conn, workout_id)
-    if workout is None:
-        raise ValueError("workout not found")
-    if workout["status"] != "in_progress":
-        raise ValueError("workout is not in progress")
-    previous = workout.get("owner_device_id")
-    if previous == device_id:
-        return workout
-    with db.transaction(conn):
-        conn.execute(
-            "UPDATE workout_session SET owner_device_id = ?, last_activity_at = ? "
-            "WHERE workout_id = ?",
-            (device_id, _now(), workout_id),
-        )
-        _event(conn, workout_id, "takeover", {
-            "from": previous,
-            "to": device_id,
-        })
-    return get(conn, workout_id)
-
-
 def abandon(conn, workout_id: str, *, reason: str | None = None) -> dict:
     workout = get(conn, workout_id)
     if workout is None:

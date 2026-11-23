@@ -15,7 +15,8 @@ def _connection(tmp_path):
     partial = tmp_path / "migrations"
     partial.mkdir()
     for path in sorted(source.glob("*.sql")):
-        if path.name.startswith("0058"):
+        # 0078 depends on the columns 0058 adds; apply it after 0058 in the full pass.
+        if path.name.startswith(("0058", "0078")):
             continue
         shutil.copy2(path, partial / path.name)
     conn = db.connect(tmp_path / "coach.db")
