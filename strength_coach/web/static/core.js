@@ -124,6 +124,7 @@ async function api(path, options = {}) {
     );
     error.status = response.status;
     error.fields = data.fields || {};
+    error.code = data.code || null;
     throw error;
   }
   return data;

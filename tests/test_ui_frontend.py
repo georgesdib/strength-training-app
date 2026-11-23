@@ -2507,3 +2507,11 @@ def test_a_started_preview_never_carries_its_build_time() -> None:
     )
     result = _run_node(script)
     assert result.returncode == 0, result.stderr
+
+
+def test_the_web_start_confirms_a_pending_phone_plan() -> None:
+    """D1: the web UI asks before opening a second session beside a phone plan."""
+    source = (STATIC / "workout.js").read_text(encoding="utf-8")
+    assert "plan_pending_for_phone" in source
+    assert "start_anyway" in source
+    assert source.count("postWorkoutStart(") == 3  # the definition plus both start paths
