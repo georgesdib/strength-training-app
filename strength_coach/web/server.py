@@ -39,6 +39,7 @@ from strength_coach import (
     history,
     ios_config,
     modalities,
+    reconciliation,
     settings_profile,
     settings_registry,
     workout,
@@ -1474,6 +1475,9 @@ class Handler(BaseHTTPRequestHandler):
                         self._ios_workout_mutation(
                             conn, device, path, body, config, workout_id, handler,
                             access="any" if action == "abandon" else "owner",
+                            # A set may arrive after completion, inside the reconciliation
+                            # window; the model decides whether it applies (D8).
+                            allow_completed=action == "sets",
                         )
                     else:
                         self._error(404, "not found")
@@ -1636,11 +1640,12 @@ class Handler(BaseHTTPRequestHandler):
 
     def _ios_workout_mutation(self, conn, device: dict, route: str, body: dict,
                               config: ios_config.IOSConfig, workout_id: str,
-                              handler, *, access: str = "owner") -> None:
+                              handler, *, access: str = "owner",
+                              allow_completed: bool = False) -> None:
         def callback(c, _device, payload):
             # A retry whose response was lost must replay its stored receipt before the
             # workout state (possibly completed/abandoned) is re-checked.
-            data = self._ios_workout(c, workout_id)
+            data = self._ios_workout(c, workout_id, allow_completed=allow_completed)
             if access == "owner" and data.get("owner_device_id") not in (
                 None, device["device_id"]
             ):
@@ -1655,7 +1660,18 @@ class Handler(BaseHTTPRequestHandler):
                 )
             return handler(c, workout_id, payload)
 
-        self._ios_mutation(conn, device, route, body, config, callback)
+        try:
+            self._ios_mutation(conn, device, route, body, config, callback)
+        except reconciliation.WindowClosed as exc:
+            # The rejected transaction has already rolled back, so the arrival is preserved here,
+            # in its own transaction: a late set that missed the window is never deleted (D8).
+            with db.transaction(conn):
+                reconciliation.record_rejection(conn, workout_id, exc.payload)
+            raise ios_workflow.IOSWorkflowError(
+                409, "reconciliation_window_closed",
+                "this workout's reconciliation window has closed",
+                details={"workout_id": workout_id},
+            ) from exc
 
     def _ios_readiness(self, conn, device: dict, body: dict) -> dict:
         self._ios_closed_fields(body, {"values", "note"})
@@ -2861,12 +2877,15 @@ class Handler(BaseHTTPRequestHandler):
                 ) from exc
             raise
 
-    def _ios_workout(self, conn, workout_id: str) -> dict:
+    def _ios_workout(self, conn, workout_id: str, *, allow_completed: bool = False) -> dict:
         data = workout.get(conn, workout_id)
         if data is None:
             raise ios_workflow.IOSWorkflowError(
                 404, "workout_not_found", "workout not found"
             )
+        if allow_completed and data["status"] == "completed":
+            # A late set is judged by the reconciliation window, not by the status guard.
+            return data
         if data["status"] != "in_progress":
             raise ios_workflow.IOSWorkflowError(
                 409, "workout_not_active", "workout is not in progress",
@@ -2880,7 +2899,7 @@ class Handler(BaseHTTPRequestHandler):
             "set_index", "plan_item_index", "substitutes_plan_item_index",
             "rep_velocities", "performed_at",
         })
-        self._ios_workout(conn, workout_id)
+        self._ios_workout(conn, workout_id, allow_completed=True)
         exercise_id = body.get("exercise_id")
         if not isinstance(exercise_id, str) or not exercise_id.strip():
             raise ios_workflow.IOSWorkflowError(
@@ -3010,7 +3029,14 @@ class Handler(BaseHTTPRequestHandler):
                 substitutes_plan_item_index=substitutes_plan_item_index,
                 rep_velocities=rep_velocities,
                 performed_at=performed_at,
+                # The model decides: in-progress is normal, completed is late (D8), and an
+                # abandoned session is still refused.
+                late=True,
             )
+        except reconciliation.WindowClosed:
+            # Handled above the transaction wrapper, which is where the rejected arrival can be
+            # preserved after the rollback.
+            raise
         except ValueError as exc:
             raise ios_workflow.IOSWorkflowError(
                 400, "validation_failed", str(exc)
@@ -3184,7 +3210,8 @@ class Handler(BaseHTTPRequestHandler):
     def _ios_workout_complete(self, conn, workout_id: str, body: dict) -> dict:
         self._ios_closed_fields(
             body,
-            {"session_rpe", "not_recorded", "duration_min", "notes", "ended_at", "productivity"},
+            {"session_rpe", "not_recorded", "duration_min", "notes", "ended_at",
+             "productivity", "pending_devices"},
         )
         self._ios_workout(conn, workout_id)
         not_recorded = body.get("not_recorded", False)
@@ -3238,6 +3265,19 @@ class Handler(BaseHTTPRequestHandler):
                 400, "validation_failed", "ended_at must be an ISO-8601 string",
                 fields={"ended_at": "must be an ISO-8601 string"},
             )
+        raw_pending = body.get("pending_devices")
+        pending_devices: list[str] | None = None
+        if raw_pending is not None:
+            if not isinstance(raw_pending, list) or any(
+                not isinstance(item, str) or not item.strip() or len(item) > 64
+                for item in raw_pending
+            ):
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed",
+                    "pending_devices must be a list of device ids",
+                    fields={"pending_devices": "must be a list of device ids"},
+                )
+            pending_devices = sorted({item.strip() for item in raw_pending})
         return workout.end(
             conn, workout_id,
             session_rpe=rpe,
@@ -3246,6 +3286,7 @@ class Handler(BaseHTTPRequestHandler):
             productivity=productivity,
             notes=notes or None,
             ended_at=ended_at,
+            pending_devices=pending_devices,
         )
 
     def _ios_workout_abandon(self, conn, workout_id: str, body: dict) -> dict:

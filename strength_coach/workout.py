@@ -19,7 +19,7 @@ from typing import Any
 
 import pandas as pd
 
-from strength_coach import adherence, settings_profile
+from strength_coach import adherence, reconciliation, settings_profile
 from strength_coach.analytics import core as derived_core
 from strength_coach.analytics import revision as analytics_revision
 from strength_coach.domain import load as load_mod
@@ -982,6 +982,10 @@ def _summary_payload(
         "for_date": for_date,
         "session_type": data.get("session_type"),
         "status": data.get("status"),
+        # Whether a device's events are still expected (D8). `none` means nothing is pending;
+        # `open` means the totals below may still grow; `closed` means late arrivals are
+        # preserved but excluded.
+        "reconciliation": reconciliation.state(conn, str(data["workout_id"])),
         "strength": strength,
         "dose": {
             "per_exercise": per_exercise,
@@ -1467,6 +1471,7 @@ def add_set(
     substitutes_plan_item_index: int | None = None,
     rep_velocities: list[dict] | None = None,
     performed_at: str | None = None,
+    late: bool = False,
 ) -> dict:
     """Append one performed set; an exact retry is idempotent, a different one is rejected.
 
@@ -1478,10 +1483,35 @@ def add_set(
     """
     with db.transaction(conn):
         workout = get(conn, workout_id)
+        late_applied = False
         if workout is None:
             raise ValueError("workout not found")
         if workout["status"] != "in_progress":
-            raise ValueError("workout is not in progress")
+            if not late or workout["status"] != "completed":
+                raise ValueError("workout is not in progress")
+            # A completed session still accepts events from a device that was unreachable when
+            # it finished, for a bounded window (D8). After the window the arrival is preserved
+            # by the caller as a rejected event, never deleted.
+            window = reconciliation.state(conn, workout_id)["state"]
+            if window == "none":
+                # Nothing was ever expected from another device: an ordinary refusal, with no
+                # rejection record to add to the audit stream.
+                raise ValueError("workout is not in progress")
+            if window != "open":
+                raise reconciliation.WindowClosed(
+                    "the reconciliation window for this workout has closed",
+                    {
+                        "exercise_id": exercise_id,
+                        "set_index": set_index,
+                        "load_kg": load_kg,
+                        "reps": reps,
+                        "rir": rir,
+                        "velocity": velocity,
+                        "source": source,
+                        "performed_at": performed_at,
+                    },
+                )
+            late_applied = True
         if not exercise_id:
             raise ValueError("exercise_id is required")
         if source not in {"manual", "import", "device"}:
@@ -1551,9 +1581,19 @@ def add_set(
              performed.astimezone(dt.UTC).isoformat(timespec="milliseconds")
              if performed is not None else _now()),
         )
-        _event(conn, workout_id, "add_set", {"exercise_id": exercise_id,
-                                              "set_index": set_index},
-               target_set_id=int(cursor.lastrowid))
+        if late_applied:
+            stored = conn.execute(
+                "SELECT * FROM workout_set WHERE set_id = ?", (int(cursor.lastrowid),)
+            ).fetchone()
+            _materialise_late_set(conn, workout, dict(stored))
+            _event(conn, workout_id, reconciliation.EVENT_LATE_SET,
+                   {"exercise_id": exercise_id, "set_index": set_index,
+                    "applied_at": _now()},
+                   target_set_id=int(cursor.lastrowid))
+        else:
+            _event(conn, workout_id, "add_set", {"exercise_id": exercise_id,
+                                                  "set_index": set_index},
+                   target_set_id=int(cursor.lastrowid))
         _touch(conn, workout_id)
         if rep_detail:
             _append_reps(
@@ -2484,63 +2524,140 @@ def _materialise(conn, workout: Mapping[str, Any], *, ended: str, duration: floa
     file_sha = "workout:" + hashlib.sha256(workout_id.encode("utf-8")).hexdigest()
     rep_state = _current_reps(conn, workout_id)
     for row in sets:
-        exercise_id = str(row["exercise_id"])
-        props = entities.get(exercise_id, {})
-        bodyweight = bool(props.get("bodyweight_type"))
-        load = row.get("load_kg")
-        resolved = load_mod.resolve_load_basis(
-            None if load is None else float(load),
-            bodyweight_kg=(None if bodyweight_kg in (None, "") else float(bodyweight_kg)),
-            is_bodyweight_type=bodyweight,
-            is_time_based=bool(props.get("time_based", False)),
+        _materialise_set(
+            conn,
+            workout=workout,
+            row=row,
+            entities=entities,
+            bodyweight_kg=bodyweight_kg,
+            file_sha=file_sha,
+            rep_detail=rep_state.get(int(row["set_id"])),
         )
-        load_basis = resolved.basis
-        external = resolved.external_load_kg
-        reps_unit = "seconds" if props.get("time_based") else "reps"
-        is_working = 0 if row.get("rir") == 6 else 1
-        row_flags = [] if load_basis != "unknown" else ["LOAD_BASIS_UNKNOWN"]
-        payload = json.dumps(dict(row), separators=(",", ":"))
-        cursor = conn.execute(
-            "INSERT INTO raw_row (table_name, source_row, file_sha256, payload) "
-            "VALUES ('training', ?, ?, ?)",
-            (int(row["set_id"]), file_sha, payload),
-        )
-        raw_id = int(cursor.lastrowid)
-        clean_cursor = conn.execute(
-            """
-            INSERT INTO clean_set
-                (raw_id, session_id, occurred_on, exercise_id, raw_exercise, load_kg,
-                 load_basis, external_load_kg, reps, reps_unit, rir, rir_source,
-                 velocity_mps, velocity_present, tonnage_kg, is_working_set, flags,
-                 prescription_item_index, set_role, substitutes_plan_item_index)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                raw_id, workout_id, workout["for_date"], exercise_id, exercise_id,
-                load, load_basis, external, row.get("reps"), reps_unit, row.get("rir"),
-                ("logged_warmup" if row.get("rir") == 6 else "logged")
-                if row.get("rir") is not None else "missing", row.get("velocity"),
-                1 if row.get("velocity") is not None else 0,
-                (float(external) * int(row["reps"]))
-                if external is not None and row.get("reps") is not None else None,
-                is_working, json.dumps(row_flags), row.get("prescription_item_index"),
-                row.get("set_role"), row.get("substitutes_plan_item_index"),
-            ),
-        )
-        detail = rep_state.get(int(row["set_id"]))
-        for rep in (detail or {}).get("reps") or []:
-            conn.execute(
-                "INSERT INTO clean_rep (clean_set_id, rep_index, velocity_mps, source) "
-                "VALUES (?, ?, ?, ?)",
-                (int(clean_cursor.lastrowid), int(rep["rep_index"]),
-                 float(rep["velocity_mps"]), str((detail or {}).get("source") or "import")),
-            )
     if session_rpe is not None or notes or productivity is not None:
         repositories.append_session_feedback(
             conn, session_id=workout_id, srpe=session_rpe,
             duration_min=duration if duration > 0 else None,
             productivity=productivity, note=notes,
         )
+
+
+def _materialise_set(
+    conn,
+    *,
+    workout: Mapping[str, Any],
+    row: Mapping[str, Any],
+    entities: Mapping[str, Any],
+    bodyweight_kg,
+    file_sha: str,
+    rep_detail: Mapping[str, Any] | None,
+) -> None:
+    """Write one performed set into raw_row/clean_set/clean_rep.
+
+    Used by completion and by late reconciliation, so a set that arrives after the session was
+    completed lands in exactly the same shape as one that was present at completion.
+    """
+    workout_id = str(workout["workout_id"])
+    exercise_id = str(row["exercise_id"])
+    props = entities.get(exercise_id, {})
+    bodyweight = bool(props.get("bodyweight_type"))
+    load = row.get("load_kg")
+    resolved = load_mod.resolve_load_basis(
+        None if load is None else float(load),
+        bodyweight_kg=(None if bodyweight_kg in (None, "") else float(bodyweight_kg)),
+        is_bodyweight_type=bodyweight,
+        is_time_based=bool(props.get("time_based", False)),
+    )
+    load_basis = resolved.basis
+    external = resolved.external_load_kg
+    reps_unit = "seconds" if props.get("time_based") else "reps"
+    is_working = 0 if row.get("rir") == 6 else 1
+    row_flags = [] if load_basis != "unknown" else ["LOAD_BASIS_UNKNOWN"]
+    payload = json.dumps(dict(row), separators=(",", ":"))
+    cursor = conn.execute(
+        "INSERT INTO raw_row (table_name, source_row, file_sha256, payload) "
+        "VALUES ('training', ?, ?, ?)",
+        (int(row["set_id"]), file_sha, payload),
+    )
+    raw_id = int(cursor.lastrowid)
+    clean_cursor = conn.execute(
+        """
+        INSERT INTO clean_set
+            (raw_id, session_id, occurred_on, exercise_id, raw_exercise, load_kg,
+             load_basis, external_load_kg, reps, reps_unit, rir, rir_source,
+             velocity_mps, velocity_present, tonnage_kg, is_working_set, flags,
+             prescription_item_index, set_role, substitutes_plan_item_index)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            raw_id, workout_id, workout["for_date"], exercise_id, exercise_id,
+            load, load_basis, external, row.get("reps"), reps_unit, row.get("rir"),
+            ("logged_warmup" if row.get("rir") == 6 else "logged")
+            if row.get("rir") is not None else "missing", row.get("velocity"),
+            1 if row.get("velocity") is not None else 0,
+            (float(external) * int(row["reps"]))
+            if external is not None and row.get("reps") is not None else None,
+            is_working, json.dumps(row_flags), row.get("prescription_item_index"),
+            row.get("set_role"), row.get("substitutes_plan_item_index"),
+        ),
+    )
+    for rep in (rep_detail or {}).get("reps") or []:
+        conn.execute(
+            "INSERT INTO clean_rep (clean_set_id, rep_index, velocity_mps, source) "
+            "VALUES (?, ?, ?, ?)",
+            (int(clean_cursor.lastrowid), int(rep["rep_index"]),
+             float(rep["velocity_mps"]), str((rep_detail or {}).get("source") or "import")),
+        )
+
+
+def _refresh_session_aggregates(conn, workout_id: str) -> None:
+    """Recompute the durable session totals after a late set lands.
+
+    The session row is what reports read, so a late set that only reached clean_set would be
+    invisible. Plan-completeness flags are deliberately not recomputed: a session recorded as
+    incomplete stays incomplete, which is the conservative direction (D8).
+    """
+    totals = conn.execute(
+        "SELECT COUNT(*) AS n, COALESCE(SUM(is_working_set), 0) AS w, "
+        "       COUNT(DISTINCT exercise_id) AS e, SUM(tonnage_kg) AS t "
+        "FROM clean_set WHERE session_id = ?",
+        (workout_id,),
+    ).fetchone()
+    entities = exercises.taxonomy().entities
+    performed = [
+        str(row["exercise_id"]) for row in conn.execute(
+            "SELECT DISTINCT exercise_id FROM clean_set WHERE session_id = ?",
+            (workout_id,),
+        )
+    ]
+    main_lifts = [
+        exercise_id for exercise_id in performed
+        if entities.get(exercise_id, {}).get("main_lift")
+    ]
+    conn.execute(
+        "UPDATE session SET set_count = ?, working_set_count = ?, exercise_count = ?, "
+        "       main_lifts = ?, tonnage_kg = ? WHERE session_id = ?",
+        (
+            int(totals["n"]), int(totals["w"]), int(totals["e"]),
+            json.dumps(main_lifts), totals["t"], workout_id,
+        ),
+    )
+
+
+def _materialise_late_set(conn, workout: Mapping[str, Any], row: Mapping[str, Any]) -> None:
+    """Apply one late set to the durable record and refresh the session totals."""
+    import hashlib
+
+    workout_id = str(workout["workout_id"])
+    _materialise_set(
+        conn,
+        workout=workout,
+        row=row,
+        entities=exercises.taxonomy().entities,
+        bodyweight_kg=(workout.get("readiness") or {}).get("bodyweight_kg"),
+        file_sha="workout:" + hashlib.sha256(workout_id.encode("utf-8")).hexdigest(),
+        rep_detail=_current_reps(conn, workout_id).get(int(row["set_id"])),
+    )
+    _refresh_session_aggregates(conn, workout_id)
 
 
 def end(
@@ -2553,13 +2670,23 @@ def end(
     productivity: int | None = None,
     notes: str | None = None,
     ended_at: str | None = None,
+    pending_devices: list[str] | None = None,
 ) -> dict:
     workout = get(conn, workout_id)
     if workout is None:
         raise ValueError("workout not found")
     if workout["status"] == "completed":
-        # A lost response to a successful end must not look like a failure on retry.
-        return workout
+        # A lost response to a successful end must not look like a failure on retry. A retry may
+        # still be the first to name the devices whose events have not arrived, so the window is
+        # opened idempotently rather than ignored.
+        if pending_devices:
+            with db.transaction(conn):
+                reconciliation.open_window(
+                    conn, workout_id,
+                    pending_devices=list(pending_devices),
+                    ended_at=str(workout.get("ended_at") or _now()),
+                )
+        return get(conn, workout_id)
     if workout["status"] != "in_progress":
         raise ValueError("workout is not in progress")
     start = _parse(workout.get("started_at"))
@@ -2607,6 +2734,12 @@ def end(
             _complete(conn, current, ended=ended, duration=duration, source=source,
                       measured_seconds=measured_seconds, rpe=rpe, not_recorded=not_recorded,
                       notes=notes, productivity=productivity)
+            if pending_devices:
+                reconciliation.open_window(
+                    conn, workout_id,
+                    pending_devices=list(pending_devices),
+                    ended_at=ended,
+                )
     return get(conn, workout_id)
 
 

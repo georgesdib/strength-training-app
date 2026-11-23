@@ -672,6 +672,13 @@ it is append-only. Actual-set corrections and imports replay these events rather
 automatic `set_index` allocation and the attribution check run inside the same write transaction
 as the insert.
 
+Late reconciliation adds four event types to the same stream: `late_reconciliation` (opens the
+window with `pending_devices` and `closes_at`), `late_set` (a set applied after completion),
+`reconciliation_closed` and `late_rejected` (an arrival after the window, preserved with its
+payload and excluded from totals). The window length is `ios.v1.yaml: reconciliation_window_days`
+(default 7). A late set is written into `clean_set` and the `session` totals are recomputed, so
+reports and analytics see it; plan-completeness flags are deliberately left unchanged.
+
 Execution changes add `substitution` and `addition` rows to the same append-only stream. Their
 `payload_json` carries `client_event_id`, the slot (`plan_item_index` or `after_item_index`),
 the exercise, the reps/RIR shape, the solved prefill and its reason. A unique index on

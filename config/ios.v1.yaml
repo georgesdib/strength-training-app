@@ -18,7 +18,12 @@ plan_request_ttl_seconds: 900
 receipt_retention_days: 30
 idle_warn_seconds: 10800
 idle_abandon_seconds: 86400
+# How long a completed session still accepts sets from a device that was unreachable when the
+# workout was finished (D8). Inside the window a late set is applied and the derived metrics
+# recompute; after it the arrival is preserved as a rejected event and excluded from totals.
+reconciliation_window_days: 7
 
 # Validation: issued_plan_ttl 60-86400 seconds; plan_request_ttl 60-3600 seconds; retention
-# 1-365 days; idle_warn 60-86400 seconds; idle_abandon 60-604800 seconds. Malformed or out-of-range values fail closed with a server error rather than
+# 1-365 days; idle_warn 60-86400 seconds; idle_abandon 60-604800 seconds;
+# reconciliation_window_days 1-30 days. Malformed or out-of-range values fail closed with a server error rather than
 # silently enabling a mutation path. plan_request_ttl_seconds is optional; omitting it uses 900.

@@ -2675,3 +2675,47 @@ def test_an_offline_substitution_sends_the_shipped_catalogue_prefill(ios):
     assert substitution["prefill_load_kg"] == pytest.approx(expected)
     assert substitution["prefill_expected_load_kg"] == pytest.approx(expected)
 
+
+
+def test_a_late_set_is_applied_then_refused_once_the_window_closes(ios, monkeypatch):
+    """D8 end to end: a completed session accepts late work, then preserves a late arrival."""
+    from strength_coach import reconciliation
+
+    token, _ = _paired(ios)
+    status, state = _issue(ios, token)
+    assert status == 200, state
+    status, started = _start(
+        ios, token, state["issued_plan_id"],
+        body={"issued_plan_id": state["issued_plan_id"],
+              "execution_id": state["execution_id"]},
+    )
+    assert status == 200, started
+    workout_id = started["workout_id"]
+
+    monkeypatch.setattr(reconciliation, "window_days", lambda conn=None: 0)
+    status, done = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/complete", method="POST",
+        payload={"session_rpe": 7, "not_recorded": False, "pending_devices": ["watch-1"]},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, done
+    store = db.Store(ios["path"])
+    try:
+        assert reconciliation.state(store.connection, workout_id)["state"] == "closed"
+    finally:
+        store.close()
+
+    status, refused = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/sets", method="POST",
+        payload={"exercise_id": "bench_press", "load_kg": 90.0, "reps": 5, "rir": 2,
+                 "set_index": 4},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 409, refused
+    assert refused["code"] == "reconciliation_window_closed"
+    assert int(_scalar(
+        ios["path"],
+        "SELECT COUNT(*) FROM workout_event WHERE workout_id = ? AND event_type = 'late_rejected'",
+        (workout_id,),
+    )) == 1
+
