@@ -2719,3 +2719,45 @@ def test_a_late_set_is_applied_then_refused_once_the_window_closes(ios, monkeypa
         (workout_id,),
     )) == 1
 
+
+
+def test_resolving_a_pending_device_settles_the_window(ios):
+    """D8: a synced watch must not leave the session pending for the rest of the week."""
+    token, _ = _paired(ios)
+    status, state = _issue(ios, token)
+    assert status == 200, state
+    status, started = _start(
+        ios, token, state["issued_plan_id"],
+        body={"issued_plan_id": state["issued_plan_id"],
+              "execution_id": state["execution_id"]},
+    )
+    assert status == 200, started
+    workout_id = started["workout_id"]
+
+    status, done = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/complete", method="POST",
+        payload={"session_rpe": 7, "not_recorded": False, "pending_devices": ["watch-1"]},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, done
+    status, summary = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/summary", token=token,
+    )
+    assert status == 200, summary
+    assert summary["summary"]["reconciliation"]["state"] == "open"
+    assert summary["summary"]["reconciliation"]["pending_devices"] == ["watch-1"]
+
+    status, settled = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/reconciliation", method="POST",
+        payload={"device_id": "watch-1"}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, settled
+    assert settled["reconciliation"]["state"] == "closed"
+
+    status, final = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/summary", token=token,
+    )
+    assert status == 200, final
+    assert final["summary"]["reconciliation"]["state"] == "closed"
+    assert final["summary"]["reconciliation"]["pending_devices"] == []
+

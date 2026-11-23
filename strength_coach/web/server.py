@@ -1451,6 +1451,7 @@ class Handler(BaseHTTPRequestHandler):
                             "form": self._ios_workout_form,
                             "complete": self._ios_workout_complete,
                             "abandon": self._ios_workout_abandon,
+                            "reconciliation": self._ios_workout_reconciliation,
                         }
                         handler = handlers.get(action)
                         if handler is None:
@@ -1477,7 +1478,7 @@ class Handler(BaseHTTPRequestHandler):
                             access="any" if action == "abandon" else "owner",
                             # A set may arrive after completion, inside the reconciliation
                             # window; the model decides whether it applies (D8).
-                            allow_completed=action == "sets",
+                            allow_completed=action in {"sets", "reconciliation"},
                         )
                     else:
                         self._error(404, "not found")
@@ -3158,6 +3159,35 @@ class Handler(BaseHTTPRequestHandler):
             raise ios_workflow.IOSWorkflowError(
                 400, "validation_failed", str(exc)
             ) from exc
+
+    def _ios_workout_reconciliation(self, conn, workout_id: str, body: dict) -> dict:
+        """Record that one expected device has nothing left to send (D8).
+
+        Without this a session stays `open` for the whole window after the watch has already
+        synced, and the phone would show a pending banner it can never clear.
+        """
+        self._ios_closed_fields(body, {"device_id"})
+        device_id = body.get("device_id")
+        if not isinstance(device_id, str) or not device_id.strip():
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "device_id is required",
+                fields={"device_id": "required"},
+            )
+        data = workout.get(conn, workout_id)
+        if data is None:
+            raise ios_workflow.IOSWorkflowError(
+                404, "workout_not_found", "workout not found"
+            )
+        if data["status"] != "completed":
+            raise ios_workflow.IOSWorkflowError(
+                409, "workout_not_active", "workout is not completed",
+                details={"status": data["status"]},
+            )
+        return {
+            "reconciliation": reconciliation.resolve_device(
+                conn, workout_id, device_id.strip()
+            )
+        }
 
     def _ios_workout_remove_set(self, conn, workout_id: str, body: dict) -> dict:
         self._ios_closed_fields(body, {"set_id"})

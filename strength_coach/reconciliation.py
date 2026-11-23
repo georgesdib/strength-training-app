@@ -13,6 +13,7 @@ import json
 
 EVENT_OPEN = "late_reconciliation"
 EVENT_CLOSED = "reconciliation_closed"
+EVENT_RESOLVED = "reconciliation_resolved"
 EVENT_LATE_SET = "late_set"
 EVENT_REJECTED = "late_rejected"
 
@@ -49,8 +50,8 @@ def window_days(conn=None) -> int:
 def _events(conn, workout_id: str) -> list[dict]:
     rows = conn.execute(
         "SELECT event_id, event_type, payload_json, created_at FROM workout_event "
-        "WHERE workout_id = ? AND event_type IN (?, ?) ORDER BY event_id",
-        (workout_id, EVENT_OPEN, EVENT_CLOSED),
+        "WHERE workout_id = ? AND event_type IN (?, ?, ?) ORDER BY event_id",
+        (workout_id, EVENT_OPEN, EVENT_CLOSED, EVENT_RESOLVED),
     ).fetchall()
     out = []
     for row in rows:
@@ -77,19 +78,34 @@ def state(conn, workout_id: str, now: dt.datetime | None = None) -> dict:
     """
     latest_open = None
     latest_closed = None
+    resolved: set[str] = set()
     for event in _events(conn, workout_id):
         if event["type"] == EVENT_OPEN:
             latest_open = event
-        elif latest_open is not None and event["event_id"] > latest_open["event_id"]:
+            resolved = set()
+        elif latest_open is None or event["event_id"] <= latest_open["event_id"]:
+            continue
+        elif event["type"] == EVENT_CLOSED:
             latest_closed = event
+        elif event["type"] == EVENT_RESOLVED:
+            device = str(event["payload"].get("device_id") or "")
+            if device:
+                resolved.add(device)
     if latest_open is None:
         return {"state": "none", "pending_devices": [], "closes_at": None}
     closes_at = latest_open["payload"].get("closes_at")
-    pending = list(latest_open["payload"].get("pending_devices") or [])
+    declared = list(latest_open["payload"].get("pending_devices") or [])
+    pending = [device for device in declared if device not in resolved]
     if latest_closed is not None:
         return {
             "state": "closed", "pending_devices": pending, "closes_at": closes_at,
             "closed_at": latest_closed["payload"].get("closed_at"),
+        }
+    if not pending:
+        # Every expected device has reported, so the session is settled before the deadline.
+        return {
+            "state": "closed", "pending_devices": [], "closes_at": closes_at,
+            "closed_at": None, "resolved": True,
         }
     moment = now or dt.datetime.now(dt.UTC)
     deadline = _parse(closes_at)
@@ -141,6 +157,28 @@ def close_if_elapsed(conn, workout_id: str, now: dt.datetime | None = None) -> b
         (workout_id, EVENT_CLOSED, json.dumps(payload, separators=(",", ":"))),
     )
     return True
+
+
+def resolve_device(conn, workout_id: str, device_id: str) -> dict:
+    """Record that one expected device has nothing left to send.
+
+    The window then reports the remaining devices, and closes as soon as none are left. This is
+    what stops a synced watch from leaving a session "pending" for the rest of the week.
+    """
+    current = state(conn, workout_id)
+    target = str(device_id or "").strip()
+    if current["state"] != "open" or not target:
+        return current
+    if target not in current["pending_devices"]:
+        return current
+    conn.execute(
+        "INSERT INTO workout_event (workout_id, event_type, payload_json) VALUES (?, ?, ?)",
+        (
+            workout_id, EVENT_RESOLVED,
+            json.dumps({"device_id": target}, separators=(",", ":")),
+        ),
+    )
+    return state(conn, workout_id)
 
 
 def record_rejection(conn, workout_id: str, payload: dict) -> None:

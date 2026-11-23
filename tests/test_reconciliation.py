@@ -141,3 +141,40 @@ def test_the_finish_is_idempotent_and_can_still_name_pending_devices(conn):
     state = reconciliation.state(conn, workout_id)
     assert state["state"] == "open"
     assert state["pending_devices"] == ["watch-1"]
+
+
+def test_resolving_the_last_device_closes_the_window(conn):
+    started = _started(conn)
+    workout_id = started["workout_id"]
+    _finish(conn, workout_id, pending=["watch-1", "watch-2"])
+
+    state = reconciliation.resolve_device(conn, workout_id, "watch-1")
+    assert state["state"] == "open"
+    assert state["pending_devices"] == ["watch-2"]
+
+    state = reconciliation.resolve_device(conn, workout_id, "watch-2")
+    assert state["state"] == "closed"
+    assert state["pending_devices"] == []
+    assert state.get("resolved") is True
+
+
+def test_resolving_an_unknown_or_repeated_device_is_a_no_op(conn):
+    started = _started(conn)
+    workout_id = started["workout_id"]
+    _finish(conn, workout_id, pending=["watch-1"])
+
+    assert reconciliation.resolve_device(conn, workout_id, "watch-9")["state"] == "open"
+    reconciliation.resolve_device(conn, workout_id, "watch-1")
+    before = conn.execute(
+        "SELECT COUNT(*) FROM workout_event WHERE workout_id = ? "
+        "AND event_type = 'reconciliation_resolved'",
+        (workout_id,),
+    ).fetchone()[0]
+    reconciliation.resolve_device(conn, workout_id, "watch-1")
+    after = conn.execute(
+        "SELECT COUNT(*) FROM workout_event WHERE workout_id = ? "
+        "AND event_type = 'reconciliation_resolved'",
+        (workout_id,),
+    ).fetchone()[0]
+    assert before == after == 1
+
