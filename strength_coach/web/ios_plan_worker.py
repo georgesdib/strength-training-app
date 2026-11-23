@@ -101,6 +101,9 @@ def build_plan(conn, row) -> tuple[str, str]:
         deload_decision=deload_decision,
         drop_confirmed=bool(inputs.get("drop_confirmed", False)),
         top_set_intent=settings.get("top_set_intent"),
+        # MOD-TECH-001: a per-session request frozen into the plan at build time. The phone
+        # sends the boolean only; the web UI's pattern scope is not exposed there.
+        technique_throttle=bool(settings.get("technique_throttle", False)),
     )
     if scheduled_suggestion is not None:
         prescription = deload_mod.suggest(prescription, scheduled_suggestion)

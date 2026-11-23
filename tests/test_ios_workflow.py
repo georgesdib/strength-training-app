@@ -1990,6 +1990,48 @@ def test_top_set_setting_reaches_the_builder(ios, monkeypatch):
     assert state["settings"]["top_set_intent"] == "off"
 
 
+def test_technique_throttle_setting_is_validated_and_echoed(ios):
+    """MOD-TECH-001 is a per-session request, not stored state, so it is a request setting."""
+    token, _ = _paired(ios)
+    status, accepted = _issue(
+        ios, token, wait=False, body={"settings": {"technique_throttle": True}},
+    )
+    assert status == 202, accepted
+    assert accepted["settings"]["technique_throttle"] is True
+
+    status, rejected = _issue(
+        ios, token, wait=False, body={"settings": {"technique_throttle": "yes"}},
+    )
+    assert status == 400, rejected
+    assert rejected["code"] == "validation_failed"
+    assert rejected["fields"]["technique_throttle"] == "must be true or false"
+
+    # Omitted stays omitted: an older client's echoed settings are unchanged.
+    status, default = _issue(ios, token, wait=False, body={})
+    assert status == 202, default
+    assert "technique_throttle" not in default["settings"]
+
+
+def test_technique_throttle_setting_reaches_the_builder(ios, monkeypatch):
+    from strength_coach.web import ios_plan_worker
+
+    calls = []
+    original = ios_plan_worker.build_prescription
+
+    def spy(*args, **kwargs):
+        calls.append(kwargs)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(ios_plan_worker, "build_prescription", spy)
+    token, _ = _paired(ios)
+    status, state = _issue(
+        ios, token, body={"settings": {"technique_throttle": True}},
+    )
+    assert status == 200, state
+    assert calls, "the plan builder was not called"
+    assert calls[-1]["technique_throttle"] is True
+
+
 def test_queue_selection_is_fifo(tmp_path):
     """The dispatcher picks the oldest eligible request, not the newest."""
     from strength_coach.store import ios_workflow

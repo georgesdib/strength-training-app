@@ -2256,7 +2256,7 @@ class Handler(BaseHTTPRequestHandler):
         unknown = sorted(
             set(raw) - {
                 "session_type", "minimum_session", "minimum_target_minutes",
-                "top_set_intent",
+                "top_set_intent", "technique_throttle",
             }
         )
         if unknown:
@@ -2292,6 +2292,18 @@ class Handler(BaseHTTPRequestHandler):
                     fields={"minimum_target_minutes": "must be an integer from 1 to 240"},
                 )
             settings["minimum_target_minutes"] = int(target)
+        throttle = raw.get("technique_throttle")
+        if throttle is not None:
+            # MOD-TECH-001 is a per-session request, not stored state: it is frozen into the
+            # plan at build time and never repeats on the next session. The phone offers the
+            # main-work scope only, so no pattern list is accepted here.
+            if not isinstance(throttle, bool):
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed",
+                    "technique_throttle must be true or false",
+                    fields={"technique_throttle": "must be true or false"},
+                )
+            settings["technique_throttle"] = throttle
         intent = raw.get("top_set_intent")
         if intent not in (None, ""):
             if not isinstance(intent, str) or intent not in (
