@@ -2,13 +2,13 @@
 
 The phone must be able to substitute an exercise with no connection, and the replacement load is
 a training decision. So the server ships the *decision* — one entry per taxonomy exercise, built
-by the resolver itself through \`engine.build_item\` — and the phone applies only the deterministic
-tail: \`round_down(base / (1 + (reps + rir) / 30), increment)\`.
+by the resolver itself through `engine.build_item` — and the phone applies only the deterministic
+tail: `round_down(base / (1 + (reps + rir) / 30), increment)`.
 
 There is no second implementation of the load rules here. Each entry is the resolver's own output
 for that exercise, which is why the parity test can be exact rather than approximate.
 
-Entry shape (\`load-catalogue/v1\`):
+Entry shape (`load-catalogue/v1`):
 
     {
       "load_source": "e1rm" | "double_progression" | "bodyweight" | "power",
@@ -91,7 +91,7 @@ def build_catalogue(
 ) -> dict[str, Any]:
     """Build every entry the phone may need to substitute offline.
 
-    Cost is two \`build_item\` calls per taxonomy exercise against one shared history context, so
+    Cost is two `build_item` calls per taxonomy exercise against one shared history context, so
     it stays a single pass over the same facts the plan build already loaded.
     """
     resolved = thresholds or config_mod.Thresholds.load()
@@ -161,6 +161,44 @@ def build_catalogue(
         "as_of": for_date,
         "exercises": exercises,
     }
+
+
+def prefill_from_catalogue(
+    shipped: Mapping[str, Any] | None,
+    *,
+    exercise_id: str,
+    essential: bool,
+    reps_low: int,
+    rir: int | None,
+) -> tuple[float | None, str]:
+    """The load the phone should have shown, derived from the shipped catalogue.
+
+    This is the server's verification of a client-applied prefill, and the same function the
+    client implements in the deterministic tail. It never consults history: the catalogue is the
+    decision, and a missing base is reported rather than re-solved (D9, DEC-RESOLVER-23).
+    """
+    if not shipped:
+        return None, "catalogue_unavailable"
+    entry = (shipped.get("exercises") or {}).get(exercise_id)
+    if not isinstance(entry, Mapping):
+        return None, "no_catalogue_entry"
+    if entry.get("bodyweight"):
+        return 0.0, "bodyweight"
+    if entry.get("power"):
+        return None, "power_work"
+    increment = float(entry.get("increment_kg") or 0)
+    if increment <= 0:
+        return None, "no_increment"
+    if essential:
+        base = entry.get("base_load_kg")
+        if base is None:
+            return None, "no_catalogue_base"
+        divisor = 1 + (float(reps_low) + float(rir or 0)) / 30
+        return loads.round_down(float(base) / divisor, increment), "catalogue_e1rm"
+    held = entry.get("accessory_load_kg")
+    if held is None:
+        return None, "no_catalogue_working_load"
+    return loads.round_down(float(held), increment), "catalogue_double_progression"
 
 
 def dumps(catalogue: Mapping[str, Any]) -> str:

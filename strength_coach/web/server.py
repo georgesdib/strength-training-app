@@ -3032,13 +3032,16 @@ class Handler(BaseHTTPRequestHandler):
     ) -> dict:
         """Append one phone-authored substitution or addition (D9, DEC-RESOLVER-23).
 
-        The prefill is solved here, never sent by the client; an offline author sends
-        `prefill_requested: false` so the event records null and says why.
+        Preferred: the phone applies the issued load catalogue and sends `prefill_load_kg`; the
+        server verifies it against the same snapshot and records whether it agreed. A client that
+        sends `prefill_requested` instead still gets a server solve (legacy path), and one that
+        sends neither records null rather than a target the athlete never saw.
         """
         self._ios_closed_fields(body, {
             "event_id", "change", "plan_item_index", "after_item_index",
             "exercise_id", "reps_low", "reps_high", "rir_target",
-            "prefill_requested",
+            "prefill_requested", "prefill_load_kg", "prefill_catalogue_version",
+            "prefill_as_of",
         })
         change = body.get("change")
         if change not in workout.EXECUTION_CHANGE_TYPES:
@@ -3075,6 +3078,39 @@ class Handler(BaseHTTPRequestHandler):
                 fields={"prefill_requested": "must be a boolean"},
             )
         try:
+            supplied_prefill = _number(body.get("prefill_load_kg"))
+        except (TypeError, ValueError) as exc:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "prefill_load_kg must be a number",
+                fields={"prefill_load_kg": "must be a number"},
+            ) from exc
+        if supplied_prefill is not None and supplied_prefill < 0:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "prefill_load_kg must be non-negative",
+                fields={"prefill_load_kg": "must be non-negative"},
+            )
+        version = body.get("prefill_catalogue_version")
+        if version is not None and not isinstance(version, str):
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed",
+                "prefill_catalogue_version must be a string",
+                fields={"prefill_catalogue_version": "must be a string"},
+            )
+        # Verify against the catalogue the plan actually shipped. A different version is not an
+        # error: the change is still recorded, unverified, with a reason.
+        shipped = None
+        plan_row = conn.execute(
+            "SELECT load_catalogue_json FROM ios_issued_plan "
+            "WHERE workout_id = ? ORDER BY created_at DESC LIMIT 1",
+            (workout_id,),
+        ).fetchone()
+        if plan_row is not None and plan_row["load_catalogue_json"]:
+            parsed_catalogue = json.loads(plan_row["load_catalogue_json"])
+            if version in (None, "") or version == parsed_catalogue.get(
+                "catalogue_version"
+            ):
+                shipped = parsed_catalogue
+        try:
             # The response is the same execution block the GET returns, so the authoring
             # phone can apply it to its live view without a second request.
             return {"execution": workout.record_execution_change(
@@ -3088,6 +3124,8 @@ class Handler(BaseHTTPRequestHandler):
                 reps_high=reps_high,
                 rir_target=rir_target,
                 prefill_requested=True if requested is None else requested,
+                prefill_load_kg=supplied_prefill,
+                catalogue=shipped,
                 device_id=device_id,
             )}
         except ValueError as exc:

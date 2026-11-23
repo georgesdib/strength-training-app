@@ -2622,3 +2622,56 @@ def test_the_plan_ships_the_offline_load_catalogue(ios):
     squat = built["exercises"]["competition_squat"]
     assert squat["load_source"] == "e1rm"
     assert squat["increment_kg"] > 0
+
+
+def test_an_offline_substitution_sends_the_shipped_catalogue_prefill(ios):
+    """D9: the phone applies the shipped catalogue and the server verifies the value it showed."""
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(
+        ios, token, issued["issued_plan_id"],
+        body={
+            "issued_plan_id": issued["issued_plan_id"],
+            "execution_id": issued["execution_id"],
+        },
+    )
+    assert status == 200, workout
+    items = workout["plan"]["items"]
+    first = items[0]
+    other = next(
+        item["exercise_id"] for item in items[1:]
+        if item["exercise_id"] != first["exercise_id"]
+    )
+    built = issued["load_catalogue"]
+    entry = built["exercises"][other]
+    if bool(first.get("essential")):
+        base = entry["base_load_kg"]
+        assert base is not None, entry
+        raw = base / (1 + (int(first["reps_low"]) + int(first.get("rir_target") or 0)) / 30)
+    else:
+        raw = entry["accessory_load_kg"]
+        assert raw is not None, entry
+    increment = entry["increment_kg"]
+    expected = int(raw / increment) * increment
+
+    status, body = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/execution",
+        method="POST",
+        payload={
+            "event_id": str(uuid.uuid4()),
+            "change": "substitution",
+            "plan_item_index": 0,
+            "exercise_id": other,
+            "prefill_load_kg": expected,
+            "prefill_catalogue_version": built["catalogue_version"],
+        },
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, body
+    substitution = body["execution"]["substitutions"][0]
+    assert substitution["prefill_reason"] == "client_applied"
+    assert substitution["prefill_verified"] is True
+    assert substitution["prefill_load_kg"] == pytest.approx(expected)
+    assert substitution["prefill_expected_load_kg"] == pytest.approx(expected)
+

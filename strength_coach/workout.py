@@ -1695,13 +1695,41 @@ def _change_prefill(
     essential: bool,
     order_index: int,
     requested: bool,
+    supplied: float | None = None,
+    catalogue: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Solve the change's prefill on the server, or record why there is none.
+    """Resolve the change's prefill, or record why there is none.
 
-    A client never computes a load. An offline author deliberately has no prefill: solving
-    on arrival would record a target the athlete never saw, so the event keeps null and says
-    why (plan §5.8).
+    Preferred path (D9): the phone applies the load catalogue it was issued and sends the value
+    it showed. The server verifies it against that same snapshot and records the outcome; a
+    mismatch never blocks the change, it records both numbers so the drift is visible.
+
+    Legacy paths are unchanged: a client that asks for a solve still gets one, and a client with
+    no prefill records null rather than a target the athlete never saw (DEC-RESOLVER-23).
     """
+    if supplied is not None:
+        from strength_coach.prescribe import catalogue as catalogue_mod
+
+        expected, reason = catalogue_mod.prefill_from_catalogue(
+            catalogue,
+            exercise_id=exercise_id,
+            essential=essential,
+            reps_low=reps_low,
+            rir=rir_target,
+        )
+        verified = expected is not None and abs(float(supplied) - expected) <= 1e-6
+        result: dict[str, Any] = {
+            "prefill_load_kg": float(supplied),
+            "prefill_reason": "client_applied",
+            "prefill_verified": verified,
+        }
+        if expected is not None:
+            result["prefill_expected_load_kg"] = float(expected)
+        if not verified:
+            result["prefill_mismatch_reason"] = (
+                "value_differs" if expected is not None else reason
+            )
+        return result
     if not requested:
         return {"prefill_load_kg": None, "prefill_reason": "authored_offline"}
     from strength_coach.prescribe import engine as prescribe_engine
@@ -1765,6 +1793,8 @@ def record_execution_change(
     reps_high: int | None = None,
     rir_target: int | None = None,
     prefill_requested: bool = True,
+    prefill_load_kg: float | None = None,
+    catalogue: Mapping[str, Any] | None = None,
     device_id: str | None = None,
 ) -> dict[str, Any]:
     """Append one execution substitution or addition and return the current view.
@@ -1873,6 +1903,8 @@ def record_execution_change(
             essential=essential,
             order_index=order_index,
             requested=bool(prefill_requested),
+            supplied=prefill_load_kg,
+            catalogue=catalogue,
         )
         payload = {
             "client_event_id": parsed,
