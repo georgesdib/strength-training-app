@@ -290,3 +290,34 @@ def test_a_late_correction_cannot_resurrect_a_removed_set(conn):
         (workout_id,),
     ).fetchone()[0] == 0
 
+
+
+def test_a_later_finish_records_the_earlier_instant_without_rewriting(conn):
+    """D7/D8: the recorded completion stands; the earlier instant is preserved as an event."""
+    started = workout.start(
+        conn, for_date="2026-11-01", plan=PLAN, readiness=READINESS,
+        started_at="2026-11-01T10:00:00+00:00",
+    )
+    workout_id = started["workout_id"]
+    workout.end(
+        conn, workout_id, session_rpe=7, not_recorded=False,
+        ended_at="2026-11-01T10:30:00+00:00", device_id="watch-1",
+    )
+    workout.end(
+        conn, workout_id, session_rpe=7, not_recorded=False,
+        ended_at="2026-11-01T10:20:00+00:00", device_id="phone-1",
+    )
+    after = workout.get(conn, workout_id)
+    assert after["ended_at"].startswith("2026-11-01T10:30")
+    finishes = _events(conn, workout_id, "late_finish")
+    assert len(finishes) == 1
+    assert finishes[0]["ended_at"].startswith("2026-11-01T10:20")
+    assert finishes[0]["device_id"] == "phone-1"
+
+    # An identical replay of the same earlier instant adds nothing.
+    workout.end(
+        conn, workout_id, session_rpe=7, not_recorded=False,
+        ended_at="2026-11-01T10:20:00+00:00", device_id="phone-1",
+    )
+    assert len(_events(conn, workout_id, "late_finish")) == 1
+

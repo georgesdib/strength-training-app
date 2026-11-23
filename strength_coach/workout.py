@@ -2742,6 +2742,26 @@ def _refresh_session_aggregates(conn, workout_id: str) -> None:
     )
 
 
+def _record_late_finish(
+    conn, workout_id: str, ended_at: dt.datetime, device_id: str | None
+) -> None:
+    """Preserve an earlier finish instant without rewriting the recorded completion."""
+    stamp = ended_at.astimezone(dt.UTC).isoformat(timespec="seconds")
+    existing = conn.execute(
+        "SELECT payload_json FROM workout_event WHERE workout_id = ? "
+        "AND event_type = 'late_finish' ORDER BY event_id DESC LIMIT 1",
+        (workout_id,),
+    ).fetchone()
+    if existing is not None:
+        try:
+            if json.loads(existing["payload_json"] or "{}").get("ended_at") == stamp:
+                return
+        except ValueError:
+            pass
+    _event(conn, workout_id, "late_finish",
+           {"ended_at": stamp, "device_id": device_id})
+
+
 def _late_window(conn, workout: Mapping[str, Any], late: bool, payload: dict) -> bool:
     """Whether this write applies to a completed session; raises when it may not.
 
@@ -2867,6 +2887,7 @@ def end(
     notes: str | None = None,
     ended_at: str | None = None,
     pending_devices: list[str] | None = None,
+    device_id: str | None = None,
 ) -> dict:
     workout = get(conn, workout_id)
     if workout is None:
@@ -2875,13 +2896,20 @@ def end(
         # A lost response to a successful end must not look like a failure on retry. A retry may
         # still be the first to name the devices whose events have not arrived, so the window is
         # opened idempotently rather than ignored.
-        if pending_devices:
-            with db.transaction(conn):
+        with db.transaction(conn):
+            if pending_devices:
                 reconciliation.open_window(
                     conn, workout_id,
                     pending_devices=list(pending_devices),
                     ended_at=str(workout.get("ended_at") or _now()),
                 )
+            # A second device's finish can carry an earlier instant than the completion the
+            # server already holds. The recorded completion stands; the earlier instant is
+            # preserved as an event rather than rewriting ended_at (D7, D8).
+            recorded = _parse(workout.get("ended_at"))
+            supplied = _parse(ended_at) if ended_at is not None else None
+            if supplied is not None and recorded is not None and supplied < recorded:
+                _record_late_finish(conn, workout_id, supplied, device_id)
         return get(conn, workout_id)
     if workout["status"] != "in_progress":
         raise ValueError("workout is not in progress")

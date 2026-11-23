@@ -1477,6 +1477,17 @@ class Handler(BaseHTTPRequestHandler):
                                 allow_completed=action == "execution-events",
                             )
                             return
+                        if action == "complete":
+                            # The completing device is recorded with a late finish instant.
+                            self._ios_workout_mutation(
+                                conn, device, path, body, config, workout_id,
+                                lambda c, wid, payload, did=device["device_id"]:
+                                    self._ios_workout_complete(
+                                        c, wid, payload, device_id=did
+                                    ),
+                                access="owner",
+                            )
+                            return
                         self._ios_workout_mutation(
                             conn, device, path, body, config, workout_id, handler,
                             access="any" if action == "abandon" else "owner",
@@ -1676,6 +1687,9 @@ class Handler(BaseHTTPRequestHandler):
             with db.transaction(conn):
                 payload = dict(exc.payload)
                 payload.setdefault("reason", exc.reason)
+                # Provenance travels with the rejection: a refused event must still name the
+                # device that produced it.
+                payload.setdefault("device_id", device["device_id"])
                 reconciliation.record_rejection(conn, workout_id, payload)
             raise ios_workflow.IOSWorkflowError(
                 409, "late_event_rejected", str(exc),
@@ -1685,7 +1699,9 @@ class Handler(BaseHTTPRequestHandler):
             # The rejected transaction has already rolled back, so the arrival is preserved here,
             # in its own transaction: a late set that missed the window is never deleted (D8).
             with db.transaction(conn):
-                reconciliation.record_rejection(conn, workout_id, exc.payload)
+                payload = dict(exc.payload)
+                payload.setdefault("device_id", device["device_id"])
+                reconciliation.record_rejection(conn, workout_id, payload)
             raise ios_workflow.IOSWorkflowError(
                 409, "reconciliation_window_closed",
                 "this workout's reconciliation window has closed",
@@ -3327,7 +3343,9 @@ class Handler(BaseHTTPRequestHandler):
                 400, "validation_failed", str(exc)
             ) from exc
 
-    def _ios_workout_complete(self, conn, workout_id: str, body: dict) -> dict:
+    def _ios_workout_complete(
+        self, conn, workout_id: str, body: dict, device_id: str | None = None
+    ) -> dict:
         self._ios_closed_fields(
             body,
             {"session_rpe", "not_recorded", "duration_min", "notes", "ended_at",
@@ -3407,6 +3425,7 @@ class Handler(BaseHTTPRequestHandler):
             notes=notes or None,
             ended_at=ended_at,
             pending_devices=pending_devices,
+            device_id=device_id,
         )
 
     def _ios_workout_abandon(self, conn, workout_id: str, body: dict) -> dict:

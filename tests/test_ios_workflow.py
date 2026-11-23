@@ -2705,7 +2705,7 @@ def test_a_late_set_is_applied_then_refused_once_the_window_closes(ios, monkeypa
     """D8 end to end: a completed session accepts late work, then preserves a late arrival."""
     from strength_coach import reconciliation
 
-    token, _ = _paired(ios)
+    token, phone = _paired(ios)
     status, state = _issue(ios, token)
     assert status == 200, state
     status, started = _start(
@@ -2737,6 +2737,13 @@ def test_a_late_set_is_applied_then_refused_once_the_window_closes(ios, monkeypa
     )
     assert status == 409, refused
     assert refused["code"] == "reconciliation_window_closed"
+    rejected = _scalar(
+        ios["path"],
+        "SELECT payload_json FROM workout_event WHERE workout_id = ? "
+        "AND event_type = 'late_rejected' ORDER BY event_id DESC LIMIT 1",
+        (workout_id,),
+    )
+    assert phone["device_id"] in rejected
     assert int(_scalar(
         ios["path"],
         "SELECT COUNT(*) FROM workout_event WHERE workout_id = ? AND event_type = 'late_rejected'",
