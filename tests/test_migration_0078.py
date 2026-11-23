@@ -12,7 +12,7 @@ def test_pairing_column_backfills_and_live_plans_collapse(tmp_path):
     partial = tmp_path / "migrations"
     partial.mkdir()
     for path in sorted(source.glob("*.sql")):
-        if path.name.startswith("0078"):
+        if path.name.startswith(("0078", "0079")):
             continue
         shutil.copy2(path, partial / path.name)
     conn = db.connect(tmp_path / "coach.db")
@@ -51,6 +51,8 @@ def test_pairing_column_backfills_and_live_plans_collapse(tmp_path):
             row["name"] for row in conn.execute("PRAGMA table_info(ios_issued_plan)")
         }
         assert "pairing_device_id" in columns
+        assert "target_device_id" not in columns
+        assert "execution_target" not in columns
         rows = conn.execute(
             "SELECT issued_plan_id, pairing_device_id, superseded_at "
             "FROM ios_issued_plan ORDER BY issued_plan_id"

@@ -16,7 +16,7 @@ def _connection(tmp_path):
     partial.mkdir()
     for path in sorted(source.glob("*.sql")):
         # 0078 depends on the columns 0058 adds; apply it after 0058 in the full pass.
-        if path.name.startswith(("0058", "0078")):
+        if path.name.startswith(("0058", "0078", "0079")):
             continue
         shutil.copy2(path, partial / path.name)
     conn = db.connect(tmp_path / "coach.db")
@@ -54,8 +54,7 @@ def test_backfills_legacy_rows_and_adds_defaults(tmp_path):
         assert device["credential_epoch"] == 0
 
         plan = conn.execute("SELECT * FROM ios_issued_plan WHERE issued_plan_id = 'plan-1'").fetchone()
-        assert plan["execution_target"] == "phone"
-        assert plan["target_device_id"] == "phone-1"
+        assert plan["pairing_device_id"] == "phone-1"
 
         workout = conn.execute("SELECT * FROM workout_session WHERE workout_id = 'w-1'").fetchone()
         assert workout["owner_device_id"] is None
@@ -122,8 +121,6 @@ def test_documented_rollback_drops_the_added_surface(tmp_path):
             CREATE UNIQUE INDEX idx_ios_issued_plan_live
                 ON ios_issued_plan(device_id)
                 WHERE consumed_at IS NULL AND superseded_at IS NULL;
-            ALTER TABLE ios_issued_plan DROP COLUMN execution_target;
-            ALTER TABLE ios_issued_plan DROP COLUMN target_device_id;
             DROP INDEX idx_ios_device_parent;
             DROP INDEX idx_ios_device_active_watch;
             ALTER TABLE ios_device DROP COLUMN credential_epoch;
@@ -134,6 +131,9 @@ def test_documented_rollback_drops_the_added_surface(tmp_path):
         )
         assert "kind" not in {row[1] for row in conn.execute("PRAGMA table_info(ios_device)")}
         assert "execution_target" not in {
+            row[1] for row in conn.execute("PRAGMA table_info(ios_issued_plan)")
+        }
+        assert "target_device_id" not in {
             row[1] for row in conn.execute("PRAGMA table_info(ios_issued_plan)")
         }
         assert "owner_device_id" not in {

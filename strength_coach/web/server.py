@@ -1470,7 +1470,7 @@ class Handler(BaseHTTPRequestHandler):
                                 conn, device, path, body, config, workout_id,
                                 lambda c, wid, payload, did=device_id,
                                         fn=handler_fn: fn(c, wid, payload, did),
-                                access="phone" if action == "execution" else "owner",
+                                access="phone",
                                 # Telemetry is observational and bounded by the session's own
                                 # timestamps, so it may arrive after completion (WP2a).
                                 allow_completed=action == "execution-events",
@@ -1484,12 +1484,12 @@ class Handler(BaseHTTPRequestHandler):
                                     self._ios_workout_complete(
                                         c, wid, payload, device_id=did
                                     ),
-                                access="owner",
+                                access="phone",
                             )
                             return
                         self._ios_workout_mutation(
                             conn, device, path, body, config, workout_id, handler,
-                            access="any" if action == "abandon" else "owner",
+                            access="any" if action == "abandon" else "phone",
                             # A set may arrive after completion, inside the reconciliation
                             # window; the model decides whether it applies (D8).
                             allow_completed=action in {
@@ -1645,7 +1645,7 @@ class Handler(BaseHTTPRequestHandler):
     # Abandon is deliberately not on this list — it is the safety valve that keeps a lost phone
     # from stranding an open session.
     WATCH_READ_ONLY_ACTIONS = frozenset({
-        "start", "sets", "update-set", "remove-set", "execution",
+        "sets", "update-set", "remove-set", "execution",
         "execution-events", "form", "complete", "reconciliation",
     })
 
@@ -2738,7 +2738,8 @@ class Handler(BaseHTTPRequestHandler):
         return payload
 
     def _ios_start(self, conn, device: dict, body: dict) -> dict:
-        self._ios_watch_read_only(device, "start")
+        # Either device of the pairing may start (S5); the watch's execution writes are the
+        # read-only surface, not the start.
         self._ios_closed_fields(body, {"issued_plan_id", "execution_id", "started_at"})
         issued_plan_id = body.get("issued_plan_id")
         if not isinstance(issued_plan_id, str) or not issued_plan_id.strip():

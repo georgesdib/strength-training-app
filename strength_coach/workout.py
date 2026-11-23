@@ -1768,8 +1768,8 @@ def _change_prefill(
     it showed. The server verifies it against that same snapshot and records the outcome; a
     mismatch never blocks the change, it records both numbers so the drift is visible.
 
-    Legacy paths are unchanged: a client that asks for a solve still gets one, and a client with
-    no prefill records null rather than a target the athlete never saw (DEC-RESOLVER-23).
+    A client that sends a catalogue version with no value records a catalogue miss. A client that
+    sends neither asks the server to solve (DEC-RESOLVER-23).
     """
     if supplied is not None:
         from strength_coach.prescribe import catalogue as catalogue_mod
