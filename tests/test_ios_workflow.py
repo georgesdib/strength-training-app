@@ -2938,3 +2938,66 @@ def test_late_form_and_telemetry_are_accepted_inside_the_window(ios):
     assert status == 200, telemetry
     assert len(telemetry["accepted"]) == 1
 
+
+
+def test_a_late_correction_keeps_the_set_identity(ios):
+    """A correction is one event on the same set, not a remove-and-re-add."""
+    token, _ = _paired(ios)
+    status, state = _issue(ios, token)
+    assert status == 200, state
+    status, started = _start(
+        ios, token, state["issued_plan_id"],
+        body={"issued_plan_id": state["issued_plan_id"],
+              "execution_id": state["execution_id"]},
+    )
+    assert status == 200, started
+    workout_id = started["workout_id"]
+    exercise = started["plan"]["items"][0]["exercise_id"]
+
+    status, logged = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/sets", method="POST",
+        payload={"exercise_id": exercise, "load_kg": 140.0, "reps": 3, "rir": 2,
+                 "set_index": 1},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, logged
+    set_id = logged["sets"][0]["set_id"]
+
+    status, done = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/complete", method="POST",
+        payload={"session_rpe": 7, "not_recorded": False, "pending_devices": ["watch-1"]},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, done
+
+    status, corrected = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/update-set", method="POST",
+        payload={"set_id": set_id, "load_kg": 145.0, "reps": 3, "rir": 1},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, corrected
+    assert corrected["sets"][0]["set_id"] == set_id
+    assert corrected["sets"][0]["load_kg"] == 145.0
+
+    live = _scalar(
+        ios["path"],
+        "SELECT load_kg FROM clean_set s WHERE s.session_id = ? AND s.voided = 0 "
+        "AND NOT EXISTS (SELECT 1 FROM clean_set child "
+        "WHERE child.supersedes_id = s.set_id)",
+        (workout_id,),
+    )
+    assert live == 145.0
+
+    status, removed = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/remove-set", method="POST",
+        payload={"set_id": set_id}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, removed
+    status, refused = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/update-set", method="POST",
+        payload={"set_id": set_id, "load_kg": 150.0, "reps": 3, "rir": 1},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 409, refused
+    assert refused["code"] == "late_event_rejected"
+

@@ -1446,6 +1446,7 @@ class Handler(BaseHTTPRequestHandler):
                         handlers = {
                             "sets": self._ios_workout_set,
                             "remove-set": self._ios_workout_remove_set,
+                            "update-set": self._ios_workout_update_set,
                             "execution-events": self._ios_workout_execution_events,
                             "execution": self._ios_workout_execution_change,
                             "form": self._ios_workout_form,
@@ -1482,8 +1483,8 @@ class Handler(BaseHTTPRequestHandler):
                             # A set may arrive after completion, inside the reconciliation
                             # window; the model decides whether it applies (D8).
                             allow_completed=action in {
-                                "sets", "remove-set", "reconciliation", "form",
-                                "execution-events",
+                                "sets", "remove-set", "update-set", "reconciliation",
+                                "form", "execution-events",
                             },
                         )
                     else:
@@ -3225,6 +3226,52 @@ class Handler(BaseHTTPRequestHandler):
             )
         try:
             return workout.remove_set(conn, workout_id, set_id, late=True)
+        except reconciliation.WindowClosed:
+            raise
+        except ValueError as exc:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", str(exc)
+            ) from exc
+
+    def _ios_workout_update_set(self, conn, workout_id: str, body: dict) -> dict:
+        """Correct one performed set in place, so a correction keeps the set's identity.
+
+        Without this the client can only remove and re-add, which changes the set id and index,
+        breaks any telemetry or per-rep link, and leaves a deletion behind if the re-add fails.
+        """
+        self._ios_closed_fields(
+            body, {"set_id", "load_kg", "reps", "rir", "velocity_mps"}
+        )
+        data = self._ios_workout(conn, workout_id, allow_completed=True)
+        if data["status"] == "completed" and reconciliation.state(
+            conn, workout_id
+        )["state"] == "none":
+            raise ios_workflow.IOSWorkflowError(
+                409, "workout_not_active", "workout is not in progress",
+                details={"status": data["status"]},
+            )
+        try:
+            set_id = _integer(body.get("set_id"))
+            load = _number(body.get("load_kg"))
+            reps = _integer(body.get("reps"))
+            rir = _integer(body.get("rir"))
+            velocity = _number(body.get("velocity_mps"))
+        except (TypeError, ValueError) as exc:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", str(exc)
+            ) from exc
+        if set_id is None or set_id < 1:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "set_id must be a positive integer",
+                fields={"set_id": "must be a positive integer"},
+            )
+        try:
+            return workout.update_set(
+                conn, workout_id, set_id,
+                load_kg=load, reps=reps, rir=rir, velocity=velocity, late=True,
+            )
+        except reconciliation.Rejected:
+            raise
         except reconciliation.WindowClosed:
             raise
         except ValueError as exc:
@@ -5426,12 +5473,14 @@ class Handler(BaseHTTPRequestHandler):
             )
         elif action == "update-set":
             reps, rir, load, velocity = _manual_set_values(body)
+            # A correction after completion is a late event like any other.
             result = workout.update_set(
                 conn, workout_id, _integer(body.get("set_id")),
                 load_kg=load,
                 reps=reps,
                 rir=rir,
                 velocity=velocity,
+                late=True,
             )
         elif action == "remove-set":
             result = workout.remove_set(conn, workout_id, _integer(body.get("set_id")))
