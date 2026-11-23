@@ -2,6 +2,46 @@
 var historyOffset = 0;
 var historyTotal = 0;
 var historyDetail = null;
+
+// Apple records these on the workout itself; a session with no linked workout shows nothing
+// rather than a zero, so "not recorded" never reads as "no effort".
+// Anchored to the last set, not the finish tap: the tap can be minutes later, by which time the
+// heart rate has already fallen. Shown, never used; the caveat travels with the number.
+function finalSetRecoveryFact(hrRecovery) {
+  var finalSet = hrRecovery && hrRecovery.final_set;
+  if (!finalSet) return null;
+  var parts = [];
+  ["60", "120"].forEach(function (horizon) {
+    var value = finalSet["hrr" + horizon + "_bpm"];
+    if (value != null) parts.push(signedBpm(value) + " at " + (horizon === "60" ? "1" : "2") + " min");
+  });
+  return parts.length ? parts.join(", ") + " \u00b7 from the final set" : null;
+}
+
+// Compact per-row form of the final-set recovery: "-27/-22 bpm". Absent when unmeasured.
+function recoveryShort(finalSet) {
+  if (!finalSet) return "";
+  var parts = [];
+  if (finalSet.hrr60_bpm != null) parts.push(signedBpm(finalSet.hrr60_bpm));
+  if (finalSet.hrr120_bpm != null) parts.push(String(finalSet.hrr120_bpm > 0 ? "−" : "") +
+    Math.abs(finalSet.hrr120_bpm));
+  if (!parts.length) return "";
+  return " · " + parts.join("/") +
+    ' <span title="Bpm drop from the final set at 1 and 2 minutes. Tracks effort, not recovery.">HRR</span>';
+}
+
+function signedBpm(value) {
+  return (value > 0 ? "\u2212" : "") + Math.abs(value) + " bpm";
+}
+
+function heartRateFact(heartRate) {
+  if (!heartRate) return null;
+  var avg = heartRate.avg_bpm == null ? null : Math.round(heartRate.avg_bpm);
+  var max = heartRate.max_bpm == null ? null : Math.round(heartRate.max_bpm);
+  if (avg == null && max == null) return null;
+  if (avg != null && max != null) return avg + " avg / " + max + " max bpm";
+  return (avg != null ? avg + " avg bpm" : max + " max bpm");
+}
 var historyLimit = 25;
 
 // Read-only fact for the details sheet; a missing value is said out loud, never left blank.
@@ -31,6 +71,7 @@ function historyFragmentLine(s) {
     esc(s.session_id) + '</strong> <span class="badge">' + esc(s.session_type) +
     '</span> <span class="muted">' + s.working_set_count + "/" + s.set_count +
     " sets" + (s.duration_min == null ? "" : " · " + fmt(s.duration_min) + " min") +
+    recoveryShort(s.final_set) +
     '</span> ' + edited + " " + review + '</div><div class="card-actions">' +
     historyFragmentActions(s) + "</div></div>";
 }
@@ -442,7 +483,9 @@ function openHistoryDetails(sessionId) {
           (item.rir == null ? "—" : item.rir) + "</td><td>" +
           esc((Array.isArray(item.flags) ? item.flags : []).join(", ") || "—") + "</td><td>" +
           (item.velocity_mps == null ? "—" : item.velocity_mps) + "</td><td>" +
-          (item.vbt_mean == null ? "—" : item.vbt_mean) + "</td></tr>";
+          (item.vbt_mean == null ? "—" : item.vbt_mean) + "</td><td>" +
+          (item.hrr60_bpm == null ? "—" : (item.hrr60_bpm > 0 ? "−" : "") +
+            Math.abs(item.hrr60_bpm)) + "</td></tr>";
       }).join("");
       var repTables = group.map(function (item, index) {
         var reps = (item.vbt_reps || []).length ? item.vbt_reps : (item.device_reps || []);
@@ -458,10 +501,17 @@ function openHistoryDetails(sessionId) {
         "<p class='muted'>" + group.length + " set(s)</p>" +
         "<div class='table-scroll'><table><thead><tr><th>#</th><th>Load kg</th><th>" +
         unitLabel + "</th>" +
-        "<th>RIR</th><th>Flags</th><th>Device VBT</th><th>VBT override</th></tr></thead><tbody>" +
+        "<th>RIR</th><th>Flags</th><th>Device VBT</th><th>VBT override</th>" +
+        "<th title='Heart rate 60 s after the set. Tracks effort, not recovery.'>HRR</th>" +
+        "</tr></thead><tbody>" +
         setRows + "</tbody></table></div>" +
         (repTables ? "<details class='history-reps'><summary>Rep details (velocity)</summary>" +
           repTables + "</details>" : "") +
+        (data.hr_recovery
+          ? "<p class='muted'>HRR is the heart-rate drop 60 s after a set (" +
+            data.hr_recovery.sets_with_value + " set(s) measured). It " +
+            esc(data.hr_recovery.caveat) + "; it is shown, not used.</p>"
+          : "") +
         "</section>";
     }).join("");
     var facts =
@@ -487,6 +537,8 @@ function openHistoryDetails(sessionId) {
       fact("Exercises", data.exercise_count) +
       fact("Tonnage", data.tonnage_kg == null ? null : Math.round(data.tonnage_kg) + " kg") +
       fact("Main lifts", (data.main_lifts || []).join(", ")) +
+      fact("Heart rate", heartRateFact(data.heart_rate)) +
+      fact("Final-set recovery", finalSetRecoveryFact(data.hr_recovery)) +
       fact("Flags", (Array.isArray(data.flags) ? data.flags : []).join(", ")) +
       fact("Prescription", data.prescription_id) +
       fact("Workout", data.workout_id) +

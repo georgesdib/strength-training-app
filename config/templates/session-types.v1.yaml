@@ -129,7 +129,9 @@ session_types:
           essential: false
           load_source: double_progression
         - id: accessory_split_squat
-          exercise: split_squat
+          # DEC-VARIANT-06: rear-foot-down and rear-foot-elevated are separate lifts, so the slot
+          # offers both and the dwell layer keeps whichever it last programmed.
+          exercise_variants: [split_squat, bulgarian_split_squat]
           sets: 3
           reps: {low: 8, high: 10}
           rir: {low: 2, high: 3}

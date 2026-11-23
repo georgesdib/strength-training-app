@@ -117,13 +117,40 @@ def _full_pools(case: dict[str, Any]) -> CandidatePools:
 
 
 def _previous_workout(conn, *, exercise_id: str, for_date: str = "2024-01-10") -> None:
+    """One completed session whose working set is the previous exposure for plan slot 1.
+
+    The set is materialised, not merely prescribed: resolver specificity reads what was
+    performed (the release-integrity audit's WP5), so a plan-only synthetic session would
+    correctly contribute no previous choice.
+    """
+    workout_id = f"previous-{exercise_id}"
     plan = {"items": [{"order_index": 1, "exercise_id": exercise_id}]}
     conn.execute(
         "INSERT INTO workout_session "
         "(workout_id, for_date, session_type, status, plan_json, readiness_json, "
         " started_at, ended_at) VALUES (?, ?, 'squat', 'completed', ?, '{}', ?, ?)",
-        (f"previous-{exercise_id}", for_date, json.dumps(plan),
+        (workout_id, for_date, json.dumps(plan),
          f"{for_date}T10:00:00Z", f"{for_date}T11:00:00Z"),
+    )
+    conn.execute(
+        "INSERT INTO session (session_id, occurred_on, workout_label, set_count, "
+        "working_set_count, exercise_count, main_lifts, session_type, source, workout_id) "
+        "VALUES (?, ?, 'workout mode', 1, 1, 1, ?, 'squat', 'workout', ?)",
+        (workout_id, for_date, json.dumps([exercise_id]), workout_id),
+    )
+    raw_id = int(conn.execute(
+        "INSERT INTO raw_row (table_name, source_row, file_sha256, payload) "
+        "VALUES ('training', ?, ?, ?) RETURNING raw_id",
+        (900000 + len(exercise_id), f"previous-{exercise_id}", json.dumps({
+            "exercise": exercise_id, "date": for_date,
+        })),
+    ).fetchone()["raw_id"])
+    conn.execute(
+        "INSERT INTO clean_set (raw_id, session_id, occurred_on, exercise_id, raw_exercise, "
+        "load_kg, load_basis, reps, reps_unit, rir, rir_source, velocity_present, "
+        "is_working_set, flags, prescription_item_index) "
+        "VALUES (?, ?, ?, ?, ?, 100.0, 'external', 5, 'reps', 2, 'logged', 0, 1, '[]', 1)",
+        (raw_id, workout_id, for_date, exercise_id, exercise_id),
     )
 
 

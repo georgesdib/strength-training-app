@@ -36,10 +36,15 @@ class ConstraintReport:
         return self.status == STATUS_RECORDED
 
 
-def evaluate(conn, exercise_ids: list[str]) -> ConstraintReport:
-    """Apply stored constraints and suitability to a set of proposed exercises."""
+def evaluate(conn, exercise_ids: list[str], *, as_of: str | None = None) -> ConstraintReport:
+    """Apply stored constraints and suitability to a set of proposed exercises.
+
+    `as_of` bounds suitability to the ratings recorded on or before that date, so a rating
+    entered later cannot veto (or permit) a retrospective selection. Stored constraints are
+    current-state rules and are applied as they stand.
+    """
     rules = queries.athlete_constraints(conn)
-    ratings = queries.exercise_suitability(conn)
+    ratings = queries.exercise_suitability(conn, as_of=as_of)
     if not rules and not ratings:
         # Unrecorded state: report it, do not infer "nothing is wrong".
         return ConstraintReport(status=STATUS_NONE)

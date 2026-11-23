@@ -467,11 +467,24 @@ async function loadRepVelocityProgress() {
   }
 }
 
+// The probe's numbers, read-only: the owner should not have to run a CLI to remember what the
+// last measurement said. Nothing here is a decision or a threshold.
+function measurementHtml(task) {
+  const m = task.details && task.details.measurement;
+  if (!m) return "";
+  const within = m.within_session_sd == null ? "—" : m.within_session_sd;
+  const between = m.between_session_sd == null ? "—" : m.between_session_sd;
+  const load = m.corr_load == null ? "—" : m.corr_load;
+  return `<p class="muted">Last measurement: ${esc(String(m.sets_matched))}/${esc(String(m.set_completions))} sets, ` +
+    `within ${esc(String(within))} vs between ${esc(String(between))} bpm, r(load) ${esc(String(load))}.</p>` +
+    `<ul class="list">${(m.verdict || []).map((line) => `<li>${esc(line)}</li>`).join("")}</ul>`;
+}
+
 async function loadReviews() {
   try {
     const data = await api("/api/reviews");
     const tasks = data.tasks || [];
-    const actionable = tasks.filter((t) => ["due", "attention", "insufficient", "snoozed", "planned"].includes(t.status));
+    const actionable = tasks.filter((t) => ["due", "attention", "insufficient", "snoozed", "planned", "waiting"].includes(t.status));
     if (!actionable.length) {
       $("#reviews").innerHTML = "<p class='muted'>No reviews due.</p>";
       return;
@@ -489,7 +502,9 @@ async function loadReviews() {
         : `<option value="kept">kept</option><option value="changed">changed</option>
            <option value="insufficient">insufficient</option>
            <option value="not_applicable">not applicable</option>`;
-      const actions = task.periodic
+      const actions = task.status === "waiting"
+        ? `<p class="muted">Nothing to review yet; the counter has to reach the threshold.</p>`
+        : task.periodic
         ? `<details><summary>Mark reviewed</summary>
              <div class="form-row">
                <label>Decision <select id="review-decision-${esc(task.key)}">
@@ -497,13 +512,14 @@ async function loadReviews() {
                </select></label>
                <label class="grow">Note <input id="review-note-${esc(task.key)}" placeholder="optional"></label>
                <button type="button" data-action="review-complete" data-task-key="${esc(task.key)}">Save review</button>
-               <button type="button" class="ghost" data-action="review-snooze" data-task-key="${esc(task.key)}">Snooze 2 weeks</button>
+               <button type="button" class="ghost" data-action="review-snooze" data-task-key="${esc(task.key)}">Snooze ${esc(String(task.snooze_days ?? 14))} days</button>
              </div></details>`
         : `<p class="muted">Use the linked workflow; this is a data-state reminder.</p>`;
       return `<div class="panel" style="margin-bottom:8px">
         <div class="panel-head"><h3>${esc(task.label)}</h3>
           <span class="badge ${task.status === "ok" ? "" : "warn"}">${esc(task.status)}</span></div>
         <p><strong>${esc(task.summary)}</strong></p>
+        ${measurementHtml(task)}
         <p class="muted">${esc(task.why)}</p>
         <ul class="list">${details}</ul>
         ${dont ? `<p class="muted"><strong>Do not:</strong></p><ul class="list">${dont}</ul>` : ""}
@@ -642,6 +658,7 @@ async function loadOutcomes() {
       <p class="muted">${esc(data.note)}</p>`;
     await loadReadinessFeedback(weeks, day);
     await loadProspective(weeks, day);
+    await loadFormTrend(weeks, day);
   } catch (error) {
     $("#outcomes-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
@@ -689,18 +706,22 @@ async function loadFormTrend(weeks, day) {
     const query = new URLSearchParams({ weeks });
     if (day) query.set("date", day);
     const data = await api("/api/form-trend?" + query.toString());
-    const rows = (data.forms || []).map((row) => `
-      <tr><td><strong>${esc(row.exercise_id)}</strong></td>
-      <td>${row.latest_rating}/5 <span class="muted">${esc(row.latest_on)}</span></td>
-      <td>${row.current_avg ?? "—"} / ${row.baseline_avg ?? "—"}</td>
-      <td>${row.change == null ? "—" : (row.change > 0 ? "+" : "") + row.change}</td>
-      <td><span class="badge ${row.status === "down" ? "warn" : ""}">${esc(row.status)}</span></td>
-      <td class="muted">n ${row.current_n}/${row.baseline_n} · low ${row.low_current}</td></tr>`).join("");
+    const rows = (data.forms || []).map((row) => {
+      const change = row.change == null ? "—" : (row.change > 0 ? "+" : "") + row.change;
+      const trend = row.change > 0 ? "form-trend-up" : row.change < 0 ? "form-trend-down" : "";
+      return `
+      <tr><td><strong>${esc(row.exercise_id)}</strong>
+        <div class="muted">n ${row.current_n}/${row.baseline_n} · ${row.low_current} low</div></td>
+      <td>${row.latest_rating}/5 <div class="muted">${esc(row.latest_on)}</div></td>
+      <td>${row.current_avg ?? "—"} <span class="muted">/ ${row.baseline_avg ?? "—"}</span></td>
+      <td class="${trend}">${change}</td>
+      <td><span class="badge ${row.status === "down" ? "warn" : ""}">${esc(row.status)}</span></td></tr>`;
+    }).join("");
     target.innerHTML = rows
-      ? `<p class="muted">${esc(data.window.current_from)} to ${esc(data.window.current_to)}
-         · baseline ${esc(data.window.baseline_from)} to ${esc(data.window.baseline_to)}</p>
-         <table><thead><tr><th>Lift</th><th>latest</th><th>current / baseline avg</th>
-         <th>change</th><th>status</th><th>sessions</th></tr></thead>
+      ? `<p class="muted">${esc(data.window.weeks)} weeks: ${esc(data.window.current_from)} → ${esc(data.window.current_to)}
+         · baseline ${esc(data.window.baseline_from)} → ${esc(data.window.baseline_to)}</p>
+         <table class="form-trend-table"><thead><tr><th>Lift</th><th>Latest</th><th>Avg now / base</th>
+         <th>Change</th><th>Status</th></tr></thead>
          <tbody>${rows}</tbody></table>
          <p class="muted">Low-form events (≤2) in this window: <strong>${data.low_form_events ?? 0}</strong>
          across ${data.low_form_lifts ?? 0} lift(s). ${esc(data.note)}</p>`
@@ -2417,6 +2438,53 @@ function wireChoiceSearch(inputId, groupName) {
   });
 }
 
+function e1rmLedgerHtml(rows) {
+  if (!rows || !rows.length) {
+    return "<p class='muted'>No e1RM overrides recorded.</p>";
+  }
+  const body = rows.map((row) => {
+    const withdrawal = row.kind === "withdrawal";
+    const canWithdraw = !withdrawal && (row.status === "active" || row.status === "future");
+    const action = canWithdraw
+      ? "<button class='ghost' type='button' data-e1rm-withdraw='" + esc(row.exercise_id) +
+        "' data-e1rm-from='" + esc(row.status === "future" ? row.effective_from : "") +
+        "'>Withdraw</button>"
+      : "";
+    return "<tr><td>" + esc(row.exercise_id) + "</td><td>" +
+      (withdrawal ? "&mdash;" : esc(row.e1rm_kg)) + "</td><td>" +
+      esc(row.effective_from) + "</td><td>" +
+      (row.expires_on ? esc(row.expires_on) : "&mdash;") + "</td><td>" +
+      esc(row.source) + "</td><td>" + (row.reason ? esc(row.reason) : "&mdash;") +
+      "</td><td>" + esc(row.status) + "</td><td>" + action + "</td></tr>";
+  }).join("");
+  return "<h3>All e1RM overrides</h3>" +
+    "<p class='muted'>Append-only history. Withdrawing records a dated tombstone; it does not delete the override.</p>" +
+    "<div class='table-scroll'><table><thead><tr><th>Exercise</th><th>kg</th>" +
+    "<th>Effective from</th><th>Expires</th><th>Source</th><th>Reason</th>" +
+    "<th>Status</th><th></th></tr></thead><tbody>" + body + "</tbody></table></div>";
+}
+
+async function withdrawE1rmOverride(exerciseId, effectiveFrom) {
+  const reason = prompt("Reason for withdrawing the e1RM override for " + exerciseId + ".");
+  if (reason === null) return;
+  if (!reason.trim()) {
+    notify("A reason is required to withdraw an e1RM override.", "error");
+    return;
+  }
+  const body = { exercise_id: exerciseId, reason: reason.trim() };
+  if (effectiveFrom) body.effective_from = effectiveFrom;
+  try {
+    await api("/api/state/e1rm/withdraw", {
+      method: "POST", body: JSON.stringify(body),
+    });
+    notify("e1RM override withdrawn.");
+    loadState();
+    loadOverview();
+  } catch (error) {
+    notify(error.message, "error");
+  }
+}
+
 function renderStateForms(data) {
   const p = data.profile || {};
   const opts = data.options || {};
@@ -2522,6 +2590,7 @@ function renderStateForms(data) {
         <label class="grow">Reason<input data-e1rm="reason"></label>
         <button class="primary" type="submit">Append override</button>
       </form>
+      ${e1rmLedgerHtml(data.e1rm_override_ledger || [])}
     </div>
 
     <div class="panel"><div class="panel-head"><h2>Strength test</h2><span class="muted">records a measured e1RM; exposure is automatic</span></div>
@@ -2682,6 +2751,14 @@ function renderStateForms(data) {
       exercise_id: '[data-e1rm="exercise_id"]',
       e1rm_kg: '[data-e1rm="e1rm_kg"]',
       effective_from: '[data-e1rm="effective_from"]',
+    });
+  });
+  $("#state-forms").querySelectorAll("[data-e1rm-withdraw]").forEach((button) => {
+    button.addEventListener("click", () => {
+      withdrawE1rmOverride(
+        button.getAttribute("data-e1rm-withdraw"),
+        button.getAttribute("data-e1rm-from") || null,
+      );
     });
   });
   $("#test-form").addEventListener("submit", (event) => {
@@ -4085,10 +4162,15 @@ function renderChat() {
     }
     const warnings = (turn.warnings || []).map((w) => "<li>" + esc(w) + "</li>").join("");
     const suggestions = (turn.suggestions || []).map((s) => "<li>" + esc(s) + "</li>").join("");
+    const raw = turn.raw
+      ? '<details class="raw-output"><summary>Show raw data</summary><pre>' +
+        esc(JSON.stringify(turn.raw, null, 2)) + "</pre></details>"
+      : "";
     return '<div class="chat-bubble assistant">' + esc(turn.content).replaceAll("\n", "<br>") +
       (suggestions ? '<div class="suggestion-box"><strong>Suggestion — not applied.</strong><ul>' + suggestions + "</ul></div>" : "") +
       (warnings ? '<div class="warnbox"><strong>Unverified numbers</strong><ul>' + warnings + "</ul></div>" : "") +
       (turn.tools?.length ? '<div class="muted">sources: ' + esc(turn.tools.join(", ")) + "</div>" : "") +
+      raw +
       "</div>";
   }).join("");
   log.scrollTop = log.scrollHeight;
@@ -4116,7 +4198,7 @@ $("#chat-form")?.addEventListener("submit", async (event) => {
     });
     chatTurns.push({
       role: "assistant", content: data.answer, warnings: data.warnings || [],
-      suggestions: data.suggestions || [], tools: data.tools || [],
+      suggestions: data.suggestions || [], tools: data.tools || [], raw: data.raw || null,
     });
     message.textContent = "";
   } catch (error) {

@@ -23,7 +23,7 @@ conclusion is weaker than it looks.
 | 7 | Wiedenmann T, Kunellis D, Rappelt L, Held S, Wicker P, Donath L. *Trainability of repetitions-in-reserve estimation in younger and older adults: a parallel-group repeated-measures study.* BMC Sports Science, Medicine and Rehabilitation, 2026. PMID 42632893. | 10.1186/s13102-026-01997-y | RIR estimation error decreases with practice (up to 2.3 reps); supports a buffer rather than a tight veto. |
 | 8 | Ferrari L, Pochetti M, Vialetto L, Bochicchio G. *Estimating Repetitions in Reserve for Resistance Exercise: Effect of Exercise Intensity and Age on Prediction Accuracy.* Preprint, 2026. | 10.21203/rs.3.rs-8899476/v1 | RIR 3 estimated well at 80% 1RM, poorly at 60%; error is load-dependent. |
 | 9 | Qin X, Liu B, García-Ramos A. *Gauging proximity to failure in the bench press: generalized velocity-based vs. %1RM-repetitions-to-failure approaches.* BMC Sports Science, Medicine and Rehabilitation, 2025. PMID 40133968. | 10.1186/s13102-025-01098-2 | RIR-velocity least biased of the general approaches, but still ~±1.3 reps. |
-| 10 | Chen W, Zhang H, Li R, Chen Z, Zheng J, Zhang X, Li Z. *Velocity-Based Monitoring Lacks Both Accuracy and Applicability for Estimating Repetitions in Reserve During the Hexagonal Bar Deadlift.* J Strength Cond Res, 2026. PMID 42328880. | 10.1519/JSC.0000000000005549 | No condition met the RIR-from-velocity accuracy criteria for the hex bar; basis for withholding trap-bar VBT targets. |
+| 10 | Chen W, Zhang H, Li R, Chen Z, Zheng J, Zhang X, Li Z. *Velocity-Based Monitoring Lacks Both Accuracy and Applicability for Estimating Repetitions in Reserve During the Hexagonal Bar Deadlift.* J Strength Cond Res, 2026. PMID 42328880. | 10.1519/JSC.0000000000005549 | No condition met the RIR-from-velocity accuracy criteria for the hex bar; the basis for the trap-bar withholding that `DEC-VBT-06` later reversed. |
 | 11 | Cowley N, Refalo M, Nicholson V, Timmins R, Munteanu G, Weakley J. *Effects of different resistance training loads, exercises, and volume-regulated proximities to failure on acute and short-term neuromuscular, perceptual, and metabolic responses.* Journal of Sports Sciences, 2026. PMID 42458937. | 10.1080/02640414.2026.2703381 | Fatigue rises as sets approach failure; supports keeping a buffer. |
 | 12 | Varela-Olalla D, Del Campo-Vecino J, Balsalobre-Fernández C. *Influence of Proximity to Failure, Relative Intensity, and Volume on Voluntary Performance and Fatigue Symptoms After Resistance Training: A Systematic Review.* J Strength Cond Res, 2025;39(9):e1129-e1168. PMID 40644670. | 10.1519/JSC.0000000000005194 | Proximity to failure and volume are the main determinants of acute fatigue. |
 
@@ -327,6 +327,13 @@ conclusion is weaker than it looks.
 | 176 | Lambe R, Baldwin M, O’Grady B, et al. *The accuracy of Apple Watch measurements: a living systematic review and meta-analysis.* npj Digital Medicine, 2026;9:63. | 10.1038/s41746-025-02238-1 | 82 validation studies across 14 metrics; accuracy varies by metric, conditions and physiology. Apple Watch consumer estimates should be shown with source/provenance, not treated as clinical results. |
 | 177 | Lambe R, O’Grady B, Baldwin M, Doherty C. *Investigating the accuracy of Apple Watch VO2 max measurements: a validation study.* PLoS One, 2025;20:e0323741. | 10.1371/journal.pone.0323741 | Small validation study (n=30) found underestimation against indirect calorimetry; one study is insufficient to make a general individual correction. Label Apple Watch VO₂max as an estimate and interpret within-source trends cautiously. |
 
+## 28. Unilateral squat variants and their demands
+
+| # | Reference | DOI | Used for |
+|---|---|---|---|
+| 178 | Arakawa H, Mori M, Tanimoto M. *Greater hip moments in rear-foot-elevated split squats than in conventional back squats with the same relative intensity of loads.* J Strength Cond Res, 2023;37(5):1009-1016. | 10.1519/JSC.0000000000004351 | Hip extension moment 44 % greater at the bottom and 47 % greater at peak in the rear-foot-elevated split squat than the back squat, with greater hip abduction and external-rotation moments. Supports rating the elevated variant separately from the rear-foot-down split squat (`DEC-VARIANT-06`) and its high local-muscular demand. |
+| 179 | Mausehund L, Skard AE, Krosshaug T. *Muscle activation in unilateral barbell exercises: implications for strength training and rehabilitation.* J Strength Cond Res, 2019;33(7S):S85-S94. | 10.1519/JSC.0000000000002990 | At matched relative effort to failure, gluteus maximus and vastus lateralis activation did not differ between the split squat and the rear-foot-elevated version; the elevated version had higher biceps femoris activity and a higher hamstring:quadriceps ratio. The reason the split is about moment, hip range and base of support rather than different prime movers. |
+
 ## Not included
 
 Search results that were unrelated to this project (e.g. cerebral autoregulation, blood-flow
@@ -335,6 +342,7 @@ claim that the study is definitive; the evidence notes state the limitations.
 
 ## Where the references are used
 
+- `docs/EXERCISE-DEMANDS.md` — demand profiles, evidence ids and coverage
 - `docs/RIR-EVIDENCE.md` — effort window (1-4, target 2-3)
 - `docs/TRAINING-DYNAMICS.md` — 1RM testing, rep ranges, DUP
 - `docs/VBT-EVIDENCE.md` — velocity calibration and velocity loss

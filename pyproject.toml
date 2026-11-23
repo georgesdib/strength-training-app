@@ -40,11 +40,11 @@ include = ["strength_coach*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q --strict-markers -n auto --dist load -m 'not integration and not regression and not slow'"
+addopts = "-q --strict-markers -n auto --dist load -m 'not integration and not slow'"
 markers = [
     "integration: touches the real CSVs in data/raw (optional; release/on request only)",
     "golden: snapshot/regression evidence against docs/EVIDENCE.md numbers",
-    "regression: non-obvious invariant that caught a real bug (optional; release/on request only)",
+    "regression: non-obvious invariant that caught a real bug (cheap; runs in the default lane since 2026-11-22)",
     "slow: expensive core forecast/web/portability test (optional; release/on request only)",
 ]
 filterwarnings = [

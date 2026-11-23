@@ -118,12 +118,23 @@ def suggest(
     catalogue: demands_feature.DemandCatalogue | None = None,
     config: exposure_feature.ExposureConfig | None = None,
 ) -> SubstitutionReport:
-    """Return at most one fatigue-informed suggestion, or the reason for abstaining."""
+    """Return at most one fatigue-informed suggestion, or the reason for abstaining.
+
+    Everything is evaluated as of `on_date`: the exposure window ends there, the profile is the
+    version in force on that date, and the selection fallback builds a date-bounded context.
+    """
+    if exposure_report is not None and str(exposure_report.on_date)[:10] != str(on_date)[:10]:
+        raise ValueError(
+            "exposure_report.on_date must equal the evaluation date; another day's window "
+            "cannot be used for an as-of suggestion"
+        )
     found = exposure_report or exposure_feature.compute(conn, on_date, config)
     catalogue = catalogue or demands_feature.load()
     abstain: list[str] = []
 
-    profile = queries.athlete_profile(conn) or {}
+    # The trim flag is profile state: use the version in force on the evaluation date, not the
+    # current one, or enabling the trim later would change an earlier suggestion.
+    profile = queries.athlete_profile(conn, as_of=on_date) or {}
     if profile.get("exposure_trim_enabled"):
         # One action per signal: when the trim is on it already acts on the high group.
         abstain.append(

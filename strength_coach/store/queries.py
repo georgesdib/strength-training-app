@@ -221,7 +221,10 @@ def e1rm_override(conn, exercise_id: str, on_date: str) -> dict | None:
     """The override in force for this lift on this date, if any.
 
     The latest row wins; an expired or future-dated row never applies. A NULL `expires_on`
-    means "until replaced".
+    means "until replaced". A withdrawal effective on or before the date removes the
+    override from that date; a later override (or an override created after a same-day
+    withdrawal) wins again. The comparison is (effective_from, created_at), with a withdrawal
+    winning an exact tie because it is the explicit "no override" record.
     """
     row = conn.execute(
         """
@@ -234,7 +237,23 @@ def e1rm_override(conn, exercise_id: str, on_date: str) -> dict | None:
         """,
         (str(exercise_id), str(on_date), str(on_date)),
     ).fetchone()
-    return dict(row) if row is not None else None
+    if row is None:
+        return None
+    withdrawal = conn.execute(
+        """
+        SELECT * FROM e1rm_override_withdrawal
+         WHERE exercise_id = ?
+           AND effective_from <= ?
+         ORDER BY effective_from DESC, withdrawal_id DESC
+         LIMIT 1
+        """,
+        (str(exercise_id), str(on_date)),
+    ).fetchone()
+    if withdrawal is not None and (
+        str(withdrawal["effective_from"]), str(withdrawal["created_at"])
+    ) >= (str(row["effective_from"]), str(row["created_at"])):
+        return None
+    return dict(row)
 
 
 def last_measured_override(conn, exercise_id: str) -> dict | None:
@@ -263,6 +282,17 @@ def e1rm_overrides(conn) -> list[dict]:
     ]
 
 
+def e1rm_override_withdrawals(conn) -> list[dict]:
+    """Every withdrawal row, newest first within each lift (append-only audit history)."""
+    return [
+        dict(row)
+        for row in conn.execute(
+            "SELECT * FROM e1rm_override_withdrawal"
+            " ORDER BY exercise_id, effective_from DESC, withdrawal_id DESC"
+        )
+    ]
+
+
 def e1rm_override_by_id(conn, override_id: int) -> dict | None:
     row = conn.execute(
         "SELECT * FROM e1rm_override WHERE override_id = ?", (int(override_id),)
@@ -283,11 +313,24 @@ def volume_exemptions(conn, *, start: str, end: str) -> list[dict]:
     return [dict(row) for row in rows]
 
 
-def athlete_profile(conn) -> dict | None:
-    """The current profile: the latest version by effective date."""
-    row = conn.execute(
-        "SELECT * FROM athlete_profile ORDER BY effective_from DESC, profile_id DESC LIMIT 1"
-    ).fetchone()
+def athlete_profile(conn, *, as_of: str | None = None) -> dict | None:
+    """The current profile, or the version in force on `as_of`.
+
+    A profile version is append-only and dated by `effective_from` (DEC-STATE-03), so a
+    retrospective read must take the latest version at or before its date. Reading the current
+    version for a historical date would let a later edit change an earlier evaluation.
+    """
+    if as_of is None:
+        row = conn.execute(
+            "SELECT * FROM athlete_profile "
+            "ORDER BY effective_from DESC, profile_id DESC LIMIT 1"
+        ).fetchone()
+    else:
+        row = conn.execute(
+            "SELECT * FROM athlete_profile WHERE effective_from <= ? "
+            "ORDER BY effective_from DESC, profile_id DESC LIMIT 1",
+            (str(as_of),),
+        ).fetchone()
     return dict(row) if row is not None else None
 
 
@@ -300,16 +343,35 @@ def athlete_constraints(conn) -> list[dict]:
     ]
 
 
-def exercise_suitability(conn) -> dict[str, dict]:
-    """The latest rating per exercise; earlier ratings stay in the table as history."""
-    rows = conn.execute(
-        """
-        SELECT s.* FROM exercise_suitability s
-          JOIN (SELECT exercise_id, MAX(rated_on) AS latest
-                  FROM exercise_suitability GROUP BY exercise_id) l
-            ON l.exercise_id = s.exercise_id AND l.latest = s.rated_on
-        """
-    ).fetchall()
+def exercise_suitability(
+    conn, *, as_of: str | None = None
+) -> dict[str, dict]:
+    """The latest rating per exercise; earlier ratings stay in the table as history.
+
+    `as_of` selects the latest rating dated on or before that day. A rating recorded later
+    must not reach a retrospective evaluation: it would change a selection already made.
+    """
+    if as_of is None:
+        rows = conn.execute(
+            """
+            SELECT s.* FROM exercise_suitability s
+              JOIN (SELECT exercise_id, MAX(rated_on) AS latest
+                      FROM exercise_suitability GROUP BY exercise_id) l
+                ON l.exercise_id = s.exercise_id AND l.latest = s.rated_on
+            """
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            """
+            SELECT s.* FROM exercise_suitability s
+              JOIN (SELECT exercise_id, MAX(rated_on) AS latest
+                      FROM exercise_suitability
+                     WHERE rated_on <= ?
+                     GROUP BY exercise_id) l
+                ON l.exercise_id = s.exercise_id AND l.latest = s.rated_on
+            """,
+            (str(as_of),),
+        ).fetchall()
     return {str(row["exercise_id"]): dict(row) for row in rows}
 
 

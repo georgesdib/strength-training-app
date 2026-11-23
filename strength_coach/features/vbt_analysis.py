@@ -76,6 +76,23 @@ def _entity(exercise_id: Any) -> Mapping[str, Any]:
     return exercises_mod.taxonomy().entities.get(str(exercise_id)) or {}
 
 
+def _plan_target_note(data: Mapping[str, Any]) -> dict[str, Any] | None:
+    """The plan's own record of what happened when targets were attached.
+
+    The workout-level reason is necessarily coarse ("no target anywhere"), so the frozen plan
+    note is passed through verbatim: it names the rule that skipped the session, the calibration
+    shortfall, or the targets that were issued. It is provenance only; nothing here is recomputed.
+    """
+    plan = data.get("plan")
+    if not isinstance(plan, Mapping):
+        return None
+    notes = plan.get("notes")
+    if not isinstance(notes, Mapping):
+        return None
+    note = notes.get("vbt")
+    return dict(note) if isinstance(note, Mapping) else None
+
+
 def _load_basis_compatible(actual: str, prescribed: str) -> bool:
     if actual in ("", "unknown") or prescribed in ("", "unknown"):
         return False
@@ -551,6 +568,7 @@ def completed(
     return {
         "status": "available" if has_target else "unavailable",
         "reason": None if has_target else "no_vbt_target_issued",
+        "plan_target_note": _plan_target_note(data),
         "sets": comparisons,
         "exercises": exercises,
         "quality": quality,
@@ -573,6 +591,7 @@ def active_feedback(data: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "status": "available" if targets else "unavailable",
         "reason": None if targets else "no_vbt_target_issued",
+        "plan_target_note": _plan_target_note(data),
         "sets": comparisons,
         "exercises": [
             _exercise_summary(
@@ -589,6 +608,7 @@ def unavailable(reason: str) -> dict[str, Any]:
     return {
         "status": "unavailable",
         "reason": reason,
+        "plan_target_note": None,
         "sets": [],
         "exercises": [],
         "quality": {

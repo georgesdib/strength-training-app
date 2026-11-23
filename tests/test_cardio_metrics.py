@@ -7,6 +7,7 @@ import threading
 
 import pytest
 
+from strength_coach import settings_profile, settings_registry
 from strength_coach.features import cardio_metrics as metrics
 from strength_coach.store import cardio, db
 
@@ -53,11 +54,56 @@ def test_met_bands_follow_the_who_thresholds():
     assert metrics.classify_met(None) is None
 
 
-def test_hr_fallback_uses_observed_maximum():
+def test_hr_fallback_uses_default_maximum():
     assert metrics.classify_hr(127) == "light"        # 0.635 of 200
     assert metrics.classify_hr(140) == "moderate"     # 0.70
     assert metrics.classify_hr(170) == "vigorous"     # 0.85
     assert metrics.classify_hr(None) is None
+
+
+def test_default_maximum_matches_the_registry_definition():
+    definition = settings_registry.BY_KEY["cardio.max_hr_bpm"]
+    assert metrics.DEFAULT_MAX_HR_BPM == definition.default == 200
+    assert (definition.minimum, definition.maximum) == (120, 250)
+
+
+def test_profile_maximum_is_effective_dated(conn):
+    settings_profile.save(
+        conn,
+        set_values={"cardio.max_hr_bpm": 250},
+        effective_from="2026-01-10",
+    )
+    assert metrics.configured_max_hr(conn, on_date="2026-01-09") == 200
+    assert metrics.configured_max_hr(conn, on_date="2026-01-10") == 250
+
+
+def test_profile_maximum_reclassifies_cached_cardio_history(conn):
+    _workout(conn, "2026-01-05T08:00:00+00:00", 30, avg_hr=150)
+    initial = metrics.activity_summary(conn, weeks=1, as_of="2026-01-10")
+    assert initial["policy"]["max_hr_bpm"] == 200
+    assert initial["weeks"][-1]["moderate_minutes"] == 30
+
+    settings_profile.save(
+        conn,
+        set_values={"cardio.max_hr_bpm": 250},
+        effective_from="2026-01-10",
+    )
+    changed = metrics.activity_summary(conn, weeks=1, as_of="2026-01-10")
+
+    assert changed["policy"]["max_hr_bpm"] == 250
+    assert changed["weeks"][-1]["light_minutes"] == 30
+    assert changed["weeks"][-1]["moderate_minutes"] == 0
+    assert metrics.cache_is_stale(conn, max_hr=250) is False
+
+
+@pytest.mark.parametrize("value", (119, 251))
+def test_profile_maximum_rejects_values_outside_the_allowed_range(conn, value):
+    with pytest.raises(ValueError, match="cardio.max_hr_bpm"):
+        settings_profile.save(
+            conn,
+            set_values={"cardio.max_hr_bpm": value},
+            effective_from="2026-01-10",
+        )
 
 
 def test_cascade_prefers_met_and_reports_tier(conn):
@@ -146,9 +192,9 @@ def test_concurrent_stale_readers_rebuild_the_cache_once(tmp_path, monkeypatch):
     calls = []
     original = metrics.rebuild_classification
 
-    def counted(conn):
+    def counted(conn, *, max_hr=metrics.DEFAULT_MAX_HR_BPM):
         calls.append(1)
-        return original(conn)
+        return original(conn, max_hr=max_hr)
 
     monkeypatch.setattr(metrics, "rebuild_classification", counted)
     barrier = threading.Barrier(2)
@@ -439,9 +485,9 @@ def test_new_heart_rate_samples_invalidate_the_classification_cache(conn, monkey
     calls = []
     original = metrics.rebuild_classification
 
-    def counted(connection):
+    def counted(connection, *, max_hr=metrics.DEFAULT_MAX_HR_BPM):
         calls.append(1)
-        return original(connection)
+        return original(connection, max_hr=max_hr)
 
     monkeypatch.setattr(metrics, "rebuild_classification", counted)
 
@@ -486,6 +532,26 @@ def test_uniform_samples_integrate_elapsed_time(conn):
     assert block["workout_minutes"] == 10.0
     assert block["temporal_coverage_share"] == 1.0
     assert block["minutes"]["moderate"] == 10.0
+
+
+def test_profile_maximum_applies_to_report_and_time_in_zone(conn):
+    workout = _workout(conn, "2026-11-10T08:00:00+00:00", 30, avg_hr=150)
+    for offset in range(0, 1801, 10):
+        _hr_sample(conn, workout, offset, 150)
+    settings_profile.save(
+        conn,
+        set_values={"cardio.max_hr_bpm": 250},
+        effective_from="2026-01-01",
+    )
+
+    payload = metrics.report(conn)
+    assert payload["policy"]["max_hr_bpm"] == 250
+    assert payload["weeks"]["2026-W46"]["light_minutes"] == 30.0
+
+    block = _tiz(conn)
+    assert block["eligible_workouts"] == 1
+    assert block["minutes"]["light"] == 30.0
+    assert block["minutes"]["moderate"] == 0.0
 
 
 def test_uneven_samples_integrate_each_interval_into_its_zone(conn):

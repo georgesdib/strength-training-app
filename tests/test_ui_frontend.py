@@ -2354,8 +2354,22 @@ if (html.indexOf("0.44") < 0 || html.indexOf("+0.02") < 0 || html.indexOf("withi
 if (html.indexOf("not comparable") < 0 && html.indexOf("rep count") < 0) throw new Error("reason");
 if (html.indexOf("VBT data quality") < 0 || html.indexOf("Comparable target sets") < 0) throw new Error("quality");
 if (html.indexOf("rep count") < 0) throw new Error("excluded reason");
-var unavailable = vbtSectionHtml({status: "unavailable", reason: "no_vbt_target_issued", quality: {logged_sets: 2}});
+var unavailable = vbtSectionHtml({
+  status: "unavailable", reason: "no_vbt_target_issued", quality: {logged_sets: 2},
+  plan_target_note: {status: "skipped",
+                     reason: "session modified by a safety rule; load no longer matches the calibration"}
+});
 if (unavailable.indexOf("No trustworthy") < 0 || unavailable.indexOf("2 set") < 0) throw new Error("unavailable");
+if (unavailable.indexOf("session modified by a safety rule") < 0 ||
+    unavailable.indexOf("skipped") < 0) throw new Error("plan note");
+var noNote = vbtSectionHtml({status: "unavailable", reason: "no_vbt_target_issued", quality: {logged_sets: 0}});
+if (noNote.indexOf("Plan record") >= 0) throw new Error("spurious plan note");
+var modified = vbtSectionHtml({
+  status: "available", reason: null, sets: [], exercises: [], quality: {},
+  plan_target_note: {status: "available", targets: 1, session_modified: true}
+});
+if (modified.indexOf("modified by a safety rule") < 0) throw new Error("modified session note");
+if (html.indexOf("modified by a safety rule") >= 0) throw new Error("spurious modified note");
 """
     script = script.replace("SOURCE", json.dumps(source))
     result = _run_node(script)

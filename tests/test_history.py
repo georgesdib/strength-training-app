@@ -355,3 +355,42 @@ def test_history_edit_preserves_set_role_and_plan_identity():
         store.close()
     assert [row["set_role"] for row in rows] == ["back_off", "top_set"]
     assert {row["prescription_item_index"] for row in rows} == {0}
+
+
+def test_session_detail_reports_heart_rate_from_the_linked_workout():
+    # Apple stores the average and peak on the workout; the session shows them only while the
+    # workout is currently linked, and never invents a zero for a session with no workout.
+    store = _store()
+    try:
+        conn = store.connection
+        session_id = history.list_sessions(conn)["sessions"][0]["session_id"]
+        assert history.detail(conn, session_id)["heart_rate"] is None
+
+        conn.execute(
+            "INSERT INTO external_workout (external_workout_id, external_key, origin, activity_type,"
+            " started_at, ended_at, duration_s, source_name, avg_heart_rate, max_heart_rate,"
+            " imported_at) VALUES (?, ?, 'healthkit', 'HKWorkoutActivityTypeTraditionalStrengthTraining',"
+            " '2024-01-01T18:00:00+00:00', '2024-01-01T19:00:00+00:00', 3600, 'Apple Watch',"
+            " 128, 165, '2024-01-01T19:05:00+00:00')",
+            ("w-1", b"\x01" * 16),
+        )
+        conn.execute(
+            "INSERT INTO workout_link (link_id, external_workout_id, session_id, action, method,"
+            " band_version) VALUES ('l-1', 'w-1', ?, 'link', 'manual', 'link_v1')",
+            (session_id,),
+        )
+        heart_rate = history.detail(conn, session_id)["heart_rate"]
+        assert heart_rate["avg_bpm"] == 128
+        assert heart_rate["max_bpm"] == 165
+        assert heart_rate["source"] == "apple_health"
+
+        conn.execute(
+            "INSERT INTO workout_link (link_id, external_workout_id, session_id, action, method,"
+            " band_version, supersedes_id) VALUES ('l-2', 'w-1', ?, 'unlink', 'manual',"
+            " 'link_v1', 'l-1')",
+            (session_id,),
+        )
+        assert history.detail(conn, session_id)["heart_rate"] is None
+    finally:
+        store.close()
+

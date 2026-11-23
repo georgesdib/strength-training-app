@@ -159,6 +159,23 @@ def current_plan(conn, device_id: str):
     return dict(row) if row is not None else None
 
 
+def supersede_plans_for_target(conn, device_id: str, at_iso: str) -> int:
+    """Retire a live plan whose execution target is this device.
+
+    Called inside the device's own transaction when that device is replaced or revoked. The
+    plan can no longer be started: a revoked token cannot authenticate and a replaced watch is
+    a different device id. Leaving it live is not harmless — the phone and the watch resolve
+    `current_plan` by different columns, so the phone keeps advertising "ready for Apple Watch"
+    while the watch reads `none` and shows "No workout for Apple Watch".
+    """
+    cursor = conn.execute(
+        "UPDATE ios_issued_plan SET superseded_at = ? "
+        "WHERE target_device_id = ? AND consumed_at IS NULL AND superseded_at IS NULL",
+        (at_iso, str(device_id)),
+    )
+    return int(cursor.rowcount)
+
+
 def get_plan(conn, issued_plan_id: str, device_id: str):
     """One plan by id for an authenticated caller.
 

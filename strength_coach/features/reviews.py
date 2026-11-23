@@ -13,7 +13,7 @@ from typing import Any
 import yaml
 
 from strength_coach.domain.symptoms import flare_from
-from strength_coach.features import test_cadence
+from strength_coach.features import hr_recovery, test_cadence
 from strength_coach.store import queries
 from strength_coach.utils import paths
 
@@ -59,12 +59,16 @@ def _latest(conn, task_key: str) -> dict | None:
     return dict(row) if row is not None else None
 
 
+#: Tasks whose snooze is a human decision; every other review is state-driven and not snoozable.
+SNOOZE_KEYS = (
+    "readiness_thresholds", "exercise_substitution", "fatigue_signals",
+    "phase5a_review", "afc_device_acceptance", "afc_5a_historical", "hr_recovery_probe",
+)
+
+
 def snooze_days(task_key: str) -> int:
     config = _config()
-    if task_key in {
-        "readiness_thresholds", "exercise_substitution", "fatigue_signals",
-        "phase5a_review", "afc_device_acceptance", "afc_5a_historical",
-    }:
+    if task_key in SNOOZE_KEYS:
         return int((config.get(task_key) or {}).get("snooze_days", 14))
     raise ValueError(f"no snooze policy for {task_key!r}")
 
@@ -91,6 +95,8 @@ def _task(conn, key: str, on_date: str, config: dict) -> ReviewTask:
         return _phase3_task(cfg)
     if key in {"afc_device_acceptance", "afc_5a_historical"}:
         return _followup_task(conn, on_date, key, cfg)
+    if key == "hr_recovery_probe":
+        return _hr_probe_task(conn, on_date, cfg)
     raise ValueError(f"unknown review task {key!r}")
 
 
@@ -322,6 +328,84 @@ def _back_task(conn, on_date: str, cfg: dict) -> ReviewTask:
     )
 
 
+def _hr_probe_task(conn, on_date: str, cfg: dict) -> ReviewTask:
+    """Prompt to re-run the per-set heart-rate recovery probe, once there is data to re-run it on.
+
+    Deliberately quiet: it reports "not_due" until the corpus carries enough watch sessions for
+    the probe's correlations to mean anything, so it never reads as a permanent warning on Today.
+    It prompts a measurement; it does not record one, and no threshold changes here.
+    """
+    key = "hr_recovery_probe"
+    label = str(cfg.get("label", "Re-run the heart-rate recovery probe"))
+    minimum = int(cfg.get("min_sessions", 15))
+    sessions = int(
+        conn.execute(
+            """
+            SELECT COUNT(DISTINCT e.workout_id) AS n
+              FROM workout_execution_event e
+             WHERE e.event_type = 'set_completed'
+               AND EXISTS (
+                     SELECT 1 FROM workout_link l
+                      WHERE l.action = 'link'
+                        AND (l.session_id = e.workout_id
+                             OR l.session_id IN (
+                                  SELECT s.session_id FROM session s
+                                   WHERE s.workout_id = e.workout_id))
+                   )
+            """
+        ).fetchone()[0]
+    )
+    last = _latest(conn, key)
+    completed = (
+        str(last["reviewed_on"]) if last is not None and last["action"] == "completed" else None
+    )
+    details = {
+        "watch_sessions": sessions,
+        "min_sessions": minimum,
+        "interval_weeks": int(cfg.get("interval_weeks", 12)),
+        "last_completed": completed,
+    }
+    if sessions:
+        # Read-only context: the same computation the probe reports, so the card and the command
+        # cannot tell different stories. About 0.3 s on the current corpus.
+        details["measurement"] = hr_recovery.report(conn)
+    shared = {
+        "key": key, "label": label, "kind": "periodic", "why": str(cfg.get("why", "")),
+        "steps": tuple(cfg.get("steps") or ()), "dont": tuple(cfg.get("dont") or ()),
+        "doc": str(cfg.get("doc", "")),
+    }
+    if last is not None and last["action"] == "snoozed" and str(last["snoozed_until"]) >= on_date:
+        return ReviewTask(
+            status="snoozed", due_on=str(last["snoozed_until"]),
+            summary=f"Snoozed until {last['snoozed_until']}.", periodic=True, details=details,
+            **shared,
+        )
+    if sessions < minimum:
+        # Visible but not actionable: the owner asked to see the prompt, and a silent card is
+        # indistinguishable from a missing one. It carries a counter, not a warning.
+        return ReviewTask(
+            status="waiting", due_on=None, periodic=True, details=details,
+            summary=(
+                f"{sessions}/{minimum} watch sessions with telemetry; "
+                "the probe needs more before it can say anything new."
+            ),
+            **shared,
+        )
+    interval = dt.timedelta(weeks=details["interval_weeks"])
+    due_on = (dt.date.fromisoformat(completed) + interval).isoformat() if completed else on_date
+    if completed is not None and on_date < due_on:
+        return ReviewTask(
+            status="not_due", due_on=due_on, periodic=True, details=details,
+            summary=f"{sessions} watch sessions; next probe review {due_on}.", **shared,
+        )
+    return ReviewTask(
+        status="due", due_on=due_on, periodic=True, details=details, **shared,
+        summary=(
+            f"{sessions} watch sessions with telemetry; re-run the probe and record the verdict."
+        ),
+    )
+
+
 def status(conn, on_date: str) -> dict:
     config = _config()
     tasks = []
@@ -329,25 +413,17 @@ def status(conn, on_date: str) -> dict:
         "readiness_thresholds", "exercise_substitution", "fatigue_signals",
         "strength_test", "srpe_coverage", "readiness_baseline",
         "back_pattern", "phase5a_review", "injury_attribution_phase3",
-        "afc_device_acceptance", "afc_5a_historical",
+        "afc_device_acceptance", "afc_5a_historical", "hr_recovery_probe",
     ):
-        tasks.append(_task(conn, key, on_date, config).as_dict())
-    profile = queries.athlete_profile(conn) or {}
-    if profile.get("volume_budget_enabled"):
-        # Standing review after the plan closed: it appears while the budget is enabled and
-        # never changes a prescription. It is not a roadmap milestone.
-        tasks.append(ReviewTask(
-            key="volume_review", label="Volume review (standing)", kind="reminder",
-            status="attention", due_on=on_date,
-            summary="Standing review: check trims and top-ups after 2-3 weeks of budget use.",
-            why="The volume-modulation plan is closed; this is a standing follow-up review.",
-            steps=(
-                "Use the budget for 2-3 weeks.",
-                "Review trims, top-ups, blocked warnings and the high-band guard.",
-                "Keep or adjust config; roll back to hard if a defect appears.",
-            ),
-            dont=("Do not treat this reminder as an unresolved plan item.",),
-            doc="docs/archive/VOLUME-MODULATION-PLAN.md",
-        ).as_dict())
+        task = _task(conn, key, on_date, config).as_dict()
+        # The UI labels its snooze button from this, so the button cannot promise two weeks
+        # while the policy snoozes a quarter.
+        task["snooze_days"] = (
+            int((config.get(key) or {}).get("snooze_days", 14)) if key in SNOOZE_KEYS else None
+        )
+        tasks.append(task)
+    # The former "Volume review (standing)" reminder was removed on 2026-11-22: it had no clock
+    # and no acknowledgement, so it read as a permanent warning on Today. The budget is inspected
+    # in the Prescribe volume panels; enabling it must not re-add a reminder here.
     due = [task for task in tasks if task["status"] in {"due", "attention"}]
     return {"on_date": on_date, "due_count": len(due), "tasks": tasks}

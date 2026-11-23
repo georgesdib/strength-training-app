@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import datetime as dt
+import threading
+
 import pytest
 
 from strength_coach import history, workout
@@ -433,7 +436,8 @@ def test_parse_import_maps_exercises_rpe_and_missing_velocity():
     assert rows[0]["exercise_id"] == "push_press"
     assert rows[0]["rir"] == 6 and rows[0]["warmup"] is True
     assert rows[1]["rir"] == 4 and rows[0]["velocity_mps"] is None
-    assert rows[3]["exercise_id"] == "bench_press_wide_grip"
+    # DEC-VARIANT-06: the wide-grip spelling is the bench press.
+    assert rows[3]["exercise_id"] == "bench_press"
     assert rows[3]["rir"] == 3
     assert rows[4]["rir"] == 2
     assert rows[2]["load_kg"] == 50.0
@@ -775,3 +779,181 @@ def test_end_failure_rolls_back_the_completion(conn, monkeypatch):
         "SELECT COUNT(*) AS c FROM session WHERE session_id = ?",
         (started["workout_id"],),
     ).fetchone()["c"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Concurrent completion (release-integrity audit, WP2)
+# ---------------------------------------------------------------------------
+
+
+def _prepared_file_store(tmp_path):
+    """A migrated file database plus one started workout, for cross-connection tests."""
+    path = tmp_path / "coach.db"
+    with db.Store(path) as store:
+        started = workout.start(
+            store.connection, for_date="2024-01-01", plan=PLAN, readiness=READINESS,
+        )
+        workout.add_set(
+            store.connection, started["workout_id"],
+            exercise_id="trap_bar_deadlift", load_kg=100, reps=5, rir=2,
+        )
+    return path, started["workout_id"]
+
+
+def test_two_concurrent_completions_run_the_side_effects_once(tmp_path, monkeypatch):
+    # Both requests observe in_progress before either transaction starts, which is exactly the
+    # audit's race. The second must lose at the re-check inside the write transaction rather
+    # than materialising a second session, advancing dwell twice or appending a second end
+    # event. The barrier is injected on the pre-transaction read, not on completion itself.
+    path, workout_id = _prepared_file_store(tmp_path)
+    real_get = workout.get
+    barrier = threading.Barrier(2)
+    local = threading.local()
+
+    def synced_get(conn, wid):
+        snapshot = real_get(conn, wid)
+        if (
+            wid == workout_id
+            and snapshot is not None
+            and snapshot["status"] == "in_progress"
+            and not getattr(local, "waited", False)
+        ):
+            local.waited = True
+            barrier.wait(timeout=10)
+        return snapshot
+
+    monkeypatch.setattr(workout, "get", synced_get)
+    results: list[dict] = []
+    errors: list[BaseException] = []
+
+    def complete():
+        conn = db.connect(path)
+        try:
+            results.append(
+                workout.end(conn, workout_id, session_rpe=7, duration_min=30)
+            )
+        except BaseException as exc:  # pragma: no cover - surfaced by the assertion below
+            errors.append(exc)
+        finally:
+            conn.close()
+
+    threads = [threading.Thread(target=complete) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=20)
+
+    assert not errors
+    assert [row["status"] for row in results] == ["completed", "completed"]
+    with db.Store(path) as store:
+        conn = store.connection
+        assert conn.execute(
+            "SELECT COUNT(*) FROM session WHERE session_id = ?", (workout_id,)
+        ).fetchone()[0] == 1
+        assert conn.execute(
+            "SELECT COUNT(*) FROM workout_event "
+            "WHERE workout_id = ? AND event_type = 'end'", (workout_id,)
+        ).fetchone()[0] == 1
+        assert conn.execute(
+            "SELECT COUNT(*) FROM analytics_revision WHERE kind = 'workout_end'"
+        ).fetchone()[0] == 1
+        assert conn.execute(
+            "SELECT COUNT(*) FROM clean_set WHERE session_id = ?", (workout_id,)
+        ).fetchone()[0] == 1
+        assert conn.execute(
+            "SELECT done_count FROM exercise_dwell_state WHERE exercise_id = ?",
+            ("trap_bar_deadlift",),
+        ).fetchone()[0] == 1
+
+
+# ---------------------------------------------------------------------------
+# Set idempotency (release-integrity audit, WP4)
+# ---------------------------------------------------------------------------
+
+
+def test_a_retry_must_match_the_complete_immutable_set_payload(conn):
+    started = workout.start(conn, for_date="2024-01-01", plan=PLAN, readiness=READINESS)
+    workout_id = started["workout_id"]
+    performed = started["started_at"]
+    replica = [
+        {"rep_index": 1, "velocity_mps": 0.50},
+        {"rep_index": 2, "velocity_mps": 0.45},
+    ]
+    request = dict(
+        exercise_id="trap_bar_deadlift",
+        load_kg=100.0,
+        reps=2,
+        rir=2,
+        source="device",
+        set_index=1,
+        rep_velocities=replica,
+        performed_at=performed,
+    )
+    first = workout.add_set(conn, workout_id, **request)
+    assert len(first["sets"]) == 1
+    # The same instant in another offset, and the reps in another order, are a true replay.
+    replay = workout.add_set(
+        conn, workout_id,
+        **{
+            **request,
+            "performed_at": dt.datetime.fromisoformat(performed)
+                .astimezone(dt.timezone(dt.timedelta(hours=1))).isoformat(),
+            "rep_velocities": list(reversed(replica)),
+        },
+    )
+    assert len(replay["sets"]) == 1
+    assert replay["sets"][0]["set_id"] == first["sets"][0]["set_id"]
+
+    # Each field below changes the set, so each must be a conflict rather than a silent drop.
+    conflicts = [
+        {"source": "manual"},
+        {"performed_at": (
+            dt.datetime.fromisoformat(performed) + dt.timedelta(seconds=1)
+        ).isoformat()},
+        {"rep_velocities": [
+            {"rep_index": 1, "velocity_mps": 0.49},
+            {"rep_index": 2, "velocity_mps": 0.46},
+        ]},
+        {"rep_velocities": [{"rep_index": 1, "velocity_mps": 0.50}]},
+    ]
+    for change in conflicts:
+        with pytest.raises(ValueError, match="set_index_conflict"):
+            workout.add_set(conn, workout_id, **{**request, **change})
+    assert len(workout.get(conn, workout_id)["sets"]) == 1
+
+
+def test_concurrent_automatic_set_indices_are_not_lost(tmp_path):
+    # Automatic indices are allocated under the write lock, so two writers cannot both choose
+    # the same index and one of the sets cannot disappear into a false replay.
+    path, workout_id = _prepared_file_store(tmp_path)
+    barrier = threading.Barrier(6)
+    errors: list[BaseException] = []
+
+    def add(load: float):
+        conn = db.connect(path)
+        try:
+            barrier.wait(timeout=10)
+            workout.add_set(
+                conn, workout_id, exercise_id="competition_bench_press",
+                load_kg=load, reps=5, rir=2,
+            )
+        except BaseException as exc:  # pragma: no cover - surfaced by the assertion below
+            errors.append(exc)
+        finally:
+            conn.close()
+
+    loads = [40.0, 45.0, 50.0, 55.0, 60.0, 65.0]
+    threads = [threading.Thread(target=add, args=(load,)) for load in loads]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=20)
+
+    assert not errors
+    with db.Store(path) as store:
+        rows = store.connection.execute(
+            "SELECT set_index, load_kg FROM workout_set "
+            "WHERE exercise_id = 'competition_bench_press' ORDER BY set_index"
+        ).fetchall()
+    assert [row["set_index"] for row in rows] == [1, 2, 3, 4, 5, 6]
+    assert sorted(row["load_kg"] for row in rows) == loads

@@ -901,7 +901,10 @@ def build_prescription(
 
 
 # Lifts whose velocity signal is not trustworthy enough to prescribe from (docs/VBT-EVIDENCE.md).
-VBT_UNRELIABLE = {"trap_bar_deadlift"}
+# Empty: the owner rejected the earlier hex-bar exclusion, so the trap bar is now eligible for a
+# target like every other calibrated lift. The hook stays so a future exclusion is one edit here
+# instead of a change to _attach_vbt_targets, and the plan note still reports anything withheld.
+VBT_UNRELIABLE: set[str] = set()
 QUALITY_STOP_DEFAULT = (
     "Maximal intent; full recovery; stop when jump height or quality drops"
 )
@@ -1660,22 +1663,28 @@ def _attach_vbt_targets(
 
     The calibration needs 12 sets across 3 sessions per lift before it produces a target; with
     the current export that is often unavailable, and the honest answer is "no target" rather
-    than a plausible velocity. A session already modified by a safety rule is skipped: its load
-    no longer matches the calibration's assumptions.
+    than a plausible velocity.
+
+    A session amended by a safety rule keeps its targets. The target is conditional on rep count
+    and RIR band, never on load, so a lighter set at the same effort is still comparable; when the
+    amendment moved the prescribed effort outside the band, the per-set rules exclude that set
+    rather than the whole workout. Only a plan item that no longer carries the lift, rep count or
+    set group loses its target.
     """
-    if fallback_level != "full" or context.symptom_flare:
-        return items, (), {
-            "status": "skipped",
-            "reason": "session modified by a safety rule; load no longer matches the calibration",
-        }
+    modified = bool(fallback_level != "full" or context.symptom_flare)
     if context.sets.empty:
-        return items, (), {"status": "unavailable", "reason": "no stored sets"}
+        return items, (), {
+            "status": "unavailable",
+            "reason": "no stored sets",
+            "session_modified": modified,
+        }
 
     result = calibration or vbt_calibration.calibrate(context.sets)
     if not result.targets:
         return items, (), {
             "status": "unavailable",
             "reason": "no lift has 12 clean sets across 3 sessions with velocity",
+            "session_modified": modified,
             "upgrade": "per-rep velocity and individual load-velocity profiles are deferred "
                        "(docs/VBT-CALIBRATION.md)",
         }
@@ -1723,10 +1732,13 @@ def _attach_vbt_targets(
     note = {
         "status": "available" if ids else "unavailable",
         "targets": len(ids),
+        "session_modified": modified,
         "calibration_ids": list(unique_ids),
         "withheld": sorted(set(withheld)),
         "upgrade": "mean velocity only; per-rep velocity loss deferred (docs/VBT-CALIBRATION.md)",
     }
+    if not ids:
+        note["reason"] = "no planned lift has a target at its prescribed rep count"
     return tuple(out), unique_ids, note
 
 
@@ -2199,7 +2211,7 @@ def build_item(
                 warnings.append(
                     f"{exercise_id}: e1RM source has one eligible set; confidence limited"
                 )
-            elif thresholds.e1rm_source == config_mod.E1RM_MEDIAN:
+            elif coverage is not None and thresholds.e1rm_source == config_mod.E1RM_MEDIAN:
                 # Say what the estimate summarised: a median is not a single stored set, and
                 # the cited reference names only the most recent contributor.
                 warnings.append(

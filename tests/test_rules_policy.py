@@ -237,7 +237,8 @@ def test_double_progression_decides_when_ranges_are_supplied(document):
         rows,
         rep_ranges={
             "back_extension": (8, 12), "lateral_raise": (12, 15),
-            "split_squat": (8, 10), "ab_wheel": (6, 10),
+            "split_squat": (8, 10), "bulgarian_split_squat": (8, 10),
+            "ab_wheel": (6, 10),
             "hanging_leg_raise": (8, 12), "pull_up": (6, 10), "lat_pulldown": (6, 10),
             "dumbbell_row": (8, 12), "overhead_press_seated": (6, 10),
             "single_leg_db_rdl": (8, 10),

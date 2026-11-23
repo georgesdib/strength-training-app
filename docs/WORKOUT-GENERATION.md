@@ -142,7 +142,7 @@ This example is generated from a deterministic synthetic fixture, [`tests/fixtur
 The block below is rendered from the actual `build_prescription` output by [`tools/workout_generation_example.py`](../tools/workout_generation_example.py). Do not edit it by hand: after a template, threshold or engine change run `python tools/workout_generation_example.py --write`. [`tests/test_workout_generation_doc.py`](../tests/test_workout_generation_doc.py) fails when the committed block is stale.
 
 <!-- BEGIN GENERATED WORKOUT EXAMPLE -->
-<!-- source:sha256:540fdc4413265033 -->
+<!-- source:sha256:9fe36e8cfa1d9fea -->
 
 ### 12.1 Inputs
 
@@ -194,6 +194,7 @@ Engine warnings:
 - bench_press_narrow: e1RM source has one eligible set; confidence limited
 - accessory_pull_up: chose pull_up from ['pull_up', 'lat_pulldown']
 - pull_up: bodyweight, progress by reps or sets, not load
+- accessory_split_squat: chose split_squat from ['split_squat', 'bulgarian_split_squat']
 - accessory_knee_flexion: chose lying_leg_curls from ['lying_leg_curls', 'nordic_curl']
 - readiness unknown for 2024-01-08; fatigue modifier not applied
 - MOD-VOL-002: under-MEV accessory progression: horizontal_pull:dumbbell_row+1, knee_flexion:lying_leg_curls+1, squat:split_squat+1, vertical_pull:pull_up+1

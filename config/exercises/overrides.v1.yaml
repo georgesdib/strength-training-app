@@ -1,8 +1,38 @@
 # Exercise catalogue overrides written by the local UI (Exercises tab).
 # `log_names` are exact strings; ids are immutable.
-#
-# Nothing is overridden right now: every local edit has been ported into taxonomy.v1.yaml, which
-# is the single canonical source. The UI still writes here when an entity is edited locally.
 
 schema_version: 1.0.0
-entities: {}
+entities:
+  bench_press_narrow:
+    primary_muscles:
+    - biceps
+    - chest
+    - front_delts
+    - triceps
+  pull_up:
+    primary_muscles:
+    - lats
+    - upper_back
+    - upper_trap
+  dumbbell_row:
+    primary_muscles:
+    - lats
+    - upper_back
+  overhead_press_seated:
+    primary_muscles:
+    - front_delts
+    - triceps
+  ab_wheel:
+    loadable: false
+    primary_muscles:
+    - abs
+  ssb_squat:
+    primary_muscles:
+    - erectors
+    - glutes
+    - quadriceps
+    spinal_cost: 0.5
+  hanging_leg_raise:
+    primary_muscles:
+    - abs
+    loadable: false

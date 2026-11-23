@@ -1007,6 +1007,12 @@ changes; the server splits a `Suggestions (not applied)` section into its own UI
 uses the last ten messages and caps the dossier at roughly 18k characters, dropping lower-priority
 blocks first. The daily token budget applies.
 
+**Raw data.** Each answer also returns `raw`: the exact model request (model, messages,
+temperature, max tokens) and the provider response body as parsed. The Chat view puts it in a
+collapsed **Show raw data** disclosure at the end of each answer. It is session-only browser memory;
+the run trace still records only the model and token count, and the captured request body excludes
+headers, so no credential is exposed.
+
 **Tests.** `tests/test_intelligence_chat.py` covers the dossier, suggestion split and history trim;
 `tests/test_intelligence_chat_eval.py` runs a four-case multi-turn matrix (one turn, multi-turn,
 long thread, injection). No real model call in CI.
@@ -1119,6 +1125,26 @@ instructions inside them. Python classes are split into a header and method chun
 limit enforced. The first retrieved chunk is clipped to the remaining context budget. The index is
 created with a restrictive umask and SQLite sidecars are protected. Status reports every configured
 source, including missing roots and dirty state.
+
+## 36. UI locate — "where in the UI" over the search index (2026-11-21)
+
+**Delivered.** `POST /api/intelligence/locate` and an **Ask the assistant** control in the search
+palette. The server resolves the query through `GET /api/search` first, then asks the configured
+model to phrase where the answer lives, using only those targets (plus optional retrieved project
+sources). The response carries the answer, a `verified` flag, the deterministic `results` and the
+source paths; the palette renders the results as the clickable part with the prose above them.
+
+**Grounding.** The model never produces a link. `verify()` rejects an answer that contains a link,
+names an arrow path whose segments are not among the supplied labels, or cites a document outside
+the results; a rejected answer is still shown, marked unverified, and accompanied by the results.
+
+**Policy.** One call per question, the existing daily budget and `RunTrace` (input hash, token
+count); the prompt and the answer are not stored. Search keeps working with no model configured;
+the endpoint returns 400 and the palette reports it.
+
+**Tests.** `tests/test_ui_locate.py`: known path accepted, invented place and link rejected,
+document allow-list, prompt grounding, endpoint round trip with the budget, validation and the
+disabled-model path.
 
 ## Related
 

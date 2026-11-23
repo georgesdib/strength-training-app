@@ -79,6 +79,7 @@ from strength_coach.features import deload as deload_feature
 from strength_coach.features import demands as demands_feature
 from strength_coach.features import derived as derived_feature
 from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
+from strength_coach.features import e1rm_override_ledger as e1rm_override_ledger_feature
 from strength_coach.features import exercise_history as exercise_history_feature
 from strength_coach.features import exposure as exposure_ratio_feature
 from strength_coach.features import fatigue_fitness as fatigue_fitness_feature
@@ -443,6 +444,38 @@ def _session_rows(conn, limit: int = 20) -> list[dict]:
             data["main_lifts"] = []
         out.append(data)
     return out
+
+
+def _merge_live(live: list, targets: list[dict]) -> list[dict]:
+    """Put client-collected surfaces (headings rendered by script) ahead of the indexed results."""
+    merged: list[dict] = []
+    seen: set[str] = set()
+    for item in live[:8]:
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("title") or "").strip()
+        view = str(item.get("view") or "").strip()
+        target = str(item.get("target") or "").strip()
+        if not (title and view and target) or target in seen:
+            continue
+        seen.add(target)
+        merged.append({
+            "kind": "panel",
+            "score": 1.0,
+            "title": title[:120],
+            "subtitle": str(item.get("subtitle") or "").strip()[:80],
+            "view": view[:40],
+            "target": target[:120],
+            "doc": "",
+            "anchor": "",
+        })
+    for row in targets:
+        key = str(row.get("target") or "")
+        if key and key in seen:
+            continue
+        seen.add(key)
+        merged.append(row)
+    return merged[:10]
 
 
 def _docs() -> list[dict]:
@@ -1814,6 +1847,11 @@ class Handler(BaseHTTPRequestHandler):
 
     IOS_ACTIVITY_MAX_METRICS = 2000
 
+    # Metrics the phone aggregates over a window before sending: steps and standing time are
+    # periodic assessments, so one row per window beats a daily series whose declared
+    # aggregation is a mean (config/measurements.v1.yaml).
+    IOS_WINDOW_METRIC_KINDS = frozenset({"steps_per_day", "sitting_hours_per_day"})
+
     def _ios_healthkit_metrics(self, conn, metrics: list) -> dict:
         """Write standalone metrics; a single implausible value must not fail the whole sync.
 
@@ -1827,18 +1865,41 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(item, dict):
                 raise FieldError("each metric must be an object")
             kind = str(item.get("kind") or "")
-            if kind != "vo2max":
+            if kind == "vo2max":
+                try:
+                    created = cardio.record_vo2max(
+                        conn,
+                        external_id=self._ios_activity_key(item.get("key")).hex(),
+                        measured_at=item.get("measured_at"),
+                        value=float(item.get("value")),
+                        method=str(item.get("method") or "HealthKit"),
+                        noted_at=datetime.datetime.now(datetime.UTC).isoformat(),
+                    )
+                except cardio.CardioIngestError:
+                    skipped += 1
+                    continue
+                written += int(created)
+                continue
+            if kind not in self.IOS_WINDOW_METRIC_KINDS:
                 raise FieldError(f"unsupported metric kind {kind!r}")
+            # A windowed assessment arrives already aggregated by the phone: one row per window,
+            # keyed by the window so a re-sync of the same week is a no-op rather than a second
+            # data point in a series whose aggregation is a mean.
+            day = str(item.get("measured_at") or "")[:10]
             try:
-                created = cardio.record_vo2max(
+                created = measurements_feature.record_once(
                     conn,
-                    external_id=self._ios_activity_key(item.get("key")).hex(),
-                    measured_at=item.get("measured_at"),
+                    metric_key=kind,
                     value=float(item.get("value")),
+                    measured_on=day,
                     method=str(item.get("method") or "HealthKit"),
-                    noted_at=datetime.datetime.now(datetime.UTC).isoformat(),
+                    source="device",
+                    external_id=self._ios_activity_key(item.get("key")).hex(),
                 )
-            except cardio.CardioIngestError:
+            except measurements_feature.MeasurementError:
+                skipped += 1
+                continue
+            except (TypeError, ValueError):
                 skipped += 1
                 continue
             written += int(created)
@@ -2486,6 +2547,17 @@ class Handler(BaseHTTPRequestHandler):
         row = ios_workflow.current_plan(conn, device["device_id"])
         if row is None:
             return {"status": "none"}
+        target_device_id = row["target_device_id"]
+        if target_device_id is not None:
+            # Fail closed on a dead execution target. Replacing or revoking a watch supersedes
+            # its live plan, so this only catches a legacy row or a race that missed that
+            # write; advertising it would offer a plan that can never be started.
+            target = conn.execute(
+                "SELECT revoked_at FROM ios_device WHERE device_id = ?",
+                (str(target_device_id),),
+            ).fetchone()
+            if target is None or target["revoked_at"] is not None:
+                return {"status": "none"}
         status = str(row["status"])
         now = ios_workflow.now_iso()
         if status in {"queued", "building"}:
@@ -3583,6 +3655,11 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, _docs())
             elif path.startswith("/api/docs/"):
                 self._json(200, self._doc(path[len("/api/docs/"):]))
+            elif path == "/api/search":
+                query = parse_qs(urlparse(self.path).query)
+                limit = max(1, min(50, int(query.get("limit", ["20"])[0] or 20)))
+                from strength_coach.web import search as ui_search
+                self._json(200, ui_search.search(query.get("q", [""])[0], limit=limit))
             elif path.startswith("/docs/"):
                 self._doc_page(path[len("/docs/"):])
             elif path.startswith("/api/review/"):
@@ -3737,6 +3814,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._narrate(c, body)))
             elif path == "/api/intelligence/chat":
                 self._json(200, self._with_conn(lambda c: self._chat(c, body)))
+            elif path == "/api/intelligence/locate":
+                self._json(200, self._with_conn(lambda c: self._locate(c, body)))
             elif path == "/api/intelligence/explain":
                 self._json(200, self._with_conn(lambda c: self._explain(c, body)))
             elif path == "/api/intelligence/knowledge/settings":
@@ -3858,6 +3937,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._save_suitability(c, body)))
             elif path == "/api/state/e1rm":
                 self._json(200, self._with_conn(lambda c: self._save_e1rm(c, body)))
+            elif path == "/api/state/e1rm/withdraw":
+                self._json(200, self._with_conn(lambda c: self._withdraw_e1rm(c, body)))
             elif path == "/api/state/symptom":
                 self._json(200, self._with_conn(lambda c: self._save_symptom(c, body)))
             elif path == "/api/state/block":
@@ -4341,6 +4422,83 @@ class Handler(BaseHTTPRequestHandler):
             "warnings": result.warnings,
             "tools": result.tools,
             "suggestions": result.suggestions,
+            "tokens": result.tokens,
+            "model": client.model,
+            "raw": result.raw,
+        }
+
+    def _locate(self, conn, body: dict) -> dict:
+        import hashlib
+
+        from strength_coach.intelligence.knowledge import retrieval
+        from strength_coach.intelligence.knowledge.allowlist import load_config as load_knowledge
+        from strength_coach.intelligence.model import ensure_daily_budget, run_locate
+        from strength_coach.trace.run import RunTrace
+        from strength_coach.web import search as ui_search
+
+        query = body.get("query")
+        if not isinstance(query, str) or not query.strip():
+            raise FieldError("query must be text", {"query": "required"})
+        query = query.strip()
+        if len(query) > 200:
+            raise FieldError("query is too long", {"query": "max 200 characters"})
+
+        settings = load_settings()
+        if not settings.enabled:
+            raise ValueError("LLM is disabled or incomplete; configure it in Settings")
+        client = build_client(settings)
+        try:
+            ensure_daily_budget(conn, settings.daily_tokens)
+        except Exception as exc:
+            raise ValueError(str(exc)) from exc
+
+        found = ui_search.search(query, limit=8)
+        live = body.get("live")
+        targets = (
+            _merge_live(live, found["results"]) if isinstance(live, list) else found["results"]
+        )
+        knowledge = load_knowledge()
+        chunks = retrieval.search(knowledge.index_path, query, top_k=6, max_chars=12_000)
+        trace = RunTrace.start(
+            conn,
+            input_hash=hashlib.sha256(query.encode("utf-8")).hexdigest(),
+            llm_model=client.model,
+        )
+        trace.event(
+            "input",
+            {"chars": len(query), "targets": len(targets), "sources": len(chunks)},
+        )
+        try:
+            result = run_locate(
+                client,
+                query,
+                targets,
+                [
+                    {
+                        "path": chunk.path,
+                        "heading": chunk.heading,
+                        "line_start": chunk.line_start,
+                        "line_end": chunk.line_end,
+                        "text": chunk.text,
+                    }
+                    for chunk in chunks
+                ],
+            )
+        except Exception:
+            trace.finish(status="llm_failed")
+            conn.commit()
+            raise
+        trace.event("llm_output", {"tokens": result.tokens, "verified": result.verified})
+        trace.add_tokens(result.tokens or 0)
+        trace.finish(status="ok")
+        conn.commit()
+        return {
+            "query": query,
+            "answer": result.answer,
+            "verified": result.verified,
+            "warning": result.warning,
+            "results": targets,
+            "sources": list(result.sources),
             "tokens": result.tokens,
             "model": client.model,
         }
@@ -4990,6 +5148,7 @@ class Handler(BaseHTTPRequestHandler):
         if task_key not in {
             "readiness_thresholds", "exercise_substitution", "fatigue_signals",
             "phase5a_review", "afc_device_acceptance", "afc_5a_historical",
+            "hr_recovery_probe",
         }:
             raise ValueError("unknown periodic review task")
         action = str(body.get("action") or "completed").strip().lower()
@@ -5489,6 +5648,10 @@ class Handler(BaseHTTPRequestHandler):
                 row for row in symptoms if row.get("attributed_session_id")
             ],
             "e1rm_overrides": queries.e1rm_overrides(conn),
+            "e1rm_override_ledger": [
+                row.as_dict()
+                for row in e1rm_override_ledger_feature.build(conn, on_date=today)
+            ],
             "declared_breaks": breaks_feature.as_dict(breaks_feature.all_breaks(conn)),
             "e1rm_calibration": e1rm_calibration_feature.as_dict(calibration),
             "e1rm_tests_needed": e1rm_calibration_feature.coverage_as_dict(
@@ -6005,6 +6168,35 @@ class Handler(BaseHTTPRequestHandler):
             effective_from=str(body.get("effective_from") or datetime.date.today().isoformat()),
             expires_on=body.get("expires_on") or None,
             reason=body.get("reason") or None,
+        )
+        return self._state(conn)
+
+    def _withdraw_e1rm(self, conn, body: dict) -> dict:
+        """Append a dated tombstone; the override row itself is never deleted."""
+        exercise_id = _field_call(
+            validation.exercise_id, "exercise_id", body.get("exercise_id")
+        )
+        reason = str(body.get("reason") or "").strip()
+        if not reason:
+            raise FieldError(
+                "a reason is required to withdraw an e1RM override",
+                {"reason": "required"},
+            )
+        effective_from = str(
+            body.get("effective_from") or datetime.date.today().isoformat()
+        )
+        try:
+            datetime.date.fromisoformat(effective_from)
+        except ValueError as exc:
+            raise FieldError(
+                "effective_from must be YYYY-MM-DD",
+                {"effective_from": "must be YYYY-MM-DD"},
+            ) from exc
+        repositories.append_e1rm_withdrawal(
+            conn,
+            exercise_id=exercise_id,
+            effective_from=effective_from,
+            reason=reason,
         )
         return self._state(conn)
 

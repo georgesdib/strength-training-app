@@ -45,6 +45,7 @@ from strength_coach.features import (
 from strength_coach.features import deload as deload_feature
 from strength_coach.features import demands as demands_feature
 from strength_coach.features import e1rm_calibration as e1rm_calibration_feature
+from strength_coach.features import e1rm_override_ledger as e1rm_override_ledger_feature
 from strength_coach.features import exposure as exposure_ratio_feature
 from strength_coach.features import fatigue_fitness as fatigue_fitness_feature
 from strength_coach.features import high_intensity_exposure as exposure_feature
@@ -243,7 +244,14 @@ def main(argv: list[str] | None = None) -> int:
     setter.add_argument("--until", dest="expires_on", default=None,
                         help="YYYY-MM-DD; omit for no expiry")
     setter.add_argument("--reason", default=None, help="why this override exists")
-    e1rm_sub.add_parser("list", help="show recorded overrides")
+    e1rm_sub.add_parser("list", help="show recorded overrides and withdrawals")
+    withdraw = e1rm_sub.add_parser(
+        "withdraw", help="withdraw an override from a date (append-only tombstone)"
+    )
+    withdraw.add_argument("--exercise", required=True, help="canonical exercise id")
+    withdraw.add_argument("--from", dest="effective_from", default=None,
+                          help="YYYY-MM-DD (default: today)")
+    withdraw.add_argument("--reason", required=True, help="why the override is withdrawn")
     e1rm_cal = e1rm_sub.add_parser(
         "calibrate", help="compare measured tests with the formula estimate (report only)"
     )
@@ -1576,6 +1584,23 @@ def _cmd_e1rm(args) -> int:
         if args.action == "list":
             _print_e1rm(conn)
             return 0
+        if args.action == "withdraw":
+            effective_from = args.effective_from or datetime.date.today().isoformat()
+            try:
+                datetime.date.fromisoformat(effective_from)
+            except ValueError:
+                print("--from must be YYYY-MM-DD")
+                return 2
+            repositories.append_e1rm_withdrawal(
+                conn,
+                exercise_id=args.exercise,
+                effective_from=effective_from,
+                reason=args.reason,
+            )
+            print(
+                f"e1RM override withdrawn: {args.exercise} from {effective_from}"
+            )
+            return 0
         if args.action == "calibrate":
             report = e1rm_calibration_feature.build(conn, window_days=args.window_days)
             _print_e1rm_calibration(report)
@@ -1607,21 +1632,21 @@ def _cmd_e1rm(args) -> int:
 
 
 def _print_e1rm(conn) -> None:
-    rows = queries.e1rm_overrides(conn)
+    rows = e1rm_override_ledger_feature.build(conn)
     if not rows:
         print("no e1RM overrides; prescriptions use the computed estimate")
         return
-    today = datetime.date.today().isoformat()
-    print(f"{'exercise':<24}{'e1RM kg':>9}{'from':>13}{'until':>13}  status")
+    print(
+        f"{'exercise':<24}{'e1RM kg':>9}{'from':>13}{'until':>13}"
+        f"  {'kind':<10}  {'status':<10} reason"
+    )
     for row in rows:
-        if row["effective_from"] > today:
-            status = "future"
-        elif row["expires_on"] and row["expires_on"] < today:
-            status = "expired"
-        else:
-            status = "active"
-        print(f"{row['exercise_id']:<24}{row['e1rm_kg']:>9g}"
-              f"{row['effective_from']:>13}{row['expires_on'] or '-':>13}  {status}")
+        kg = "-" if row.e1rm_kg is None else f"{row.e1rm_kg:g}"
+        print(
+            f"{row.exercise_id:<24}{kg:>9}{row.effective_from:>13}"
+            f"{row.expires_on or '-':>13}  {row.kind:<10}  {row.status:<10}"
+            f" {row.reason or ''}"
+        )
 
 
 def _print_e1rm_calibration(report) -> None:

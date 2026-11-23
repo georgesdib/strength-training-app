@@ -63,6 +63,46 @@ class History:
 
 
 @dataclass(frozen=True)
+class DatedState:
+    """Everything a context derives from dated state, evaluated as of one date.
+
+    One derivation for `from_store` and `as_of` keeps the point-in-time rule in a single place:
+    symptoms, the profile version in force, the declared block's trained-week index and the gap
+    since the last session are all read at or before the date, never after it.
+    """
+
+    symptom_flare: bool | None
+    symptom_level: int | None
+    symptom_on: str | None
+    block_week_index: int | None
+    gap_days: int | None
+
+
+def dated_state(conn, on_date: str | None) -> DatedState:
+    """The dated context fields as they stood on `on_date`; None means nothing is known."""
+    if on_date is None:
+        return DatedState(None, None, None, None, None)
+    symptom = queries.latest_symptom(conn, on_date)
+    level = int(symptom["level"]) if symptom is not None else None
+    on = str(symptom["logged_on"]) if symptom is not None else None
+    flare = _flare_from(
+        level, symptom["settled_within_48h"] if symptom is not None else None
+    )
+    # The profile is versioned by effective date: the current row would let a later edit change
+    # an earlier context (and therefore an earlier ramp week).
+    profile = queries.athlete_profile(conn, as_of=on_date)
+    gap = _gap_days(conn, on_date)
+    week: int | None = None
+    if profile and profile["block_start_date"]:
+        week = trained_week_index(conn, profile["block_start_date"], on_date)
+        # A long break steps the ramp back one stage: rest settles symptoms but does not
+        # preserve load tolerance (DEC-CONTINUITY-01).
+        if gap is not None and gap >= 56 and week:
+            week = max(1, week - 1)
+    return DatedState(flare, level, on, week, gap)
+
+
+@dataclass(frozen=True)
 class RuleContext:
     sets: pd.DataFrame
     sessions: pd.DataFrame
@@ -141,6 +181,48 @@ class RuleContext:
             self._prior_views.pop(next(iter(self._prior_views)))
         return view
 
+    def as_of(self, conn, on_date: str) -> RuleContext:
+        """The context as it stood on `on_date`, whatever range the caller loaded.
+
+        Observation on the date counts; anything later is removed. The dated fields are
+        re-derived rather than trusted, because a context built to a later end (or from a
+        whole-history frame) would otherwise carry a later symptom, block week or profile into
+        a retrospective evaluation. Used by exercise selection so the as-of guarantee does not
+        depend on how its caller happened to build the context.
+        """
+        cutoff = pd.Timestamp(on_date)
+        sets = (
+            self.sets[self.sets["date"] <= cutoff]
+            if not self.sets.empty and "date" in self.sets.columns else self.sets
+        )
+        sessions = (
+            self.sessions[self.sessions["occurred_on"] <= cutoff]
+            if not self.sessions.empty and "occurred_on" in self.sessions.columns
+            else self.sessions
+        )
+        state = dated_state(conn, on_date)
+        has_set_keys = {"session_id", "set_id"} <= set(sets.columns)
+        return replace(
+            self,
+            sets=sets,
+            sessions=sessions,
+            symptom_flare=state.symptom_flare,
+            symptom_level=state.symptom_level,
+            symptom_on=state.symptom_on,
+            block_week_index=state.block_week_index,
+            gap_days=state.gap_days,
+            set_keys=_set_keys(sets) if has_set_keys else self.set_keys,
+            session_ids=(
+                frozenset(sets["session_id"].astype(str))
+                if "session_id" in sets.columns else self.session_ids
+            ),
+            iso_weeks=(
+                frozenset(sets["iso_week"].dropna())
+                if "iso_week" in sets.columns else self.iso_weeks
+            ),
+            _prior_views={},
+        )
+
     @classmethod
     def from_store(
         cls,
@@ -169,31 +251,21 @@ class RuleContext:
         scoped = history.until(end)
         sets = scoped.sets
         sessions_frame = scoped.sessions
-        symptom = queries.latest_symptom(conn, end) if end else None
-        level = int(symptom["level"]) if symptom is not None else None
-        on_date = str(symptom["logged_on"]) if symptom is not None else None
+        state = dated_state(conn, end)
         if symptom_flare is None:
-            symptom_flare = flare_from(level, symptom["settled_within_48h"]
-                                       if symptom is not None else None)
-
-        profile = queries.athlete_profile(conn)
-        gap_days = _gap_days(conn, end)
-        if block_week_index is None and profile and profile["block_start_date"] and end:
-            block_week_index = trained_week_index(conn, profile["block_start_date"], end)
-            # A long break steps the ramp back one stage: rest settles symptoms but does not
-            # preserve load tolerance (DEC-CONTINUITY-01).
-            if gap_days is not None and gap_days >= 56 and block_week_index:
-                block_week_index = max(1, block_week_index - 1)
+            symptom_flare = state.symptom_flare
+        if block_week_index is None:
+            block_week_index = state.block_week_index
 
         return cls(
             sets=sets,
             sessions=sessions_frame,
             entities=exercises.taxonomy().entities,
             symptom_flare=symptom_flare,
-            symptom_level=level,
-            symptom_on=on_date,
+            symptom_level=state.symptom_level,
+            symptom_on=state.symptom_on,
             block_week_index=block_week_index,
-            gap_days=gap_days,
+            gap_days=state.gap_days,
             spinal_cap=spinal_cap,
             spinal_costs=spinal_costs,
             rep_ranges=rep_ranges or {},

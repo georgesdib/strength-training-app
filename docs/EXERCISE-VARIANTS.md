@@ -14,6 +14,12 @@ muscle lists, and the competition-squat and conventional-deadlift muscle lists) 
 the taxonomy, so the taxonomy is the single canonical source again. An edit made in the tab still
 lands in the override file and should be ported the same way once it is settled.
 
+Edits made from the tab accumulated again after that, so on 2026-11-22 the file was reduced to
+field-level differences only: every property that repeated the taxonomy value (the tab writes the
+whole property map) was removed, and entries left with nothing to say were deleted. It now holds ten fields across seven exercises — muscle lists,
+the two `loadable: false` flags and the SSB spinal cost. A field that equals the taxonomy must
+never be re-added: it makes the next edit look intentional when it is only a dump of the defaults.
+
 ## 1. Add the canonical exercise
 
 [`config/exercises/taxonomy.v1.yaml`](../config/exercises/taxonomy.v1.yaml):
@@ -45,6 +51,38 @@ lands in the override file and should be ported the same way once it is settled.
 
 Do not use `history_equivalent_of` for a different variant with different loads
 (pull-up vs lat pulldown).
+
+### 1.1 What a new id must touch (and what the generator does instead)
+
+One id is referenced in about a dozen places. Judgment lives in one reviewable source,
+[`config/catalogue.v1.yaml`](../config/catalogue.v1.yaml), and the list-shaped files are
+generated from it. `python tools/catalogue.py` names every missing key in one pass, and
+`tests/test_exercise_catalogue.py` fails on the same list.
+
+| Place | What it needs | Who writes it |
+|---|---|---|
+| `config/exercises/taxonomy.v1.yaml` | identity, log names, pattern, muscles, `vbt_family` | hand |
+| `config/exercises/demands.v1.yaml` | optional demand claims and evidence ids | hand |
+| `config/templates/session-types.v1.yaml` | a slot, if the lift is programmed | hand |
+| `config/rules/programme.v1.yaml` | rule collections such as `$primary_compounds` | hand |
+| `config/catalogue.v1.yaml` | tax ordinals, candidate pools and their order, load basis, comparability pairs, inference membership | hand (the source) |
+| `config/selection-tax.v1.yaml` | axial/systemic/skill/rom ordinals | generated from the source (or a recorded exception) |
+| `config/variants.v1.yaml` | candidate pools per session and slot | generated from the source |
+| `config/templates/inference.v1.yaml`, `config/selection-comparability.v1.yaml` | inference lists, load-basis groups, explicit pairs | generated from the source |
+| `config/resolver-role-quality.v1.yaml` | `stimulus.ratings` | generated (rubric) |
+| `docs/EXERCISE-DEMANDS.md` | coverage block | generated |
+
+    python tools/build_catalogue.py --write   # regenerate the generated files
+    python tools/catalogue.py                 # semantic check; names the missing key
+    ./check.sh docs                           # regenerate, then run the docs tests
+
+Generated files carry a header and no inline rationale: the reasoning for a rank order or a
+comparability class belongs in this document and the `DEC-CATALOGUE` decisions, where it is
+reviewed once instead of being copied into a dozen list entries.
+
+A gap that is deliberate - an id the programme cannot select, a lift with no tax ordinal yet -
+is recorded with a reason in [`config/catalogue-exceptions.yaml`](../config/catalogue-exceptions.yaml).
+A stale exception fails the check, so the file cannot rot.
 
 ## 2. Add it to a slot
 
@@ -109,6 +147,13 @@ them into `side_plank` (**99** rows) and `chinese_plank` (**61** rows), leaving 
 `core_isometric` with `[abs]`; all three still record seconds in `Reps_Done`. The split is
 recorded in `exercise_remap_log` like the earlier rewrites, and pattern is read at run time, so
 no second migration is needed for the correction.
+
+**Later split and merge (2026-11-22):** `split_squat` was split into `split_squat` (rear foot
+down) and `bulgarian_split_squat` (rear foot elevated), and `bench_press_wide_grip` was retired
+into `bench_press`. Migration `0075` rewrote the affected `clean_set` rows with the same audit
+trail, so each lift now keeps its own history instead of one pooled set — the split needed it
+because a pooled e1RM reads the elevated version as the same load, and the merge needed it
+because the retired id could no longer accumulate anything (`DEC-VARIANT-06`).
 
 **Exceptions preserved:**
 

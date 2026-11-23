@@ -5,6 +5,10 @@ are implemented and the final audit closed 2026-11-06. Every view/panel gets a s
 documentation deep-link; this file is the canonical map used to build and audit those links.
 See [UI design audit and plan](archive/UI-DESIGN-IMPLEMENTATION-PLAN.md).
 
+**Post-audit additions (2026-11-21):** Narrate, Chat and Explain were added after the 2026-11-06
+closeout. They follow the same panel, link and Related-block contract and are recorded below; Chat's
+session-only raw-data disclosure is described in [WEB-UI.md](WEB-UI.md).
+
 ## Link contract
 
 Each panel should use one short sentence and one link:
@@ -42,8 +46,16 @@ current destinations; they do not duplicate their forms or imply new data contra
 | **Training** | Workflow, History, Exercises |
 | **Progress** | Overview, Performance, Outcomes |
 | **Health & Longevity** | Longevity overview, Cardio, Measures, Readiness settings |
-| **Programme Intelligence** | Prescribe diagnostics, Programme forecast, Review |
+| **Programme Intelligence** | Prescribe, Programme, Review, Narrate, Chat, Explain |
 | **Administration** | Athlete, Import, Settings, Logs, Docs |
+
+Global surfaces outside the six areas: the **Search** palette (`Ctrl/Cmd+K`, or the topbar
+**Search** button) over views, panels, profile settings and doc headings, and the **Docs** viewer
+in Administration. A search result activates the same deep links this map documents —
+`#view?panel=<id>` for a surface or field, `#docs?doc=...&anchor=...` for a document. The palette
+also offers **Ask the assistant**: the model phrases where a result lives, but the answer is
+marked unverified unless every place it names is one of the results, and the results stay the
+clickable authority.
 
 ## View map
 
@@ -59,13 +71,16 @@ current destinations; they do not duplicate their forms or imply new data contra
 | **Workflow** | Readiness; Readiness score and dated global/per-pattern override; Preview/configure with expandable VBT target provenance; Start workout; Active workout with VBT target/set-applicability checks and compact post-set feedback; Per-exercise history; Log/edit sets; Optional device data; Import workout CSV; Per-rep velocity; End workout; Post-workout comparison; Descriptive session summary | [USER-GUIDE.md](../USER-GUIDE.md), [WEB-UI.md](WEB-UI.md) | [VBT-CALIBRATION.md](VBT-CALIBRATION.md), [REP-VELOCITY.md](REP-VELOCITY.md), [WORKOUT-TYPE-READINESS-EVIDENCE.md](WORKOUT-TYPE-READINESS-EVIDENCE.md), [DECISIONS.md](DECISIONS.md) |
 | **Programme** | Programme forecast | [TRAINING-DYNAMICS.md](TRAINING-DYNAMICS.md), [STRENGTH-PROGRAM-REVIEW.md](STRENGTH-PROGRAM-REVIEW.md) | [REFERENCES.md](REFERENCES.md), [ROADMAP.md](../ROADMAP.md) |
 | **Review** | Review a session; Calibration review (B1); Rubric agreement | [RUBRIC-CALIBRATION.md](RUBRIC-CALIBRATION.md), [RULES-FORMAT.md](RULES-FORMAT.md) | [STRENGTH-PROGRAM-REVIEW.md](STRENGTH-PROGRAM-REVIEW.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
+| **Narrate** | One read-only capability envelope explained by the configured model; health-class capabilities need an explicit disclosure and consent checkbox; the envelope is unchanged and the prompt/narrative are not stored | [INTELLIGENCE-IMPLEMENTATION.md](INTELLIGENCE-IMPLEMENTATION.md), [WEB-UI.md](WEB-UI.md) | [ARCHITECTURE.md](ARCHITECTURE.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
+| **Chat** | Read-only multi-turn training chat over a fresh six-capability dossier; session-only memory, 20-turn cap, separate suggestions block, unverified-number warnings, source capabilities and a collapsed raw request/response disclosure | [INTELLIGENCE-IMPLEMENTATION.md](INTELLIGENCE-IMPLEMENTATION.md), [WEB-UI.md](WEB-UI.md) | [ARCHITECTURE.md](ARCHITECTURE.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
+| **Explain** | Ask how the system works: FTS5 retrieval over allowlisted local docs, code, tests and private notes, answers with verified citations, an explicit ungrounded label when nothing matches, and local retrieval bounds | [WEB-UI.md](WEB-UI.md), [INTELLIGENCE-IMPLEMENTATION.md](INTELLIGENCE-IMPLEMENTATION.md) | [ARCHITECTURE.md](ARCHITECTURE.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Readiness** | Quick readiness; Baseline settings; Volume valve; Calibration report | [READINESS.md](READINESS.md), [READINESS-SCORE.md](READINESS-SCORE.md) | [LIFT-READINESS.md](LIFT-READINESS.md), [READINESS-WEIGHT-EVIDENCE.md](READINESS-WEIGHT-EVIDENCE.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
-| **Cardio** | Recorded activity only: imported weekly equivalents, resistance share, coverage by year, and a per-workout list with Hide. No manual entry, no load effect | [LONGEVITY-REVIEW.md](LONGEVITY-REVIEW.md), [OUTCOMES.md](OUTCOMES.md), [WEB-UI.md](WEB-UI.md) | [REFERENCES.md](REFERENCES.md), [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), [ROADMAP.md](../ROADMAP.md) |
+| **Cardio** | Recorded activity only: imported weekly equivalents, effective max-HR/bands, resistance share, coverage by year, and a per-workout list with Hide. No manual entry, no load effect | [LONGEVITY-REVIEW.md](LONGEVITY-REVIEW.md), [OUTCOMES.md](OUTCOMES.md), [WEB-UI.md](WEB-UI.md) | [REFERENCES.md](REFERENCES.md), [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Measures** | Measurements; one method-separated chart per metric with recorded values and a selectable chart window (3/6/12 months or all history, paged 200 per request); append-only history with exact-record older paging | [OUTCOMES.md](OUTCOMES.md), [DATA-MODEL.md](DATA-MODEL.md), [WEB-UI.md](WEB-UI.md) | [LONGEVITY-REVIEW.md](LONGEVITY-REVIEW.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Import** | Import training/readiness; After the import | [USER-GUIDE.md](../USER-GUIDE.md), [DATA-QUALITY.md](DATA-QUALITY.md) | [PRIVACY.md](PRIVACY.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Exercises** | Exercise catalogue; unified add/view/edit dialog; editable Demand profile with an evidence checklist; complete-range e1RM, working-set count, load-basis-specific load, reps-unit-specific history charts; exact session records paginated 50 at a time | [EXERCISE-VARIANTS.md](EXERCISE-VARIANTS.md), [DATA-MODEL.md](DATA-MODEL.md), [WEB-UI.md](WEB-UI.md) | [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Athlete** | Profile (incl. exposure trim), constraints, suitability, e1RM, tests, block start, symptoms with optional athlete-attributed session/lift, calibration/coverage window previews, raw symptom history, test cadence with measured-coverage status and Record-test link | [DATA-MODEL.md](DATA-MODEL.md), [INJURY-SIGNAL.md](INJURY-SIGNAL.md), [SYMPTOM-LOGGING.md](SYMPTOM-LOGGING.md) | [READINESS.md](READINESS.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
-| **Settings** | Appearance; Language model; **iOS settings** (`ios.v1.yaml` switches/TTLs with effective values and source); Prescribe defaults; Volume budget; Monitoring & reports inventory; Modules; **Resolver** panel (profile scalars, enable confirmation, validated policy YAML with backups, read-only generation preview with full-prescription diff, provisional unrated suggestions rated inline before Start, with links to the step-by-step [RESOLVER-ALGORITHM.md](RESOLVER-ALGORITHM.md) and the [DWELL-AND-ROTATION.md](DWELL-AND-ROTATION.md) model); Settings profile; App | [WEB-UI.md](WEB-UI.md), [API.md](API.md), [VOLUME-BUDGET.md](VOLUME-BUDGET.md), [MONITORING-ANALYSIS.md](MONITORING-ANALYSIS.md), [ARCHITECTURE.md](ARCHITECTURE.md) | [UI-CLI-PARITY.md](UI-CLI-PARITY.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
+| **Settings** | Appearance; Language model; **iOS settings** (`ios.v1.yaml` switches/TTLs with effective values and source); Prescribe defaults; Volume budget; Monitoring & reports inventory; Modules; **Resolver** panel (profile scalars, enable confirmation, validated policy YAML with backups, read-only generation preview with full-prescription diff, provisional unrated suggestions rated inline before Start, with links to the step-by-step [RESOLVER-ALGORITHM.md](RESOLVER-ALGORITHM.md) and the [DWELL-AND-ROTATION.md](DWELL-AND-ROTATION.md) model); Settings profile; Programme cache; App | [WEB-UI.md](WEB-UI.md), [API.md](API.md), [VOLUME-BUDGET.md](VOLUME-BUDGET.md), [MONITORING-ANALYSIS.md](MONITORING-ANALYSIS.md), [ARCHITECTURE.md](ARCHITECTURE.md) | [UI-CLI-PARITY.md](UI-CLI-PARITY.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Logs** | Manually refreshed, capped in-memory log tail; cleared on server restart, not a durable audit history | [WEB-UI.md](WEB-UI.md) | [PRIVACY.md](PRIVACY.md), [ROADMAP.md](../ROADMAP.md) |
 | **Docs** | Docs list and document viewer | [WEB-UI.md](WEB-UI.md), [METHODOLOGY.md](METHODOLOGY.md) | [UI-CLI-PARITY.md](UI-CLI-PARITY.md), [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), [ROADMAP.md](../ROADMAP.md) |
 
@@ -118,6 +133,10 @@ current destinations; they do not duplicate their forms or imply new data contra
 | Log symptom | Pre-session 0-3 reading per region; what to log when it settles | [SYMPTOM-LOGGING.md](SYMPTOM-LOGGING.md) |
 | Appearance | Browser theme preference only | [WEB-UI.md](WEB-UI.md) |
 | Language model | Optional read-only narrator/chat/explainer; never computes loads or edits the plan | [ARCHITECTURE.md](ARCHITECTURE.md) |
+| Narrate a capability | One deterministic envelope explained by the model; health facts need explicit consent; the prompt and narrative are not stored | [INTELLIGENCE-IMPLEMENTATION.md](INTELLIGENCE-IMPLEMENTATION.md) |
+| Training chat | Read-only multi-turn answer from a fresh dossier; suggestions are proposals, never applied; the raw request/response block is session-only | [INTELLIGENCE-IMPLEMENTATION.md](INTELLIGENCE-IMPLEMENTATION.md) |
+| Explain the system | Citation-verified answer from allowlisted local sources; ungrounded when nothing matches; retrieval bounds are local settings | [WEB-UI.md](WEB-UI.md), [INTELLIGENCE-IMPLEMENTATION.md](INTELLIGENCE-IMPLEMENTATION.md) |
+| Programme cache | Browser-tab forecast cache only; clearing it touches no training data | [WEB-UI.md](WEB-UI.md) |
 | iOS settings | Edits `config/ios.v1.yaml`; effective per request, no restart; descriptions show mutation and TTL impact | [API.md](API.md) |
 | Prescribe defaults | Browser-only form preferences | [WEB-UI.md](WEB-UI.md) |
 | App | Local-only status and data location | [WEB-UI.md](WEB-UI.md) |
@@ -135,6 +154,15 @@ current destinations; they do not duplicate their forms or imply new data contra
   including docs links generated inside any client script (`core.js`, `adherence.js`, `vbt.js`,
   `settings.js`, `app.js`, `exercises.js`, `history.js`, `workout.js`, `summary.js`,
   `performance.js`, `progress.js`, `analytics-charts.js`).
+- [x] 2026-11-21: post-audit views (Narrate, Chat, Explain) and the Chat raw-data disclosure
+  recorded here; the panel/link/Related contract still holds.
+- [x] 2026-11-21: `Ctrl/Cmd+K` search over the view/panel map, the settings registry and doc
+  headings (`GET /api/search`); `tests/test_ui_search.py` keeps the index in step with the markup.
+- [x] 2026-11-21: the palette's **Ask the assistant** phrases an answer over those results only
+  (`POST /api/intelligence/locate`, `tests/test_ui_locate.py`); it cannot create a link.
+- [x] 2026-11-21: the palette also collects headings rendered by client script from the live DOM;
+  `tests/test_ui_surface_coverage.py` keeps a ledger of client headings the server index cannot
+  see, so coverage may shrink but not grow.
 
 ## Related
 

@@ -159,12 +159,39 @@ def test_active_feedback_reports_target_and_comparability_counts():
 
 def test_active_feedback_without_any_target_is_unavailable():
     result = vbt_analysis.active_feedback({
-        "plan": {"items": [item(vbt=None, velocity_target=None)]},
+        "plan": {
+            "items": [item(vbt=None, velocity_target=None)],
+            "notes": {"vbt": {"status": "skipped",
+                              "reason": "session modified by a safety rule"}},
+        },
         "sets": [row()],
     })
     assert result["status"] == "unavailable"
     assert result["reason"] == "no_vbt_target_issued"
     assert result["quality"]["comparable_sets"] == 0
+    # The coarse reason is accompanied by the plan's own record of why it happened.
+    assert result["plan_target_note"]["status"] == "skipped"
+    assert result["plan_target_note"]["reason"] == "session modified by a safety rule"
+
+
+def test_completed_analysis_forwards_the_plan_target_note():
+    data = completed_data([item(vbt=None, velocity_target=None)])
+    data["plan"]["notes"] = {
+        "vbt": {"status": "unavailable",
+                "reason": "no lift has 12 clean sets across 3 sessions with velocity"}
+    }
+    result = vbt_analysis.completed(data, [row()])
+    assert result["status"] == "unavailable"
+    assert result["reason"] == "no_vbt_target_issued"
+    assert result["plan_target_note"]["status"] == "unavailable"
+
+
+def test_analysis_without_a_plan_note_reports_none():
+    result = vbt_analysis.active_feedback({
+        "plan": {"items": [item(vbt=None)]},
+        "sets": [row()],
+    })
+    assert result["plan_target_note"] is None
 
 
 def completed_data(final_items, original_items=None):

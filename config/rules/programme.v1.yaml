@@ -85,6 +85,7 @@ collections:
   accessories_and_back_extension:
     - back_extension
     - split_squat
+    - bulgarian_split_squat
     # Core work is accessory work: it is trained at the end of the session, never before a
     # main lift, and it progresses by the same double-progression rule (DEC-CORE-01).
     - ab_wheel

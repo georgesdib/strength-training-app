@@ -59,6 +59,12 @@ def test_chat_tokens_increase_the_daily_budget(web):
         body = json.loads(response.read().decode())
     assert response.status == 200
     assert body["tokens"] == 42
+    assert body["raw"]["model"] == "fake-chat"
+    assert body["raw"]["request"]["messages"][-1]["content"].startswith(
+        "Answer the latest athlete message"
+    )
+    assert body["raw"]["response"]["usage"]["total_tokens"] == 42
+    assert "Authorization" not in json.dumps(body["raw"])
     store = db.Store(path)
     try:
         assert daily_tokens_used(store.connection) == 42

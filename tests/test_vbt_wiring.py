@@ -130,7 +130,10 @@ def test_without_enough_velocity_data_no_target_is_invented():
     assert "12 clean sets" in prescription.notes["vbt"]["reason"]
 
 
-def test_a_modified_session_skips_velocity_targets():
+def test_a_modified_session_still_gets_velocity_targets():
+    # A safety rule trims load and raises RIR, but the target is conditional on rep count and
+    # RIR band, not load: withholding it for the whole workout hid a valid comparison. The
+    # per-set rules exclude individual sets whose effort left the band (DEC-VBT-07).
     with store_with(
         rows_with_velocity(),
         readiness_rows=[{"Date": "2024-01-22", "Sleep": "2", "Energy": "4"}],
@@ -139,11 +142,14 @@ def test_a_modified_session_skips_velocity_targets():
                                           session_type="squat")
 
     assert prescription.fallback_level == "fatigue_reduced"
-    assert all(item.velocity_target is None for item in prescription.items)
-    assert prescription.notes["vbt"]["status"] == "skipped"
+    squat = next(i for i in prescription.items if i.exercise_id == "ssb_squat")
+    assert squat.velocity_target is not None
+    assert squat.vbt is not None
+    assert prescription.notes["vbt"]["status"] == "available"
+    assert prescription.notes["vbt"]["session_modified"] is True
 
 
-def test_hex_bar_velocity_targets_are_withheld():
+def test_hex_bar_velocity_targets_are_issued():
     rows = []
     for day in ("2024-01-04", "2024-01-11", "2024-01-18"):
         for index in range(4):
@@ -164,10 +170,14 @@ def test_hex_bar_velocity_targets_are_withheld():
         prescription = build_prescription(store.connection, for_date="2024-01-22",
                                           session_type="hinge")
 
+    # The owner rejected the hex-bar exclusion: the lift is now eligible when its own
+    # calibration is trustworthy, exactly like every other lift (DEC-VBT-06).
     trap_bar = next(i for i in prescription.items if i.exercise_id == "trap_bar_deadlift")
-    assert trap_bar.velocity_target is None
-    assert trap_bar.vbt is None
-    assert "trap_bar_deadlift" in prescription.notes["vbt"]["withheld"]
+    assert trap_bar.velocity_target == 0.325
+    assert trap_bar.vbt is not None
+    assert trap_bar.vbt.rep_count == 3
+    assert trap_bar.vbt.scope == "lift"
+    assert prescription.notes["vbt"]["withheld"] == []
 
 
 def test_structured_metadata_survives_workout_start_and_retrieval():

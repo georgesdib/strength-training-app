@@ -2,7 +2,15 @@
 
 ## [Unreleased]
 
-- Nothing yet.
+Shipped to production on 2026-11-22 (display-only); no version tag was created.
+
+- Session detail shows Apple's average and peak heart rate from the linked workout, on the web and
+  on the phone, plus a per-set heart-rate recovery value (`hrr60_bpm`) labelled with its caveat:
+  the metric tracks set effort, not recovery, so it is displayed and never used. Session detail
+  also reports recovery from the final set at one and two minutes, anchored to that set rather
+  than to the finish tap. The Today view
+  carries a review card that reports the measurement and prompts a re-run once 15 watch sessions
+  exist, then every 12 weeks.
 
 ## [1.7.0] — 2026-11-18
 

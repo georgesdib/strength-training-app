@@ -194,6 +194,11 @@ default is **B**, not A.
 - The LLM sees only the filtered list and can never select class C.
 - The shadow ranking can still show class C as information; it must not apply it.
 - The existing one-substitution-per-slot and explicit opt-in remain.
+- Every ranking is evaluated **as of its date**: the training history is cut at that date
+  (inclusive), and dated ratings, the profile version and the block week are read as they stood
+  then. For any date D, adding or changing observations dated after D cannot change D's ranking;
+  this holds for a direct `GET /api/selection` call and for the fatigue-informed fallback that
+  builds its own context.
 
 ### 5.5 Rollout
 

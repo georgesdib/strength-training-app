@@ -54,7 +54,7 @@ doi:10.1139/apnm-2024-0136).
 | Use **mean velocity**, not peak, for set-to-set comparison | mean is the more stable construct |
 | Stop sets at a **target velocity loss**: 20-25% for hypertrophy, 10-20% for strength/power | Zhang 2023; Jukic 2023 |
 | Treat **RIR-from-velocity** as a weak prior, not a measurement | Qin 2025; Chen 2026 (hex bar fails) |
-| Do not prescribe velocity thresholds for the **hex-bar deadlift** | Chen 2026 |
+| Do not prescribe **RIR or velocity-loss thresholds** for the **hex-bar deadlift** | Chen 2026; the mean-velocity target is a separate quantity (`DEC-VBT-06`) |
 | Track **trend within an athlete**, not against a population table | individual curves differ |
 
 ## 3. What our data can support today
@@ -66,7 +66,9 @@ enough to:
 - attach a target to a prescription where at least 12 clean sets across 3 sessions exist
   (or a family pool of 24, and only for genuine variants such as bench grips or squat types —
   named hinges, good mornings, rack pulls and split squats are never pooled with each other);
-- withhold a target where the evidence says velocity is not trustworthy (hex bar).
+- state the absence of a target explicitly when no lift reaches the ladder. No lift is
+  currently excluded by evidence: the hex-bar exclusion was reversed by the owner
+  (`DEC-VBT-06`), so the trap bar is calibrated like every other lift.
 
 An optional device CSV can add **per-rep detail**, but it stays descriptive. It does not enter
 the set-mean calibration, targets or prescription.
@@ -84,11 +86,13 @@ It is **not** enough to:
 - A target is `target(lift, reps, rir band)`, never a single number per lift.
 - No target is better than a guessed one; the prescription says "unavailable" and why.
 - The target is a **median with a robust band**, and the basis records scope and sample size.
-- A session already modified by a safety rule does not get a velocity target: the load it was
-  calibrated against no longer holds.
-- Hex-bar targets are withheld regardless of sample size. The trap bar has its own family, but
-  that does not override the evidence-based `VBT_UNRELIABLE` exclusion; a family is necessary,
-  not sufficient, for a target.
+- A session already modified by a safety rule keeps its velocity targets: the target is
+  conditional on rep count and RIR band, not load, so a lighter set is still comparable and the
+  per-set rules exclude it when the amended effort left the band (`DEC-VBT-07`).
+- Hex-bar targets are no longer withheld (`DEC-VBT-06`). Chen 2026 is about estimating RIR from
+  velocity; a mean-velocity target with a robust band at a fixed rep count is a different
+  quantity, and the 12-set/3-session ladder still refuses one when the sample is thin. The
+  `VBT_UNRELIABLE` hook remains in the engine, empty, for a future evidence-based exclusion.
 - The structured `vbt` metadata is provenance only. It does not add evidence, change the
   calibration method, change how a target is selected, or make a target load-specific. The
   target remains a median velocity conditional on lift/family, rep count and RIR band.

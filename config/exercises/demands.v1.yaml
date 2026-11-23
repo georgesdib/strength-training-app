@@ -17,6 +17,14 @@ schema_version: "1.0.0"
 reviewed_on: "2026-10-28"
 
 evidence:
+  EV-ARAKAWA-2023:
+    citation: "Arakawa H, Mori M, Tanimoto M. Greater hip moments in rear-foot-elevated split squats than in conventional back squats with the same relative intensity of loads. J Strength Cond Res, 2023;37(5):1009-1016."
+    doi: "10.1519/JSC.0000000000004351"
+    study_type: controlled
+    population: "eight male college rugby players at 10RM loading"
+    outcome: "hip extension moment 44% greater at the bottom position and 47% greater at peak in the rear-foot-elevated split squat than in the back squat; hip abduction and external-rotation moments also greater"
+    applicability: "rear-foot-elevated split squat versus bilateral back squat; a joint-moment claim, not a quadriceps or hypertrophy claim"
+    confidence: supported
   EV-CHOLEWICKI-1991:
     citation: "Cholewicki J, McGill SM, Norman RW. Lumbar spine loads during the lifting of extremely heavy weights. Med Sci Sports Exerc, 1991;23(10):1179-1186."
     doi: "10.1249/00005768-199110000-00012"
@@ -40,6 +48,14 @@ evidence:
     population: "resistance-trained adults"
     outcome: "trunk and lower-extremity muscle activity in back squat versus belt squat"
     applicability: "belt squat is a squat variant with hip-applied load; activity is not spinal load"
+    confidence: supported
+  EV-MAUSEHUND-2019:
+    citation: "Mausehund L, Skard AE, Krosshaug T. Muscle activation in unilateral barbell exercises: implications for strength training and rehabilitation. J Strength Cond Res, 2019;33(7S):S85-S94."
+    doi: "10.1519/JSC.0000000000002990"
+    study_type: controlled
+    population: "eleven healthy, moderately strength-trained subjects; 6-8RM sets to failure"
+    outcome: "no significant difference in gluteus maximus or vastus lateralis peak activity between the split squat and the rear-foot-elevated split squat; the elevated version had higher biceps femoris activity (76.1 vs 62.3% MVIC) and a higher hamstring:quadriceps ratio"
+    applicability: "EMG activation at matched relative effort; activation is not a load, hypertrophy or fatigue claim"
     confidence: supported
   EV-NORDIC-DAMAGE-2025:
     citation: "Coratella G, Ce E, D'Orlando A, Steri E, Padovan R, Spina O, Esposito F, Longo S. Muscle Damage and the Repeated-bout Effect After a Typical Nordic Hamstring Exercise Session. Int J Sports Med, 2025."
@@ -182,6 +198,11 @@ exercises:
     trunk_stability: {level: high, confidence: provisional, reason: "single-leg stance with dumbbells; balance and position are limiting"}
     technical: {level: high, confidence: provisional, reason: "range moderate-high; upper bound. Single-leg position fails quietly"}
     local_muscular: {level: high, confidence: provisional, reason: "large-range unilateral leg work"}
+  bulgarian_split_squat:
+    axial_spinal: {level: moderate, confidence: provisional, reason: "unilateral loading keeps absolute spinal load below a bilateral barbell squat; the elevation adds hip demand, not bar load"}
+    trunk_stability: {level: high, confidence: provisional, reason: "the smallest base of support of the split-squat family; pelvic position and balance limit the set before the legs do"}
+    technical: {level: high, confidence: provisional, reason: "longer hip range than the rear-foot-down split squat with a raised rear foot; positions fail quietly"}
+    local_muscular: {level: high, confidence: supported, reason: "gluteus maximus and vastus lateralis activity match the split squat at equal relative effort, with greater biceps femoris activity and a larger hip-extension moment", evidence: [EV-ARAKAWA-2023, EV-MAUSEHUND-2019]}
   lying_leg_curls:
     axial_spinal: {level: low, confidence: provisional, reason: "machine, lying; no spinal load"}
     trunk_stability: {level: low, confidence: provisional, reason: "supported throughout"}

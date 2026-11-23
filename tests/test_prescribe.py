@@ -114,8 +114,8 @@ def test_day_b_template_has_no_erector_work():
     assert "back_extension" not in exercises          # PRG-SCHED-001
     assert set(exercises) == {
         "broad_jump", "trap_bar_deadlift", "bench_press_narrow", "bench_press_pause",
-        "split_squat", "pull_up", "lat_pulldown", "dumbbell_row",
-        "lying_leg_curls", "nordic_curl",
+        "split_squat", "bulgarian_split_squat", "pull_up", "lat_pulldown",
+        "dumbbell_row", "lying_leg_curls", "nordic_curl",
     }
     assert template.rep_ranges()["split_squat"] == (8, 10)
     assert template.time_cap_s == 5400

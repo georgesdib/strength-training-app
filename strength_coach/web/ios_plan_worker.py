@@ -16,6 +16,7 @@ from __future__ import annotations
 import datetime
 import json
 import logging
+import os
 import threading
 import time
 from typing import Any
@@ -33,14 +34,15 @@ DISPATCHER_NAME = "ios-plan-dispatcher"
 IDLE_WAIT_SECONDS = 2.0
 
 _dispatcher_lock = threading.Lock()
-_dispatcher: threading.Thread | None = None
-_wake = threading.Event()
-_stop = threading.Event()
+_dispatcher: _Dispatcher | None = None
 
 
 def wake() -> None:
     """Tell the dispatcher there is new work (or, on launch, that it should look again)."""
-    _wake.set()
+    with _dispatcher_lock:
+        dispatcher = _dispatcher
+    if dispatcher is not None:
+        dispatcher.wake.set()
 
 
 def _serialize_plan(prescription) -> dict:
@@ -224,50 +226,96 @@ def _build_failure(exc: Exception) -> tuple[str, str]:
     return "build_failed", str(exc)[:200] or "prescription build failed"
 
 
-def _loop(db_path, slot: threading.Semaphore) -> None:
-    while not _stop.is_set():
-        try:
-            worked = drain_once(db_path, slot)
-        except Exception:  # a dispatcher that dies strands the queue
-            LOGGER.exception("iOS plan dispatcher iteration failed")
-            worked = False
-            time.sleep(1.0)
-        if not worked:
-            _wake.wait(timeout=IDLE_WAIT_SECONDS)
-            _wake.clear()
+class _Dispatcher:
+    """One dispatcher thread bound to one database, with its own wake and stop events.
+
+    The events are per instance, not module globals. A single process can serve more than one
+    database — every test does, through its own temporary file — and a retired thread that is
+    still finishing a build must not consume the wake meant for its successor, nor be revived
+    when a shared stop flag is cleared. Both are how a queued request stayed unbuilt for the
+    whole client wait while an idle thread watched a database nobody was using.
+    """
+
+    def __init__(self, db_path, slot: threading.Semaphore) -> None:
+        self.db_path = db_path
+        self.slot = slot
+        self.wake = threading.Event()
+        self.stop = threading.Event()
+        self.thread = threading.Thread(
+            target=self._loop, name=DISPATCHER_NAME, daemon=True,
+        )
+
+    def _loop(self) -> None:
+        while not self.stop.is_set():
+            try:
+                worked = drain_once(self.db_path, self.slot)
+            except Exception:  # a dispatcher that dies strands the queue
+                LOGGER.exception("iOS plan dispatcher iteration failed")
+                worked = False
+                time.sleep(1.0)
+            if not worked:
+                self.wake.wait(timeout=IDLE_WAIT_SECONDS)
+                self.wake.clear()
+
+    def is_alive(self) -> bool:
+        return self.thread.is_alive()
+
+    def start(self) -> None:
+        self.thread.start()
+
+    def signal_stop(self) -> None:
+        self.stop.set()
+        self.wake.set()
+
+    def join(self, timeout: float) -> None:
+        self.thread.join(timeout=timeout)
+
+
+def _same_database(left, right) -> bool:
+    return os.path.realpath(os.fspath(left)) == os.path.realpath(os.fspath(right))
 
 
 def start_dispatcher(db_path=None, slot: threading.Semaphore | None = None) -> None:
-    """Start the single dispatcher if it is not running. Safe to call on every request."""
+    """Start the dispatcher for this database, replacing one watching a different file.
+
+    Safe to call on every request: the running dispatcher for the same database is woken, not
+    duplicated, and a live dispatcher for another database is retired first. A dispatcher that
+    dies is replaced.
+    """
     global _dispatcher
+    target = db_path if db_path is not None else db.default_db_path()
+    semaphore = slot if slot is not None else threading.Semaphore(1)
+    with _dispatcher_lock:
+        current = _dispatcher
+        if current is not None and current.is_alive() and _same_database(current.db_path, target):
+            current.wake.set()
+            return
+        if current is not None:
+            current.signal_stop()
+        _dispatcher = None
+    if current is not None:
+        # Outside the lock: the thread never takes it, but a slow build must not stall a request.
+        current.join(timeout=IDLE_WAIT_SECONDS + 1.0)
     with _dispatcher_lock:
         if _dispatcher is not None and _dispatcher.is_alive():
-            _wake.set()
+            _dispatcher.wake.set()
             return
-        _wake.set()
-        thread = threading.Thread(
-            target=_loop,
-            args=(db_path, slot if slot is not None else threading.Semaphore(1)),
-            name=DISPATCHER_NAME,
-            daemon=True,
-        )
-        _dispatcher = thread
-        thread.start()
+        dispatcher = _Dispatcher(target, semaphore)
+        _dispatcher = dispatcher
+        dispatcher.start()
 
 
 def dispatcher_running() -> bool:
-    thread = _dispatcher
-    return thread is not None and thread.is_alive()
+    dispatcher = _dispatcher
+    return dispatcher is not None and dispatcher.is_alive()
 
 
 def stop_dispatcher() -> None:
     """Test helper: stop the singleton so a later start does not inherit its database."""
     global _dispatcher
     with _dispatcher_lock:
-        thread = _dispatcher
+        dispatcher = _dispatcher
         _dispatcher = None
-        _stop.set()
-        _wake.set()
-    if thread is not None and thread.is_alive():
-        thread.join(timeout=IDLE_WAIT_SECONDS + 1.0)
-    _stop.clear()
+    if dispatcher is not None:
+        dispatcher.signal_stop()
+        dispatcher.join(timeout=IDLE_WAIT_SECONDS + 1.0)

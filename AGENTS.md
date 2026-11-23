@@ -17,6 +17,11 @@ The server is authoritative for readiness, prescriptions, loads, sets, progressi
 scoring. The LLM may explain or propose, never compute or veto the rules. The iOS client
 must not define training policy.
 
+## Wording
+
+"The web UI" and "the UI" mean this server's browser UI under `strength_coach/web/static/`
+(served by `run-web.sh`), never the GUI of an agent harness the session runs in.
+
 ## Branch
 
 - Development happens on development, not main.
@@ -40,7 +45,8 @@ must not define training policy.
 
 ## Definition of done — short form
 
-1. Narrowest relevant tests pass.
+1. Narrowest relevant tests pass — `./check.sh` (fast lane; see `docs/AGENT-WORKFLOWS.md` §4),
+   and `./check.sh full` once before pushing.
 2. ruff check passes for the changed area.
 3. New config has a domain-reason comment; judgement calls become assumptions.
 4. Documentation is updated where behaviour changed; docs-consistency checks pass if docs changed.

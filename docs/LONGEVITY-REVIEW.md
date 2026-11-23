@@ -214,6 +214,10 @@ Cardio scope is Q14 and ROADMAP §4.13. This review only ranks the priorities.
   not a clinical zone-duration measurement. Recovery-tail samples are excluded, unobserved time
   (including gaps over 120 s and after the final sample) is not assigned to a zone, and temporal
   coverage is reported beside continuity eligibility.
+- The heart-rate classification branch uses the effective settings-profile maximum heart rate
+  (`cardio.max_hr_bpm`, default 200 bpm). That denominator is not a measured maximum, so a wrong
+  value shifts the light/moderate/vigorous boundaries for every workout; it is reported with the
+  policy and can be corrected without a code change.
 - VO₂max is a consumer estimate, not a laboratory measurement. Its value, unit, date and
   source/method are reported with a currency state; absence is not evidence of poor fitness.
 - Nothing here changes the constitution. The strength methodology remains the source of truth.

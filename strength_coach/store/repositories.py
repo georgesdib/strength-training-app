@@ -548,6 +548,33 @@ def append_e1rm_override(
     return int(cursor.lastrowid)
 
 
+def append_e1rm_withdrawal(
+    conn: sqlite3.Connection,
+    *,
+    exercise_id: str,
+    effective_from: str,
+    reason: str,
+    source: str = "user",
+) -> int:
+    """Withdraw a manual e1RM from a date without deleting its row.
+
+    The override remains auditable and any prescription that cited it keeps a valid
+    `e1rm_override:<id>` reference. The withdrawal is itself append-only; a later override
+    re-enables the manual load basis.
+    """
+    note = str(reason).strip()
+    if not note:
+        raise ValueError("an e1RM withdrawal reason is required")
+    cursor = conn.execute(
+        """
+        INSERT INTO e1rm_override_withdrawal (exercise_id, effective_from, reason, source)
+        VALUES (?, ?, ?, ?)
+        """,
+        (exercise_id, effective_from, note, source),
+    )
+    return int(cursor.lastrowid)
+
+
 def append_athlete_profile(
     conn: sqlite3.Connection,
     *,
@@ -1092,11 +1119,15 @@ def append_measurement(
     method: str | None = None,
     source: str = "user",
     note: str | None = None,
-) -> str:
+    external_id: str | None = None,
+) -> str | None:
     """Append one periodic measurement; the metric definition must already exist.
 
     Direction and aggregation live in `metric_definition`, not here, so the same number can
     never be read as "higher is better" in one place and "lower is better" in another.
+
+    `external_id` makes the write idempotent for an imported reading: the partial unique index
+    from migration 0064 turns a replay into a no-op, and the return value is then `None`.
     """
     try:
         datetime.date.fromisoformat(str(measured_on))
@@ -1109,11 +1140,31 @@ def append_measurement(
         raise ValueError(f"unknown measurement source {source!r}")
 
     measurement_id = uuid.uuid4().hex
-    conn.execute(
+    if external_id is None:
+        conn.execute(
+            """
+            INSERT INTO measurement (measurement_id, metric_key, measured_on, value, method,
+                                     source, note)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                measurement_id,
+                str(metric_key),
+                str(measured_on),
+                number,
+                method or None,
+                source,
+                note or None,
+            ),
+        )
+        return measurement_id
+    # INSERT OR IGNORE, not ON CONFLICT: the uniqueness this relies on is a *partial* index, and
+    # SQLite only accepts a partial-index conflict target with its predicate spelled out.
+    cursor = conn.execute(
         """
-        INSERT INTO measurement (measurement_id, metric_key, measured_on, value, method,
-                                 source, note)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT OR IGNORE INTO measurement (measurement_id, metric_key, measured_on, value, method,
+                                           source, note, external_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             measurement_id,
@@ -1123,9 +1174,10 @@ def append_measurement(
             method or None,
             source,
             note or None,
+            str(external_id),
         ),
     )
-    return measurement_id
+    return measurement_id if cursor.rowcount == 1 else None
 
 
 def ensure_metric_definition(conn, spec) -> None:

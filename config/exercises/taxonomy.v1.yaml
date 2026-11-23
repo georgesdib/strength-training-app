@@ -102,7 +102,12 @@ entities:
 
   bench_press:
     display: "Bench Press"
-    log_names: ["Competition Bench Press"]
+    # DEC-VARIANT-06: the wide-grip spelling is the same lift, so it canonicalises here rather
+    # than into its own entity. Migration 0075 moved the rows that had the retired id.
+    log_names:
+      - "Competition Bench Press"
+      - "Bench Press (wide grip)"
+      - "Bench Press (Wide-Grip)"
     pattern: horizontal_push
     main_lift: true
     primary_compound: true
@@ -470,13 +475,32 @@ entities:
 
   split_squat:
     display: "Split Squat"
-    log_names: ["Split Squat", "Bulgarian Split Squat"]
+    # DEC-VARIANT-06: rear foot down. The elevated version is its own entity below, because the
+    # elevation changes the hip moment, the range and the base of support (not the muscles alone).
+    log_names: ["Split Squat"]
     # Unilateral: one leg bears the load, so it is not a bilateral-squat variant.
     pattern: squat_unilateral
     primary_compound: true
     primary_muscles: [quadriceps, glutes]
     # Own VBT family: unilateral loading and a different velocity profile; do not pool with squat.
     vbt_family: split_squat
+    loadable: true
+    time_based: false
+
+  bulgarian_split_squat:
+    display: "Bulgarian Split Squat"
+    # Rear foot elevated: the same unilateral pattern, but a longer hip range, a smaller base of
+    # support and a larger hip-extensor moment, so it carries its own history and velocity family
+    # (DEC-VARIANT-06).
+    log_names:
+      - "Bulgarian Split Squat"
+      - "Bulgarian Split Squats"
+      - "Rear-Foot-Elevated Split Squat"
+    pattern: squat_unilateral
+    primary_compound: true
+    primary_muscles: [quadriceps, glutes]
+    # Own VBT family: the elevation changes the load-velocity profile, so never pool the two.
+    vbt_family: bulgarian_split_squat
     loadable: true
     time_based: false
 
@@ -655,18 +679,6 @@ entities:
   bench_press_w_chains:
     display: "Bench Press (w/chains)"
     log_names: ["Bench Press (w/chains)"]
-    pattern: horizontal_push
-    primary_compound: true
-    primary_muscles: [chest]
-    bodyweight_type: false
-    loadable: true
-    time_based: false
-    vbt_family: horizontal_push
-    erector_family: false
-
-  bench_press_wide_grip:
-    display: "Bench Press (wide grip)"
-    log_names: ["Bench Press (wide grip)", "Bench Press (Wide-Grip)"]
     pattern: horizontal_push
     primary_compound: true
     primary_muscles: [chest]
@@ -1117,7 +1129,9 @@ entities:
     log_names: ["Dumbbell Chest Supported Row"]
     pattern: horizontal_pull
     primary_compound: false
-    primary_muscles: [lats]
+    # Upper back included so the row still covers the dumbbell row's declared stimulus; the
+    # fatigue-selection swap requires the candidate's muscles to be a superset (2026-11-22).
+    primary_muscles: [lats, upper_back]
     bodyweight_type: false
     loadable: true
     time_based: false

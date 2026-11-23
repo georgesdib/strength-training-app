@@ -37,9 +37,9 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `POST /api/workout/<id>/import` | `{text, rep_text?, apply}` -> parse/preview/apply workout CSV; optional per-rep table; no date column |
 | `POST /api/workout/<id>/import/undo` | undo the latest import batch, including rep detail |
 | `GET /api/history?limit=&offset=&start=&end=` | paginated session-fragment history |
-| `GET /api/history/days?limit=&offset=&start=&end=` | paginated training days with their fragments |
+| `GET /api/history/days?limit=&offset=&start=&end=` | paginated training days with their fragments; each fragment carries `final_set` (final-set heart-rate recovery, or null) so the list row can show how the session ended without opening it |
 | `GET /api/exercise-history?exercise_id=&limit=&offset=&on_or_before=` | read-only completed-session history for one exercise, grouped by session; limit counts sessions and defaults to 5 |
-| `GET /api/history/<id>` | current session sets, feedback and completed-workout prescription adherence |
+| `GET /api/history/<id>` | current session sets, feedback and completed-workout prescription adherence; `heart_rate` carries Apple's `avg_bpm`/`max_bpm` from the workout currently linked to the session, or `null` when none is linked (never a zero); each set carries `hrr60_bpm` (heart-rate drop 60 s after the set, or null) and the session carries `hr_recovery` with the measured-set count, its caveat, and `final_set` (`hr_end_bpm`, `hrr60_bpm`, `hrr120_bpm`, anchored to the last set's completion rather than the finish tap). All display-only and excluded from adherence, readiness and prescriptions |
 | `POST /api/history/<id>/edit` | append-only correction of sets and session metadata; accepts `session_rpe`, `duration_min`, `productivity` (1-5), `notes` and `reason`, and returns the corrected session with merged feedback |
 | `POST /api/history/<id>/vbt` | set/rep VBT overrides (also accepted inside `/edit`) |
 | `POST /api/history/<id>/void` | void or unvoid a whole session |
@@ -53,14 +53,14 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `POST /api/readiness/override` | `{date, scope, value, reason}` -> merged readiness + score |
 | `GET /api/readiness/calibrate` | calibration report text (no auto-apply) |
 | `GET /api/logs?limit=N` | recent in-memory application/HTTP log records (max 500; cleared on restart) |
-| `GET /api/state` | profile, constraints, suitability, e1RM, symptoms, attributed symptoms, injury signal |
+| `GET /api/state` | profile, constraints, suitability, e1RM overrides, the combined `e1rm_override_ledger` (overrides and dated withdrawals with status), symptoms, attributed symptoms, injury signal |
 | `GET /api/symptoms/attribution-options?onset=&timing=` | completed sessions and performed lifts available for an attributed symptom |
 | `GET /api/exercises` | canonical exercise catalogue for the pickers: `id`, `display`, `pattern` and `time_based` (the client labels a time-based movement in seconds rather than reps) |
 | `POST /api/programme/key` | request body -> `{cache_key}` covering version, request, resolved profile, database revision and relevant config hashes |
 | `POST /api/programme/jobs` | starts a background build; returns `202` with `job_id` and status |
 | `GET /api/programme/jobs/<id>` | `running` / `done` with entries / `error`; has a one-hour in-memory TTL and is capped at 20 jobs |
 | `POST /api/programme` | synchronous compatibility endpoint -> date entries; Apply selection mirrors `/api/prescribe` and is deterministic |
-| `GET /api/cardio/summary?weeks=N&as_of=` | imported cardio weeks, policy, rolling windows and coverage; always carries an `assessment` block (last completed week's relation to the WHO 150–300 reference as context: `below`/`inside`/`above`/`unknown` (`inside` is presented as "within"), current-week progress with no relation, latest VO₂max with value, unit, date, source/method and `current`/`stale`/`absent`, and `missing` notes) |
+| `GET /api/cardio/summary?weeks=N&as_of=` | imported cardio weeks, policy, rolling windows and coverage; `policy` reports the effective `max_hr_bpm` from the settings profile (default 200, effective-dated), the MET bands and the HR-share bands; always carries an `assessment` block (last completed week's relation to the WHO 150–300 reference as context: `below`/`inside`/`above`/`unknown` (`inside` is presented as "within"), current-week progress with no relation, latest VO₂max with value, unit, date, source/method and `current`/`stale`/`absent`, and `missing` notes) |
 | `GET /api/cardio/summary?...&tiz=1&patterns=1` | adds the two optional blocks: `time_in_zone` (elapsed-time integration between workout-interval heart-rate samples, with `covered_minutes`/`workout_minutes`/`unobserved_minutes`/`temporal_coverage_share` and continuity eligibility reported separately) and `patterns` (per-pattern volume headroom from the budget, training-volume context only). Both are off by default; on the ODROID, `patterns` costs ~320 ms and `tiz` ~190 ms, against ~100 ms for the rest of the payload |
 | `GET /api/cardio/workouts?limit=N` | imported workouts with their hidden/visible state |
 | `POST /api/cardio` | **410** — manual cardio capture was retired 2026-11-17 (CARDIO-STAGE, portfolio plan); imports and the phone sync are the only sources |
@@ -86,7 +86,7 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/settings/drop/window?date=N` | whether per-session drop confirmation applies on that date; the Prescribe checkbox is hidden when false |
 | `POST /api/settings/llm` | save local LLM settings; blank key keeps the stored key |
 | `POST /api/settings/drop` | legacy drop-only save path; the consolidated volume panel uses `/api/settings/volume` |
-| `GET/POST /api/settings/profile` | read or append a settings-profile version; POST takes set/unset/reset, effective_from, guard_confirmed, reason and resolver_enable_confirmed (required for a false->true resolver.enabled transition) |
+| `GET/POST /api/settings/profile` | read or append a settings-profile version; POST takes set/unset/reset, effective_from, guard_confirmed, reason and resolver_enable_confirmed (required for a false->true resolver.enabled transition). Profile-backed scalars include `cardio.max_hr_bpm` (120–250 bpm), the effective-dated denominator for cardio `%HRmax` classification |
 | `GET /api/resolver/policy` | raw resolver policy YAML, path, digest, schema and newest backup metadata |
 | `POST /api/resolver/policy` | validate the complete YAML, back up the current file, atomically replace it and prune to the newest 20 backups |
 | `POST /api/resolver/policy/restore` | restore the newest normal validated policy backup; the current policy is snapshotted as `template-resolver-prerestore-*` and reported, and pre-restore snapshots are not later restore candidates |
@@ -97,7 +97,8 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `POST /api/intelligence/explain` | `{question}` -> project-grounded explanation, citations, warnings, `grounded`, sources and tokens; no transcript |
 | `GET/POST /api/intelligence/knowledge/settings` | current/save Explain retrieval bounds (`top_k`, `max_context_chars`, `max_answer_words`); persisted in the git-ignored `config/knowledge.local.yaml` |
 | `GET /api/intelligence/knowledge/status` | index readiness, file/chunk counts and per-source commit metadata |
-| `POST /api/intelligence/chat` | `{messages: [{role, content}]}` -> read-only multi-turn answer from a fresh six-capability fact dossier, `answer`, `suggestions`, source capability names, advisory warnings, tokens; max 20 turns; writes a run trace |
+| `POST /api/intelligence/chat` | `{messages: [{role, content}]}` -> read-only multi-turn answer from a fresh six-capability fact dossier, `answer`, `suggestions`, source capability names, advisory warnings, tokens, and `raw` (the exact model request and provider response shown by the web UI raw-data disclosure; neither is stored); max 20 turns; writes a run trace |
+| `POST /api/intelligence/locate` | `{query}` -> "where in the UI" answer from the configured model over the top eight `GET /api/search` results and any retrieved project sources; returns `answer`, `verified` (false when the prose names a place outside the results), `warning`, the same `results` shape as `/api/search`, `sources` (path, heading, line range) and `tokens`; 400 when the LLM is disabled or the daily budget is spent; writes a run trace, never the prompt or answer |
 | `POST /api/intelligence/narrate` | `{capability, payload}` -> run one read-only capability and return its narrative (headline, observations, limitations, warnings, raw facts, model, tokens); unverified numbers are warnings, not errors; writes a run trace; 400 when the LLM is disabled |
 | `GET /api/exposures?date=N` | recent high-intensity exposures and recovery guard |
 | `POST /api/exposures` | log a manual max/competition/unplanned exposure; tests use the test endpoint |
@@ -108,7 +109,7 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `POST /api/readiness/preset` | write a quick-readiness preset as ordinary entries with `source=preset` |
 | `POST /api/readiness/context` | append display-only context flags |
 | `GET /api/readiness/feedback?weeks=N&date=N` | descriptive follow-up of MOD-FAT-001 reductions, including completed workout snapshots and set adherence |
-| `GET /api/selection?date=N&session_type=X&llm=0\|1&include_different=0\|1` | exercise-selection rankings with A/B/C comparability classes |
+| `GET /api/selection?date=N&session_type=X&llm=0\|1&include_different=0\|1` | exercise-selection rankings with A/B/C comparability classes, evaluated as of `date`: history, dated suitability ratings and the profile version after that date never affect the result |
 | `GET /api/substitution?date=N&session_type=X` | Part C fatigue-informed suggestion (at most one, suggest-only) plus abstention reasons |
 | `POST /api/exercises/demands` | `{exercise_id, dimension, level, confidence?, reason?, evidence?, clear?}` -> writes the git-ignored demand overlay and returns the merged profile; `supported` needs an existing evidence id |
 | `GET /api/options` | canonical goal, constraint, severity, region, pattern, VBT-family, muscle and exercise choices |
@@ -117,7 +118,9 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/measurements?metric_key=&from=&to=&limit=&offset=` | metric catalogue, summary and newest-first exact-record pages; offset walks older, entries stay date-ascending, date bounds are inclusive |
 | `POST /api/measurements` | `{metric, value, date, method, note}` -> summary |
 | `POST /api/state/profile` / `constraint` / `suitability` / `e1rm` / `test` / `symptom` / `block` | append-only state writes; profile includes `volume_budget_enabled` and `main_lift_policy`; goals, constraint kinds/regions, forbidden patterns/exercises and exercise ids are validated against the canonical vocabulary; `symptom` accepts optional `timing`, `attributed_session_id`, `attributed_exercise_id`, `onset_on` and `attribution_confidence`, plus the short aliases the UI uses |
+| `POST /api/state/e1rm/withdraw` | `{exercise_id, effective_from?, reason}` -> appended withdrawal tombstone and refreshed state; `reason` is required and the override row is never deleted |
 | `GET /api/docs` / `GET /api/docs/<name>` | doc list and rendered doc from `docs/manifest.yaml`; public entries only, grouped by category; `private/` and maintainer-only design docs are never served |
+| `GET /api/search?q=&limit=` | ranked navigation results over the view/panel map, the profile settings and public doc headings; kinds `view`, `panel`, `setting`, `doc` with a DOM id or doc anchor target; `limit` 1–50 (default 20); a query is 1–120 characters (400 otherwise); read-only, no persistence |
 
 ### Prescription adherence
 
@@ -301,6 +304,8 @@ with per-set comparisons, exercise aggregates and quality counts:
 {
   "status": "available",
   "reason": null,
+  "plan_target_note": {"status": "available", "targets": 1, "session_modified": false,
+                       "calibration_ids": ["vbt-..."], "withheld": []},
   "sets": [{
     "set_id": 1, "set_index": 1, "exercise_id": "ssb_squat",
     "reps": 3, "load_kg": 100, "load_basis": "external",
@@ -333,6 +338,15 @@ falls back to the target issued in the original plan and is marked
 `target_source: "original_plan"`; a swapped exercise never borrows the old target. The latest
 set-mean `vbt_override` wins and is marked `velocity_source: "override"`. Per-rep velocity
 loss remains a separate field.
+
+`plan_target_note` is the frozen plan's own `notes.vbt` record, copied verbatim: it names the
+safety rule that skipped target attachment, the calibration shortfall, the issued targets, or
+the lifts withheld by policy. `session_modified` records that a safety rule amended the session
+before targets were attached; the targets are still issued, and the per-set rules decide whether
+each set stayed comparable. The note is provenance for the workout-level `reason`, which can only
+say "no target anywhere"; the web UI shows it beside an `unavailable` result and shows the
+modified-session line when targets were issued anyway. When no plan note was recorded (legacy
+rows, voided sessions) the field is `null`.
 
 A comparison is marked `comparable: false` with explicit reasons when the set is warm-up,
 unattributed, attributed to another exercise, missing/invalid velocity, a different rep count,
@@ -432,20 +446,20 @@ in the StrengthApp repository.
 | `GET /api/ios/v1/intelligence/adherence?as_of=&weeks=&from=&to=&group_by=&exercise_id=&session_type=` | bearer | exactly the `get_adherence_analysis` envelope; `from` and `to` travel together |
 | `POST /api/ios/v1/readiness` | bearer + Idempotency-Key | `{values, note?}` -> the existing readiness payload; values use the accepted manual field set; unknown/empty/zero-placeholder fields are rejected |
 | `POST /api/ios/v1/healthkit/workouts` | bearer + Idempotency-Key | `{workouts:[{key, activity_type, started_at, ended_at, duration_s, source_name, avg_heart_rate?, max_heart_rate?, active_energy_kj?, distance_m?, avg_mets?, srpe?, timezone?}]}` -> `{workouts, created, existing, rejected, rejected_keys}`; key is the HealthKit UUID (16 bytes) or a content digest (32); a workout starting before `history_cutoff` is rejected so history cannot be duplicated; an immutable conflict or malformed workout is rejected per item and its key is returned |
-| `POST /api/ios/v1/healthkit/samples` | bearer + Idempotency-Key | `{samples:[{key, workout_key, kind, sampled_at, value, unit, association, source_name?}], metrics?:[{key, kind, measured_at, value, method}]}` -> `{samples, created, existing, rejected, rejected_keys, metrics?}`; samples land beside their workout (uploaded first), metrics in `measurement`; per-item tolerance, a bad row is counted, its key returned and skipped |
+| `POST /api/ios/v1/healthkit/samples` | bearer + Idempotency-Key | `{samples:[{key, workout_key, kind, sampled_at, value, unit, association, source_name?}], metrics?:[{key, kind, measured_at, value, method}]}` -> `{samples, created, existing, rejected, rejected_keys, metrics?}`; samples land beside their workout (uploaded first), metrics in `measurement`; `kind` is `vo2max`, `steps_per_day` or `sitting_hours_per_day`; the two windowed metrics arrive already averaged by the phone (one row per window, `measured_at` is the window's last day, key is the window digest, `source` is `device`, replay of the same key is a no-op) and an implausible value is skipped, not fatal; per-item tolerance, a bad row is counted, its key returned and skipped |
 | `GET /api/ios/v1/healthkit/activity/summary?weeks=N` | bearer | `{summary, recent}` — the same computation the browser panel uses, authenticated for the phone |
 | `POST /api/ios/v1/healthkit/readiness` | bearer + Idempotency-Key | `{date, samples:[{field, value, sample_id, sample_at, source_name, source_bundle_id?, source_class, source_model?, source_manufacturer?}]}` -> the canonical readiness payload plus `healthkit` provenance; one to three samples (HRV, RHR, bodyweight), server-local today for the import, sample identity deduplicated; see Phase 3A contract |
 | `POST /api/ios/v1/prescriptions` | bearer + Idempotency-Key | `{readiness_ack?, confirmations?: {deload?, drop?}, settings?: {session_type?, minimum_session?, minimum_target_minutes?, top_set_intent?}}` where `top_set_intent` is `off`, `preferred` or `required` (omitted follows the profile) -> `202 {issued_plan_id, status, for_date, request_expires_at, plan_expires_at, retry_after_ms, settings}`; the request is built in the background (R7) |
 | `GET /api/ios/v1/plans/current` | bearer | the authoritative plan-request state: `{status: queued|building|ready|error|none, issued_plan_id, elapsed_seconds, settings, plan?, readiness?, warnings?, error?}`; `none` is a normal answer, not a 404 |
 | `POST /api/ios/v1/workouts` | bearer + Idempotency-Key | `{issued_plan_id}` -> the existing workout detail; starts by id only; expired/superseded/consumed plans are 410, another active workout is 409 |
-| `POST /api/ios/v1/workouts/<id>/sets` | bearer + Idempotency-Key | `{exercise_id, load_kg?, reps, rir?, velocity_mps?, set_index?, plan_item_index?, substitutes_plan_item_index?, rep_velocities?, performed_at?}` -> workout detail; `plan_item_index` is the stable plan-item identity (not the display position); `substitutes_plan_item_index` annotates a set that replaced that slot (the performed exercise must differ, and both stored columns then hold the slot); a stale index with no annotation is kept as extra work with no attribution; `set_index` defaults to the next index for that exercise but, when supplied, is the set's identity with the exercise: a matching payload is an idempotent replay and a different payload is `400 set_index_conflict`; `velocity_mps` is optional manual mean and `rep_velocities` is optional `[{rep_index, velocity_mps}]`; values must be positive and reps are required |
+| `POST /api/ios/v1/workouts/<id>/sets` | bearer + Idempotency-Key | `{exercise_id, load_kg?, reps, rir?, velocity_mps?, set_index?, plan_item_index?, substitutes_plan_item_index?, rep_velocities?, performed_at?}` -> workout detail; `plan_item_index` is the stable plan-item identity (not the display position); `substitutes_plan_item_index` annotates a set that replaced that slot (the performed exercise must differ, and both stored columns then hold the slot); a stale index with no annotation is kept as extra work with no attribution; `set_index` defaults to the next index for that exercise, allocated inside the same write transaction as the insert; when supplied, it is the set's identity with the exercise: a replay must match the complete immutable payload (exercise, index, load, reps, RIR, mean and per-rep velocity, source, both plan attributions, and `performed_at` when supplied, compared as an instant so equivalent ISO-8601 offsets replay) and a different payload is `400 set_index_conflict`; `velocity_mps` is optional manual mean and `rep_velocities` is optional `[{rep_index, velocity_mps}]`; values must be positive and reps are required |
 | `POST /api/ios/v1/workouts/<id>/remove-set` | bearer + Idempotency-Key | `{set_id}` -> workout detail; removes a performed set; unknown/invalid set id is 400/404; idempotent replay supported |
 | `POST /api/ios/v1/workouts/<id>/form` | bearer + Idempotency-Key | `{exercise_id, rating 1-5, note?}` -> workout detail |
 | `GET /api/ios/v1/exercises` | bearer | `{exercises:[{id, display, pattern}]}`; canonical catalogue for the R8 picker and exercise library |
 | `GET /api/ios/v1/exercises/<id>` | bearer | read-only exercise detail: `{exercise:{id,display,pattern,source}, properties:{...}, e1rm_applicable, e1rm, e1rm_reason}`; `e1rm` is the existing 365-day eligible/degraded series, or `null` when not e1RM-applicable; applicability uses the shared derived structural default when the taxonomy has no explicit flag; unknown id 404 |
 | `GET /api/ios/v1/exercises/<id>/history?limit=&offset=` | bearer | exactly `exercise_history_feature.history`; completed sessions with current working sets, 20 default page, equivalents reported; unknown id 404 |
-| `POST /api/ios/v1/workouts/<id>/execution` | bearer + Idempotency-Key, phone token only | `{event_id (UUID), change: substitution\|addition, plan_item_index?, after_item_index?, exercise_id, reps_low?, reps_high?, rir_target?, prefill_requested?}` -> `{execution}` (the same block `GET .../execution` returns). A substitution takes sets/reps/RIR from the frozen plan item; an addition takes the supplied reps/RIR. The prefill is server-solved and stored; `prefill_requested: false` (authored offline) stores `prefill_load_kg: null` with `prefill_reason: authored_offline` and is never retro-solved. Idempotent by `event_id`; the same identity with different content is `400`; a substitution after any set is attributed to that plan slot is `400`; a concurrent insertion of the same event id with different content is rejected rather than returned as a duplicate; a watch token is `403 not_phone` |
-| `POST /api/ios/v1/workouts/<id>/complete` | bearer + Idempotency-Key | `{session_rpe? or not_recorded: true, duration_min?, notes?, ended_at?, productivity?}` -> completed workout detail; RPE and not-recorded are mutually exclusive; `ended_at` preserves the local finish time and measured duration; `productivity` is 1-5 when present |
+| `POST /api/ios/v1/workouts/<id>/execution` | bearer + Idempotency-Key, phone token only | `{event_id (UUID), change: substitution\|addition, plan_item_index?, after_item_index?, exercise_id, reps_low?, reps_high?, rir_target?, prefill_requested?}` -> `{execution}` (the same block `GET .../execution` returns). A substitution takes sets/reps/RIR from the frozen plan item; an addition takes the supplied reps/RIR. The prefill is server-solved and stored; `prefill_requested: false` (authored offline) stores `prefill_load_kg: null` with `prefill_reason: authored_offline` and is never retro-solved. Idempotent by `event_id`; the same identity with different content is `400`; a substitution after any set is attributed to that plan slot is `400`, and the status, plan-identity, performed-slot and client-id checks run in the same write transaction as the insert so a concurrent set recording cannot slip between check and event; a concurrent insertion of the same event id with different content is rejected rather than returned as a duplicate; a watch token is `403 not_phone` |
+| `POST /api/ios/v1/workouts/<id>/complete` | bearer + Idempotency-Key | `{session_rpe? or not_recorded: true, duration_min?, notes?, ended_at?, productivity?}` -> completed workout detail; RPE and not-recorded are mutually exclusive; `ended_at` preserves the local finish time and measured duration; `productivity` is 1-5 when present; a retry or a second concurrent completion returns the already-completed workout without repeating materialisation, the dwell advance, the analytics revision or the end event |
 | `POST /api/ios/v1/workouts/<id>/abandon` | bearer + Idempotency-Key | `{}` -> abandoned workout detail |
 | `POST /api/ios/v1/workouts/<id>/execution-events` | bearer + Idempotency-Key | `{events:[{event_id, event_type, occurred_at, plan_item_index?, set_id?, local_set_id?, payload?}]}` -> `{workout_id, accepted, duplicates, received_at}`; 1-100 events, all-or-nothing, idempotent by event_id; unknown fields, bad timestamps, wrong ownership/status and conflicting event IDs are 400/404/409 |
 | `POST /api/ios/v1/healthkit/hrv-recovery` | bearer + Idempotency-Key | `{samples:[{sample_id, date, value, sample_at, source_name, source_class, sample_count?}]}` -> `{date_from, date_to, accepted, duplicates}`; 1-500 dated nights, history accepted (2014+, not future), each idempotent by `sample_id`, changed immutable data is 409; readiness reads this series for HRV (2026-11-18) |
@@ -506,7 +520,9 @@ unattributed set has both as null.
   a ready plan. Prescription rows are written in the start transaction, so an unstarted ready plan
   is a preview and not a prescription. Starting a `queued`/`building` plan is `409 plan_not_ready`;
   a failed build is `410 plan_failed`. Legacy Phase 2 rows are preserved by migration `0056` and
-  keep their original prescription id.
+  keep their original prescription id. Replacing or revoking a watch retires the live plan issued
+  to it in the same transaction, and `plans/current` reports `none` for a plan whose execution
+  target is no longer live; the request row is superseded, never re-targeted.
 - **Mutation switch.** Set mutations_enabled: false in config/ios.v1.yaml to return every Phase 2
   mutation as 503 ios_mutations_disabled while bootstrap/today/history/progress remain available.
   The bootstrap capabilities report the writes as disabled. Settings → iOS settings edits this

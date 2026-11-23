@@ -62,6 +62,9 @@ def test_override_outranks_the_computed_estimate():
         assert item.load_kg == pytest.approx(137.0)
         assert item.rationale_refs[1].startswith("e1rm_override:")
         assert any("manual e1RM override" in w for w in prescription.warnings)
+        # A manual override has no set-count coverage; it must not claim to be the median of
+        # an unknown number of sets. The override warning above is the whole provenance note.
+        assert not any("median of" in w for w in prescription.warnings)
         assert validate_references(prescription, context, conn) == []
 
 
@@ -167,3 +170,81 @@ e1rm_overrides:
         assert row["e1rm_kg"] == 160
     finally:
         store.close()
+
+
+def test_withdrawal_is_effective_dated_and_hides_the_override():
+    with store_with() as store:
+        conn = store.connection
+        repositories.append_e1rm_override(
+            conn, exercise_id="ssb_squat", e1rm_kg=160, effective_from="2024-01-01",
+        )
+        repositories.append_e1rm_withdrawal(
+            conn, exercise_id="ssb_squat", effective_from="2024-01-05",
+            reason="wrong entry",
+        )
+
+        assert queries.e1rm_override(conn, "ssb_squat", "2024-01-04")["e1rm_kg"] == 160
+        assert queries.e1rm_override(conn, "ssb_squat", "2024-01-05") is None
+
+        prescription = build_prescription(conn, for_date="2024-01-08", session_type="squat")
+        assert squat_load(prescription).load_kg == pytest.approx(105.5)
+
+
+def test_later_override_after_a_withdrawal_wins_again():
+    with store_with() as store:
+        conn = store.connection
+        repositories.append_e1rm_override(
+            conn, exercise_id="ssb_squat", e1rm_kg=160, effective_from="2024-01-01",
+        )
+        repositories.append_e1rm_withdrawal(
+            conn, exercise_id="ssb_squat", effective_from="2024-01-05", reason="wrong entry",
+        )
+        repositories.append_e1rm_override(
+            conn, exercise_id="ssb_squat", e1rm_kg=180, effective_from="2024-02-01",
+        )
+
+        assert queries.e1rm_override(conn, "ssb_squat", "2024-01-10") is None
+        assert queries.e1rm_override(conn, "ssb_squat", "2024-02-02")["e1rm_kg"] == 180
+
+
+def test_withdrawal_requires_a_reason():
+    with store_with() as store, pytest.raises(ValueError, match="reason"):
+        repositories.append_e1rm_withdrawal(
+            store.connection,
+            exercise_id="ssb_squat",
+            effective_from="2024-01-05",
+            reason="  ",
+        )
+
+
+def test_withdrawals_are_append_only():
+    with db.Store(":memory:") as store:
+        conn = store.connection
+        repositories.append_e1rm_withdrawal(
+            conn, exercise_id="ssb_squat", effective_from="2024-01-05",
+            reason="wrong entry",
+        )
+        with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+            conn.execute("DELETE FROM e1rm_override_withdrawal")
+
+
+def test_cli_withdraws_and_lists_the_tombstone(tmp_path, capsys):
+    path = tmp_path / "coach.db"
+    assert cli.main([
+        "--db", str(path), "e1rm", "set", "--exercise", "ssb_squat", "--kg", "160",
+        "--from", "2024-01-01", "--reason", "tested single",
+    ]) == 0
+    capsys.readouterr()
+
+    assert cli.main([
+        "--db", str(path), "e1rm", "withdraw", "--exercise", "ssb_squat",
+        "--from", "2024-01-05", "--reason", "wrong entry",
+    ]) == 0
+    out = capsys.readouterr().out
+    assert "e1RM override withdrawn: ssb_squat from 2024-01-05" in out
+
+    assert cli.main(["--db", str(path), "e1rm", "list"]) == 0
+    out = capsys.readouterr().out
+    assert "withdrawal" in out
+    assert "withdrawn" in out
+    assert "wrong entry" in out

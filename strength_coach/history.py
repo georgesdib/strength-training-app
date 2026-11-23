@@ -17,8 +17,8 @@ from strength_coach import adherence, workout
 from strength_coach.analytics import core as derived_core
 from strength_coach.analytics import revision as analytics_revision
 from strength_coach.domain import load as load_mod
+from strength_coach.features import hr_recovery, training_day, vbt_analysis
 from strength_coach.features import session_feedback as session_feedback_feature
-from strength_coach.features import training_day, vbt_analysis
 from strength_coach.store import db, queries, repositories, symptom_attribution
 from strength_coach.utils import exercises
 
@@ -101,6 +101,9 @@ def list_training_days(conn, *, limit: int = 50, offset: int = 0,
         ).fetchall()
         marks = {str(row["session_id"]): int(row["n"]) for row in rows}
     attribution_counts = symptom_attribution.counts_for_sessions(conn, session_ids)
+    # Each row carries its own final-set recovery so the list answers "how did that one end"
+    # without opening the detail sheet. Display-only, same caveat as everywhere else.
+    final_sets = hr_recovery.final_set_for_sessions(conn, session_ids)
     out: list[dict[str, Any]] = []
     for day in page:
         fragments = []
@@ -112,6 +115,7 @@ def list_training_days(conn, *, limit: int = 50, offset: int = 0,
             item["attributed_symptom_count"] = attribution_counts.get(
                 str(item["session_id"]), 0
             )
+            item["final_set"] = final_sets.get(str(item["session_id"]))
             fragments.append(item)
         day = {**day, "fragments": fragments}
         day["marks"] = sum(int(fragment["marks"]) for fragment in fragments)
@@ -207,7 +211,62 @@ def detail(conn, session_id: str) -> dict:
             "execution": workout.execution_view(conn, str(data["workout_id"])),
         })
         data["vbt"] = source.get("vbt") or vbt_analysis.unavailable("vbt_unavailable")
+    data["heart_rate"] = _heart_rate(conn, str(session_id))
+    # Display only, and labelled: the value is known to track effort rather than recovery, so it
+    # decorates the set it came from and never feeds adherence, readiness or the prescription.
+    recovery = hr_recovery.set_deltas(conn, str(session_id))
+    for item in data["sets"]:
+        value = recovery.get(int(item["set_id"]))
+        item["hrr60_bpm"] = None if value is None else value["bpm"]
+    final_set = hr_recovery.after_final_set(conn, str(session_id))
+    data["hr_recovery"] = (
+        {
+            "sets_with_value": len(recovery),
+            "caveat": hr_recovery.CAVEAT,
+            "final_set": final_set,
+        }
+        if (recovery or final_set)
+        else None
+    )
     return data
+
+
+def _heart_rate(conn, session_id: str) -> dict[str, Any] | None:
+    """Average and peak heart rate from the workout currently linked to this session.
+
+    Apple records both on the workout; nothing here is derived and a session with no linked
+    workout reports null rather than zero, so "not recorded" never reads as "zero effort".
+    Per-set recovery is not part of this payload: the 2026-11-22 probe (tools/hr_recovery_probe.py)
+    found it indistinguishable from the set's own load and duration, so it is displayed per set
+    by the history detail and never read back.
+    """
+    row = conn.execute(
+        """
+        SELECT w.avg_heart_rate, w.max_heart_rate, w.activity_type, w.started_at
+          FROM external_workout w
+         WHERE EXISTS (
+                 SELECT 1 FROM workout_link l
+                  WHERE l.external_workout_id = w.external_workout_id
+                    AND l.session_id = ?
+                    AND l.action = 'link'
+                    AND NOT EXISTS (
+                        SELECT 1 FROM workout_link u
+                         WHERE u.action = 'unlink' AND u.supersedes_id = l.link_id
+                    )
+               )
+         ORDER BY w.started_at DESC
+         LIMIT 1
+        """,
+        (session_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return {
+        "avg_bpm": None if row["avg_heart_rate"] is None else round(float(row["avg_heart_rate"])),
+        "max_bpm": None if row["max_heart_rate"] is None else round(float(row["max_heart_rate"])),
+        "activity_type": row["activity_type"],
+        "source": "apple_health",
+    }
 
 
 def _session_workout(conn, session: dict) -> tuple[dict | None, str | None]:

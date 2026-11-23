@@ -680,6 +680,14 @@ documents:
   status: reference
   audience: public
   nav: true
+- id: hr-recovery-probe
+  path: docs/HR-RECOVERY-PROBE.md
+  title: Per-set heart-rate recovery — probe and decision
+  description: why per-set HR recovery is displayed but never decided on, the probe behind it, and when to re-run it
+  category: evidence
+  status: evidence
+  audience: public
+  nav: true
 - id: references
   path: docs/REFERENCES.md
   title: REFERENCES — the scientific sources behind the rules

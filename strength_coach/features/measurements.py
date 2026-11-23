@@ -36,9 +36,61 @@ def record(
     method: str | None = None,
     note: str | None = None,
     source: str = DEFAULT_SOURCE,
+    external_id: str | None = None,
     config: MeasurementConfig | None = None,
 ) -> MetricSpec:
     """Validate, declare the metric if needed, then append the measurement."""
+    spec, day, number = _prepared(
+        conn, metric_key=metric_key, value=value, measured_on=measured_on, config=config,
+    )
+    repositories.append_measurement(
+        conn,
+        metric_key=spec.key,
+        measured_on=day.isoformat(),
+        value=number,
+        method=method,
+        source=source,
+        note=note,
+        external_id=external_id,
+    )
+    return spec
+
+
+def record_once(
+    conn,
+    *,
+    metric_key: str,
+    value: float,
+    measured_on: str | None = None,
+    method: str | None = None,
+    note: str | None = None,
+    source: str = DEFAULT_SOURCE,
+    external_id: str,
+    config: MeasurementConfig | None = None,
+) -> bool:
+    """Append an imported reading unless its `external_id` was already stored.
+
+    Imports re-run over overlapping windows, and `measurement` is append-only, so a replay must
+    be a no-op rather than a duplicate. Returns True only when a row was written.
+    """
+    spec, day, number = _prepared(
+        conn, metric_key=metric_key, value=value, measured_on=measured_on, config=config,
+    )
+    return repositories.append_measurement(
+        conn,
+        metric_key=spec.key,
+        measured_on=day.isoformat(),
+        value=number,
+        method=method,
+        source=source,
+        note=note,
+        external_id=external_id,
+    ) is not None
+
+
+def _prepared(conn, *, metric_key: str, value: float, measured_on: str | None,
+              config: MeasurementConfig | None) -> tuple[MetricSpec, dt.date, float]:
+    """Look the metric up in config, parse the date and range-check the value."""
     cfg = config or MeasurementConfig.load()
     spec = cfg.metrics.get(str(metric_key))
     if spec is None:
@@ -54,16 +106,7 @@ def record(
     number = spec.validate(value)
 
     _ensure_definition(conn, spec)
-    repositories.append_measurement(
-        conn,
-        metric_key=spec.key,
-        measured_on=day.isoformat(),
-        value=number,
-        method=method,
-        source=source,
-        note=note,
-    )
-    return spec
+    return spec, day, number
 
 
 def _ensure_definition(conn, spec: MetricSpec) -> None:

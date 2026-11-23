@@ -177,3 +177,25 @@ afc_5a_historical:
   - Do not start before the Phase 5A review.
   - Do not inspect outcomes before the criteria are written.
   - Do not propose or apply a prescription change from this analysis.
+# Per-set heart-rate recovery. A prompt to re-measure, not a feature gate: the 2026-11-22 probe
+# found the metric indistinguishable from set effort on 4 sessions, and the answer only becomes
+# trustworthy with a larger corpus. Decision recorded in docs/HR-RECOVERY-PROBE.md.
+hr_recovery_probe:
+  label: Re-run the heart-rate recovery probe
+  interval_weeks: 12
+  min_sessions: 15
+  snooze_days: 90
+  doc: docs/HR-RECOVERY-PROBE.md
+  why: >
+    Per-set heart-rate recovery went live on 2026-11-22 as display-only context and was not made an
+    input: it tracked load and set duration rather than recovery, and set-to-set noise exceeded any
+    between-session signal. Four sessions cannot settle that, so the question is re-measured on a
+    cadence instead of being treated as settled.
+  steps:
+  - "Run the probe: python tools/hr_recovery_probe.py --db data/coach.db, on the host holding the database."
+  - Read the verdict block; it applies the decision rule written in the module docstring.
+  - Record the new numbers and the decision in docs/HR-RECOVERY-PROBE.md, then mark this reviewed.
+  dont:
+  - Do not turn the displayed value into an input (adherence, readiness, prescription) from a single probe run.
+  - Do not move the decision bar after seeing the result.
+  - Do not copy the database off the server to run the probe.
