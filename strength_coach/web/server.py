@@ -39,6 +39,7 @@ from strength_coach import (
     history,
     ios_config,
     modalities,
+    reconciliation,
     settings_profile,
     settings_registry,
     workout,
@@ -200,11 +201,14 @@ if not any(isinstance(handler, _BufferLogHandler) for handler in logging.getLogg
 class RequestError(Exception):
     """A client error raised before the route; close the socket for framing faults."""
 
-    def __init__(self, status: int, message: str, *, close: bool = False) -> None:
+    def __init__(
+        self, status: int, message: str, *, close: bool = False, code: str | None = None
+    ) -> None:
         super().__init__(message)
         self.status = status
         self.message = message
         self.close = close
+        self.code = code
 
 
 class FieldError(ValueError):
@@ -263,6 +267,21 @@ def _ios_capabilities() -> dict[str, bool]:
     # Additive read route; advertised only because the route exists, per the contract.
     capabilities["intelligence_read"] = True
     return capabilities
+
+
+def _parse_iso_utc(value: str) -> datetime.datetime:
+    """Parse a stored or client-supplied ISO-8601 timestamp into UTC.
+
+    A naive value is read as UTC rather than rejected: every stored timestamp is written with a
+    timezone, and the only naive inputs are older clients that sent local time.
+    """
+    try:
+        parsed = datetime.datetime.fromisoformat(str(value).strip().replace("Z", "+00:00"))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("timestamp must be ISO-8601") from exc
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=datetime.UTC)
+    return parsed.astimezone(datetime.UTC)
 
 
 def _elapsed_seconds(start_iso: str, end_iso: str) -> int:
@@ -989,7 +1008,10 @@ class Handler(BaseHTTPRequestHandler):
         body = json.dumps(payload, default=_json_default).encode("utf-8")
         self._send(status, body, "application/json; charset=utf-8", headers=headers)
 
-    def _error(self, status: int, message: str, fields: dict[str, str] | None = None) -> None:
+    def _error(
+        self, status: int, message: str, fields: dict[str, str] | None = None,
+        code: str | None = None,
+    ) -> None:
         # A 4xx is a client contract violation, and the phone cannot show us its request. Logging
         # the message is what makes a rejected sync diagnosable from the server side.
         if status >= 400:
@@ -1001,6 +1023,8 @@ class Handler(BaseHTTPRequestHandler):
                 file=sys.stderr, flush=True,
             )
         payload: dict[str, Any] = {"error": message}
+        if code:
+            payload["code"] = code
         if fields:
             payload["fields"] = fields
         self._json(status, payload)
@@ -1130,7 +1154,10 @@ class Handler(BaseHTTPRequestHandler):
                     readiness = self._readiness(conn, clock["server_date"])
                     plan_payload = self._ios_plan_payload(conn, device)
                     live_plan = None
-                    plan_row = ios_workflow.current_plan(conn, device["device_id"])
+                    plan_row = ios_workflow.current_plan(
+                        conn,
+                        ios_workflow.pairing_device_id(conn, device["device_id"]),
+                    )
                     if plan_row is not None and plan_row.get("plan_json"):
                         try:
                             live_plan = json.loads(plan_row["plan_json"])
@@ -1341,7 +1368,7 @@ class Handler(BaseHTTPRequestHandler):
         except RequestError as exc:
             if exc.close:
                 self.close_connection = True
-            self._error(exc.status, exc.message)
+            self._error(exc.status, exc.message, code=exc.code)
         except ios_devices.PairingError as exc:
             self._error(exc.status, exc.message, exc.fields)
         except FieldError as exc:
@@ -1414,19 +1441,17 @@ class Handler(BaseHTTPRequestHandler):
                     if len(parts) == 6 and parts[:4] == ["api", "ios", "v1", "workouts"]:
                         workout_id = parts[4]
                         action = parts[5]
-                        if action == "takeover":
-                            config = self._ios_require_mutations()
-                            body = self._body()
-                            self._ios_takeover(conn, device, workout_id, body)
-                            return
+                        self._ios_watch_read_only(device, action)
                         handlers = {
                             "sets": self._ios_workout_set,
                             "remove-set": self._ios_workout_remove_set,
+                            "update-set": self._ios_workout_update_set,
                             "execution-events": self._ios_workout_execution_events,
                             "execution": self._ios_workout_execution_change,
                             "form": self._ios_workout_form,
                             "complete": self._ios_workout_complete,
                             "abandon": self._ios_workout_abandon,
+                            "reconciliation": self._ios_workout_reconciliation,
                         }
                         handler = handlers.get(action)
                         if handler is None:
@@ -1445,19 +1470,39 @@ class Handler(BaseHTTPRequestHandler):
                                 conn, device, path, body, config, workout_id,
                                 lambda c, wid, payload, did=device_id,
                                         fn=handler_fn: fn(c, wid, payload, did),
-                                access="phone" if action == "execution" else "owner",
+                                access="phone",
+                                # Telemetry is observational and bounded by the session's own
+                                # timestamps, so it may arrive after completion (WP2a).
+                                allow_completed=action == "execution-events",
+                            )
+                            return
+                        if action == "complete":
+                            # The completing device is recorded with a late finish instant.
+                            self._ios_workout_mutation(
+                                conn, device, path, body, config, workout_id,
+                                lambda c, wid, payload, did=device["device_id"]:
+                                    self._ios_workout_complete(
+                                        c, wid, payload, device_id=did
+                                    ),
+                                access="phone",
                             )
                             return
                         self._ios_workout_mutation(
                             conn, device, path, body, config, workout_id, handler,
-                            access="any" if action == "abandon" else "owner",
+                            access="any" if action == "abandon" else "phone",
+                            # A set may arrive after completion, inside the reconciliation
+                            # window; the model decides whether it applies (D8).
+                            allow_completed=action in {
+                                "sets", "remove-set", "update-set", "reconciliation",
+                                "form", "execution-events",
+                            },
                         )
                     else:
                         self._error(404, "not found")
         except RequestError as exc:
             if exc.close:
                 self.close_connection = True
-            self._error(exc.status, exc.message)
+            self._error(exc.status, exc.message, code=exc.code)
         except ios_devices.AuthError as exc:
             self._error(exc.status, exc.message)
         except ios_workflow.IOSWorkflowError as exc:
@@ -1596,43 +1641,66 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._json(status, result)
 
-    def _ios_takeover(self, conn, device: dict, workout_id: str, body: dict) -> None:
-        if device["kind"] != "phone":
+    # The watch commits through the phone (D3, D12): its credential is read-only for execution.
+    # Abandon is deliberately not on this list — it is the safety valve that keeps a lost phone
+    # from stranding an open session.
+    WATCH_READ_ONLY_ACTIONS = frozenset({
+        "sets", "update-set", "remove-set", "execution",
+        "execution-events", "form", "complete", "reconciliation",
+    })
+
+    def _ios_watch_read_only(self, device: dict, action: str) -> None:
+        if device["kind"] == "watch" and action in self.WATCH_READ_ONLY_ACTIONS:
             raise ios_workflow.IOSWorkflowError(
-                403, "not_phone", "only the phone may take over a session"
+                403, "watch_read_only",
+                "the watch commits execution through the phone",
+                details={"action": action},
             )
-        self._ios_closed_fields(body, {"confirm"})
-        if body.get("confirm") is not True:
-            raise ios_workflow.IOSWorkflowError(
-                400, "validation_failed", "confirm must be true",
-                fields={"confirm": "required"},
-            )
-        self._ios_workout(conn, workout_id)
-        result = workout.take_over(conn, workout_id, device["device_id"])
-        self._json(200, result)
 
     def _ios_workout_mutation(self, conn, device: dict, route: str, body: dict,
                               config: ios_config.IOSConfig, workout_id: str,
-                              handler, *, access: str = "owner") -> None:
+                              handler, *, access: str = "owner",
+                              allow_completed: bool = False) -> None:
         def callback(c, _device, payload):
             # A retry whose response was lost must replay its stored receipt before the
             # workout state (possibly completed/abandoned) is re-checked.
-            data = self._ios_workout(c, workout_id)
-            if access == "owner" and data.get("owner_device_id") not in (
-                None, device["device_id"]
-            ):
-                raise ios_workflow.IOSWorkflowError(
-                    409, "not_owner",
-                    "this workout is owned by another device",
-                    details={"owner_device_id": data.get("owner_device_id")},
-                )
+            _ = self._ios_workout(c, workout_id, allow_completed=allow_completed)
+            # owner_device_id is provenance only. Any non-revoked device of the pairing may
+            # write; the route-level phone check below is about plan edits, not ownership.
             if access == "phone" and device["kind"] != "phone":
                 raise ios_workflow.IOSWorkflowError(
                     403, "not_phone", "only the phone may edit the plan"
                 )
             return handler(c, workout_id, payload)
 
-        self._ios_mutation(conn, device, route, body, config, callback)
+        try:
+            self._ios_mutation(conn, device, route, body, config, callback)
+        except reconciliation.Rejected as exc:
+            # Applicable window, inapplicable event: preserve it and say why, without pretending
+            # it was a closed window.
+            with db.transaction(conn):
+                payload = dict(exc.payload)
+                payload.setdefault("reason", exc.reason)
+                # Provenance travels with the rejection: a refused event must still name the
+                # device that produced it.
+                payload.setdefault("device_id", device["device_id"])
+                reconciliation.record_rejection(conn, workout_id, payload)
+            raise ios_workflow.IOSWorkflowError(
+                409, "late_event_rejected", str(exc),
+                details={"workout_id": workout_id, "reason": exc.reason},
+            ) from exc
+        except reconciliation.WindowClosed as exc:
+            # The rejected transaction has already rolled back, so the arrival is preserved here,
+            # in its own transaction: a late set that missed the window is never deleted (D8).
+            with db.transaction(conn):
+                payload = dict(exc.payload)
+                payload.setdefault("device_id", device["device_id"])
+                reconciliation.record_rejection(conn, workout_id, payload)
+            raise ios_workflow.IOSWorkflowError(
+                409, "reconciliation_window_closed",
+                "this workout's reconciliation window has closed",
+                details={"workout_id": workout_id},
+            ) from exc
 
     def _ios_readiness(self, conn, device: dict, body: dict) -> dict:
         self._ios_closed_fields(body, {"values", "note"})
@@ -2256,7 +2324,7 @@ class Handler(BaseHTTPRequestHandler):
         unknown = sorted(
             set(raw) - {
                 "session_type", "minimum_session", "minimum_target_minutes",
-                "top_set_intent",
+                "top_set_intent", "technique_throttle",
             }
         )
         if unknown:
@@ -2292,6 +2360,18 @@ class Handler(BaseHTTPRequestHandler):
                     fields={"minimum_target_minutes": "must be an integer from 1 to 240"},
                 )
             settings["minimum_target_minutes"] = int(target)
+        throttle = raw.get("technique_throttle")
+        if throttle is not None:
+            # MOD-TECH-001 is a per-session request, not stored state: it is frozen into the
+            # plan at build time and never repeats on the next session. The phone offers the
+            # main-work scope only, so no pattern list is accepted here.
+            if not isinstance(throttle, bool):
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed",
+                    "technique_throttle must be true or false",
+                    fields={"technique_throttle": "must be true or false"},
+                )
+            settings["technique_throttle"] = throttle
         intent = raw.get("top_set_intent")
         if intent not in (None, ""):
             if not isinstance(intent, str) or intent not in (
@@ -2369,38 +2449,12 @@ class Handler(BaseHTTPRequestHandler):
     def _ios_prescription(self, conn, device: dict, body: dict) -> dict:
         config = self._ios_require_mutations()
         self._ios_closed_fields(
-            body, {"readiness_ack", "confirmations", "settings", "execution_target"}
+            body, {"readiness_ack", "confirmations", "settings"}
         )
         settings = self._ios_request_settings(body)
-        execution_target = body.get("execution_target", "phone")
-        if execution_target not in {"phone", "watch"}:
-            raise ios_workflow.IOSWorkflowError(
-                400, "validation_failed",
-                "execution_target must be phone or watch",
-                fields={"execution_target": "must be phone or watch"},
-            )
-        if execution_target == "phone":
-            if device["kind"] != "phone":
-                raise ios_workflow.IOSWorkflowError(
-                    403, "execution_target_forbidden",
-                    "a watch cannot request a phone plan",
-                )
-            target_device_id = device["device_id"]
-        else:
-            if device["kind"] == "watch":
-                target_device_id = device["device_id"]
-            else:
-                watch = conn.execute(
-                    "SELECT device_id FROM ios_device "
-                    "WHERE kind = 'watch' AND parent_device_id = ? AND revoked_at IS NULL",
-                    (device["device_id"],),
-                ).fetchone()
-                if watch is None:
-                    raise ios_workflow.IOSWorkflowError(
-                        409, "watch_not_paired",
-                        "no active watch is paired with this phone",
-                    )
-                target_device_id = watch["device_id"]
+        # The plan belongs to the pairing: a phone is its own pairing; a watch uses the phone
+        # that minted it. Any non-revoked device in the pairing may start it.
+        pairing = ios_workflow.pairing_device_id(conn, device["device_id"])
         acknowledge = body.get("readiness_ack", False)
         if not isinstance(acknowledge, bool):
             raise ios_workflow.IOSWorkflowError(
@@ -2494,12 +2548,15 @@ class Handler(BaseHTTPRequestHandler):
             created + datetime.timedelta(seconds=config.plan_request_ttl_seconds)
         )
         issued_plan_id = uuid.uuid4().hex
+        # The execution the athlete will start offline. Minted here, not at start, so both
+        # devices can name it before either of them reaches the server (D1, WP0 section 5).
+        execution_id = str(uuid.uuid4())
         ios_workflow.enqueue_plan_request(
             conn,
             issued_plan_id=issued_plan_id,
+            execution_id=execution_id,
             device_id=device["device_id"],
-            target_device_id=target_device_id,
-            execution_target=execution_target,
+            pairing_device_id=pairing,
             for_date=today,
             requested_session_type=str(settings["session_type"]),
             settings=settings,
@@ -2519,8 +2576,8 @@ class Handler(BaseHTTPRequestHandler):
         ios_plan_worker.start_dispatcher(self.db_path, _CPU_JOB_SLOTS)
         return {
             "issued_plan_id": issued_plan_id,
+            "execution_id": execution_id,
             "status": "queued",
-            "execution_target": execution_target,
             "for_date": today,
             "request_expires_at": request_expires_at,
             "plan_expires_at": None,
@@ -2537,6 +2594,84 @@ class Handler(BaseHTTPRequestHandler):
             return 2000
         return 0
 
+    def _ios_bind_execution_id(self, conn, row, body: dict) -> str:
+        """The execution this start becomes: the plan's own id (D1).
+
+        A legacy row issued before the column existed mints one now, so an old plan still binds
+        to a stable id instead of starting under an id no device can name.
+        """
+        execution_id = str(row["execution_id"] or "")
+        supplied = body.get("execution_id")
+        if supplied is not None:
+            if not isinstance(supplied, str) or not supplied.strip():
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed",
+                    "execution_id must be a non-empty string",
+                    fields={"execution_id": "must be a non-empty string"},
+                )
+            if execution_id and supplied.strip() != execution_id:
+                raise ios_workflow.IOSWorkflowError(
+                    409, "execution_id_mismatch",
+                    "this start names a different execution than the plan",
+                    details={"execution_id": execution_id},
+                )
+        if not execution_id:
+            # Backward compatibility is gone: a plan issued before execution identity existed
+            # cannot be bound, and every such plan is past its four-hour window anyway.
+            raise ios_workflow.IOSWorkflowError(
+                409, "plan_not_bindable",
+                "this plan predates execution identity; request a new one",
+                details={"issued_plan_id": row["issued_plan_id"]},
+            )
+        return execution_id
+
+    def _ios_check_bind_window(self, row, started_at_raw) -> str:
+        """Bind by the athlete's recorded start, not by the sync (D13).
+
+        A session started at 23:50 and synced at 00:10 is the session that happened. The plan's
+        own issue window decides: the recorded start must fall inside it, and the plan's date
+        must still be today or yesterday. One minute of tolerance absorbs a client clock offset
+        that the server clock derivation has already bounded.
+        """
+        if started_at_raw is not None and not isinstance(started_at_raw, str):
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed",
+                "started_at must be an ISO-8601 string",
+                fields={"started_at": "must be an ISO-8601 string"},
+            )
+        try:
+            created_at = _parse_iso_utc(row["created_at"])
+            closes_at = _parse_iso_utc(row["plan_expires_at"] or row["request_expires_at"])
+            started_at = (
+                _parse_iso_utc(started_at_raw) if started_at_raw
+                else _parse_iso_utc(ios_workflow.now_iso())
+            )
+        except ValueError as exc:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", str(exc)
+            ) from exc
+        today = datetime.date.today()
+        allowed_dates = {
+            today.isoformat(), (today - datetime.timedelta(days=1)).isoformat(),
+        }
+        if str(row["for_date"]) not in allowed_dates:
+            raise ios_workflow.IOSWorkflowError(
+                410, "plan_expired", "issued plan was for an earlier server date"
+            )
+        if (
+            started_at < created_at - datetime.timedelta(seconds=60)
+            or started_at > closes_at
+        ):
+            raise ios_workflow.IOSWorkflowError(
+                410, "plan_expired",
+                "the recorded start is outside the plan's start window",
+                details={
+                    "created_at": row["created_at"],
+                    "closes_at": row["plan_expires_at"] or row["request_expires_at"],
+                },
+            )
+        return started_at.isoformat()
+
     def _ios_plan_payload(self, conn, device: dict) -> dict:
         """The authoritative plan-request state for this device (contract §4.2, §6).
 
@@ -2544,20 +2679,10 @@ class Handler(BaseHTTPRequestHandler):
         before it could be built or started. Expired rows are not deleted; they are simply no
         longer live.
         """
-        row = ios_workflow.current_plan(conn, device["device_id"])
+        pairing = ios_workflow.pairing_device_id(conn, device["device_id"])
+        row = ios_workflow.current_plan(conn, pairing)
         if row is None:
             return {"status": "none"}
-        target_device_id = row["target_device_id"]
-        if target_device_id is not None:
-            # Fail closed on a dead execution target. Replacing or revoking a watch supersedes
-            # its live plan, so this only catches a legacy row or a race that missed that
-            # write; advertising it would offer a plan that can never be started.
-            target = conn.execute(
-                "SELECT revoked_at FROM ios_device WHERE device_id = ?",
-                (str(target_device_id),),
-            ).fetchone()
-            if target is None or target["revoked_at"] is not None:
-                return {"status": "none"}
         status = str(row["status"])
         now = ios_workflow.now_iso()
         if status in {"queued", "building"}:
@@ -2570,15 +2695,16 @@ class Handler(BaseHTTPRequestHandler):
             return {"status": "none"}
         payload: dict[str, Any] = {
             "issued_plan_id": row["issued_plan_id"],
+            "execution_id": row["execution_id"],
             "status": status,
             "for_date": row["for_date"],
             "elapsed_seconds": _elapsed_seconds(row["created_at"], now),
             "request_expires_at": row["request_expires_at"],
             "plan_expires_at": row["plan_expires_at"],
-            "execution_target": row["execution_target"],
             "retry_after_ms": self._ios_retry_after(status),
             "settings": ios_workflow.load_settings(row),
             "plan": None,
+            "load_catalogue": None,
             "readiness": None,
             "warnings": [],
             "error": None,
@@ -2589,6 +2715,12 @@ class Handler(BaseHTTPRequestHandler):
             payload.update({
                 "session_type": row["session_type"],
                 "plan": plan,
+                # The shipped substitution loads (D9). Null for a plan built before the
+                # catalogue existed, which the phone treats as "no base available".
+                "load_catalogue": (
+                    json.loads(row["load_catalogue_json"])
+                    if row["load_catalogue_json"] else None
+                ),
                 "readiness": {
                     "status": assessment.status,
                     "score": assessment.score,
@@ -2606,7 +2738,9 @@ class Handler(BaseHTTPRequestHandler):
         return payload
 
     def _ios_start(self, conn, device: dict, body: dict) -> dict:
-        self._ios_closed_fields(body, {"issued_plan_id"})
+        # Either device of the pairing may start (S5); the watch's execution writes are the
+        # read-only surface, not the start.
+        self._ios_closed_fields(body, {"issued_plan_id", "execution_id", "started_at"})
         issued_plan_id = body.get("issued_plan_id")
         if not isinstance(issued_plan_id, str) or not issued_plan_id.strip():
             raise ios_workflow.IOSWorkflowError(
@@ -2618,12 +2752,11 @@ class Handler(BaseHTTPRequestHandler):
             raise ios_workflow.IOSWorkflowError(
                 404, "plan_not_found", "issued plan not found"
             )
-        if (row["execution_target"] != device["kind"]
-                or row["target_device_id"] != device["device_id"]):
+        if row["pairing_device_id"] != ios_workflow.pairing_device_id(
+            conn, device["device_id"]
+        ):
             raise ios_workflow.IOSWorkflowError(
-                409, "wrong_execution_target",
-                "this plan is for a different execution device",
-                details={"execution_target": row["execution_target"]},
+                404, "plan_not_found", "issued plan not found"
             )
         plan_status = str(row["status"])
         if plan_status in {"queued", "building"}:
@@ -2650,11 +2783,6 @@ class Handler(BaseHTTPRequestHandler):
                 "this plan is no longer available",
                 details={"code": row["error_code"]},
             )
-        today = datetime.date.today().isoformat()
-        if row["for_date"] != today:
-            raise ios_workflow.IOSWorkflowError(
-                410, "plan_expired", "issued plan was for an earlier server date"
-            )
         if row["superseded_at"] is not None:
             raise ios_workflow.IOSWorkflowError(
                 410, "plan_superseded", "a newer issued plan replaced this one"
@@ -2663,7 +2791,17 @@ class Handler(BaseHTTPRequestHandler):
             existing = (
                 workout.get(conn, row["workout_id"]) if row["workout_id"] else None
             )
-            if existing is not None and existing["status"] == "in_progress":
+            requested_execution = body.get("execution_id")
+            # A replayed offline start must acknowledge the execution it already owns even
+            # after another device completed it. The late-reconciliation window, not a
+            # reopened session, is what accepts the watch's queued sets afterwards.
+            if existing is not None and (
+                existing["status"] == "in_progress"
+                or (
+                    isinstance(requested_execution, str)
+                    and requested_execution == existing["workout_id"]
+                )
+            ):
                 return existing
             raise ios_workflow.IOSWorkflowError(
                 410, "plan_consumed", "issued plan has already been used",
@@ -2672,18 +2810,9 @@ class Handler(BaseHTTPRequestHandler):
                     "status": existing["status"] if existing else None,
                 },
             )
-        deadline = row["plan_expires_at"] or row["request_expires_at"]
-        if str(deadline) <= ios_workflow.now_iso():
-            raise ios_workflow.IOSWorkflowError(
-                410, "plan_expired", "issued plan has expired"
-            )
+        execution_id = self._ios_bind_execution_id(conn, row, body)
+        recorded_start = self._ios_check_bind_window(row, body.get("started_at"))
         self._ios_idle_sweep(conn)
-        active = workout.active_workout(conn)
-        if active is not None:
-            raise ios_workflow.IOSWorkflowError(
-                409, "workout_active", "a workout is already in progress",
-                details={"workout_id": active["workout_id"]},
-            )
         plan = json.loads(row["plan_json"])
         readiness = json.loads(row["readiness_json"])
         try:
@@ -2703,6 +2832,17 @@ class Handler(BaseHTTPRequestHandler):
                     session_type=row["session_type"],
                     prescription_id=prescription_id,
                     owner_device_id=device["device_id"],
+                    # The plan names the execution, so an offline start and its later sync are the
+                    # same workout. Identity and state decide that, never elapsed time: an
+                    # execution id that already has a session returns it, and a different
+                    # execution may coexist with an open one (D1, WP5).
+                    workout_id=execution_id,
+                    allow_concurrent=True,
+                    # The athlete's recorded start, not the sync time: a session started at
+                    # 23:50 and sent at 00:10 keeps its real start and its real date. When the
+                    # client sent nothing, the model keeps its own clock so the stored value
+                    # has the same shape it always had.
+                    started_at=recorded_start if body.get("started_at") else None,
                     # The issue step already applied the readiness gate: a ready score may have
                     # only the fields it needs, and a non-ready score required an explicit ack.
                     # Re-applying the five-field workout default here rejects a valid ready day.
@@ -2729,12 +2869,15 @@ class Handler(BaseHTTPRequestHandler):
                 ) from exc
             raise
 
-    def _ios_workout(self, conn, workout_id: str) -> dict:
+    def _ios_workout(self, conn, workout_id: str, *, allow_completed: bool = False) -> dict:
         data = workout.get(conn, workout_id)
         if data is None:
             raise ios_workflow.IOSWorkflowError(
                 404, "workout_not_found", "workout not found"
             )
+        if allow_completed and data["status"] == "completed":
+            # A late set is judged by the reconciliation window, not by the status guard.
+            return data
         if data["status"] != "in_progress":
             raise ios_workflow.IOSWorkflowError(
                 409, "workout_not_active", "workout is not in progress",
@@ -2746,9 +2889,19 @@ class Handler(BaseHTTPRequestHandler):
         self._ios_closed_fields(body, {
             "exercise_id", "load_kg", "reps", "rir", "velocity_mps",
             "set_index", "plan_item_index", "substitutes_plan_item_index",
-            "rep_velocities", "performed_at",
+            "rep_velocities", "performed_at", "origin_device_id",
         })
-        self._ios_workout(conn, workout_id)
+        data = self._ios_workout(conn, workout_id, allow_completed=True)
+        if data["status"] == "completed" and reconciliation.state(
+            conn, workout_id
+        )["state"] == "none":
+            # A session that never expected another device keeps the old contract exactly:
+            # a set against a completed workout is 409 workout_not_active, not a validation
+            # error. Only a session with an open reconciliation window accepts late work.
+            raise ios_workflow.IOSWorkflowError(
+                409, "workout_not_active", "workout is not in progress",
+                details={"status": data["status"]},
+            )
         exercise_id = body.get("exercise_id")
         if not isinstance(exercise_id, str) or not exercise_id.strip():
             raise ios_workflow.IOSWorkflowError(
@@ -2807,6 +2960,37 @@ class Handler(BaseHTTPRequestHandler):
                 raise ios_workflow.IOSWorkflowError(
                     400, "validation_failed", f"{field} must be non-negative",
                     fields={field: "must be non-negative"},
+                )
+        origin_device_id = body.get("origin_device_id")
+        if origin_device_id is not None:
+            if not isinstance(origin_device_id, str) or not origin_device_id.strip():
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", "origin_device_id must be a non-empty string",
+                    fields={"origin_device_id": "must be a non-empty string"},
+                )
+            origin_device_id = origin_device_id.strip()
+            origin = conn.execute(
+                "SELECT parent_device_id, revoked_at FROM ios_device WHERE device_id = ?",
+                (origin_device_id,),
+            ).fetchone()
+            if origin is None or origin["revoked_at"] is not None:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "origin_device_unknown",
+                    "origin_device_id is not a live device",
+                    fields={"origin_device_id": "unknown or revoked"},
+                )
+            issued = conn.execute(
+                "SELECT pairing_device_id FROM ios_issued_plan WHERE workout_id = ?",
+                (workout_id,),
+            ).fetchone()
+            if issued is not None and (
+                ios_workflow.pairing_device_id(conn, origin_device_id)
+                != issued["pairing_device_id"]
+            ):
+                raise ios_workflow.IOSWorkflowError(
+                    403, "origin_not_in_pairing",
+                    "origin_device_id does not belong to this workout's pairing",
+                    fields={"origin_device_id": "not in pairing"},
                 )
         performed_at = body.get("performed_at")
         if performed_at is not None and not isinstance(performed_at, str):
@@ -2878,7 +3062,15 @@ class Handler(BaseHTTPRequestHandler):
                 substitutes_plan_item_index=substitutes_plan_item_index,
                 rep_velocities=rep_velocities,
                 performed_at=performed_at,
+                origin_device_id=origin_device_id,
+                # The model decides: in-progress is normal, completed is late (D8), and an
+                # abandoned session is still refused.
+                late=True,
             )
+        except reconciliation.WindowClosed:
+            # Handled above the transaction wrapper, which is where the rejected arrival can be
+            # preserved after the rollback.
+            raise
         except ValueError as exc:
             raise ios_workflow.IOSWorkflowError(
                 400, "validation_failed", str(exc)
@@ -2900,13 +3092,15 @@ class Handler(BaseHTTPRequestHandler):
     ) -> dict:
         """Append one phone-authored substitution or addition (D9, DEC-RESOLVER-23).
 
-        The prefill is solved here, never sent by the client; an offline author sends
-        `prefill_requested: false` so the event records null and says why.
+        Preferred: the phone applies the issued load catalogue and sends `prefill_load_kg`; the
+        server verifies it against the same snapshot and records whether it agreed. A catalogue
+        version with no value records a catalogue miss. There is no legacy
+        `prefill_requested` flag; a client that sends neither asks the server to solve.
         """
         self._ios_closed_fields(body, {
             "event_id", "change", "plan_item_index", "after_item_index",
             "exercise_id", "reps_low", "reps_high", "rir_target",
-            "prefill_requested",
+            "prefill_load_kg", "prefill_catalogue_version", "prefill_as_of",
         })
         change = body.get("change")
         if change not in workout.EXECUTION_CHANGE_TYPES:
@@ -2936,12 +3130,39 @@ class Handler(BaseHTTPRequestHandler):
             raise ios_workflow.IOSWorkflowError(
                 400, "validation_failed", str(exc)
             ) from exc
-        requested = body.get("prefill_requested")
-        if requested is not None and not isinstance(requested, bool):
+        try:
+            supplied_prefill = _number(body.get("prefill_load_kg"))
+        except (TypeError, ValueError) as exc:
             raise ios_workflow.IOSWorkflowError(
-                400, "validation_failed", "prefill_requested must be a boolean",
-                fields={"prefill_requested": "must be a boolean"},
+                400, "validation_failed", "prefill_load_kg must be a number",
+                fields={"prefill_load_kg": "must be a number"},
+            ) from exc
+        if supplied_prefill is not None and supplied_prefill < 0:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "prefill_load_kg must be non-negative",
+                fields={"prefill_load_kg": "must be non-negative"},
             )
+        version = body.get("prefill_catalogue_version")
+        if version is not None and not isinstance(version, str):
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed",
+                "prefill_catalogue_version must be a string",
+                fields={"prefill_catalogue_version": "must be a string"},
+            )
+        # Verify against the catalogue the plan actually shipped. A different version is not an
+        # error: the change is still recorded, unverified, with a reason.
+        shipped = None
+        plan_row = conn.execute(
+            "SELECT load_catalogue_json FROM ios_issued_plan "
+            "WHERE workout_id = ? ORDER BY created_at DESC LIMIT 1",
+            (workout_id,),
+        ).fetchone()
+        if plan_row is not None and plan_row["load_catalogue_json"]:
+            parsed_catalogue = json.loads(plan_row["load_catalogue_json"])
+            if version in (None, "") or version == parsed_catalogue.get(
+                "catalogue_version"
+            ):
+                shipped = parsed_catalogue
         try:
             # The response is the same execution block the GET returns, so the authoring
             # phone can apply it to its live view without a second request.
@@ -2955,7 +3176,11 @@ class Handler(BaseHTTPRequestHandler):
                 reps_low=reps_low,
                 reps_high=reps_high,
                 rir_target=rir_target,
-                prefill_requested=True if requested is None else requested,
+                prefill_load_kg=supplied_prefill,
+                catalogue=shipped,
+                # A version with no value means the phone tried the catalogue and had nothing;
+                # that is a recorded miss, not an invitation to solve on arrival.
+                catalogue_attempted=version is not None and supplied_prefill is None,
                 device_id=device_id,
             )}
         except ValueError as exc:
@@ -2963,9 +3188,45 @@ class Handler(BaseHTTPRequestHandler):
                 400, "validation_failed", str(exc)
             ) from exc
 
+    def _ios_workout_reconciliation(self, conn, workout_id: str, body: dict) -> dict:
+        """Record that one expected device has nothing left to send (D8).
+
+        Without this a session stays `open` for the whole window after the watch has already
+        synced, and the phone would show a pending banner it can never clear.
+        """
+        self._ios_closed_fields(body, {"device_id"})
+        device_id = body.get("device_id")
+        if not isinstance(device_id, str) or not device_id.strip():
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "device_id is required",
+                fields={"device_id": "required"},
+            )
+        data = workout.get(conn, workout_id)
+        if data is None:
+            raise ios_workflow.IOSWorkflowError(
+                404, "workout_not_found", "workout not found"
+            )
+        if data["status"] != "completed":
+            raise ios_workflow.IOSWorkflowError(
+                409, "workout_not_active", "workout is not completed",
+                details={"status": data["status"]},
+            )
+        return {
+            "reconciliation": reconciliation.resolve_device(
+                conn, workout_id, device_id.strip()
+            )
+        }
+
     def _ios_workout_remove_set(self, conn, workout_id: str, body: dict) -> dict:
         self._ios_closed_fields(body, {"set_id"})
-        self._ios_workout(conn, workout_id)
+        data = self._ios_workout(conn, workout_id, allow_completed=True)
+        if data["status"] == "completed" and reconciliation.state(
+            conn, workout_id
+        )["state"] == "none":
+            raise ios_workflow.IOSWorkflowError(
+                409, "workout_not_active", "workout is not in progress",
+                details={"status": data["status"]},
+            )
         try:
             set_id = _integer(body.get("set_id"))
         except (TypeError, ValueError) as exc:
@@ -2977,11 +3238,72 @@ class Handler(BaseHTTPRequestHandler):
                 400, "validation_failed", "set_id must be a positive integer",
                 fields={"set_id": "must be a positive integer"},
             )
-        return workout.remove_set(conn, workout_id, set_id)
+        try:
+            return workout.remove_set(conn, workout_id, set_id, late=True)
+        except reconciliation.WindowClosed:
+            raise
+        except ValueError as exc:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", str(exc)
+            ) from exc
+
+    def _ios_workout_update_set(self, conn, workout_id: str, body: dict) -> dict:
+        """Correct one performed set in place, so a correction keeps the set's identity.
+
+        Without this the client can only remove and re-add, which changes the set id and index,
+        breaks any telemetry or per-rep link, and leaves a deletion behind if the re-add fails.
+        """
+        self._ios_closed_fields(
+            body, {"set_id", "load_kg", "reps", "rir", "velocity_mps"}
+        )
+        data = self._ios_workout(conn, workout_id, allow_completed=True)
+        if data["status"] == "completed" and reconciliation.state(
+            conn, workout_id
+        )["state"] == "none":
+            raise ios_workflow.IOSWorkflowError(
+                409, "workout_not_active", "workout is not in progress",
+                details={"status": data["status"]},
+            )
+        try:
+            set_id = _integer(body.get("set_id"))
+            load = _number(body.get("load_kg"))
+            reps = _integer(body.get("reps"))
+            rir = _integer(body.get("rir"))
+            velocity = _number(body.get("velocity_mps"))
+        except (TypeError, ValueError) as exc:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", str(exc)
+            ) from exc
+        if set_id is None or set_id < 1:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", "set_id must be a positive integer",
+                fields={"set_id": "must be a positive integer"},
+            )
+        try:
+            return workout.update_set(
+                conn, workout_id, set_id,
+                load_kg=load, reps=reps, rir=rir, velocity=velocity, late=True,
+            )
+        except reconciliation.Rejected:
+            raise
+        except reconciliation.WindowClosed:
+            raise
+        except ValueError as exc:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", str(exc)
+            ) from exc
 
     def _ios_workout_form(self, conn, workout_id: str, body: dict) -> dict:
         self._ios_closed_fields(body, {"exercise_id", "rating", "note"})
-        self._ios_workout(conn, workout_id)
+        data = self._ios_workout(conn, workout_id, allow_completed=True)
+        if data["status"] == "completed" and reconciliation.state(
+            conn, workout_id
+        )["state"] == "none":
+            # Unchanged contract for a session that never expected another device.
+            raise ios_workflow.IOSWorkflowError(
+                409, "workout_not_active", "workout is not in progress",
+                details={"status": data["status"]},
+            )
         exercise_id = body.get("exercise_id")
         if not isinstance(exercise_id, str) or not exercise_id.strip():
             raise ios_workflow.IOSWorkflowError(
@@ -3006,15 +3328,26 @@ class Handler(BaseHTTPRequestHandler):
                 400, "validation_failed", "note must be a string",
                 fields={"note": "must be a string"},
             )
-        return workout.set_form_rating(
-            conn, workout_id, exercise_id=exercise_id.strip(),
-            rating=rating, note=note or None,
-        )
+        try:
+            return workout.set_form_rating(
+                conn, workout_id, exercise_id=exercise_id.strip(),
+                rating=rating, note=note or None, late=True,
+            )
+        except reconciliation.WindowClosed:
+            # Preserved above the transaction wrapper, like a late set.
+            raise
+        except ValueError as exc:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", str(exc)
+            ) from exc
 
-    def _ios_workout_complete(self, conn, workout_id: str, body: dict) -> dict:
+    def _ios_workout_complete(
+        self, conn, workout_id: str, body: dict, device_id: str | None = None
+    ) -> dict:
         self._ios_closed_fields(
             body,
-            {"session_rpe", "not_recorded", "duration_min", "notes", "ended_at", "productivity"},
+            {"session_rpe", "not_recorded", "duration_min", "notes", "ended_at",
+             "productivity", "pending_devices"},
         )
         self._ios_workout(conn, workout_id)
         not_recorded = body.get("not_recorded", False)
@@ -3068,6 +3401,19 @@ class Handler(BaseHTTPRequestHandler):
                 400, "validation_failed", "ended_at must be an ISO-8601 string",
                 fields={"ended_at": "must be an ISO-8601 string"},
             )
+        raw_pending = body.get("pending_devices")
+        pending_devices: list[str] | None = None
+        if raw_pending is not None:
+            if not isinstance(raw_pending, list) or any(
+                not isinstance(item, str) or not item.strip() or len(item) > 64
+                for item in raw_pending
+            ):
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed",
+                    "pending_devices must be a list of device ids",
+                    fields={"pending_devices": "must be a list of device ids"},
+                )
+            pending_devices = sorted({item.strip() for item in raw_pending})
         return workout.end(
             conn, workout_id,
             session_rpe=rpe,
@@ -3076,6 +3422,8 @@ class Handler(BaseHTTPRequestHandler):
             productivity=productivity,
             notes=notes or None,
             ended_at=ended_at,
+            pending_devices=pending_devices,
+            device_id=device_id,
         )
 
     def _ios_workout_abandon(self, conn, workout_id: str, body: dict) -> dict:
@@ -3964,7 +4312,7 @@ class Handler(BaseHTTPRequestHandler):
         except RequestError as exc:
             if exc.close:
                 self.close_connection = True
-            self._error(exc.status, exc.message)
+            self._error(exc.status, exc.message, code=exc.code)
         except FieldError as exc:
             self._error(400, str(exc), exc.fields)
         except (ValueError, KeyError) as exc:
@@ -5016,6 +5364,29 @@ class Handler(BaseHTTPRequestHandler):
         return workout.summary(conn, workout_id)
 
     def _workout_start(self, conn, body: dict) -> dict:
+        if not _truth(body.get("start_anyway")):
+            # A plan issued to the phone for today is a session the athlete may already have
+            # performed offline. Warn instead of blocking, and let the web start proceed only
+            # on an explicit confirmation (D1).
+            pending = conn.execute(
+                "SELECT issued_plan_id FROM ios_issued_plan "
+                "WHERE consumed_at IS NULL AND superseded_at IS NULL "
+                "  AND status IN ('queued', 'building', 'ready') "
+                "  AND for_date = ? "
+                "  AND (plan_expires_at IS NULL OR plan_expires_at > ?) "
+                "ORDER BY created_at DESC LIMIT 1",
+                (
+                    datetime.date.today().isoformat(),
+                    ios_workflow.now_iso(),
+                ),
+            ).fetchone()
+            if pending is not None:
+                raise RequestError(
+                    409,
+                    "a workout plan was issued to your phone today; "
+                    "confirm to start a separate session on the web",
+                    code="plan_pending_for_phone",
+                )
         for_date = str(body.get("date") or datetime.date.today().isoformat())
         plan = body.get("plan")
         readiness = body.get("readiness")
@@ -5119,12 +5490,14 @@ class Handler(BaseHTTPRequestHandler):
             )
         elif action == "update-set":
             reps, rir, load, velocity = _manual_set_values(body)
+            # A correction after completion is a late event like any other.
             result = workout.update_set(
                 conn, workout_id, _integer(body.get("set_id")),
                 load_kg=load,
                 reps=reps,
                 rir=rir,
                 velocity=velocity,
+                late=True,
             )
         elif action == "remove-set":
             result = workout.remove_set(conn, workout_id, _integer(body.get("set_id")))

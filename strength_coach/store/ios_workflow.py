@@ -96,15 +96,30 @@ def _loads(value: Any) -> Any:
 # --- request lifecycle -----------------------------------------------------
 
 
+def pairing_device_id(conn, device_id: str) -> str:
+    """The phone that scopes a pairing's plan.
+
+    A phone is its own pairing; a watch belongs to the phone that minted it. A device with no
+    parent (or an unknown one) falls back to itself so a legacy token still reads its own plan.
+    """
+    row = conn.execute(
+        "SELECT kind, parent_device_id FROM ios_device WHERE device_id = ?",
+        (str(device_id),),
+    ).fetchone()
+    if row is not None and row["kind"] == "watch" and row["parent_device_id"]:
+        return str(row["parent_device_id"])
+    return str(device_id)
+
+
 def enqueue_plan_request(
     conn,
     *,
     issued_plan_id: str,
+    execution_id: str,
     device_id: str,
+    pairing_device_id: str,
     for_date: str,
     requested_session_type: str,
-    target_device_id: str,
-    execution_target: str,
     settings: dict[str, Any],
     build_inputs: dict[str, Any],
     readiness_json: str,
@@ -120,58 +135,49 @@ def enqueue_plan_request(
     """
     with transaction(conn):
         # Include an expired-but-never-started row so the partial unique index is clear.
-        # One live row per requester and per executor: a phone asking for a watch plan
-        # replaces its own live plan, and the watch's plan replaces a previous watch plan
-        # even when a different device requested it.
+        # One live row per pairing: either device's request replaces the previous one.
         conn.execute(
             "UPDATE ios_issued_plan SET superseded_at = ? "
-            "WHERE (device_id = ? OR COALESCE(target_device_id, device_id) = ?) "
+            "WHERE pairing_device_id = ? "
             "  AND consumed_at IS NULL AND superseded_at IS NULL",
-            (created_at, device_id, target_device_id),
+            (created_at, pairing_device_id),
         )
         conn.execute(
             "INSERT INTO ios_issued_plan "
-            "(issued_plan_id, device_id, status, requested_session_type, session_type, "
-            " settings_json, build_inputs_json, prescription_id, for_date, plan_json, "
-            " readiness_json, readiness_ack, created_at, building_started_at, ready_at, "
-            " finished_at, error_code, error_message, request_expires_at, plan_expires_at, "
-            " consumed_at, superseded_at, workout_id, target_device_id, execution_target) "
-            "VALUES (?, ?, 'queued', ?, NULL, ?, ?, NULL, ?, NULL, ?, ?, ?, NULL, NULL, "
-            "        NULL, NULL, NULL, ?, NULL, NULL, NULL, NULL, ?, ?)",
+            "(issued_plan_id, execution_id, device_id, status, requested_session_type, "
+            " session_type, settings_json, build_inputs_json, prescription_id, for_date, "
+            " plan_json, readiness_json, readiness_ack, created_at, building_started_at, "
+            " ready_at, finished_at, error_code, error_message, request_expires_at, "
+            " plan_expires_at, consumed_at, superseded_at, workout_id, pairing_device_id) "
+            "VALUES (?, ?, ?, 'queued', ?, NULL, ?, ?, NULL, ?, NULL, ?, ?, ?, NULL, NULL, "
+            "        NULL, NULL, NULL, ?, NULL, NULL, NULL, NULL, ?)",
             (
-                issued_plan_id, device_id, requested_session_type,
-                _json(settings), _json(build_inputs), for_date,
-                readiness_json, 1 if readiness_ack else 0,
-                created_at, request_expires_at, target_device_id, execution_target,
+                issued_plan_id, execution_id, device_id, requested_session_type,
+                _json(settings), _json(build_inputs), for_date, readiness_json,
+                1 if readiness_ack else 0, created_at, request_expires_at,
+                pairing_device_id,
             ),
         )
 
 
-def current_plan(conn, device_id: str):
-    """The device's live row, whether it requested it or is its execution target."""
+def current_plan(conn, pairing_device_id: str):
+    """The pairing's live row, visible to the phone and its active watch."""
     row = conn.execute(
         "SELECT * FROM ios_issued_plan "
-        "WHERE (device_id = ? OR target_device_id = ?) "
+        "WHERE pairing_device_id = ? "
         "  AND consumed_at IS NULL AND superseded_at IS NULL "
         "ORDER BY created_at DESC LIMIT 1",
-        (str(device_id), str(device_id)),
+        (str(pairing_device_id),),
     ).fetchone()
     return dict(row) if row is not None else None
 
 
-def supersede_plans_for_target(conn, device_id: str, at_iso: str) -> int:
-    """Retire a live plan whose execution target is this device.
-
-    Called inside the device's own transaction when that device is replaced or revoked. The
-    plan can no longer be started: a revoked token cannot authenticate and a replaced watch is
-    a different device id. Leaving it live is not harmless — the phone and the watch resolve
-    `current_plan` by different columns, so the phone keeps advertising "ready for Apple Watch"
-    while the watch reads `none` and shows "No workout for Apple Watch".
-    """
+def supersede_plans_for_pairing(conn, pairing_device_id: str, at_iso: str) -> int:
+    """Retire the pairing's live plan when the pairing itself is revoked."""
     cursor = conn.execute(
         "UPDATE ios_issued_plan SET superseded_at = ? "
-        "WHERE target_device_id = ? AND consumed_at IS NULL AND superseded_at IS NULL",
-        (at_iso, str(device_id)),
+        "WHERE pairing_device_id = ? AND consumed_at IS NULL AND superseded_at IS NULL",
+        (at_iso, str(pairing_device_id)),
     )
     return int(cursor.rowcount)
 
@@ -180,7 +186,7 @@ def get_plan(conn, issued_plan_id: str, device_id: str):
     """One plan by id for an authenticated caller.
 
     The start handler enforces that the caller is the execution target; this lookup does not
-    filter by device because a mismatched caller must receive wrong_execution_target rather
+    filter by pairing because a plan now belongs to the pairing rather than a target device,
     than a misleading 404.
     """
     del device_id
@@ -247,6 +253,7 @@ def publish_plan(
     resolved_session_type: str,
     ready_at: str,
     plan_expires_at: str,
+    load_catalogue_json: str | None = None,
 ) -> int:
     """building -> ready, only while the request is still live.
 
@@ -255,11 +262,11 @@ def publish_plan(
     """
     cursor = conn.execute(
         "UPDATE ios_issued_plan SET status = 'ready', plan_json = ?, session_type = ?, "
-        "       ready_at = ?, plan_expires_at = ?, finished_at = ? "
+        "       ready_at = ?, plan_expires_at = ?, finished_at = ?, load_catalogue_json = ? "
         "WHERE issued_plan_id = ? AND status = 'building' AND superseded_at IS NULL "
         "  AND consumed_at IS NULL",
         (plan_json, resolved_session_type, ready_at, plan_expires_at, ready_at,
-         str(issued_plan_id)),
+         load_catalogue_json, str(issued_plan_id)),
     )
     return int(cursor.rowcount)
 

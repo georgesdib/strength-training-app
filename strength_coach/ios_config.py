@@ -46,6 +46,7 @@ FIELDS = (
     "receipt_retention_days",
     "idle_warn_seconds",
     "idle_abandon_seconds",
+    "reconciliation_window_days",
 )
 
 DEFAULTS = {
@@ -56,6 +57,7 @@ DEFAULTS = {
     "receipt_retention_days": DEFAULT_RECEIPT_RETENTION_DAYS,
     "idle_warn_seconds": DEFAULT_IDLE_WARN_SECONDS,
     "idle_abandon_seconds": DEFAULT_IDLE_ABANDON_SECONDS,
+    "reconciliation_window_days": 7,
 }
 
 RANGES = {
@@ -73,6 +75,10 @@ RANGES = {
     },
     "idle_warn_seconds": {"kind": "int", "min": 60, "max": 86400},
     "idle_abandon_seconds": {"kind": "int", "min": 60, "max": 604800},
+    # How long a completed session still accepts events from a device that was unreachable at
+    # completion (D8). Short enough that old sessions stop changing under analytics, long enough
+    # to cover a watch left in a bag over a weekend.
+    "reconciliation_window_days": {"kind": "int", "min": 1, "max": 30},
 }
 
 LABELS = {
@@ -83,6 +89,7 @@ LABELS = {
     "receipt_retention_days": "Receipt retention (days)",
     "idle_warn_seconds": "Idle warning (seconds)",
     "idle_abandon_seconds": "Idle abandonment (seconds)",
+    "reconciliation_window_days": "Late reconciliation window (days)",
 }
 
 DESCRIPTIONS = {
@@ -115,6 +122,11 @@ DESCRIPTIONS = {
         "How long after the last activity a forgotten in-progress session is lazily "
         "abandoned. Sets are preserved."
     ),
+    "reconciliation_window_days": (
+        "How long a completed session keeps accepting events from a device that was "
+        "unreachable at completion. Late sets are applied inside the window and preserved "
+        "but rejected after it; no training row is deleted."
+    ),
 }
 
 
@@ -131,6 +143,7 @@ class IOSConfig:
     watch_enabled: bool = DEFAULT_WATCH_ENABLED
     idle_warn_seconds: int = DEFAULT_IDLE_WARN_SECONDS
     idle_abandon_seconds: int = DEFAULT_IDLE_ABANDON_SECONDS
+    reconciliation_window_days: int = 7
 
 
 def _boolean(value: object, name: str) -> bool:
@@ -182,6 +195,11 @@ def _parse_config(data: dict) -> IOSConfig:
         idle_abandon_seconds=_bounded_int(
             data.get("idle_abandon_seconds", DEFAULT_IDLE_ABANDON_SECONDS),
             "idle_abandon_seconds", 60, 604800,
+        ),
+        # Optional so an existing ios.v1.yaml keeps loading unchanged.
+        reconciliation_window_days=_bounded_int(
+            data.get("reconciliation_window_days", 7),
+            "reconciliation_window_days", 1, 30,
         ),
     )
 

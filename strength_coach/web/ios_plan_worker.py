@@ -23,7 +23,7 @@ from typing import Any
 
 from strength_coach import ios_config, settings_profile
 from strength_coach.features import deload as deload_feature
-from strength_coach.prescribe import build_prescription
+from strength_coach.prescribe import build_prescription, catalogue
 from strength_coach.prescribe import deload as deload_mod
 from strength_coach.prescribe import schedule as schedule_mod
 from strength_coach.store import db, ios_workflow
@@ -65,7 +65,7 @@ def _decision_from(data: Any):
     )
 
 
-def build_plan(conn, row) -> tuple[str, str]:
+def build_plan(conn, row) -> tuple[str, str, str | None]:
     """Build one request through the shared deterministic path. No new calculation."""
     settings = ios_workflow.load_settings(row)
     inputs = ios_workflow.load_build_inputs(row)
@@ -101,13 +101,29 @@ def build_plan(conn, row) -> tuple[str, str]:
         deload_decision=deload_decision,
         drop_confirmed=bool(inputs.get("drop_confirmed", False)),
         top_set_intent=settings.get("top_set_intent"),
+        # MOD-TECH-001: a per-session request frozen into the plan at build time. The phone
+        # sends the boolean only; the web UI's pattern scope is not exposed there.
+        technique_throttle=bool(settings.get("technique_throttle", False)),
     )
     if scheduled_suggestion is not None:
         prescription = deload_mod.suggest(prescription, scheduled_suggestion)
     plan = _serialize_plan(prescription)
+    resolved_type = str(plan["session_type"])
+    try:
+        # The loads an offline substitution may need. Built from the same facts and the same
+        # resolver as the plan itself; a failure here must not cost the athlete the plan.
+        load_catalogue = catalogue.dumps(
+            catalogue.build_catalogue(
+                conn, for_date=for_date, session_type=resolved_type,
+            )
+        )
+    except Exception:  # boundary: the plan is still valid without a catalogue
+        LOGGER.warning("load catalogue failed for %s", row["issued_plan_id"])
+        load_catalogue = None
     return (
         json.dumps(plan, separators=(",", ":"), default=str),
-        str(plan["session_type"]),
+        resolved_type,
+        load_catalogue,
     )
 
 
@@ -180,7 +196,7 @@ def drain_once(db_path=None, slot: threading.Semaphore | None = None) -> bool:
             if ios_workflow.claim_request(conn, issued_plan_id, at) != 1:
                 return True
             try:
-                plan_json, resolved_type = build_plan(conn, current)
+                plan_json, resolved_type, load_catalogue = build_plan(conn, current)
             except Exception as exc:  # boundary: record a safe code, never a traceback
                 code, message = _build_failure(exc)
                 LOGGER.warning("iOS plan request %s failed: %s", issued_plan_id, code)
@@ -203,6 +219,7 @@ def drain_once(db_path=None, slot: threading.Semaphore | None = None) -> bool:
                 resolved_session_type=resolved_type,
                 ready_at=ready_iso,
                 plan_expires_at=plan_expires_at,
+                load_catalogue_json=load_catalogue,
             )
             if published != 1:
                 # Superseded while building: the plan is discarded, never published.

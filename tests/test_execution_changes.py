@@ -181,9 +181,8 @@ def test_an_addition_is_extra_work_with_its_own_shape(conn, monkeypatch):
     assert view["substitutions"] == []
 
 
-def test_an_offline_author_records_no_prefill_and_is_never_retro_solved(
-    conn, monkeypatch,
-):
+def test_an_offline_catalogue_miss_is_recorded_and_never_solved(conn, monkeypatch):
+    """No legacy flag: a version with no value is a recorded miss, not a server solve."""
     from strength_coach.prescribe import engine
 
     def boom(*args, **kwargs):
@@ -194,11 +193,14 @@ def test_an_offline_author_records_no_prefill_and_is_never_retro_solved(
     view = workout.record_execution_change(
         conn, started["workout_id"], client_event_id=str(uuid.uuid4()),
         kind="substitution", exercise_id="bench_press",
-        plan_item_index=0, prefill_requested=False,
+        plan_item_index=0,
+        catalogue={"catalogue_version": "load-catalogue/v1", "exercises": {}},
+        catalogue_attempted=True,
     )
     change = view["substitutions"][0]
     assert change["prefill_load_kg"] is None
-    assert change["prefill_reason"] == "authored_offline"
+    assert change["prefill_reason"] == "no_catalogue_entry"
+    assert change["resolved_by"] == "catalogue"
 
 
 def test_an_unsolved_prefill_records_the_reason(conn, monkeypatch):
@@ -361,3 +363,94 @@ def test_a_concurrent_set_blocks_a_substitution_before_it_is_recorded(tmp_path):
         release.set()
         writer.join(timeout=20)
     assert not errors
+
+
+CATALOGUE = {
+    "catalogue_version": "load-catalogue/v1",
+    "as_of": "2026-11-01",
+    "exercises": {
+        "bench_press": {
+            "load_source": "e1rm",
+            "base_load_kg": 120.0,
+            "accessory_load_kg": 90.0,
+            "increment_kg": 2.5,
+            "bodyweight": False,
+            "power": False,
+        }
+    },
+}
+
+
+def test_a_client_applied_prefill_is_verified_against_the_issued_catalogue(conn):
+    """D9: the phone applies the shipped decision; the server checks it, it does not re-solve."""
+    started = _started(conn)
+    view = workout.record_execution_change(
+        conn, started["workout_id"], client_event_id=str(uuid.uuid4()),
+        kind="substitution", exercise_id="bench_press", plan_item_index=0,
+        prefill_load_kg=90.0, catalogue=CATALOGUE,
+    )
+    change = view["substitutions"][0]
+    assert change["prefill_reason"] == "client_applied"
+    assert change["prefill_load_kg"] == 90.0
+    assert change["prefill_verified"] is True
+    assert change["prefill_expected_load_kg"] == 90.0
+
+
+def test_a_disagreeing_prefill_is_recorded_not_rejected(conn):
+    started = _started(conn)
+    view = workout.record_execution_change(
+        conn, started["workout_id"], client_event_id=str(uuid.uuid4()),
+        kind="substitution", exercise_id="bench_press", plan_item_index=0,
+        prefill_load_kg=95.0, catalogue=CATALOGUE,
+    )
+    change = view["substitutions"][0]
+    assert change["prefill_verified"] is False
+    assert change["prefill_mismatch_reason"] == "value_differs"
+    assert change["prefill_load_kg"] == 95.0      # what the athlete saw is kept
+    assert change["prefill_expected_load_kg"] == 90.0
+
+
+def test_a_prefill_without_a_catalogue_is_recorded_unverified(conn):
+    started = _started(conn)
+    view = workout.record_execution_change(
+        conn, started["workout_id"], client_event_id=str(uuid.uuid4()),
+        kind="substitution", exercise_id="bench_press", plan_item_index=0,
+        prefill_load_kg=90.0, catalogue=None,
+    )
+    change = view["substitutions"][0]
+    assert change["prefill_verified"] is False
+    assert change["prefill_mismatch_reason"] == "catalogue_unavailable"
+
+
+
+FLARE_CATALOGUE = {
+    "catalogue_version": "load-catalogue/v1",
+    "as_of": "2026-11-01",
+    "exercises": {
+        "back_extension": {
+            "load_source": "bodyweight",
+            "base_load_kg": None,
+            "accessory_load_kg": 0.0,
+            "increment_kg": 2.5,
+            "bodyweight": True,
+            "power": False,
+            "dose_load_kg": 0.0,
+            "dose_sets_cap": 2,
+        }
+    },
+}
+
+
+def test_a_dose_capped_substitution_reports_its_own_set_count(conn):
+    """WP1.2: the event carries the replacement's sets, not the slot's uncapped count."""
+    started = _started(conn)
+    view = workout.record_execution_change(
+        conn, started["workout_id"], client_event_id=str(uuid.uuid4()),
+        kind="substitution", exercise_id="back_extension", plan_item_index=0,
+        prefill_load_kg=0.0, catalogue=FLARE_CATALOGUE,
+    )
+    change = view["substitutions"][0]
+    assert change["prefill_source"] == "flare_dose"
+    assert change["sets"] == 2          # the plan item has 4
+    assert change["prefill_verified"] is True
+

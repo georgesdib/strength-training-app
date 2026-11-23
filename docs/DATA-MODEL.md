@@ -672,6 +672,13 @@ it is append-only. Actual-set corrections and imports replay these events rather
 automatic `set_index` allocation and the attribution check run inside the same write transaction
 as the insert.
 
+Late reconciliation adds four event types to the same stream: `late_reconciliation` (opens the
+window with `pending_devices` and `closes_at`), `late_set` (a set applied after completion),
+`reconciliation_closed` and `late_rejected` (an arrival after the window, preserved with its
+payload and excluded from totals). The window length is `ios.v1.yaml: reconciliation_window_days`
+(default 7). A late set is written into `clean_set` and the `session` totals are recomputed, so
+reports and analytics see it; plan-completeness flags are deliberately left unchanged.
+
 Execution changes add `substitution` and `addition` rows to the same append-only stream. Their
 `payload_json` carries `client_event_id`, the slot (`plan_item_index` or `after_item_index`),
 the exercise, the reps/RIR shape, the solved prefill and its reason. A unique index on
@@ -874,8 +881,13 @@ ios_issued_plan:
 | consumed_at | set atomically with workout creation |
 | superseded_at | set when a newer issue replaces this live plan |
 | workout_id | references workout_session after start |
+| execution_id | uuid4; the workout the plan will become, minted at issue (migration 0076) so an offline start can name it before it reaches the server |
+| load_catalogue_json | the resolver's own load output for every taxonomy exercise (migration 0077), shipped so an offline substitution applies a server decision; null on older rows |
 
-A partial unique index permits one live, unstarted plan per device. Issuing supersedes the old
+A partial unique index permits one live, unstarted plan per device, and a unique index on
+`execution_id` permits one plan per execution. `for_date` may now be today or yesterday at start,
+and the bind is judged by the client's recorded `started_at` against the plan's own window, so a
+session started at 23:50 and synced at 00:10 keeps its real start and date. Issuing supersedes the old
 live plan before inserting the new one. A consumed plan returns its in-progress workout on a
 same-key replay; a completed/abandoned or superseded plan is a 410.
 
