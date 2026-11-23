@@ -998,7 +998,7 @@ documents:
 - id: design-ios-watch-contract
   path: docs/design/IOS-WATCH-CONTRACT.md
   title: iOS Phase 6 watchOS companion contract (6.0-6.7 complete; pointer)
-  description: 'Compatibility pointer to the canonical portfolio watch contract. Phases 6.0-6.7 complete; physical Apple Watch acceptance 2026-11-14; WP8 phone relay implemented and owner-accepted 2026-11-21; offline start/pending-session shell deferred; tests, acceptance and rollback'
+  description: 'Compatibility pointer to the canonical portfolio watch contract. Phases 6.0-6.7 complete; physical Apple Watch acceptance 2026-11-14; unified offline execution closed 2026-11-23 (pairing-scoped plan, offline start, execution writes phone-committed, watch token read-only); tests, acceptance and rollback live in the canonical contract'
   category: design
   status: design
   audience: maintainer
