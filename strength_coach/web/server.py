@@ -3032,9 +3032,9 @@ class Handler(BaseHTTPRequestHandler):
         """Append one phone-authored substitution or addition (D9, DEC-RESOLVER-23).
 
         Preferred: the phone applies the issued load catalogue and sends `prefill_load_kg`; the
-        server verifies it against the same snapshot and records whether it agreed. A client that
-        sends `prefill_requested` instead still gets a server solve (legacy path), and one that
-        sends neither records null rather than a target the athlete never saw.
+        server verifies it against the same snapshot and records whether it agreed. A catalogue
+        version with no value records a catalogue miss. There is no legacy
+        `prefill_requested` flag; a client that sends neither asks the server to solve.
         """
         self._ios_closed_fields(body, {
             "event_id", "change", "plan_item_index", "after_item_index",
