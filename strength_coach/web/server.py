@@ -2850,8 +2850,10 @@ class Handler(BaseHTTPRequestHandler):
                     workout_id=execution_id,
                     allow_concurrent=replay,
                     # The athlete's recorded start, not the sync time: a session started at
-                    # 23:50 and sent at 00:10 keeps its real start and its real date.
-                    started_at=recorded_start,
+                    # 23:50 and sent at 00:10 keeps its real start and its real date. When the
+                    # client sent nothing, the model keeps its own clock so the stored value
+                    # has the same shape it always had.
+                    started_at=recorded_start if body.get("started_at") else None,
                     # The issue step already applied the readiness gate: a ready score may have
                     # only the fields it needs, and a non-ready score required an explicit ack.
                     # Re-applying the five-field workout default here rejects a valid ready day.
@@ -2900,7 +2902,17 @@ class Handler(BaseHTTPRequestHandler):
             "set_index", "plan_item_index", "substitutes_plan_item_index",
             "rep_velocities", "performed_at",
         })
-        self._ios_workout(conn, workout_id, allow_completed=True)
+        data = self._ios_workout(conn, workout_id, allow_completed=True)
+        if data["status"] == "completed" and reconciliation.state(
+            conn, workout_id
+        )["state"] == "none":
+            # A session that never expected another device keeps the old contract exactly:
+            # a set against a completed workout is 409 workout_not_active, not a validation
+            # error. Only a session with an open reconciliation window accepts late work.
+            raise ios_workflow.IOSWorkflowError(
+                409, "workout_not_active", "workout is not in progress",
+                details={"status": data["status"]},
+            )
         exercise_id = body.get("exercise_id")
         if not isinstance(exercise_id, str) or not exercise_id.strip():
             raise ios_workflow.IOSWorkflowError(

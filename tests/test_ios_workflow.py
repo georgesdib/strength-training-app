@@ -2846,3 +2846,26 @@ def test_the_whole_offline_flow_reconciles_end_to_end(ios):
     assert final["summary"]["reconciliation"]["state"] == "closed"
     assert final["summary"]["reconciliation"]["pending_devices"] == []
 
+
+
+def test_a_set_on_a_completed_session_without_a_window_keeps_the_old_refusal(ios):
+    """Backwards compatibility: an unchanged client still sees 409 workout_not_active."""
+    token, _ = _paired(ios)
+    status, state = _issue(ios, token)
+    assert status == 200, state
+    status, started = _start(ios, token, state["issued_plan_id"])
+    assert status == 200, started
+    workout_id = started["workout_id"]
+    status, done = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/complete", method="POST",
+        payload={"session_rpe": 7, "not_recorded": False},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, done
+    status, refused = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/sets", method="POST",
+        payload={"exercise_id": "bench_press", "load_kg": 90.0, "reps": 5, "rir": 2},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 409, refused
+    assert refused["code"] == "workout_not_active"
