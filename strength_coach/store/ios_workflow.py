@@ -186,7 +186,7 @@ def get_plan(conn, issued_plan_id: str, device_id: str):
     """One plan by id for an authenticated caller.
 
     The start handler enforces that the caller is the execution target; this lookup does not
-    filter by device because a mismatched caller must receive wrong_execution_target rather
+    filter by pairing because a plan now belongs to the pairing rather than a target device,
     than a misleading 404.
     """
     del device_id

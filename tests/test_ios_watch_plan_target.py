@@ -31,7 +31,7 @@ def _mint_watch(ios, phone_token):
     return body["token"], body["device"]["device_id"]
 
 
-def test_the_pairing_sees_one_plan_and_either_device_starts_it(ios, monkeypatch):
+def test_the_pairing_sees_one_plan_and_the_phone_starts_it(ios, monkeypatch):
     _enabled(monkeypatch)
     phone, _ = _paired(ios)
     watch, _ = _mint_watch(ios, phone)
@@ -45,9 +45,14 @@ def test_the_pairing_sees_one_plan_and_either_device_starts_it(ios, monkeypatch)
     assert seen["issued_plan_id"] == plan["issued_plan_id"]
     assert "execution_target" not in seen
 
-    status, started = _start(ios, watch, plan["issued_plan_id"])
+    status, started = _start(ios, phone, plan["issued_plan_id"])
     assert status == 200, started
     assert started["status"] == "in_progress"
+
+    # The watch commits through the phone, so its token cannot start one directly.
+    status, refused = _start(ios, watch, plan["issued_plan_id"])
+    assert status == 403, refused
+    assert refused["code"] == "watch_read_only"
 
 
 def test_the_phone_starts_a_pairing_plan(ios, monkeypatch):

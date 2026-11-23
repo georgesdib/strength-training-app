@@ -1441,6 +1441,7 @@ class Handler(BaseHTTPRequestHandler):
                     if len(parts) == 6 and parts[:4] == ["api", "ios", "v1", "workouts"]:
                         workout_id = parts[4]
                         action = parts[5]
+                        self._ios_watch_read_only(device, action)
                         handlers = {
                             "sets": self._ios_workout_set,
                             "remove-set": self._ios_workout_remove_set,
@@ -1639,6 +1640,22 @@ class Handler(BaseHTTPRequestHandler):
             )
             return
         self._json(status, result)
+
+    # The watch commits through the phone (D3, D12): its credential is read-only for execution.
+    # Abandon is deliberately not on this list — it is the safety valve that keeps a lost phone
+    # from stranding an open session.
+    WATCH_READ_ONLY_ACTIONS = frozenset({
+        "start", "sets", "update-set", "remove-set", "execution",
+        "execution-events", "form", "complete", "reconciliation",
+    })
+
+    def _ios_watch_read_only(self, device: dict, action: str) -> None:
+        if device["kind"] == "watch" and action in self.WATCH_READ_ONLY_ACTIONS:
+            raise ios_workflow.IOSWorkflowError(
+                403, "watch_read_only",
+                "the watch commits execution through the phone",
+                details={"action": action},
+            )
 
     def _ios_workout_mutation(self, conn, device: dict, route: str, body: dict,
                               config: ios_config.IOSConfig, workout_id: str,
@@ -2721,6 +2738,7 @@ class Handler(BaseHTTPRequestHandler):
         return payload
 
     def _ios_start(self, conn, device: dict, body: dict) -> dict:
+        self._ios_watch_read_only(device, "start")
         self._ios_closed_fields(body, {"issued_plan_id", "execution_id", "started_at"})
         issued_plan_id = body.get("issued_plan_id")
         if not isinstance(issued_plan_id, str) or not issued_plan_id.strip():
