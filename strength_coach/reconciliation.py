@@ -34,6 +34,20 @@ class WindowClosed(ValueError):
         self.payload = dict(payload or {})
 
 
+class Rejected(ValueError):
+    """A late event that cannot be applied even though the window is open.
+
+    Carries the attempted payload so the caller preserves it after the rejected transaction
+    rolls back, exactly like a closed window.
+    """
+
+    def __init__(self, message: str, payload: dict | None = None,
+                 reason: str = "not_applicable") -> None:
+        super().__init__(message)
+        self.payload = dict(payload or {})
+        self.reason = reason
+
+
 def window_days(conn=None) -> int:
     """The configured window, defaulting to seven days when the config cannot be read."""
     if conn is None:

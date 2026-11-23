@@ -1081,19 +1081,9 @@ def set_form_rating(conn, workout_id: str, *, exercise_id: str, rating: int,
     workout = get(conn, workout_id)
     if workout is None:
         raise ValueError("workout not found")
-    late_applied = False
-    if workout["status"] != "in_progress":
-        if not late or workout["status"] != "completed":
-            raise ValueError("workout is not in progress; edit it from History")
-        window = reconciliation.state(conn, workout_id)["state"]
-        if window == "none":
-            raise ValueError("workout is not in progress; edit it from History")
-        if window != "open":
-            raise reconciliation.WindowClosed(
-                "the reconciliation window for this workout has closed",
-                {"exercise_id": exercise_id, "rating": rating, "note": note},
-            )
-        late_applied = True
+    late_applied = _late_window(conn, workout, late, {
+        "exercise_id": exercise_id, "rating": rating, "note": note,
+    })
     exercise_id = _validate_exercise(exercise_id)
     value = int(rating)
     if not 1 <= value <= 5:
@@ -1506,24 +1496,11 @@ def add_set(
     """
     with db.transaction(conn):
         workout = get(conn, workout_id)
-        late_applied = False
         if workout is None:
             raise ValueError("workout not found")
-        if workout["status"] != "in_progress":
-            if not late or workout["status"] != "completed":
-                raise ValueError("workout is not in progress")
-            # A completed session still accepts events from a device that was unreachable when
-            # it finished, for a bounded window (D8). After the window the arrival is preserved
-            # by the caller as a rejected event, never deleted.
-            window = reconciliation.state(conn, workout_id)["state"]
-            if window == "none":
-                # Nothing was ever expected from another device: an ordinary refusal, with no
-                # rejection record to add to the audit stream.
-                raise ValueError("workout is not in progress")
-            if window != "open":
-                raise reconciliation.WindowClosed(
-                    "the reconciliation window for this workout has closed",
-                    {
+        # A completed session still accepts events from a device that was unreachable when it
+        # finished, for a bounded window (D8); after it the arrival is preserved, never deleted.
+        late_applied = _late_window(conn, workout, late, {
                         "exercise_id": exercise_id,
                         "set_index": set_index,
                         "load_kg": load_kg,
@@ -1534,10 +1511,8 @@ def add_set(
                         "performed_at": performed_at,
                         # Preserve sensor data with the rejection: a refused late set must not
                         # lose its per-rep velocities (WP2.3).
-                        "rep_velocities": rep_velocities,
-                    },
-                )
-            late_applied = True
+            "rep_velocities": rep_velocities,
+        })
         if not exercise_id:
             raise ValueError("exercise_id is required")
         if source not in {"manual", "import", "device"}:
@@ -1638,38 +1613,60 @@ def update_set(
     reps: int | None = None,
     rir: int | None = None,
     velocity: float | None = None,
+    late: bool = False,
 ) -> dict:
     """Append a correction event for an actual set; the base row is never mutated."""
     workout = get(conn, workout_id)
     if workout is None:
         raise ValueError("workout not found")
-    if workout["status"] != "in_progress":
-        raise ValueError("workout is not in progress")
-    if not any(int(item["set_id"]) == int(set_id) for item in _sets(conn, workout_id)):
+    late_applied = _late_window(conn, workout, late, {
+        "set_id": int(set_id), "load_kg": load_kg, "reps": reps, "rir": rir,
+        "velocity": velocity,
+    })
+    row = conn.execute(
+        "SELECT set_id FROM workout_set WHERE workout_id = ? AND set_id = ?",
+        (workout_id, int(set_id)),
+    ).fetchone()
+    if row is None:
         raise ValueError("set not found")
+    if not any(int(item["set_id"]) == int(set_id) for item in _sets(conn, workout_id)):
+        # The set exists but was removed; a correction must never resurrect it.
+        if not late_applied:
+            raise ValueError("set not found")
+        raise reconciliation.Rejected(
+            "that set was removed; a correction cannot restore it",
+            {"set_id": int(set_id), "load_kg": load_kg, "reps": reps, "rir": rir,
+             "velocity": velocity},
+            reason="set_removed",
+        )
     payload = {
         "load_kg": load_kg, "reps": reps, "rir": rir, "velocity": velocity,
     }
     _event(
-        conn, workout_id, "update_set", payload, target_set_id=int(set_id),
+        conn, workout_id, "update_set",
+        {**payload, "late": late_applied}, target_set_id=int(set_id),
     )
+    if late_applied:
+        _repair_late_set(conn, workout_id, int(set_id))
     return get(conn, workout_id)
 
 
-def remove_set(conn, workout_id: str, set_id: int) -> dict:
+def remove_set(conn, workout_id: str, set_id: int, *, late: bool = False) -> dict:
     workout = get(conn, workout_id)
     if workout is None:
         raise ValueError("workout not found")
-    if workout["status"] != "in_progress":
-        raise ValueError("workout is not in progress")
+    late_applied = _late_window(conn, workout, late, {"set_id": int(set_id)})
     row = conn.execute(
         "SELECT set_id FROM workout_set WHERE workout_id = ? AND set_id = ?",
         (workout_id, set_id),
     ).fetchone()
     if row is None:
         raise ValueError("set not found")
-    _event(conn, workout_id, "remove_set", {"set_id": int(set_id)},
+    _event(conn, workout_id, "remove_set",
+           {"set_id": int(set_id), "late": late_applied},
            target_set_id=int(set_id))
+    if late_applied:
+        _repair_late_set(conn, workout_id, int(set_id), removed=True)
     _touch(conn, workout_id)
     return get(conn, workout_id)
 
@@ -1760,9 +1757,10 @@ def _change_prefill(
     rest_s: int | None,
     essential: bool,
     order_index: int,
-    requested: bool,
     supplied: float | None = None,
     catalogue: Mapping[str, Any] | None = None,
+    groups: list[Mapping[str, Any]] | None = None,
+    catalogue_attempted: bool = False,
 ) -> dict[str, Any]:
     """Resolve the change's prefill, or record why there is none.
 
@@ -1783,6 +1781,7 @@ def _change_prefill(
             reps_low=reps_low,
             rir=rir_target,
             sets=sets,
+            groups=groups,
         )
         expected = resolved["load_kg"]
         verified = expected is not None and abs(float(supplied) - expected) <= 1e-6
@@ -1790,11 +1789,17 @@ def _change_prefill(
             "prefill_load_kg": float(supplied),
             "prefill_reason": "client_applied",
             "prefill_source": resolved["prefill_source"],
-            # The replacement's own set count: a live erector dose caps it, and the event has to
-            # say so or the client would show the slot's uncapped count (WP1.2).
+            # Which path produced the prescription, so the record can always explain itself.
+            "resolved_by": "catalogue",
+            # The replacement's own set count and per-group loads: a substitution keeps the
+            # slot's shape, and the event has to say so or the client would show its own guess.
             "sets": int(resolved["sets"]),
+            "set_groups": resolved["set_groups"],
+            "top_set": resolved["top_set"],
             "prefill_verified": verified,
         }
+        if resolved.get("vbt_target"):
+            result["vbt_target"] = resolved["vbt_target"]
         if expected is not None:
             result["prefill_expected_load_kg"] = float(expected)
         if not verified:
@@ -1802,12 +1807,21 @@ def _change_prefill(
                 "value_differs" if expected is not None else resolved["reason"]
             )
         return result
-    if not requested:
+    if catalogue_attempted:
+        from strength_coach.prescribe import catalogue as catalogue_mod
+
+        resolved = catalogue_mod.prescription_from_catalogue(
+            catalogue, exercise_id=exercise_id, essential=essential,
+            reps_low=reps_low, rir=rir_target, sets=sets, groups=groups,
+        )
         return {
             "prefill_load_kg": None,
-            "prefill_reason": "authored_offline",
-            "prefill_source": "none",
-            "sets": int(sets),
+            "prefill_reason": resolved["reason"] or "no_catalogue_prefill",
+            "prefill_source": resolved["prefill_source"],
+            "resolved_by": "catalogue",
+            "sets": int(resolved["sets"]),
+            "set_groups": resolved["set_groups"],
+            "top_set": resolved["top_set"],
         }
     from strength_coach.prescribe import engine as prescribe_engine
 
@@ -1824,23 +1838,51 @@ def _change_prefill(
         essential=essential,
         order_index=order_index,
     )
+    from strength_coach.prescribe import catalogue as catalogue_mod
+
+    shape = catalogue_mod.shape_from_base(
+        groups,
+        e1rm_kg=solved.e1rm_kg,
+        load_kg=solved.load_kg,
+        increment_kg=float(solved.rounding_increment_kg or 0),
+    )
     if solved.load_kg is None:
         return {
             "prefill_load_kg": None,
             "prefill_reason": solved.unknown_load_reason or "no_usable_load",
             "prefill_source": "none",
+            "resolved_by": "server",
             "sets": int(solved.sets),
+            "set_groups": shape,
+            "top_set": {"status": "not_applicable", "reason_code": "substituted"},
             "warnings": list(warnings),
         }
-    return {
+    result: dict[str, Any] = {
         "prefill_load_kg": float(solved.load_kg),
         "prefill_reason": "solved",
         # The server solve may have capped the sets through the erector dose; the event carries
-        # the replacement's own count rather than silently keeping the slot's (WP1.2).
+        # the replacement's own count and the slot's shape rather than discarding them (WP1.2).
         "prefill_source": "server_solve",
+        "resolved_by": "server",
         "sets": int(solved.sets),
+        "set_groups": shape,
+        "top_set": {"status": "not_applicable", "reason_code": "substituted"},
         "warnings": list(warnings),
     }
+    if solved.vbt is not None:
+        result["vbt"] = {
+            "target_mps": solved.vbt.target_mps,
+            "low_mps": solved.vbt.low_mps,
+            "high_mps": solved.vbt.high_mps,
+            "rep_count": solved.vbt.rep_count,
+            "rir_low": solved.vbt.rir_low,
+            "rir_high": solved.vbt.rir_high,
+            "scope": solved.vbt.scope,
+            "n_sets": solved.vbt.n_sets,
+            "n_sessions": solved.vbt.n_sessions,
+            "calibration_id": solved.vbt.calibration_id,
+        }
+    return result
 
 
 def _change_matches_payload(
@@ -1875,9 +1917,9 @@ def record_execution_change(
     reps_low: int | None = None,
     reps_high: int | None = None,
     rir_target: int | None = None,
-    prefill_requested: bool = True,
     prefill_load_kg: float | None = None,
     catalogue: Mapping[str, Any] | None = None,
+    catalogue_attempted: bool = False,
     device_id: str | None = None,
 ) -> dict[str, Any]:
     """Append one execution substitution or addition and return the current view.
@@ -1985,9 +2027,13 @@ def record_execution_change(
             rest_s=rest_s,
             essential=essential,
             order_index=order_index,
-            requested=bool(prefill_requested),
             supplied=prefill_load_kg,
             catalogue=catalogue,
+            catalogue_attempted=catalogue_attempted,
+            # A substitution keeps the slot's structure; an addition has no plan slot to inherit.
+            groups=(
+                list(item.get("set_groups") or []) if kind == "substitution" else []
+            ),
         )
         payload = {
             "client_event_id": parsed,
@@ -2593,6 +2639,9 @@ def _materialise_set(
     bodyweight_kg,
     file_sha: str,
     rep_detail: Mapping[str, Any] | None,
+    supersedes_id: int | None = None,
+    voided: bool = False,
+    source_row_id: int | None = None,
 ) -> None:
     """Write one performed set into raw_row/clean_set/clean_rep.
 
@@ -2619,7 +2668,8 @@ def _materialise_set(
     cursor = conn.execute(
         "INSERT INTO raw_row (table_name, source_row, file_sha256, payload) "
         "VALUES ('training', ?, ?, ?)",
-        (int(row["set_id"]), file_sha, payload),
+        (int(source_row_id if source_row_id is not None else row["set_id"]),
+         file_sha, payload),
     )
     raw_id = int(cursor.lastrowid)
     clean_cursor = conn.execute(
@@ -2628,8 +2678,9 @@ def _materialise_set(
             (raw_id, session_id, occurred_on, exercise_id, raw_exercise, load_kg,
              load_basis, external_load_kg, reps, reps_unit, rir, rir_source,
              velocity_mps, velocity_present, tonnage_kg, is_working_set, flags,
-             prescription_item_index, set_role, substitutes_plan_item_index)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             prescription_item_index, set_role, substitutes_plan_item_index,
+             supersedes_id, voided)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             raw_id, workout_id, workout["for_date"], exercise_id, exercise_id,
@@ -2641,6 +2692,7 @@ def _materialise_set(
             if external is not None and row.get("reps") is not None else None,
             is_working, json.dumps(row_flags), row.get("prescription_item_index"),
             row.get("set_role"), row.get("substitutes_plan_item_index"),
+            supersedes_id, 1 if voided else 0,
         ),
     )
     for rep in (rep_detail or {}).get("reps") or []:
@@ -2659,17 +2711,21 @@ def _refresh_session_aggregates(conn, workout_id: str) -> None:
     invisible. Plan-completeness flags are deliberately not recomputed: a session recorded as
     incomplete stays incomplete, which is the conservative direction (D8).
     """
+    # Only live rows count: a superseded row and a removal tombstone are both excluded, which is
+    # the same predicate the history views use.
+    live = (
+        "FROM clean_set s WHERE s.session_id = ? AND s.voided = 0 AND NOT EXISTS "
+        "(SELECT 1 FROM clean_set child WHERE child.supersedes_id = s.set_id)"
+    )
     totals = conn.execute(
-        "SELECT COUNT(*) AS n, COALESCE(SUM(is_working_set), 0) AS w, "
-        "       COUNT(DISTINCT exercise_id) AS e, SUM(tonnage_kg) AS t "
-        "FROM clean_set WHERE session_id = ?",
+        "SELECT COUNT(*) AS n, COALESCE(SUM(s.is_working_set), 0) AS w, "
+        "       COUNT(DISTINCT s.exercise_id) AS e, SUM(s.tonnage_kg) AS t " + live,
         (workout_id,),
     ).fetchone()
     entities = exercises.taxonomy().entities
     performed = [
         str(row["exercise_id"]) for row in conn.execute(
-            "SELECT DISTINCT exercise_id FROM clean_set WHERE session_id = ?",
-            (workout_id,),
+            "SELECT DISTINCT s.exercise_id " + live, (workout_id,),
         )
     ]
     main_lifts = [
@@ -2684,6 +2740,103 @@ def _refresh_session_aggregates(conn, workout_id: str) -> None:
             json.dumps(main_lifts), totals["t"], workout_id,
         ),
     )
+
+
+def _late_window(conn, workout: Mapping[str, Any], late: bool, payload: dict) -> bool:
+    """Whether this write applies to a completed session; raises when it may not.
+
+    One rule for every late-capable event: in-progress is normal, completed is late only inside
+    an open window, a completed session with no window is an ordinary refusal and must leave no
+    audit noise, and a closed window preserves the payload before refusing (D8).
+    """
+    if workout["status"] == "in_progress":
+        return False
+    if not late or workout["status"] != "completed":
+        raise ValueError("workout is not in progress")
+    window = reconciliation.state(conn, str(workout["workout_id"]))["state"]
+    if window == "none":
+        raise ValueError("workout is not in progress")
+    if window != "open":
+        raise reconciliation.WindowClosed(
+            "the reconciliation window for this workout has closed", payload
+        )
+    return True
+
+
+def _clean_set_id_for(conn, workout_id: str, set_id: int) -> int | None:
+    row = conn.execute(
+        "SELECT cs.set_id FROM clean_set cs "
+        "JOIN raw_row rr ON rr.raw_id = cs.raw_id "
+        "WHERE cs.session_id = ? AND rr.source_row = ? AND rr.table_name = 'training' "
+        "ORDER BY cs.set_id DESC LIMIT 1",
+        (workout_id, int(set_id)),
+    ).fetchone()
+    return int(row["set_id"]) if row is not None else None
+
+
+def _repair_late_set(conn, workout_id: str, set_id: int, *, removed: bool = False) -> None:
+    """Re-derive one materialised set after a late correction or removal.
+
+    clean_set is append-only, like the rest of the history: a correction appends a successor that
+    supersedes the old row, and a removal appends a tombstone that supersedes it and is itself
+    voided. Readers exclude both, which is the same mechanism a history edit already uses.
+    """
+    old_id = _clean_set_id_for(conn, workout_id, set_id)
+    workout = get(conn, workout_id)
+    if workout is None:
+        return
+    current = next(
+        (row for row in _sets(conn, workout_id) if int(row["set_id"]) == int(set_id)),
+        None,
+    )
+    if old_id is None:
+        if current is not None and not removed:
+            _materialise_late_set(conn, workout, current)
+        _refresh_session_aggregates(conn, workout_id)
+        return
+    if removed or current is None:
+        old = conn.execute(
+            "SELECT * FROM clean_set WHERE set_id = ?", (old_id,)
+        ).fetchone()
+        if old is not None:
+            _materialise_set(
+                conn,
+                workout=workout,
+                row={
+                    "set_id": int(set_id),
+                    "exercise_id": old["exercise_id"],
+                    "load_kg": old["load_kg"],
+                    "reps": old["reps"],
+                    "rir": old["rir"],
+                    "velocity": old["velocity_mps"],
+                    "prescription_item_index": old["prescription_item_index"],
+                    "set_role": old["set_role"],
+                    "substitutes_plan_item_index": old["substitutes_plan_item_index"],
+                },
+                entities=exercises.taxonomy().entities,
+                bodyweight_kg=(workout.get("readiness") or {}).get("bodyweight_kg"),
+                # A repair is its own provenance batch, so raw_row's uniqueness key
+                # (table, source row, file) does not collide with the original import.
+                file_sha="late:" + uuid.uuid4().hex,
+                rep_detail=None,
+                supersedes_id=old_id,
+                voided=True,
+                source_row_id=int(set_id),
+            )
+    else:
+        _materialise_set(
+            conn,
+            workout=workout,
+            row=current,
+            entities=exercises.taxonomy().entities,
+            bodyweight_kg=(workout.get("readiness") or {}).get("bodyweight_kg"),
+            file_sha="late:" + uuid.uuid4().hex,
+            rep_detail=_current_reps(conn, workout_id).get(int(set_id)),
+            supersedes_id=old_id,
+            voided=False,
+            source_row_id=int(set_id),
+        )
+    _refresh_session_aggregates(conn, workout_id)
 
 
 def _materialise_late_set(conn, workout: Mapping[str, Any], row: Mapping[str, Any]) -> None:

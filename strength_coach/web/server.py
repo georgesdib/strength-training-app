@@ -1482,7 +1482,8 @@ class Handler(BaseHTTPRequestHandler):
                             # A set may arrive after completion, inside the reconciliation
                             # window; the model decides whether it applies (D8).
                             allow_completed=action in {
-                                "sets", "reconciliation", "form", "execution-events",
+                                "sets", "remove-set", "reconciliation", "form",
+                                "execution-events",
                             },
                         )
                     else:
@@ -1668,6 +1669,17 @@ class Handler(BaseHTTPRequestHandler):
 
         try:
             self._ios_mutation(conn, device, route, body, config, callback)
+        except reconciliation.Rejected as exc:
+            # Applicable window, inapplicable event: preserve it and say why, without pretending
+            # it was a closed window.
+            with db.transaction(conn):
+                payload = dict(exc.payload)
+                payload.setdefault("reason", exc.reason)
+                reconciliation.record_rejection(conn, workout_id, payload)
+            raise ios_workflow.IOSWorkflowError(
+                409, "late_event_rejected", str(exc),
+                details={"workout_id": workout_id, "reason": exc.reason},
+            ) from exc
         except reconciliation.WindowClosed as exc:
             # The rejected transaction has already rolled back, so the arrival is preserved here,
             # in its own transaction: a late set that missed the window is never deleted (D8).
@@ -2621,10 +2633,12 @@ class Handler(BaseHTTPRequestHandler):
                     details={"execution_id": execution_id},
                 )
         if not execution_id:
-            execution_id = str(uuid.uuid4())
-            conn.execute(
-                "UPDATE ios_issued_plan SET execution_id = ? WHERE issued_plan_id = ?",
-                (execution_id, row["issued_plan_id"]),
+            # Backward compatibility is gone: a plan issued before execution identity existed
+            # cannot be bound, and every such plan is past its four-hour window anyway.
+            raise ios_workflow.IOSWorkflowError(
+                409, "plan_not_bindable",
+                "this plan predates execution identity; request a new one",
+                details={"issued_plan_id": row["issued_plan_id"]},
             )
         return execution_id
 
@@ -3071,8 +3085,7 @@ class Handler(BaseHTTPRequestHandler):
         self._ios_closed_fields(body, {
             "event_id", "change", "plan_item_index", "after_item_index",
             "exercise_id", "reps_low", "reps_high", "rir_target",
-            "prefill_requested", "prefill_load_kg", "prefill_catalogue_version",
-            "prefill_as_of",
+            "prefill_load_kg", "prefill_catalogue_version", "prefill_as_of",
         })
         change = body.get("change")
         if change not in workout.EXECUTION_CHANGE_TYPES:
@@ -3102,12 +3115,6 @@ class Handler(BaseHTTPRequestHandler):
             raise ios_workflow.IOSWorkflowError(
                 400, "validation_failed", str(exc)
             ) from exc
-        requested = body.get("prefill_requested")
-        if requested is not None and not isinstance(requested, bool):
-            raise ios_workflow.IOSWorkflowError(
-                400, "validation_failed", "prefill_requested must be a boolean",
-                fields={"prefill_requested": "must be a boolean"},
-            )
         try:
             supplied_prefill = _number(body.get("prefill_load_kg"))
         except (TypeError, ValueError) as exc:
@@ -3154,9 +3161,11 @@ class Handler(BaseHTTPRequestHandler):
                 reps_low=reps_low,
                 reps_high=reps_high,
                 rir_target=rir_target,
-                prefill_requested=True if requested is None else requested,
                 prefill_load_kg=supplied_prefill,
                 catalogue=shipped,
+                # A version with no value means the phone tried the catalogue and had nothing;
+                # that is a recorded miss, not an invitation to solve on arrival.
+                catalogue_attempted=version is not None and supplied_prefill is None,
                 device_id=device_id,
             )}
         except ValueError as exc:
@@ -3195,7 +3204,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def _ios_workout_remove_set(self, conn, workout_id: str, body: dict) -> dict:
         self._ios_closed_fields(body, {"set_id"})
-        self._ios_workout(conn, workout_id)
+        data = self._ios_workout(conn, workout_id, allow_completed=True)
+        if data["status"] == "completed" and reconciliation.state(
+            conn, workout_id
+        )["state"] == "none":
+            raise ios_workflow.IOSWorkflowError(
+                409, "workout_not_active", "workout is not in progress",
+                details={"status": data["status"]},
+            )
         try:
             set_id = _integer(body.get("set_id"))
         except (TypeError, ValueError) as exc:
@@ -3207,7 +3223,14 @@ class Handler(BaseHTTPRequestHandler):
                 400, "validation_failed", "set_id must be a positive integer",
                 fields={"set_id": "must be a positive integer"},
             )
-        return workout.remove_set(conn, workout_id, set_id)
+        try:
+            return workout.remove_set(conn, workout_id, set_id, late=True)
+        except reconciliation.WindowClosed:
+            raise
+        except ValueError as exc:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", str(exc)
+            ) from exc
 
     def _ios_workout_form(self, conn, workout_id: str, body: dict) -> dict:
         self._ios_closed_fields(body, {"exercise_id", "rating", "note"})

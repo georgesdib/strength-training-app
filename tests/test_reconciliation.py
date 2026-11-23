@@ -220,3 +220,73 @@ def test_a_rejected_late_set_keeps_its_rep_velocities(conn, monkeypatch):
         )
     assert raised.value.payload["rep_velocities"][0]["velocity_mps"] == 0.61
 
+
+
+def test_a_late_correction_repairs_the_durable_row(conn):
+    started = _started(conn)
+    workout_id = started["workout_id"]
+    workout.add_set(conn, workout_id, exercise_id="bench_press", load_kg=90.0,
+                    reps=5, rir=2, set_index=1, plan_item_index=1)
+    set_id = workout.get(conn, workout_id)["sets"][0]["set_id"]
+    _finish(conn, workout_id, pending=["watch-1"])
+
+    workout.update_set(conn, workout_id, set_id, load_kg=95.0, reps=5, rir=1, late=True)
+
+    row = conn.execute(
+        "SELECT load_kg, rir, tonnage_kg FROM clean_set s WHERE s.session_id = ? "
+        "AND s.voided = 0 AND NOT EXISTS (SELECT 1 FROM clean_set child "
+        "WHERE child.supersedes_id = s.set_id)",
+        (workout_id,),
+    ).fetchone()
+    assert row["load_kg"] == 95.0
+    assert row["rir"] == 1
+    assert row["tonnage_kg"] == 475.0            # 95 x 5, not the original 90 x 5
+    assert conn.execute(
+        "SELECT tonnage_kg FROM session WHERE session_id = ?", (workout_id,)
+    ).fetchone()[0] == 475.0
+
+
+def test_a_late_removal_undoes_the_durable_row(conn):
+    started = _started(conn)
+    workout_id = started["workout_id"]
+    workout.add_set(conn, workout_id, exercise_id="bench_press", load_kg=90.0,
+                    reps=5, rir=2, set_index=1, plan_item_index=1)
+    set_id = workout.get(conn, workout_id)["sets"][0]["set_id"]
+    _finish(conn, workout_id, pending=["watch-1"])
+
+    workout.remove_set(conn, workout_id, set_id, late=True)
+
+    assert conn.execute(
+        "SELECT COUNT(*) FROM clean_set s WHERE s.session_id = ? AND s.voided = 0 AND NOT EXISTS (SELECT 1 FROM clean_set child WHERE child.supersedes_id = s.set_id)", (workout_id,)
+    ).fetchone()[0] == 0
+    assert conn.execute(
+        "SELECT COUNT(*) FROM clean_set s WHERE s.session_id = ? AND s.voided = 1 "
+        "AND s.supersedes_id IS NOT NULL", (workout_id,)
+    ).fetchone()[0] == 1
+    counts = conn.execute(
+        "SELECT set_count, working_set_count FROM session WHERE session_id = ?",
+        (workout_id,),
+    ).fetchone()
+    assert counts["set_count"] == 0 and counts["working_set_count"] == 0
+
+
+def test_a_late_correction_cannot_resurrect_a_removed_set(conn):
+    started = _started(conn)
+    workout_id = started["workout_id"]
+    workout.add_set(conn, workout_id, exercise_id="bench_press", load_kg=90.0,
+                    reps=5, rir=2, set_index=1, plan_item_index=1)
+    set_id = workout.get(conn, workout_id)["sets"][0]["set_id"]
+    _finish(conn, workout_id, pending=["watch-1"])
+    workout.remove_set(conn, workout_id, set_id, late=True)
+
+    with pytest.raises(reconciliation.Rejected) as raised:
+        workout.update_set(conn, workout_id, set_id, load_kg=95.0, reps=5, rir=1, late=True)
+    assert raised.value.reason == "set_removed"
+    assert raised.value.payload["load_kg"] == 95.0
+    assert conn.execute(
+        "SELECT COUNT(*) FROM clean_set s WHERE s.session_id = ? AND s.voided = 0 "
+        "AND NOT EXISTS (SELECT 1 FROM clean_set child "
+        "WHERE child.supersedes_id = s.set_id)",
+        (workout_id,),
+    ).fetchone()[0] == 0
+

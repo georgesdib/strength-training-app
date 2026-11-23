@@ -86,6 +86,9 @@ def _entry(
         # tail cannot express. Both are computed through the session's own dose modifier below.
         "dose_load_kg": None,
         "dose_sets_cap": None,
+        # The shipped velocity target, when this lift has a trustworthy calibration. Null means
+        # no target, never a reconstructed one.
+        "vbt_target": None,
     }
 
 
@@ -114,6 +117,10 @@ def build_catalogue(
             conn, for_date, window_days=resolved.e1rm_window_days
         )
 
+    from strength_coach.features import vbt_calibration
+
+    # One calibration for the whole catalogue; its lookup is what the plan's own attachment uses.
+    calibration = vbt_calibration.calibrate(context.sets)
     exercises: dict[str, Any] = {}
     history = context.sets
     for position, exercise_id in enumerate(sorted(exercises_mod.taxonomy().entities)):
@@ -162,6 +169,17 @@ def build_catalogue(
             entry["accessory_load_kg"] = (
                 loads.round_down(found[0], increment) if found is not None else None
             )
+        target = calibration.lookup(exercise_id, _REPS)
+        if target is not None:
+            entry["vbt_target"] = {
+                "target_mps": float(target.velocity_median),
+                "low_mps": target.velocity_low,
+                "high_mps": target.velocity_high,
+                "rep_count": int(target.rep_count),
+                "scope": str(target.scope),
+                "n_sets": int(target.n_sets),
+                "n_sessions": int(target.n_sessions),
+            }
         if context.symptom_flare is True and props.get("direct_erector", False):
             # Ask the session's own dose modifier, with a set count above any cap, so the answer
             # is the cap itself rather than a capped copy of the probe's shape.
@@ -183,6 +201,33 @@ def build_catalogue(
     }
 
 
+def shape_from_base(
+    groups: list[Mapping[str, Any]] | None,
+    *,
+    e1rm_kg: float | None,
+    load_kg: float | None,
+    increment_kg: float,
+) -> list[dict[str, Any]]:
+    """Re-solve a slot's set groups for a different exercise.
+
+    The group *shape* belongs to the slot the athlete is training, not to the exercise: a top set
+    plus back-offs stays a top set plus back-offs after a swap. Only the loads move, through the
+    same Epley tail the single-load prefill uses.
+    """
+    out: list[dict[str, Any]] = []
+    for group in groups or []:
+        resolved = dict(group)
+        reps = int(resolved.get("reps_low") or 1)
+        rir = resolved.get("rir_target")
+        if e1rm_kg and increment_kg > 0:
+            divisor = 1 + (reps + float(rir or 0)) / 30
+            resolved["load_kg"] = loads.round_down(float(e1rm_kg) / divisor, increment_kg)
+        else:
+            resolved["load_kg"] = load_kg
+        out.append(resolved)
+    return out
+
+
 def prescription_from_catalogue(
     shipped: Mapping[str, Any] | None,
     *,
@@ -191,6 +236,7 @@ def prescription_from_catalogue(
     reps_low: int,
     rir: int | None,
     sets: int,
+    groups: list[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """The replacement prescription the phone should have shown, from the shipped catalogue.
 
@@ -205,6 +251,11 @@ def prescription_from_catalogue(
         "sets": int(sets),
         "prefill_source": "none",
         "reason": None,
+        # The slot's shape survives a substitution; top-set eligibility does not survive it
+        # offline, so it is stated rather than guessed.
+        "set_groups": [],
+        "top_set": {"status": "not_applicable", "reason_code": "substituted"},
+        "vbt_target": None,
     }
     if not shipped:
         base["reason"] = "catalogue_unavailable"
@@ -213,7 +264,9 @@ def prescription_from_catalogue(
     if not isinstance(entry, Mapping):
         base["reason"] = "no_catalogue_entry"
         return base
+    base["vbt_target"] = entry.get("vbt_target")
     # A live erector dose overrides every other load, including bodyweight work, and caps sets.
+    # It is a straight-set rule, so the slot's groups do not survive it.
     if entry.get("dose_load_kg") is not None:
         cap = entry.get("dose_sets_cap")
         base.update(
@@ -222,13 +275,16 @@ def prescription_from_catalogue(
             prefill_source="flare_dose",
         )
         return base
+    increment = float(entry.get("increment_kg") or 0)
     if entry.get("bodyweight"):
         base.update(load_kg=0.0, prefill_source="bodyweight")
+        base["set_groups"] = shape_from_base(
+            groups, e1rm_kg=None, load_kg=0.0, increment_kg=increment,
+        )
         return base
     if entry.get("power"):
         base.update(prefill_source="power", reason="power_work")
         return base
-    increment = float(entry.get("increment_kg") or 0)
     if increment <= 0:
         base["reason"] = "no_increment"
         return base
@@ -238,40 +294,22 @@ def prescription_from_catalogue(
             base["reason"] = "no_catalogue_base"
             return base
         divisor = 1 + (float(reps_low) + float(rir or 0)) / 30
-        base.update(
-            load_kg=loads.round_down(float(e1rm_base) / divisor, increment),
-            prefill_source="catalogue_e1rm",
+        load = loads.round_down(float(e1rm_base) / divisor, increment)
+        base.update(load_kg=load, prefill_source="catalogue_e1rm")
+        base["set_groups"] = shape_from_base(
+            groups, e1rm_kg=float(e1rm_base), load_kg=load, increment_kg=increment,
         )
         return base
     held = entry.get("accessory_load_kg")
     if held is None:
         base["reason"] = "no_catalogue_working_load"
         return base
-    base.update(
-        load_kg=loads.round_down(float(held), increment),
-        prefill_source="catalogue_double_progression",
+    load = loads.round_down(float(held), increment)
+    base.update(load_kg=load, prefill_source="catalogue_double_progression")
+    base["set_groups"] = shape_from_base(
+        groups, e1rm_kg=None, load_kg=load, increment_kg=increment,
     )
     return base
-
-
-def prefill_from_catalogue(
-    shipped: Mapping[str, Any] | None,
-    *,
-    exercise_id: str,
-    essential: bool,
-    reps_low: int,
-    rir: int | None,
-) -> tuple[float | None, str]:
-    """The load only, for callers that do not need the set count (kept for compatibility)."""
-    resolved = prescription_from_catalogue(
-        shipped,
-        exercise_id=exercise_id,
-        essential=essential,
-        reps_low=reps_low,
-        rir=rir,
-        sets=1,
-    )
-    return resolved["load_kg"], resolved["prefill_source"] if resolved["load_kg"] is not None         else str(resolved["reason"] or "none")
 
 
 def dumps(catalogue: Mapping[str, Any]) -> str:

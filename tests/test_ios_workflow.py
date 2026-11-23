@@ -1728,7 +1728,7 @@ def test_ios_execution_change_prefills_and_replays_idempotently(ios):
     assert status == 400, conflict
     assert "already used" in conflict["error"]
 
-    # An offline author records no prefill and is never retro-solved.
+    # A catalogue attempt with no value records the miss; it is never solved on arrival.
     status, body = _request(
         ios["base"], url, method="POST", token=token, key=uuid.uuid4().hex,
         payload={
@@ -1739,14 +1739,15 @@ def test_ios_execution_change_prefills_and_replays_idempotently(ios):
             "reps_low": 8,
             "reps_high": 10,
             "rir_target": 3,
-            "prefill_requested": False,
+            "prefill_catalogue_version": issued["load_catalogue"]["catalogue_version"],
         },
     )
     assert status == 200, body
     addition = body["execution"]["additions"][0]
     assert addition["after_item_index"] == 0
     assert addition["prefill_load_kg"] is None
-    assert addition["prefill_reason"] == "authored_offline"
+    assert addition["resolved_by"] == "catalogue"
+    assert addition["prefill_reason"] == "no_catalogue_prefill"
     assert body["execution"]["watermark"] > view["watermark"]
 
     # GET returns the same ordered view (the watch refresh path).

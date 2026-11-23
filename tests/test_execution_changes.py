@@ -181,9 +181,8 @@ def test_an_addition_is_extra_work_with_its_own_shape(conn, monkeypatch):
     assert view["substitutions"] == []
 
 
-def test_an_offline_author_records_no_prefill_and_is_never_retro_solved(
-    conn, monkeypatch,
-):
+def test_an_offline_catalogue_miss_is_recorded_and_never_solved(conn, monkeypatch):
+    """No legacy flag: a version with no value is a recorded miss, not a server solve."""
     from strength_coach.prescribe import engine
 
     def boom(*args, **kwargs):
@@ -194,11 +193,14 @@ def test_an_offline_author_records_no_prefill_and_is_never_retro_solved(
     view = workout.record_execution_change(
         conn, started["workout_id"], client_event_id=str(uuid.uuid4()),
         kind="substitution", exercise_id="bench_press",
-        plan_item_index=0, prefill_requested=False,
+        plan_item_index=0,
+        catalogue={"catalogue_version": "load-catalogue/v1", "exercises": {}},
+        catalogue_attempted=True,
     )
     change = view["substitutions"][0]
     assert change["prefill_load_kg"] is None
-    assert change["prefill_reason"] == "authored_offline"
+    assert change["prefill_reason"] == "no_catalogue_entry"
+    assert change["resolved_by"] == "catalogue"
 
 
 def test_an_unsolved_prefill_records_the_reason(conn, monkeypatch):
