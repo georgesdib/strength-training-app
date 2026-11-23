@@ -2607,3 +2607,18 @@ def test_the_web_start_warns_when_a_phone_plan_is_pending(ios):
     assert status == 400, allowed
     assert allowed.get("code") != "plan_pending_for_phone"
 
+
+
+def test_the_plan_ships_the_offline_load_catalogue(ios):
+    """D9: the phone substitutes offline from a server-built catalogue, not its own maths."""
+    token, _ = _paired(ios)
+    status, state = _issue(ios, token)
+    assert status == 200, state
+    built = state["load_catalogue"]
+    assert built is not None
+    assert built["catalogue_version"] == "load-catalogue/v1"
+    assert built["as_of"] == state["for_date"]
+    assert len(built["exercises"]) >= 100
+    squat = built["exercises"]["competition_squat"]
+    assert squat["load_source"] == "e1rm"
+    assert squat["increment_kg"] > 0

@@ -2696,6 +2696,7 @@ class Handler(BaseHTTPRequestHandler):
             "retry_after_ms": self._ios_retry_after(status),
             "settings": ios_workflow.load_settings(row),
             "plan": None,
+            "load_catalogue": None,
             "readiness": None,
             "warnings": [],
             "error": None,
@@ -2706,6 +2707,12 @@ class Handler(BaseHTTPRequestHandler):
             payload.update({
                 "session_type": row["session_type"],
                 "plan": plan,
+                # The shipped substitution loads (D9). Null for a plan built before the
+                # catalogue existed, which the phone treats as "no base available".
+                "load_catalogue": (
+                    json.loads(row["load_catalogue_json"])
+                    if row["load_catalogue_json"] else None
+                ),
                 "readiness": {
                     "status": assessment.status,
                     "score": assessment.score,

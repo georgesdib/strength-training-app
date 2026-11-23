@@ -249,6 +249,7 @@ def publish_plan(
     resolved_session_type: str,
     ready_at: str,
     plan_expires_at: str,
+    load_catalogue_json: str | None = None,
 ) -> int:
     """building -> ready, only while the request is still live.
 
@@ -257,11 +258,11 @@ def publish_plan(
     """
     cursor = conn.execute(
         "UPDATE ios_issued_plan SET status = 'ready', plan_json = ?, session_type = ?, "
-        "       ready_at = ?, plan_expires_at = ?, finished_at = ? "
+        "       ready_at = ?, plan_expires_at = ?, finished_at = ?, load_catalogue_json = ? "
         "WHERE issued_plan_id = ? AND status = 'building' AND superseded_at IS NULL "
         "  AND consumed_at IS NULL",
         (plan_json, resolved_session_type, ready_at, plan_expires_at, ready_at,
-         str(issued_plan_id)),
+         load_catalogue_json, str(issued_plan_id)),
     )
     return int(cursor.rowcount)
 

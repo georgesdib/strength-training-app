@@ -875,6 +875,7 @@ ios_issued_plan:
 | superseded_at | set when a newer issue replaces this live plan |
 | workout_id | references workout_session after start |
 | execution_id | uuid4; the workout the plan will become, minted at issue (migration 0076) so an offline start can name it before it reaches the server |
+| load_catalogue_json | the resolver's own load output for every taxonomy exercise (migration 0077), shipped so an offline substitution applies a server decision; null on older rows |
 
 A partial unique index permits one live, unstarted plan per device, and a unique index on
 `execution_id` permits one plan per execution. `for_date` may now be today or yesterday at start,
