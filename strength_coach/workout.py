@@ -58,6 +58,21 @@ def _now() -> str:
     return dt.datetime.now(dt.UTC).isoformat(timespec="seconds")
 
 
+def _normalise_started_at(value: str) -> str:
+    """A client-supplied start, accepted only when it names an instant, stored as UTC.
+
+    A naive value is refused rather than guessed: the plan bind already bounds the instant, and
+    reading a local time as UTC here would silently move a late-night session to another date.
+    """
+    try:
+        parsed = dt.datetime.fromisoformat(str(value).strip().replace("Z", "+00:00"))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("started_at must be ISO-8601") from exc
+    if parsed.tzinfo is None:
+        raise ValueError("started_at must include a timezone")
+    return parsed.astimezone(dt.UTC).isoformat(timespec="seconds")
+
+
 def _parse(value: str | None) -> dt.datetime | None:
     if not value:
         return None
@@ -121,10 +136,31 @@ def start(
     owner_device_id: str | None = None,
     note: str | None = None,
     allow_partial_readiness: bool = False,
+    workout_id: str | None = None,
+    allow_concurrent: bool = False,
+    started_at: str | None = None,
 ) -> dict:
-    active = active_workout(conn)
-    if active is not None:
-        raise ValueError("a workout is already in progress; end or abandon it first")
+    """Start a session, optionally under an execution id the client already holds.
+
+    `workout_id` is how an offline start becomes the same workout when it reaches the server:
+    the id comes from the issued plan, not from this call. Repeating it returns the running
+    session instead of creating a second one. `allow_concurrent` exists because that session
+    may already have been performed while another one was open (D1).
+    """
+    if workout_id is not None:
+        try:
+            workout_id = str(uuid.UUID(str(workout_id)))
+        except (AttributeError, TypeError, ValueError) as exc:
+            raise ValueError("workout_id must be a UUID") from exc
+        existing = get(conn, workout_id)
+        if existing is not None:
+            if existing["status"] == "in_progress":
+                return existing
+            raise ValueError("that workout has already finished")
+    if not allow_concurrent:
+        active = active_workout(conn)
+        if active is not None:
+            raise ValueError("a workout is already in progress; end or abandon it first")
     resolved_type = str(session_type or (plan.get("session_type") if isinstance(plan, dict) else "") or "")
     pending = (
         (((plan.get("notes") if isinstance(plan, dict) else {}) or {})
@@ -147,8 +183,8 @@ def start(
         raise ValueError(
             "plan.session_type must be a normal type, volume_fill_<original> or technique"
         )
-    workout_id = str(uuid.uuid4())
-    started_at = _now()
+    workout_id = workout_id or str(uuid.uuid4())
+    started_at = _normalise_started_at(started_at) if started_at else _now()
     conn.execute(
         """
         INSERT INTO workout_session

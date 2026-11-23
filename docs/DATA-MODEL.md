@@ -874,8 +874,12 @@ ios_issued_plan:
 | consumed_at | set atomically with workout creation |
 | superseded_at | set when a newer issue replaces this live plan |
 | workout_id | references workout_session after start |
+| execution_id | uuid4; the workout the plan will become, minted at issue (migration 0076) so an offline start can name it before it reaches the server |
 
-A partial unique index permits one live, unstarted plan per device. Issuing supersedes the old
+A partial unique index permits one live, unstarted plan per device, and a unique index on
+`execution_id` permits one plan per execution. `for_date` may now be today or yesterday at start,
+and the bind is judged by the client's recorded `started_at` against the plan's own window, so a
+session started at 23:50 and synced at 00:10 keeps its real start and date. Issuing supersedes the old
 live plan before inserting the new one. A consumed plan returns its in-progress workout on a
 same-key replay; a completed/abandoned or superseded plan is a 410.
 

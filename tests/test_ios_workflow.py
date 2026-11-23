@@ -2436,3 +2436,174 @@ def test_unknown_metric_kind_is_still_rejected(ios):
     )
     assert status == 400
     assert "unsupported metric kind" in json.dumps(body)
+
+
+def test_the_issued_plan_names_its_execution(ios):
+    """D1: the execution is minted at issue, so a start made offline can be adopted later."""
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token, wait=False)
+    assert status == 202, issued
+    assert uuid.UUID(issued["execution_id"])
+
+    state = _wait_for_plan(ios, token)
+    assert state["status"] == "ready", state
+    assert state["execution_id"] == issued["execution_id"]
+
+
+def test_start_binds_the_named_execution(ios):
+    token, _ = _paired(ios)
+    status, state = _issue(ios, token)
+    assert status == 200, state
+    status, started = _start(
+        ios, token, state["issued_plan_id"],
+        body={
+            "issued_plan_id": state["issued_plan_id"],
+            "execution_id": state["execution_id"],
+        },
+    )
+    assert status == 200, started
+    assert started["workout_id"] == state["execution_id"]
+
+
+def test_start_refuses_a_foreign_execution_id(ios):
+    token, _ = _paired(ios)
+    status, state = _issue(ios, token)
+    assert status == 200, state
+    status, rejected = _start(
+        ios, token, state["issued_plan_id"],
+        body={
+            "issued_plan_id": state["issued_plan_id"],
+            "execution_id": str(uuid.uuid4()),
+        },
+    )
+    assert status == 409, rejected
+    assert rejected["code"] == "execution_id_mismatch"
+
+
+def test_start_binds_a_session_recorded_before_midnight(ios):
+    """D13: the bind is judged by the recorded start, not by the sync time."""
+    token, _ = _paired(ios)
+    status, state = _issue(ios, token)
+    assert status == 200, state
+    yesterday = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
+    today = datetime.date.today().isoformat()
+    conn = db.Store(ios["path"]).connection
+    try:
+        conn.execute(
+            "UPDATE ios_issued_plan SET for_date = ?, created_at = ?, plan_expires_at = ? "
+            "WHERE issued_plan_id = ?",
+            (
+                yesterday,
+                f"{yesterday}T23:50:00+00:00",
+                f"{today}T03:50:00+00:00",
+                state["issued_plan_id"],
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    status, started = _start(
+        ios, token, state["issued_plan_id"],
+        body={
+            "issued_plan_id": state["issued_plan_id"],
+            "execution_id": state["execution_id"],
+            "started_at": f"{yesterday}T23:55:00+00:00",
+        },
+    )
+    assert status == 200, started
+    assert started["started_at"].startswith(f"{yesterday}T23:55")
+
+
+def test_start_refuses_a_start_outside_the_plan_window(ios):
+    token, _ = _paired(ios)
+    status, state = _issue(ios, token)
+    assert status == 200, state
+    yesterday = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
+    conn = db.Store(ios["path"]).connection
+    try:
+        conn.execute(
+            "UPDATE ios_issued_plan SET created_at = ?, plan_expires_at = ? "
+            "WHERE issued_plan_id = ?",
+            (
+                f"{yesterday}T20:00:00+00:00",
+                f"{yesterday}T23:00:00+00:00",
+                state["issued_plan_id"],
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    status, rejected = _start(
+        ios, token, state["issued_plan_id"],
+        body={
+            "issued_plan_id": state["issued_plan_id"],
+            "execution_id": state["execution_id"],
+        },
+    )
+    assert status == 410, rejected
+    assert rejected["code"] == "plan_expired"
+
+
+def test_a_concurrent_session_does_not_block_the_bound_start(ios):
+    """D1: the athlete may already have performed the session that is now syncing."""
+    token, _ = _paired(ios)
+    status, state = _issue(ios, token)
+    assert status == 200, state
+    today = datetime.date.today().isoformat()
+    conn = db.Store(ios["path"]).connection
+    try:
+        conn.execute(
+            "INSERT INTO workout_session "
+            "(workout_id, for_date, session_type, status, plan_json, "
+            " readiness_json, started_at) "
+            "VALUES ('web-session', ?, 'squat', 'in_progress', '{}', '{}', ?)",
+            (today, f"{today}T08:00:00+00:00"),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    now = datetime.datetime.now(datetime.UTC)
+    recorded = now - datetime.timedelta(minutes=5)
+    issued_at = now - datetime.timedelta(minutes=10)
+    conn = db.Store(ios["path"]).connection
+    try:
+        conn.execute(
+            "UPDATE ios_issued_plan SET created_at = ? WHERE issued_plan_id = ?",
+            (issued_at.isoformat(), state["issued_plan_id"]),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    status, started = _start(
+        ios, token, state["issued_plan_id"],
+        body={
+            "issued_plan_id": state["issued_plan_id"],
+            "execution_id": state["execution_id"],
+            "started_at": recorded.isoformat(),
+        },
+    )
+    assert status == 200, started
+    assert int(_scalar(
+        ios["path"],
+        "SELECT COUNT(*) FROM workout_session WHERE status = 'in_progress'",
+    )) == 2
+
+
+def test_the_web_start_warns_when_a_phone_plan_is_pending(ios):
+    """D1: a pending phone plan is a confirmation, not a silent duplicate."""
+    token, _ = _paired(ios)
+    status, state = _issue(ios, token)
+    assert status == 200, state
+    status, rejected = _request(ios["base"], "/api/workout/start", method="POST", payload={})
+    assert status == 409, rejected
+    assert rejected["code"] == "plan_pending_for_phone"
+
+    # The confirmation overrides the warning and falls through to ordinary validation.
+    status, allowed = _request(
+        ios["base"], "/api/workout/start", method="POST",
+        payload={"start_anyway": True},
+    )
+    assert status == 400, allowed
+    assert allowed.get("code") != "plan_pending_for_phone"
+

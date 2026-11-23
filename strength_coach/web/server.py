@@ -200,11 +200,14 @@ if not any(isinstance(handler, _BufferLogHandler) for handler in logging.getLogg
 class RequestError(Exception):
     """A client error raised before the route; close the socket for framing faults."""
 
-    def __init__(self, status: int, message: str, *, close: bool = False) -> None:
+    def __init__(
+        self, status: int, message: str, *, close: bool = False, code: str | None = None
+    ) -> None:
         super().__init__(message)
         self.status = status
         self.message = message
         self.close = close
+        self.code = code
 
 
 class FieldError(ValueError):
@@ -263,6 +266,21 @@ def _ios_capabilities() -> dict[str, bool]:
     # Additive read route; advertised only because the route exists, per the contract.
     capabilities["intelligence_read"] = True
     return capabilities
+
+
+def _parse_iso_utc(value: str) -> datetime.datetime:
+    """Parse a stored or client-supplied ISO-8601 timestamp into UTC.
+
+    A naive value is read as UTC rather than rejected: every stored timestamp is written with a
+    timezone, and the only naive inputs are older clients that sent local time.
+    """
+    try:
+        parsed = datetime.datetime.fromisoformat(str(value).strip().replace("Z", "+00:00"))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("timestamp must be ISO-8601") from exc
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=datetime.UTC)
+    return parsed.astimezone(datetime.UTC)
 
 
 def _elapsed_seconds(start_iso: str, end_iso: str) -> int:
@@ -989,7 +1007,10 @@ class Handler(BaseHTTPRequestHandler):
         body = json.dumps(payload, default=_json_default).encode("utf-8")
         self._send(status, body, "application/json; charset=utf-8", headers=headers)
 
-    def _error(self, status: int, message: str, fields: dict[str, str] | None = None) -> None:
+    def _error(
+        self, status: int, message: str, fields: dict[str, str] | None = None,
+        code: str | None = None,
+    ) -> None:
         # A 4xx is a client contract violation, and the phone cannot show us its request. Logging
         # the message is what makes a rejected sync diagnosable from the server side.
         if status >= 400:
@@ -1001,6 +1022,8 @@ class Handler(BaseHTTPRequestHandler):
                 file=sys.stderr, flush=True,
             )
         payload: dict[str, Any] = {"error": message}
+        if code:
+            payload["code"] = code
         if fields:
             payload["fields"] = fields
         self._json(status, payload)
@@ -1341,7 +1364,7 @@ class Handler(BaseHTTPRequestHandler):
         except RequestError as exc:
             if exc.close:
                 self.close_connection = True
-            self._error(exc.status, exc.message)
+            self._error(exc.status, exc.message, code=exc.code)
         except ios_devices.PairingError as exc:
             self._error(exc.status, exc.message, exc.fields)
         except FieldError as exc:
@@ -1457,7 +1480,7 @@ class Handler(BaseHTTPRequestHandler):
         except RequestError as exc:
             if exc.close:
                 self.close_connection = True
-            self._error(exc.status, exc.message)
+            self._error(exc.status, exc.message, code=exc.code)
         except ios_devices.AuthError as exc:
             self._error(exc.status, exc.message)
         except ios_workflow.IOSWorkflowError as exc:
@@ -2506,9 +2529,13 @@ class Handler(BaseHTTPRequestHandler):
             created + datetime.timedelta(seconds=config.plan_request_ttl_seconds)
         )
         issued_plan_id = uuid.uuid4().hex
+        # The execution the athlete will start offline. Minted here, not at start, so both
+        # devices can name it before either of them reaches the server (D1, WP0 section 5).
+        execution_id = str(uuid.uuid4())
         ios_workflow.enqueue_plan_request(
             conn,
             issued_plan_id=issued_plan_id,
+            execution_id=execution_id,
             device_id=device["device_id"],
             target_device_id=target_device_id,
             execution_target=execution_target,
@@ -2531,6 +2558,7 @@ class Handler(BaseHTTPRequestHandler):
         ios_plan_worker.start_dispatcher(self.db_path, _CPU_JOB_SLOTS)
         return {
             "issued_plan_id": issued_plan_id,
+            "execution_id": execution_id,
             "status": "queued",
             "execution_target": execution_target,
             "for_date": today,
@@ -2548,6 +2576,82 @@ class Handler(BaseHTTPRequestHandler):
         if status == "building":
             return 2000
         return 0
+
+    def _ios_bind_execution_id(self, conn, row, body: dict) -> str:
+        """The execution this start becomes: the plan's own id (D1).
+
+        A legacy row issued before the column existed mints one now, so an old plan still binds
+        to a stable id instead of starting under an id no device can name.
+        """
+        execution_id = str(row["execution_id"] or "")
+        supplied = body.get("execution_id")
+        if supplied is not None:
+            if not isinstance(supplied, str) or not supplied.strip():
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed",
+                    "execution_id must be a non-empty string",
+                    fields={"execution_id": "must be a non-empty string"},
+                )
+            if execution_id and supplied.strip() != execution_id:
+                raise ios_workflow.IOSWorkflowError(
+                    409, "execution_id_mismatch",
+                    "this start names a different execution than the plan",
+                    details={"execution_id": execution_id},
+                )
+        if not execution_id:
+            execution_id = str(uuid.uuid4())
+            conn.execute(
+                "UPDATE ios_issued_plan SET execution_id = ? WHERE issued_plan_id = ?",
+                (execution_id, row["issued_plan_id"]),
+            )
+        return execution_id
+
+    def _ios_check_bind_window(self, row, started_at_raw) -> str:
+        """Bind by the athlete's recorded start, not by the sync (D13).
+
+        A session started at 23:50 and synced at 00:10 is the session that happened. The plan's
+        own issue window decides: the recorded start must fall inside it, and the plan's date
+        must still be today or yesterday. One minute of tolerance absorbs a client clock offset
+        that the server clock derivation has already bounded.
+        """
+        if started_at_raw is not None and not isinstance(started_at_raw, str):
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed",
+                "started_at must be an ISO-8601 string",
+                fields={"started_at": "must be an ISO-8601 string"},
+            )
+        try:
+            created_at = _parse_iso_utc(row["created_at"])
+            closes_at = _parse_iso_utc(row["plan_expires_at"] or row["request_expires_at"])
+            started_at = (
+                _parse_iso_utc(started_at_raw) if started_at_raw
+                else _parse_iso_utc(ios_workflow.now_iso())
+            )
+        except ValueError as exc:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", str(exc)
+            ) from exc
+        today = datetime.date.today()
+        allowed_dates = {
+            today.isoformat(), (today - datetime.timedelta(days=1)).isoformat(),
+        }
+        if str(row["for_date"]) not in allowed_dates:
+            raise ios_workflow.IOSWorkflowError(
+                410, "plan_expired", "issued plan was for an earlier server date"
+            )
+        if (
+            started_at < created_at - datetime.timedelta(seconds=60)
+            or started_at > closes_at
+        ):
+            raise ios_workflow.IOSWorkflowError(
+                410, "plan_expired",
+                "the recorded start is outside the plan's start window",
+                details={
+                    "created_at": row["created_at"],
+                    "closes_at": row["plan_expires_at"] or row["request_expires_at"],
+                },
+            )
+        return started_at.isoformat()
 
     def _ios_plan_payload(self, conn, device: dict) -> dict:
         """The authoritative plan-request state for this device (contract §4.2, §6).
@@ -2582,6 +2686,7 @@ class Handler(BaseHTTPRequestHandler):
             return {"status": "none"}
         payload: dict[str, Any] = {
             "issued_plan_id": row["issued_plan_id"],
+            "execution_id": row["execution_id"],
             "status": status,
             "for_date": row["for_date"],
             "elapsed_seconds": _elapsed_seconds(row["created_at"], now),
@@ -2618,7 +2723,7 @@ class Handler(BaseHTTPRequestHandler):
         return payload
 
     def _ios_start(self, conn, device: dict, body: dict) -> dict:
-        self._ios_closed_fields(body, {"issued_plan_id"})
+        self._ios_closed_fields(body, {"issued_plan_id", "execution_id", "started_at"})
         issued_plan_id = body.get("issued_plan_id")
         if not isinstance(issued_plan_id, str) or not issued_plan_id.strip():
             raise ios_workflow.IOSWorkflowError(
@@ -2662,11 +2767,6 @@ class Handler(BaseHTTPRequestHandler):
                 "this plan is no longer available",
                 details={"code": row["error_code"]},
             )
-        today = datetime.date.today().isoformat()
-        if row["for_date"] != today:
-            raise ios_workflow.IOSWorkflowError(
-                410, "plan_expired", "issued plan was for an earlier server date"
-            )
         if row["superseded_at"] is not None:
             raise ios_workflow.IOSWorkflowError(
                 410, "plan_superseded", "a newer issued plan replaced this one"
@@ -2684,18 +2784,23 @@ class Handler(BaseHTTPRequestHandler):
                     "status": existing["status"] if existing else None,
                 },
             )
-        deadline = row["plan_expires_at"] or row["request_expires_at"]
-        if str(deadline) <= ios_workflow.now_iso():
-            raise ios_workflow.IOSWorkflowError(
-                410, "plan_expired", "issued plan has expired"
-            )
+        execution_id = self._ios_bind_execution_id(conn, row, body)
+        recorded_start = self._ios_check_bind_window(row, body.get("started_at"))
+        # A start sent now is a start; a start recorded minutes ago is a session the athlete has
+        # already performed and is now syncing. Only the second may exist beside another open
+        # session (D1). Two minutes absorbs the round trip and a small clock offset.
+        replay = (
+            _parse_iso_utc(ios_workflow.now_iso())
+            - _parse_iso_utc(recorded_start)
+        ) > datetime.timedelta(minutes=2)
         self._ios_idle_sweep(conn)
-        active = workout.active_workout(conn)
-        if active is not None:
-            raise ios_workflow.IOSWorkflowError(
-                409, "workout_active", "a workout is already in progress",
-                details={"workout_id": active["workout_id"]},
-            )
+        if not replay:
+            active = workout.active_workout(conn)
+            if active is not None:
+                raise ios_workflow.IOSWorkflowError(
+                    409, "workout_active", "a workout is already in progress",
+                    details={"workout_id": active["workout_id"]},
+                )
         plan = json.loads(row["plan_json"])
         readiness = json.loads(row["readiness_json"])
         try:
@@ -2715,6 +2820,14 @@ class Handler(BaseHTTPRequestHandler):
                     session_type=row["session_type"],
                     prescription_id=prescription_id,
                     owner_device_id=device["device_id"],
+                    # The plan names the execution, so an offline start and its later sync are the
+                    # same workout. A second in-progress session is allowed: the athlete may have
+                    # already trained, and the soft check on the web path warned about it (D1).
+                    workout_id=execution_id,
+                    allow_concurrent=replay,
+                    # The athlete's recorded start, not the sync time: a session started at
+                    # 23:50 and sent at 00:10 keeps its real start and its real date.
+                    started_at=recorded_start,
                     # The issue step already applied the readiness gate: a ready score may have
                     # only the fields it needs, and a non-ready score required an explicit ack.
                     # Re-applying the five-field workout default here rejects a valid ready day.
@@ -3976,7 +4089,7 @@ class Handler(BaseHTTPRequestHandler):
         except RequestError as exc:
             if exc.close:
                 self.close_connection = True
-            self._error(exc.status, exc.message)
+            self._error(exc.status, exc.message, code=exc.code)
         except FieldError as exc:
             self._error(400, str(exc), exc.fields)
         except (ValueError, KeyError) as exc:
@@ -5028,6 +5141,29 @@ class Handler(BaseHTTPRequestHandler):
         return workout.summary(conn, workout_id)
 
     def _workout_start(self, conn, body: dict) -> dict:
+        if not _truth(body.get("start_anyway")):
+            # A plan issued to the phone for today is a session the athlete may already have
+            # performed offline. Warn instead of blocking, and let the web start proceed only
+            # on an explicit confirmation (D1).
+            pending = conn.execute(
+                "SELECT issued_plan_id FROM ios_issued_plan "
+                "WHERE consumed_at IS NULL AND superseded_at IS NULL "
+                "  AND status IN ('queued', 'building', 'ready') "
+                "  AND for_date = ? "
+                "  AND (plan_expires_at IS NULL OR plan_expires_at > ?) "
+                "ORDER BY created_at DESC LIMIT 1",
+                (
+                    datetime.date.today().isoformat(),
+                    ios_workflow.now_iso(),
+                ),
+            ).fetchone()
+            if pending is not None:
+                raise RequestError(
+                    409,
+                    "a workout plan was issued to your phone today; "
+                    "confirm to start a separate session on the web",
+                    code="plan_pending_for_phone",
+                )
         for_date = str(body.get("date") or datetime.date.today().isoformat())
         plan = body.get("plan")
         readiness = body.get("readiness")

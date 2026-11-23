@@ -100,6 +100,7 @@ def enqueue_plan_request(
     conn,
     *,
     issued_plan_id: str,
+    execution_id: str,
     device_id: str,
     for_date: str,
     requested_session_type: str,
@@ -131,15 +132,16 @@ def enqueue_plan_request(
         )
         conn.execute(
             "INSERT INTO ios_issued_plan "
-            "(issued_plan_id, device_id, status, requested_session_type, session_type, "
-            " settings_json, build_inputs_json, prescription_id, for_date, plan_json, "
-            " readiness_json, readiness_ack, created_at, building_started_at, ready_at, "
-            " finished_at, error_code, error_message, request_expires_at, plan_expires_at, "
-            " consumed_at, superseded_at, workout_id, target_device_id, execution_target) "
-            "VALUES (?, ?, 'queued', ?, NULL, ?, ?, NULL, ?, NULL, ?, ?, ?, NULL, NULL, "
+            "(issued_plan_id, execution_id, device_id, status, requested_session_type, "
+            " session_type, settings_json, build_inputs_json, prescription_id, for_date, "
+            " plan_json, readiness_json, readiness_ack, created_at, building_started_at, "
+            " ready_at, finished_at, error_code, error_message, request_expires_at, "
+            " plan_expires_at, consumed_at, superseded_at, workout_id, target_device_id, "
+            " execution_target) "
+            "VALUES (?, ?, ?, 'queued', ?, NULL, ?, ?, NULL, ?, NULL, ?, ?, ?, NULL, NULL, "
             "        NULL, NULL, NULL, ?, NULL, NULL, NULL, NULL, ?, ?)",
             (
-                issued_plan_id, device_id, requested_session_type,
+                issued_plan_id, execution_id, device_id, requested_session_type,
                 _json(settings), _json(build_inputs), for_date,
                 readiness_json, 1 if readiness_ack else 0,
                 created_at, request_expires_at, target_device_id, execution_target,
