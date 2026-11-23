@@ -1471,6 +1471,9 @@ class Handler(BaseHTTPRequestHandler):
                                 lambda c, wid, payload, did=device_id,
                                         fn=handler_fn: fn(c, wid, payload, did),
                                 access="phone" if action == "execution" else "owner",
+                                # Telemetry is observational and bounded by the session's own
+                                # timestamps, so it may arrive after completion (WP2a).
+                                allow_completed=action == "execution-events",
                             )
                             return
                         self._ios_workout_mutation(
@@ -1478,7 +1481,9 @@ class Handler(BaseHTTPRequestHandler):
                             access="any" if action == "abandon" else "owner",
                             # A set may arrive after completion, inside the reconciliation
                             # window; the model decides whether it applies (D8).
-                            allow_completed=action in {"sets", "reconciliation"},
+                            allow_completed=action in {
+                                "sets", "reconciliation", "form", "execution-events",
+                            },
                         )
                     else:
                         self._error(404, "not found")
@@ -2810,21 +2815,7 @@ class Handler(BaseHTTPRequestHandler):
             )
         execution_id = self._ios_bind_execution_id(conn, row, body)
         recorded_start = self._ios_check_bind_window(row, body.get("started_at"))
-        # A start sent now is a start; a start recorded minutes ago is a session the athlete has
-        # already performed and is now syncing. Only the second may exist beside another open
-        # session (D1). Two minutes absorbs the round trip and a small clock offset.
-        replay = (
-            _parse_iso_utc(ios_workflow.now_iso())
-            - _parse_iso_utc(recorded_start)
-        ) > datetime.timedelta(minutes=2)
         self._ios_idle_sweep(conn)
-        if not replay:
-            active = workout.active_workout(conn)
-            if active is not None:
-                raise ios_workflow.IOSWorkflowError(
-                    409, "workout_active", "a workout is already in progress",
-                    details={"workout_id": active["workout_id"]},
-                )
         plan = json.loads(row["plan_json"])
         readiness = json.loads(row["readiness_json"])
         try:
@@ -2845,10 +2836,11 @@ class Handler(BaseHTTPRequestHandler):
                     prescription_id=prescription_id,
                     owner_device_id=device["device_id"],
                     # The plan names the execution, so an offline start and its later sync are the
-                    # same workout. A second in-progress session is allowed: the athlete may have
-                    # already trained, and the soft check on the web path warned about it (D1).
+                    # same workout. Identity and state decide that, never elapsed time: an
+                    # execution id that already has a session returns it, and a different
+                    # execution may coexist with an open one (D1, WP5).
                     workout_id=execution_id,
-                    allow_concurrent=replay,
+                    allow_concurrent=True,
                     # The athlete's recorded start, not the sync time: a session started at
                     # 23:50 and sent at 00:10 keeps its real start and its real date. When the
                     # client sent nothing, the model keeps its own clock so the stored value
@@ -3219,7 +3211,15 @@ class Handler(BaseHTTPRequestHandler):
 
     def _ios_workout_form(self, conn, workout_id: str, body: dict) -> dict:
         self._ios_closed_fields(body, {"exercise_id", "rating", "note"})
-        self._ios_workout(conn, workout_id)
+        data = self._ios_workout(conn, workout_id, allow_completed=True)
+        if data["status"] == "completed" and reconciliation.state(
+            conn, workout_id
+        )["state"] == "none":
+            # Unchanged contract for a session that never expected another device.
+            raise ios_workflow.IOSWorkflowError(
+                409, "workout_not_active", "workout is not in progress",
+                details={"status": data["status"]},
+            )
         exercise_id = body.get("exercise_id")
         if not isinstance(exercise_id, str) or not exercise_id.strip():
             raise ios_workflow.IOSWorkflowError(
@@ -3244,10 +3244,18 @@ class Handler(BaseHTTPRequestHandler):
                 400, "validation_failed", "note must be a string",
                 fields={"note": "must be a string"},
             )
-        return workout.set_form_rating(
-            conn, workout_id, exercise_id=exercise_id.strip(),
-            rating=rating, note=note or None,
-        )
+        try:
+            return workout.set_form_rating(
+                conn, workout_id, exercise_id=exercise_id.strip(),
+                rating=rating, note=note or None, late=True,
+            )
+        except reconciliation.WindowClosed:
+            # Preserved above the transaction wrapper, like a late set.
+            raise
+        except ValueError as exc:
+            raise ios_workflow.IOSWorkflowError(
+                400, "validation_failed", str(exc)
+            ) from exc
 
     def _ios_workout_complete(self, conn, workout_id: str, body: dict) -> dict:
         self._ios_closed_fields(

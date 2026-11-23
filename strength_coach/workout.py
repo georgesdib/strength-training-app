@@ -1071,13 +1071,29 @@ def _form_ratings(conn, workout_id: str) -> list[dict]:
 
 
 def set_form_rating(conn, workout_id: str, *, exercise_id: str, rating: int,
-                    note: str | None = None) -> dict:
-    """Record/amend one optional 1-5 post-lift form rating while the workout is open."""
+                    note: str | None = None, late: bool = False) -> dict:
+    """Record/amend one optional 1-5 post-lift form rating while the workout is open.
+
+    A rating captured on the watch while it was disconnected may arrive after the phone
+    finished; inside the reconciliation window it is appended to both the draft and the durable
+    `session_form_rating` so reports see it too (WP2a).
+    """
     workout = get(conn, workout_id)
     if workout is None:
         raise ValueError("workout not found")
+    late_applied = False
     if workout["status"] != "in_progress":
-        raise ValueError("workout is not in progress; edit it from History")
+        if not late or workout["status"] != "completed":
+            raise ValueError("workout is not in progress; edit it from History")
+        window = reconciliation.state(conn, workout_id)["state"]
+        if window == "none":
+            raise ValueError("workout is not in progress; edit it from History")
+        if window != "open":
+            raise reconciliation.WindowClosed(
+                "the reconciliation window for this workout has closed",
+                {"exercise_id": exercise_id, "rating": rating, "note": note},
+            )
+        late_applied = True
     exercise_id = _validate_exercise(exercise_id)
     value = int(rating)
     if not 1 <= value <= 5:
@@ -1091,7 +1107,14 @@ def set_form_rating(conn, workout_id: str, *, exercise_id: str, rating: int,
         "VALUES (?, ?, ?, ?)",
         (str(workout_id), exercise_id, value, note or None),
     )
-    _event(conn, workout_id, "form_rating", {"exercise_id": exercise_id, "rating": value})
+    _event(conn, workout_id, "form_rating",
+           {"exercise_id": exercise_id, "rating": value, "late": late_applied})
+    if late_applied:
+        conn.execute(
+            "INSERT INTO session_form_rating (session_id, exercise_id, rating, note) "
+            "VALUES (?, ?, ?, ?)",
+            (str(workout_id), exercise_id, value, note or None),
+        )
     _touch(conn, workout_id)
     return get(conn, workout_id)
 
@@ -1509,6 +1532,9 @@ def add_set(
                         "velocity": velocity,
                         "source": source,
                         "performed_at": performed_at,
+                        # Preserve sensor data with the rejection: a refused late set must not
+                        # lose its per-rep velocities (WP2.3).
+                        "rep_velocities": rep_velocities,
                     },
                 )
             late_applied = True
@@ -1750,28 +1776,39 @@ def _change_prefill(
     if supplied is not None:
         from strength_coach.prescribe import catalogue as catalogue_mod
 
-        expected, reason = catalogue_mod.prefill_from_catalogue(
+        resolved = catalogue_mod.prescription_from_catalogue(
             catalogue,
             exercise_id=exercise_id,
             essential=essential,
             reps_low=reps_low,
             rir=rir_target,
+            sets=sets,
         )
+        expected = resolved["load_kg"]
         verified = expected is not None and abs(float(supplied) - expected) <= 1e-6
         result: dict[str, Any] = {
             "prefill_load_kg": float(supplied),
             "prefill_reason": "client_applied",
+            "prefill_source": resolved["prefill_source"],
+            # The replacement's own set count: a live erector dose caps it, and the event has to
+            # say so or the client would show the slot's uncapped count (WP1.2).
+            "sets": int(resolved["sets"]),
             "prefill_verified": verified,
         }
         if expected is not None:
             result["prefill_expected_load_kg"] = float(expected)
         if not verified:
             result["prefill_mismatch_reason"] = (
-                "value_differs" if expected is not None else reason
+                "value_differs" if expected is not None else resolved["reason"]
             )
         return result
     if not requested:
-        return {"prefill_load_kg": None, "prefill_reason": "authored_offline"}
+        return {
+            "prefill_load_kg": None,
+            "prefill_reason": "authored_offline",
+            "prefill_source": "none",
+            "sets": int(sets),
+        }
     from strength_coach.prescribe import engine as prescribe_engine
 
     solved, warnings, _ = prescribe_engine.resolve_replacement(
@@ -1791,11 +1828,17 @@ def _change_prefill(
         return {
             "prefill_load_kg": None,
             "prefill_reason": solved.unknown_load_reason or "no_usable_load",
+            "prefill_source": "none",
+            "sets": int(solved.sets),
             "warnings": list(warnings),
         }
     return {
         "prefill_load_kg": float(solved.load_kg),
         "prefill_reason": "solved",
+        # The server solve may have capped the sets through the erector dose; the event carries
+        # the replacement's own count rather than silently keeping the slot's (WP1.2).
+        "prefill_source": "server_solve",
+        "sets": int(solved.sets),
         "warnings": list(warnings),
     }
 

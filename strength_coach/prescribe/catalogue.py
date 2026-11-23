@@ -38,6 +38,8 @@ _SETS = 3
 _REPS = 5
 _RIR = 2
 _REST_S = 120
+# Above any configured back-flare erector ceiling, so the dose probe reports the ceiling itself.
+_DOSE_PROBE_SETS = 20
 
 
 def _load_source(props: Mapping[str, Any], *, essential: bool) -> str:
@@ -47,10 +49,12 @@ def _load_source(props: Mapping[str, Any], *, essential: bool) -> str:
     return "e1rm" if essential else "double_progression"
 
 
-def _slot(exercise_id: str, *, essential: bool, props: Mapping[str, Any]) -> templates.Slot:
+def _slot(
+    exercise_id: str, *, essential: bool, props: Mapping[str, Any], sets: int = _SETS
+) -> templates.Slot:
     return templates.Slot(
         id=f"catalogue-{'e' if essential else 'a'}-{exercise_id}",
-        sets=_SETS,
+        sets=sets,
         reps_low=_REPS,
         reps_high=_REPS,
         rir_low=_RIR,
@@ -78,6 +82,10 @@ def _entry(
         "increment_kg": float(increment_kg),
         "bodyweight": bool(bodyweight),
         "power": bool(power),
+        # A live back flare replaces an erector load outright and caps its sets, which the e1RM
+        # tail cannot express. Both are computed through the session's own dose modifier below.
+        "dose_load_kg": None,
+        "dose_sets_cap": None,
     }
 
 
@@ -154,6 +162,18 @@ def build_catalogue(
             entry["accessory_load_kg"] = (
                 loads.round_down(found[0], increment) if found is not None else None
             )
+        if context.symptom_flare is True and props.get("direct_erector", False):
+            # Ask the session's own dose modifier, with a set count above any cap, so the answer
+            # is the cap itself rather than a capped copy of the probe's shape.
+            probe, _ = engine.build_item(
+                conn, context,
+                _slot(exercise_id, essential=False, props=props, sets=_DOSE_PROBE_SETS),
+                position, resolved, for_date, {}, template,
+                calibration_factors=calibration_factors, exercise_id=exercise_id,
+            )
+            dosed, _ = engine._apply_back_flare_dose((probe,), context, resolved)
+            entry["dose_load_kg"] = dosed[0].load_kg
+            entry["dose_sets_cap"] = int(dosed[0].sets)
         exercises[exercise_id] = entry
 
     return {
@@ -161,6 +181,77 @@ def build_catalogue(
         "as_of": for_date,
         "exercises": exercises,
     }
+
+
+def prescription_from_catalogue(
+    shipped: Mapping[str, Any] | None,
+    *,
+    exercise_id: str,
+    essential: bool,
+    reps_low: int,
+    rir: int | None,
+    sets: int,
+) -> dict[str, Any]:
+    """The replacement prescription the phone should have shown, from the shipped catalogue.
+
+    This is the server's verification of a client-applied replacement, and the same function the
+    client implements in the deterministic tail. It returns the load, the set count (capped by a
+    live erector dose), the source that produced it and a reason when it could not. It never
+    consults history: the catalogue is the decision, and a missing base is reported rather than
+    re-solved (D9, DEC-RESOLVER-23).
+    """
+    base = {
+        "load_kg": None,
+        "sets": int(sets),
+        "prefill_source": "none",
+        "reason": None,
+    }
+    if not shipped:
+        base["reason"] = "catalogue_unavailable"
+        return base
+    entry = (shipped.get("exercises") or {}).get(exercise_id)
+    if not isinstance(entry, Mapping):
+        base["reason"] = "no_catalogue_entry"
+        return base
+    # A live erector dose overrides every other load, including bodyweight work, and caps sets.
+    if entry.get("dose_load_kg") is not None:
+        cap = entry.get("dose_sets_cap")
+        base.update(
+            load_kg=float(entry["dose_load_kg"]),
+            sets=min(int(sets), int(cap)) if cap else int(sets),
+            prefill_source="flare_dose",
+        )
+        return base
+    if entry.get("bodyweight"):
+        base.update(load_kg=0.0, prefill_source="bodyweight")
+        return base
+    if entry.get("power"):
+        base.update(prefill_source="power", reason="power_work")
+        return base
+    increment = float(entry.get("increment_kg") or 0)
+    if increment <= 0:
+        base["reason"] = "no_increment"
+        return base
+    if essential:
+        e1rm_base = entry.get("base_load_kg")
+        if e1rm_base is None:
+            base["reason"] = "no_catalogue_base"
+            return base
+        divisor = 1 + (float(reps_low) + float(rir or 0)) / 30
+        base.update(
+            load_kg=loads.round_down(float(e1rm_base) / divisor, increment),
+            prefill_source="catalogue_e1rm",
+        )
+        return base
+    held = entry.get("accessory_load_kg")
+    if held is None:
+        base["reason"] = "no_catalogue_working_load"
+        return base
+    base.update(
+        load_kg=loads.round_down(float(held), increment),
+        prefill_source="catalogue_double_progression",
+    )
+    return base
 
 
 def prefill_from_catalogue(
@@ -171,34 +262,16 @@ def prefill_from_catalogue(
     reps_low: int,
     rir: int | None,
 ) -> tuple[float | None, str]:
-    """The load the phone should have shown, derived from the shipped catalogue.
-
-    This is the server's verification of a client-applied prefill, and the same function the
-    client implements in the deterministic tail. It never consults history: the catalogue is the
-    decision, and a missing base is reported rather than re-solved (D9, DEC-RESOLVER-23).
-    """
-    if not shipped:
-        return None, "catalogue_unavailable"
-    entry = (shipped.get("exercises") or {}).get(exercise_id)
-    if not isinstance(entry, Mapping):
-        return None, "no_catalogue_entry"
-    if entry.get("bodyweight"):
-        return 0.0, "bodyweight"
-    if entry.get("power"):
-        return None, "power_work"
-    increment = float(entry.get("increment_kg") or 0)
-    if increment <= 0:
-        return None, "no_increment"
-    if essential:
-        base = entry.get("base_load_kg")
-        if base is None:
-            return None, "no_catalogue_base"
-        divisor = 1 + (float(reps_low) + float(rir or 0)) / 30
-        return loads.round_down(float(base) / divisor, increment), "catalogue_e1rm"
-    held = entry.get("accessory_load_kg")
-    if held is None:
-        return None, "no_catalogue_working_load"
-    return loads.round_down(float(held), increment), "catalogue_double_progression"
+    """The load only, for callers that do not need the set count (kept for compatibility)."""
+    resolved = prescription_from_catalogue(
+        shipped,
+        exercise_id=exercise_id,
+        essential=essential,
+        reps_low=reps_low,
+        rir=rir,
+        sets=1,
+    )
+    return resolved["load_kg"], resolved["prefill_source"] if resolved["load_kg"] is not None         else str(resolved["reason"] or "none")
 
 
 def dumps(catalogue: Mapping[str, Any]) -> str:

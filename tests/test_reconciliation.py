@@ -178,3 +178,45 @@ def test_resolving_an_unknown_or_repeated_device_is_a_no_op(conn):
     ).fetchone()[0]
     assert before == after == 1
 
+
+
+def test_a_late_form_rating_reaches_the_durable_session(conn):
+    started = _started(conn)
+    workout_id = started["workout_id"]
+    _finish(conn, workout_id, pending=["watch-1"])
+    workout.set_form_rating(
+        conn, workout_id, exercise_id="bench_press", rating=4, note="solid",
+        late=True,
+    )
+    assert conn.execute(
+        "SELECT COUNT(*) FROM session_form_rating WHERE session_id = ?", (workout_id,)
+    ).fetchone()[0] == 1
+    assert workout.get(conn, workout_id)["forms"][0]["rating"] == 4
+
+
+def test_a_late_form_rating_after_the_window_is_preserved(conn, monkeypatch):
+    started = _started(conn)
+    workout_id = started["workout_id"]
+    monkeypatch.setattr(reconciliation, "window_days", lambda conn=None: 0)
+    _finish(conn, workout_id, pending=["watch-1"])
+    with pytest.raises(reconciliation.WindowClosed) as raised:
+        workout.set_form_rating(
+            conn, workout_id, exercise_id="bench_press", rating=4, late=True,
+        )
+    assert raised.value.payload["rating"] == 4
+
+
+def test_a_rejected_late_set_keeps_its_rep_velocities(conn, monkeypatch):
+    started = _started(conn)
+    workout_id = started["workout_id"]
+    monkeypatch.setattr(reconciliation, "window_days", lambda conn=None: 0)
+    _finish(conn, workout_id, pending=["watch-1"])
+    with pytest.raises(reconciliation.WindowClosed) as raised:
+        workout.add_set(
+            conn, workout_id, exercise_id="bench_press", load_kg=90.0, reps=2,
+            rir=2, set_index=1, late=True,
+            rep_velocities=[{"rep_index": 1, "velocity_mps": 0.61},
+                            {"rep_index": 2, "velocity_mps": 0.58}],
+        )
+    assert raised.value.payload["rep_velocities"][0]["velocity_mps"] == 0.61
+

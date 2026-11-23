@@ -419,3 +419,36 @@ def test_a_prefill_without_a_catalogue_is_recorded_unverified(conn):
     assert change["prefill_verified"] is False
     assert change["prefill_mismatch_reason"] == "catalogue_unavailable"
 
+
+
+FLARE_CATALOGUE = {
+    "catalogue_version": "load-catalogue/v1",
+    "as_of": "2026-11-01",
+    "exercises": {
+        "back_extension": {
+            "load_source": "bodyweight",
+            "base_load_kg": None,
+            "accessory_load_kg": 0.0,
+            "increment_kg": 2.5,
+            "bodyweight": True,
+            "power": False,
+            "dose_load_kg": 0.0,
+            "dose_sets_cap": 2,
+        }
+    },
+}
+
+
+def test_a_dose_capped_substitution_reports_its_own_set_count(conn):
+    """WP1.2: the event carries the replacement's sets, not the slot's uncapped count."""
+    started = _started(conn)
+    view = workout.record_execution_change(
+        conn, started["workout_id"], client_event_id=str(uuid.uuid4()),
+        kind="substitution", exercise_id="back_extension", plan_item_index=0,
+        prefill_load_kg=0.0, catalogue=FLARE_CATALOGUE,
+    )
+    change = view["substitutions"][0]
+    assert change["prefill_source"] == "flare_dose"
+    assert change["sets"] == 2          # the plan item has 4
+    assert change["prefill_verified"] is True
+

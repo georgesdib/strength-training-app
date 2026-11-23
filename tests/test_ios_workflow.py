@@ -1351,18 +1351,41 @@ def test_active_workout_recovery_returns_logged_sets(ios):
     )) == 2
 
 
-def test_second_start_while_active_is_rejected(ios):
+def test_a_different_execution_may_start_beside_an_open_session(ios):
+    """WP5: identity and state decide a start, never elapsed time (D1)."""
     token, _ = _paired(ios)
     status, issued = _issue(ios, token)
     assert status == 200, issued
-    status, workout = _start(ios, token, issued["issued_plan_id"])
-    assert status == 200, workout
-    status, second = _issue(ios, token)
+    status, first = _start(
+        ios, token, issued["issued_plan_id"],
+        body={"issued_plan_id": issued["issued_plan_id"],
+              "execution_id": issued["execution_id"]},
+    )
+    assert status == 200, first
+
+    # The same execution is idempotent: one workout, not two.
+    status, again = _start(
+        ios, token, issued["issued_plan_id"],
+        body={"issued_plan_id": issued["issued_plan_id"],
+              "execution_id": issued["execution_id"]},
+    )
+    assert status == 200, again
+    assert again["workout_id"] == first["workout_id"]
+
+    # A different plan is a different execution, and may exist alongside the open one.
+    status, second_plan = _issue(ios, token)
+    assert status == 200, second_plan
+    status, second = _start(
+        ios, token, second_plan["issued_plan_id"],
+        body={"issued_plan_id": second_plan["issued_plan_id"],
+              "execution_id": second_plan["execution_id"]},
+    )
     assert status == 200, second
-    status, body = _start(ios, token, second["issued_plan_id"])
-    assert status == 409, body
-    assert body["code"] == "workout_active"
-    assert body["details"]["workout_id"] == workout["workout_id"]
+    assert second["workout_id"] != first["workout_id"]
+    assert int(_scalar(
+        ios["path"],
+        "SELECT COUNT(*) FROM workout_session WHERE status = 'in_progress'",
+    )) == 2
 
 
 def test_lost_form_and_abandon_responses_replay(ios):
@@ -2869,3 +2892,48 @@ def test_a_set_on_a_completed_session_without_a_window_keeps_the_old_refusal(ios
     )
     assert status == 409, refused
     assert refused["code"] == "workout_not_active"
+
+
+def test_late_form_and_telemetry_are_accepted_inside_the_window(ios):
+    """WP2a: a rating and telemetry captured on the watch survive a phone-first finish."""
+    token, _ = _paired(ios)
+    status, state = _issue(ios, token)
+    assert status == 200, state
+    status, started = _start(
+        ios, token, state["issued_plan_id"],
+        body={"issued_plan_id": state["issued_plan_id"],
+              "execution_id": state["execution_id"]},
+    )
+    assert status == 200, started
+    workout_id = started["workout_id"]
+    exercise = started["plan"]["items"][0]["exercise_id"]
+
+    status, done = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/complete", method="POST",
+        payload={"session_rpe": 7, "not_recorded": False, "pending_devices": ["watch-1"]},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, done
+
+    status, rated = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/form", method="POST",
+        payload={"exercise_id": exercise, "rating": 4, "note": "watch"},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, rated
+    assert int(_scalar(
+        ios["path"],
+        "SELECT COUNT(*) FROM session_form_rating WHERE session_id = ?", (workout_id,),
+    )) == 1
+
+    # Telemetry is observational: it is bounded by the session's timestamps, not by the window.
+    at = started["started_at"]
+    status, telemetry = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/execution-events", method="POST",
+        payload={"events": [{"event_id": str(uuid.uuid4()), "event_type": "set_completed",
+                             "occurred_at": at, "plan_item_index": 0}]},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, telemetry
+    assert len(telemetry["accepted"]) == 1
+
