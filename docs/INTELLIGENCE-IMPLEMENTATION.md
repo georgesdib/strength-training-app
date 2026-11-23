@@ -1116,9 +1116,10 @@ file that becomes secret-bearing, oversized, unreadable or invalid UTF-8 has its
 metadata removed in the same build. Tests cover secret, invalid UTF-8 and oversized transitions.
 
 **Citations and sources.** Source blocks and citations carry the `backend`, `portfolio` or `ios`
-namespace. Resolution uses `(source, path, line range)`; source-less ambiguous paths are unverified.
-Only backend docs use the local docs viewer; portfolio/iOS docs use GitHub at the indexed commit;
-private files remain copy-only.
+namespace. Resolution uses `(source, path, line range)`; a repository name written as the first
+path segment is accepted as the namespace (`backend/docs/x.md` becomes `backend:docs/x.md`), and
+source-less ambiguous paths are unverified. Only backend docs use the local docs viewer;
+portfolio/iOS docs use GitHub at the indexed commit; private files remain copy-only.
 
 **Prompt and index.** The system prompt marks project sources as untrusted and forbids following
 instructions inside them. Python classes are split into a header and method chunks with the chunk

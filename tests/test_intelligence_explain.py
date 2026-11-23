@@ -113,6 +113,30 @@ def test_citation_rejects_bad_line_and_snippet(tmp_path):
     assert not bad_quote[0].verified
 
 
+def test_source_name_written_as_path_prefix_is_normalized(tmp_path):
+    config = _fixture(tmp_path)
+    citation = extract(
+        "Claim [backend/docs/readiness.md:1-3] \x60The score is a composite\x60.",
+        config, config.index_path,
+    )[0]
+    assert citation.source == "backend"
+    assert citation.path == "docs/readiness.md"
+    assert citation.verified is True
+    assert citation.url and citation.url.startswith("#docs?doc=")
+
+    repeated = extract(
+        "Claim [backend:backend/docs/readiness.md:1-3].", config, config.index_path
+    )[0]
+    assert repeated.source == "backend"
+    assert repeated.path == "docs/readiness.md"
+    assert repeated.verified is True
+
+    conflicting = extract(
+        "Claim [portfolio:backend/docs/readiness.md:1-3].", config, config.index_path
+    )[0]
+    assert conflicting.verified is False
+
+
 class GeneralClient:
     model = "general"
 

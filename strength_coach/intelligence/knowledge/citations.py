@@ -47,6 +47,26 @@ def _source_for(
     return None
 
 
+def _normalize_namespace(
+    config: KnowledgeConfig, path: str, source_name: str | None,
+) -> tuple[str, str | None]:
+    """Read a repository name written as the first path segment as the namespace.
+
+    A model sometimes writes `backend/docs/FATIGUE-FITNESS.md` instead of
+    `backend:docs/FATIGUE-FITNESS.md`. The repository name is a citation
+    namespace, never part of an indexed path, so accept it as the source hint
+    when it names a configured source and no conflicting hint was given.
+    """
+    name, separator, rest = path.partition("/")
+    if not separator or not rest:
+        return path, source_name
+    if not any(source.name == name for source in config.sources):
+        return path, source_name
+    if source_name is not None and source_name != name:
+        return path, source_name
+    return rest, name
+
+
 def _index_meta(
     index_path: Path, path: str, source_name: str | None = None,
 ) -> tuple[str, str, bool] | None:
@@ -105,6 +125,7 @@ def extract(answer: str, config: KnowledgeConfig, index_path: Path) -> list[Cita
     for match in CITATION.finditer(answer):
         source_hint = match.group(1)
         path = match.group(2)
+        path, source_hint = _normalize_namespace(config, path, source_hint)
         start = int(match.group(3))
         end = int(match.group(4) or start)
         key = (path, start, end)
