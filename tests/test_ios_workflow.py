@@ -2761,3 +2761,88 @@ def test_resolving_a_pending_device_settles_the_window(ios):
     assert final["summary"]["reconciliation"]["state"] == "closed"
     assert final["summary"]["reconciliation"]["pending_devices"] == []
 
+
+
+def test_the_whole_offline_flow_reconciles_end_to_end(ios):
+    """S1-S4 in one conversation: adopt, log, finish with a pending watch, late work, settle."""
+    token, _ = _paired(ios)
+    status, state = _issue(ios, token)
+    assert status == 200, state
+    now = datetime.datetime.now(datetime.UTC)
+    issued_at = now - datetime.timedelta(minutes=15)
+    conn = db.Store(ios["path"]).connection
+    try:
+        conn.execute(
+            "UPDATE ios_issued_plan SET created_at = ? WHERE issued_plan_id = ?",
+            (issued_at.isoformat(), state["issued_plan_id"]),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    started_at = now - datetime.timedelta(minutes=10)
+    status, started = _start(
+        ios, token, state["issued_plan_id"],
+        body={"issued_plan_id": state["issued_plan_id"],
+              "execution_id": state["execution_id"],
+              "started_at": started_at.isoformat()},
+    )
+    assert status == 200, started
+    workout_id = started["workout_id"]
+    exercise = started["plan"]["items"][0]["exercise_id"]
+    sets_url = f"/api/ios/v1/workouts/{workout_id}/sets"
+
+    for index in (1, 2):
+        status, logged = _request(
+            ios["base"], sets_url, method="POST",
+            payload={"exercise_id": exercise, "load_kg": 140.0, "reps": 3, "rir": 2,
+                     "set_index": index,
+                     "performed_at": (started_at + datetime.timedelta(minutes=index)).isoformat()},
+            token=token, key=uuid.uuid4().hex,
+        )
+        assert status == 200, logged
+
+    status, done = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/complete", method="POST",
+        payload={"session_rpe": 8, "not_recorded": False, "pending_devices": ["watch-1"]},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, done
+
+    status, open_summary = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/summary", token=token,
+    )
+    assert status == 200, open_summary
+    assert open_summary["summary"]["reconciliation"]["state"] == "open"
+    assert int(_scalar(ios["path"],
+        "SELECT COUNT(*) FROM clean_set WHERE session_id = ?", (workout_id,))) == 2
+
+    late_at = started_at + datetime.timedelta(minutes=7)
+    status, late = _request(
+        ios["base"], sets_url, method="POST",
+        payload={"exercise_id": exercise, "load_kg": 145.0, "reps": 3, "rir": 1,
+                 "set_index": 3, "performed_at": late_at.isoformat()},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, late
+    assert int(_scalar(ios["path"],
+        "SELECT COUNT(*) FROM clean_set WHERE session_id = ?", (workout_id,))) == 3
+    assert int(_scalar(ios["path"],
+        "SELECT set_count FROM session WHERE session_id = ?", (workout_id,))) == 3
+    # The late set keeps the instant it was performed, not the moment it synced.
+    assert _scalar(ios["path"],
+        "SELECT created_at FROM workout_set WHERE workout_id = ? ORDER BY set_id DESC LIMIT 1",
+        (workout_id,)).startswith(late_at.isoformat(timespec="milliseconds"))
+
+    status, settled = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/reconciliation", method="POST",
+        payload={"device_id": "watch-1"}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, settled
+    status, final = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/summary", token=token,
+    )
+    assert status == 200, final
+    assert final["summary"]["reconciliation"]["state"] == "closed"
+    assert final["summary"]["reconciliation"]["pending_devices"] == []
+
