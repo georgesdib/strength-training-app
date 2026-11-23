@@ -4,7 +4,7 @@ The resume point for this project. If you are picking this up cold — human or 
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
 
-Last updated: 2026-11-22 · **v1.7.1 released; resolver structure WP0–WP9 deployed to production from `development` (`5a3c1df`), then backend, iOS and portfolio histories merged into `main` through PRs #27, #8 and #2; no release tag was created by those merges; per-set heart-rate recovery was released in display only on 2026-11-22, with no version tag** · version `1.7.1`
+Last updated: 2026-11-23 · **v1.7.1 released; resolver structure WP0–WP9 deployed to production from `development` (`5a3c1df`), then backend, iOS and portfolio histories merged into `main` through PRs #27, #8 and #2; no release tag was created by those merges; per-set heart-rate recovery was released in display only on 2026-11-22; unified offline execution merged into `development` and the server deployed at `34e7f29` on 2026-11-23, with the app build pending** · version `1.7.1`
 
 
 ---
@@ -503,7 +503,7 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | v1.5 | LLM integration: read-only delivered; constrained proposer withdrawn 2026-11-17 | §4.24; selector retirement done (Phase 1b) |
 | future | Personalised volume-response model | idea only; shadow/gated (§13, Q28) |
 | future | Athlete Feedback & Coaching (AFC) — deferred AFC-3 second cut | AFC-2, AFC-2i, AFC-3 and AFC-4 implemented 2026-11-13; physical iPhone report acceptance owner-confirmed 2026-11-14 (§4.33) |
-| done (Phases 0–4, R1–R10, 6.0–6.7) | Native iPhone and watchOS client | Phase 0 complete 2026-11-07; Phases 1–2 complete and owner-confirmed on the physical iPhone (2026-11-07); Phase 3A closed 2026-11-08 (HealthKit readiness, physical acceptance owner-confirmed); Phase 4 closed 2026-11-08 (offline capture and replay, physical acceptance owner-confirmed); R1–R5 and R7–R11 closed (R11 delivered 2026-11-18); Phase 6.0–6.7 complete with physical Apple Watch acceptance owner-confirmed 2026-11-14 (§4.32); the AFC-2i session report is implemented; unified offline execution (C1/C2/S5, phone-committed watch writes) implemented and physical acceptance owner-closed 2026-11-23, with app-first release pending. Apple PCC remains an optional AI-only network exception (§4.29; [`iOS client plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/IOS-CLIENT-PLAN.md)) |
+| done (Phases 0–4, R1–R10, 6.0–6.7) | Native iPhone and watchOS client | Phase 0 complete 2026-11-07; Phases 1–2 complete and owner-confirmed on the physical iPhone (2026-11-07); Phase 3A closed 2026-11-08 (HealthKit readiness, physical acceptance owner-confirmed); Phase 4 closed 2026-11-08 (offline capture and replay, physical acceptance owner-confirmed); R1–R5 and R7–R11 closed (R11 delivered 2026-11-18); Phase 6.0–6.7 complete with physical Apple Watch acceptance owner-confirmed 2026-11-14 (§4.32); the AFC-2i session report is implemented; unified offline execution (C1/C2/S5, phone-committed watch writes) implemented and physical acceptance owner-closed 2026-11-23; server deployed at `34e7f29`, app build pending. Apple PCC remains an optional AI-only network exception (§4.29; [`iOS client plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/IOS-CLIENT-PLAN.md)) |
 
 ### 4.19.1 Deferred: web authentication and per-user data
 
