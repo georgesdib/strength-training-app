@@ -55,6 +55,10 @@ def history(loads=None):
                          "RIR": "3", "Reps_Done": "8"})
             rows.append({"Date": day, "Exercise": "Lying Leg Curls", "Weight_Used": "30",
                          "RIR": "2", "Reps_Done": "10"})
+            rows.append({"Date": day, "Exercise": "Hip Thrust", "Weight_Used": "60",
+                         "RIR": "2", "Reps_Done": "8"})
+            rows.append({"Date": day, "Exercise": "Single Leg DB RDL", "Weight_Used": "20",
+                         "RIR": "2", "Reps_Done": "8"})
     return rows
 
 

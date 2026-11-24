@@ -128,6 +128,25 @@ session_types:
           rest_s: 90
           essential: false
           load_source: double_progression
+        # DEC-PROGRAMME-12: hinge-day accessories with no axial-spinal budget. The single-leg
+        # RDL is a low-axial unilateral hinge; the hip thrust is the loaded glute/hip-extension
+        # accessory. Both use their own load history and double progression.
+        - id: accessory_hinge_unilateral
+          exercise: single_leg_db_rdl
+          sets: 3
+          reps: {low: 8, high: 10}
+          rir: {low: 2, high: 3}
+          rest_s: 90
+          essential: false
+          load_source: double_progression
+        - id: accessory_hip_extension
+          exercise: hip_thrust
+          sets: 3
+          reps: {low: 8, high: 12}
+          rir: {low: 2, high: 3}
+          rest_s: 90
+          essential: false
+          load_source: double_progression
         - id: accessory_split_squat
           # DEC-VARIANT-06: rear-foot-down and rear-foot-elevated are separate lifts, so the slot
           # offers both and the dwell layer keeps whichever it last programmed.

@@ -242,6 +242,16 @@ exercises:
     systemic: 2
     skill: 3
     rom: 3
+  hip_thrust:
+    axial: 1
+    systemic: 2
+    skill: 1
+    rom: 2
+  single_leg_db_rdl:
+    axial: 1
+    systemic: 2
+    skill: 2
+    rom: 2
   squat_2s_pause:
     axial: 2
     systemic: 2

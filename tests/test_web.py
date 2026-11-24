@@ -1247,14 +1247,14 @@ def test_volume_settings_requires_reason_and_high_impact_confirmation(server):
     assert "reason" in body
 
     status, body = post_status(server, "/api/settings/volume", {
-        "budget": {"weekly_target": {"squat": 11}, "weekly_total": 69},
+        "budget": {"weekly_target": {"squat": 11}},
         "reason": "increase squat target",
     })
     assert status == 400
     assert "VOLUME" in body
 
     saved = post(server, "/api/settings/volume", {
-        "budget": {"weekly_target": {"squat": 11}, "weekly_total": 69},
+        "budget": {"weekly_target": {"squat": 11}},
         "reason": "increase squat target",
         "confirm_text": "VOLUME",
     })

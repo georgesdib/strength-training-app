@@ -60,52 +60,47 @@ def test_weekly_target_matches_the_six_session_template_sum():
     assert {key: totals[key] / 2 for key in totals} == pytest.approx(
         dict(config.weekly_target)
     )
-    # 66.5 = 51.5 targeted + 6 knee-flexion sets + 9 power sets
-    # (DEC-KNEEFLEX-01, DEC-POWER-04/05). The template sum and the explicit total
-    # must move together.
-    assert config.total_target() == 66.5
+    # 72.5 = 51.5 targeted + 6 knee-flexion + 9 power + 3 hip-extension + 3 unilateral
+    # hinge sets (DEC-KNEEFLEX-01, DEC-POWER-04/05, DEC-PROGRAMME-12).
+    assert config.total_target() == 72.5
 
 
-def test_weekly_total_is_explicit_and_must_match_the_category_sum(tmp_path):
+def test_explicit_totals_are_ignored_and_always_derived(tmp_path):
     source = volume_budget.BudgetConfig.load().source_path
     text = source.read_text(encoding="utf-8")
-    mismatch = tmp_path / "mismatch.yaml"
-    mismatch.write_text(
-        text.replace("  weekly_total: 66.5", "  weekly_total: 64"), encoding="utf-8"
-    )
-    with pytest.raises(ValueError, match="weekly_total"):
-        volume_budget.BudgetConfig.load(mismatch)
-    consistent = tmp_path / "consistent.yaml"
-    consistent.write_text(
-        text.replace("  weekly_total: 66.5", "  weekly_total: 72").replace(
-            "  weekly_target:\n    squat: 8.5", "  weekly_target:\n    squat: 14"
+    path = tmp_path / "explicit-totals.yaml"
+    path.write_text(
+        text.replace(
+            "  weekly_target_effective:",
+            "  weekly_total: 999\n  weekly_total_effective: 999\n"
+            "  weekly_target_effective:",
         ),
         encoding="utf-8",
     )
-    config = volume_budget.BudgetConfig.load(consistent)
-    assert config.total_target() == 72
-    assert config.weekly_target["squat"] == 14
+    config = volume_budget.BudgetConfig.load(path)
+    assert config.total_target() == pytest.approx(sum(config.weekly_target.values()))
+    assert config.total_for("effective") == pytest.approx(
+        sum(config.weekly_target_effective.values())
+    )
 
 
-def test_stale_profile_totals_are_repaired_from_the_current_targets():
-    # Append-only profile versions can carry only one side of a target/total pair. After a
-    # canonical target change the leftover total must not make the settings page unloadable.
+def test_profile_totals_are_ignored_and_derived_from_the_targets():
     cfg = volume_budget.BudgetConfig.load(profile_budget={
-        "weekly_total": 69,
-        "weekly_total_effective": 80.25,
+        "weekly_total": 999,
+        "weekly_total_effective": 999,
     })
-    assert cfg.weekly_total == pytest.approx(sum(cfg.weekly_target.values()))
-    assert cfg.weekly_total_effective == pytest.approx(
+    assert cfg.total_target() == pytest.approx(sum(cfg.weekly_target.values()))
+    assert cfg.total_for("effective") == pytest.approx(
         sum(cfg.weekly_target_effective.values())
     )
 
 
-def test_stale_profile_targets_are_preserved_and_the_total_is_recomputed():
+def test_profile_target_override_is_preserved_and_the_total_is_derived():
     cfg = volume_budget.BudgetConfig.load(profile_budget={
         "weekly_target_effective": {"squat": 10},
     })
     assert cfg.weekly_target_effective["squat"] == 10
-    assert cfg.weekly_total_effective == pytest.approx(
+    assert cfg.total_for("effective") == pytest.approx(
         sum(cfg.weekly_target_effective.values())
     )
 
@@ -225,12 +220,12 @@ def test_feasibility_flags_a_frequency_below_the_minimum():
     effective = dict(config.weekly_target)
     reachable = volume_budget.feasibility(effective, config, current_frequency=3)
     unreachable = volume_budget.feasibility(effective, config, current_frequency=1)
-    # 66.5 sets against the 30-set session cap needs three sessions, so a two-session week
+    # 72.5 sets against the 30-set session cap needs three sessions, so a two-session week
     # is correctly flagged instead of silently overloaded.
     assert reachable["min_sessions"] == 3
     assert reachable["reachable"] is True
     assert unreachable["reachable"] is False
-    assert unreachable["unreachable_sets"] == 36.5
+    assert unreachable["unreachable_sets"] == 42.5
 
 
 def _rows():

@@ -41,6 +41,8 @@ LIFT_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("vertical pull", ("pull_up", "lat_pulldown")),
     ("overhead press", ("overhead_press_seated",)),
     ("split squat", ("split_squat",)),
+    ("single-leg RDL", ("single_leg_db_rdl",)),
+    ("hip extension", ("hip_thrust",)),
     ("knee-flexion hamstrings", ("lying_leg_curls", "nordic_curl")),
     ("core", ("ab_wheel", "hanging_leg_raise")),
     ("power", ("box_jump", "broad_jump", "medicine_ball_chest_pass")),

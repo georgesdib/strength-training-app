@@ -31,6 +31,11 @@ ROWS = [
      "Reps_Done": "10"},
     {"Date": "2024-01-01", "Exercise": "Lying Leg Curls", "Weight_Used": "30", "RIR": "2",
      "Reps_Done": "10"},
+    # DEC-PROGRAMME-12: the hinge accessories need a starting load.
+    {"Date": "2024-01-01", "Exercise": "Hip Thrust", "Weight_Used": "60", "RIR": "2",
+     "Reps_Done": "8"},
+    {"Date": "2024-01-01", "Exercise": "Single Leg DB RDL", "Weight_Used": "20", "RIR": "2",
+     "Reps_Done": "8"},
 ]
 
 

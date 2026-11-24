@@ -102,6 +102,17 @@ def history(conn) -> list[dict[str, Any]]:
     ]
 
 
+_BUDGET_TOTAL_KEYS = ("weekly_total", "weekly_total_effective")
+
+
+def _without_budget_totals(value: Mapping[str, Any]) -> dict[str, Any]:
+    """Budget totals are derived from the target rows, never stored as overrides."""
+    clean = dict(value)
+    for key in _BUDGET_TOTAL_KEYS:
+        clean.pop(key, None)
+    return clean
+
+
 def _validate_overrides(
     overrides: Mapping[str, Any], *, allow_guarded: bool = False,
 ) -> dict[str, Any]:
@@ -110,7 +121,7 @@ def _validate_overrides(
         if key == "budget":
             if not isinstance(value, dict):
                 raise ValueError("budget override must be an object")
-            clean["budget"] = dict(value)
+            clean["budget"] = _without_budget_totals(value)
             continue
         definition = settings_registry.BY_KEY.get(str(key))
         if definition is None:
@@ -168,7 +179,7 @@ def budget_overrides(conn, on_date: str) -> dict[str, Any]:
     if row is None:
         return {}
     budget = row["overrides"].get("budget")
-    return dict(budget) if isinstance(budget, dict) else {}
+    return _without_budget_totals(budget) if isinstance(budget, dict) else {}
 
 
 def save(

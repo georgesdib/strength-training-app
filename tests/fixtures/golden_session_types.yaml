@@ -114,6 +114,24 @@ hinge:
     rir_target: 2
     rest_s: 90
     essential: false
+  - exercise_id: single_leg_db_rdl
+    sets: 3
+    reps_low: 8
+    reps_high: 10
+    load_kg: 20.0
+    load_basis: external
+    rir_target: 2
+    rest_s: 90
+    essential: false
+  - exercise_id: hip_thrust
+    sets: 4
+    reps_low: 8
+    reps_high: 12
+    load_kg: 60.0
+    load_basis: external
+    rir_target: 2
+    rest_s: 90
+    essential: false
   - exercise_id: split_squat
     sets: 4
     reps_low: 8

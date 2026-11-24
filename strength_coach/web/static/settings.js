@@ -387,9 +387,6 @@ function volumeDraft() {
     .map((node) => [node.dataset.volumeTarget, Number(node.value)]));
   budget.weekly_target_effective = Object.fromEntries([...document.querySelectorAll("[data-volume-effective]")]
     .map((node) => [node.dataset.volumeEffective, Number(node.value)]));
-  budget.weekly_total = Object.values(budget.weekly_target).reduce((sum, value) => sum + value, 0);
-  budget.weekly_total_effective = Object.values(budget.weekly_target_effective)
-    .reduce((sum, value) => sum + value, 0);
   budget.session_cap = {
     total: Number(document.querySelector('[data-volume-budget="session_cap.total"]').value),
     per_pattern: Object.fromEntries([...document.querySelectorAll("[data-volume-cap]")]
@@ -416,10 +413,6 @@ function volumeDraft() {
     $("#settings-volume-comp-slots").value, "Compensation slots"
   );
   const budgetPatch = volumeDiff(current, budget) || {};
-  if (budgetPatch.weekly_target) budgetPatch.weekly_total = budget.weekly_total;
-  if (budgetPatch.weekly_target_effective) {
-    budgetPatch.weekly_total_effective = budget.weekly_total_effective;
-  }
   const policy = {};
   document.querySelectorAll("[data-volume-policy]").forEach((node) => {
     policy[node.dataset.volumePolicy] = volumePolicyValue(node);

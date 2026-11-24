@@ -16,6 +16,8 @@ history:
   - {Date: "2024-01-01", Exercise: "Pull-ups (wide grip)", Weight_Used: "0", RIR: "2", Reps_Done: "8"}
   - {Date: "2024-01-01", Exercise: "Dumbbell Row", Weight_Used: "30", RIR: "2", Reps_Done: "10"}
   - {Date: "2024-01-01", Exercise: "Lying Leg Curls", Weight_Used: "30", RIR: "2", Reps_Done: "10"}
+  - {Date: "2024-01-01", Exercise: "Hip Thrust", Weight_Used: "60", RIR: "2", Reps_Done: "8"}
+  - {Date: "2024-01-01", Exercise: "Single Leg DB RDL", Weight_Used: "20", RIR: "2", Reps_Done: "8"}
 # No readiness row for the prescription date: the engine must report unknown, not invent a score.
 readiness:
   - {}

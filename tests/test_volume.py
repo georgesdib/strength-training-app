@@ -226,6 +226,8 @@ def test_erector_work_is_not_hinge_volume():
 def test_unilateral_patterns_keep_the_documented_landmarks():
     # The mapping is asymmetric on purpose; tests make it a decision, not a fall-through.
     assert volume.volume_target_key("hinge_unilateral") == "hinge_unilateral"
+    # DEC-PROGRAMME-12: hip-extension accessories have their own managed ledger group.
+    assert volume.volume_target_key("hip_extension") == "hip_extension"
     assert volume.volume_target_key("squat_unilateral") == "squat"
     assert volume.volume_target_key("erector_extension") == "erector_extension"
     # DEC-KNEEFLEX-01: a Nordic curl trains the same knee-flexion hamstring tissue as a leg

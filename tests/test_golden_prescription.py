@@ -26,10 +26,10 @@ SESSION_TYPES = ("squat", "hinge", "bench_squat", "bench_hinge")
 # rung (first warm-up = min(20 kg, 50% ramp), 10 reps), a deliberate prescription change.
 # Regenerated 2026-11-24 for the owner's template volume reduction (DEC-PROGRAMME-11).
 GOLDEN_ROWS_SHA256 = {
-    "squat": "53245da4f2b7bb93e999d970818a10830b42ba0c69c1f4df0c3858060ae20fb2",
-    "hinge": "55bbe8ac9ff6f22acde3daa8b348474c162066a9cc984556bf18307265c32070",
-    "bench_squat": "02631aa0efb727b9c8845e467a582be88a8bc8fa6ce9dc51d0d179c8d3348cca",
-    "bench_hinge": "8f015bdf99df4b8a43de823f789d80ccfe006a35260ad864054fdf7e83b5b1ef",
+    "squat": "481143ab17b0eb4bcbb0f0201b0b3bea7427c0406a02af727a8cdb57207aa575",
+    "hinge": "980130c7672d071d362b18ae858a467d91bdefec449d03a8fe78fd88dfc37386",
+    "bench_squat": "147975f6930fd13d9ecc25378154a15a3cf9ba64bc2d51bd4d8700f56175c61e",
+    "bench_hinge": "06a683240e5737a2e4905e8b17f65fa49965374cf2955132ecbff24f0d05a0c1",
 }
 
 
@@ -67,6 +67,11 @@ def history_rows_all_days() -> list[dict]:
              "RIR": "2", "Reps_Done": "8"},
             {"Date": day, "Exercise": "Trap Bar Deadlift", "Weight_Used": "150",
              "RIR": "2", "Reps_Done": "5"},
+            # DEC-PROGRAMME-12: hinge-day accessories need a starting load in the fixture.
+            {"Date": day, "Exercise": "Hip Thrust", "Weight_Used": "60",
+             "RIR": "2", "Reps_Done": "8"},
+            {"Date": day, "Exercise": "Single Leg DB RDL", "Weight_Used": "20",
+             "RIR": "2", "Reps_Done": "8"},
             {"Date": day, "Exercise": "Sumo Deadlift", "Weight_Used": "120",
              "RIR": "2", "Reps_Done": "5"},
             {"Date": day, "Exercise": "Bench Press (narrow grip)", "Weight_Used": "90",

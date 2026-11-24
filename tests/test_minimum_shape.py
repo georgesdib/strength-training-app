@@ -134,14 +134,14 @@ def test_accessory_shape_adds_sets_only_up_to_the_cap():
     try:
         shape = minimum_session.build_resolver_shape(
             store.connection, for_date="2024-04-05", session_type="accessory",
-            target_minutes=60, include_main=False, accessories_only=False,
+            target_minutes=90, include_main=False, accessories_only=False,
         )
     finally:
         store.close()
     cap = minimum_session.MinimumSessionConfig.load().accessory_max_sets
     assert shape.note["added_sets"] > 0
     assert all(slot.sets <= cap for slot in shape.template.slots)
-    assert shape.note["after_minutes"] <= 60
+    assert shape.note["after_minutes"] <= 90
 
 
 def test_accessory_session_has_its_own_identity():

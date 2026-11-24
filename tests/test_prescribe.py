@@ -65,6 +65,9 @@ BASE_HISTORY = [
     {"Date": "2024-01-01", "Exercise": "Dumbbell Row", "Weight_Used": "30", "RIR": "2", "Reps_Done": "10"},
     # DEC-KNEEFLEX-01: the knee-flexion accessory needs history or the session is not executable.
     {"Date": "2024-01-01", "Exercise": "Lying Leg Curls", "Weight_Used": "30", "RIR": "2", "Reps_Done": "10"},
+    # DEC-PROGRAMME-12: hinge-day accessories need a starting load in the fixture.
+    {"Date": "2024-01-01", "Exercise": "Hip Thrust", "Weight_Used": "60", "RIR": "2", "Reps_Done": "8"},
+    {"Date": "2024-01-01", "Exercise": "Single Leg DB RDL", "Weight_Used": "20", "RIR": "2", "Reps_Done": "8"},
 ]
 
 
@@ -116,6 +119,7 @@ def test_day_b_template_has_no_erector_work():
         "broad_jump", "trap_bar_deadlift", "bench_press_narrow", "bench_press_pause",
         "split_squat", "bulgarian_split_squat", "pull_up", "lat_pulldown",
         "dumbbell_row", "lying_leg_curls", "nordic_curl",
+        "single_leg_db_rdl", "hip_thrust",
     }
     assert template.rep_ranges()["split_squat"] == (8, 10)
     assert template.time_cap_s == 5400

@@ -28,6 +28,11 @@ Decisions/assumptions: `DEC-CORE-01`, `ASSUMPTION-23`. Config:
 | bench+squat | bench 4×3-5, competition-squat support 3×3-5 | none direct | **ab wheel 3×6-10** |
 | bench+hinge | bench 4×3-5, sumo or trap-bar deadlift 3×3-5 | none direct | **hanging leg raise 3×8-12** |
 
+Since 2026-11-24 the hinge day also carries a **3×8-10 single-leg DB RDL** and a
+**3×8-12 hip thrust**, both non-essential double-progression accessories with RIR 2-3
+(`DEC-PROGRAMME-12`). The single-leg RDL is a low-axial unilateral hinge; the hip thrust is the
+loaded hip-extension/glute accessory.
+
 Before the change, the prescribed week contained **6 sets of back extension** (spinal
 extension) and heavy squat/hinge bracing, and **zero anti-extension, anti-rotation, lateral or
 carry work**. The taxonomy already carried the movements — `plank` (seconds), `ab_wheel`

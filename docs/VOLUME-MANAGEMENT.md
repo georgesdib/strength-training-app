@@ -97,9 +97,14 @@ deadlift at spinal cost 2.5, replacing the single-leg RDL. The paragraph above i
 snapshot; current weekly volume is in `docs/STRENGTH-PROGRAM-REVIEW.md`.
 
 **Volume reduction (2026-11-24, `DEC-PROGRAMME-11`):** SSB is 4×3–5, trap-bar hinge is 4×3–5,
-and the bench+squat competition-squat support is 3×3–5. The weekly hard target is 66.5 (was 69)
-and the effective target 77.125 (was 80.25). The hinge target is now below its configured MEV;
-that is the owner's chosen dose, not a landmark change.
+and the bench+squat competition-squat support is 3×3–5. The hinge target was below its
+configured MEV at that point; that was the owner's chosen dose, not a landmark change.
+
+**Hinge accessories (2026-11-24, `DEC-PROGRAMME-12`):** the hinge day gains a 3×8–10
+single-leg DB RDL under the existing `hinge_unilateral` group (target 0→3) and a 3×8–12 hip
+thrust under a new managed `hip_extension` group (target 3, MEV 3 / MAV 3–8 / MRV 10, session
+cap 4). The canonical hard target is 72.5 and the effective target 83.875. Chinese plank is not
+added; barbell RDL and its spellings stay main/secondary hinge work, not accessories.
 
 ## 3. Implemented behaviour
 

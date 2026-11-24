@@ -4500,6 +4500,9 @@ class Handler(BaseHTTPRequestHandler):
         policy_patch = body.get("policy") or {}
         if not isinstance(budget_patch, dict):
             raise FieldError("budget must be an object", {"budget": "must be an object"})
+        # Totals are derived from the target rows; old clients may still send them.
+        budget_patch.pop("weekly_total", None)
+        budget_patch.pop("weekly_total_effective", None)
         if not isinstance(policy_patch, dict):
             raise FieldError("policy must be an object", {"policy": "must be an object"})
         unknown = [

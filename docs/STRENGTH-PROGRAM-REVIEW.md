@@ -27,17 +27,17 @@ after a template change. A stale block fails `tests/test_programme_summary.py`.
 not the single-leg RDL.
 
 <!-- BEGIN GENERATED PROGRAMME SUMMARY -->
-<!-- source:sha256:efb6295044f66231 -->
+<!-- source:sha256:57b3f64c4c8ff347 -->
 
 | session type | work | sets | spinal cost |
 |---|---|---|---:|
 | **squat** | Box Jump 3×3–5 @ quality stop; SSB Squat 4×3–5 @ RIR 2–3; Bench Press 4×3–5 @ RIR 2–3; Back Extension 3×10–12 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Lying Leg Curls / Nordic Curl 3×8–12 @ RIR 2–3; Ab Wheel 3×6–10 @ RIR 2–3 | 23 | 1 |
-| **hinge** | Broad Jump 3×3–5 @ quality stop; Trap-Bar Deadlift 4×3–5 @ RIR 2–3; Bench Press (narrow grip) / Bench Press (pause) 4×3–5 @ RIR 2–3; Pull-up / Lat Pulldown 3×6–10 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Split Squat / Bulgarian Split Squat 3×8–10 @ RIR 2–3; Lying Leg Curls / Nordic Curl 3×8–12 @ RIR 2–3 | 23 | 2 |
+| **hinge** | Broad Jump 3×3–5 @ quality stop; Trap-Bar Deadlift 4×3–5 @ RIR 2–3; Bench Press (narrow grip) / Bench Press (pause) 4×3–5 @ RIR 2–3; Pull-up / Lat Pulldown 3×6–10 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Single Leg DB RDL 3×8–10 @ RIR 2–3; Hip Thrust 3×8–12 @ RIR 2–3; Split Squat / Bulgarian Split Squat 3×8–10 @ RIR 2–3; Lying Leg Curls / Nordic Curl 3×8–12 @ RIR 2–3 | 29 | 2 |
 | **bench_squat** | Medicine-Ball Chest Pass 3×3–5 @ quality stop; Bench Press 4×3–5 @ RIR 2–3; Competition Squat 3×3–5 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Overhead Press (seated) 3×6–10 @ RIR 2–3; Ab Wheel 3×6–10 @ RIR 2–3 | 19 | 1 |
 | **bench_hinge** | Medicine-Ball Chest Pass 3×3–5 @ quality stop; Bench Press 4×3–5 @ RIR 2–3; Sumo Deadlift 3×3–5 @ RIR 2–3; Pull-up / Lat Pulldown 3×6–10 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Overhead Press (seated) 3×6–10 @ RIR 2–3; Hanging Leg Raise 3×8–12 @ RIR 2–3 | 22 | 2.5 |
 
 Over six sessions (two weeks): squat, hinge, bench+squat, squat, hinge, bench+hinge.
-Planned average is **66.5 working sets/week** across three sessions.
+Planned average is **72.5 working sets/week** across three sessions.
 
 | lift group | sets/week |
 |---|---:|
@@ -50,10 +50,12 @@ Planned average is **66.5 working sets/week** across three sessions.
 | vertical pull | 4.5 |
 | overhead press | 3 |
 | split squat | 3 |
+| single-leg RDL | 3 |
+| hip extension | 3 |
 | knee-flexion hamstrings | 6 |
 | core | 6 |
 | power | 9 |
-| **total** | **66.5** |
+| **total** | **72.5** |
 
 Counted spinal cost: **4** for the first week (squat, hinge, bench+squat) and **5.5** for the second (squat, hinge, bench+hinge), against a cap of **6**.
 <!-- END GENERATED PROGRAMME SUMMARY -->
