@@ -94,7 +94,7 @@ e1RM, volume or safety verdict.
 
 The former **constrained proposer** was withdrawn on 2026-11-17: the CLI `run --propose` surface
 was removed for CLI/UI parity, and `DEC-LLM-09` is closed rather than deferred. No LLM may select
-an exercise or propose a plan change. Retrieval/RAG remains deferred (INT-12).
+an exercise or propose a plan change. Retrieval/RAG was withdrawn with INT-12 on 2026-11-24.
 
 ## 4. Run lifecycle and trace
 

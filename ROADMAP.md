@@ -785,7 +785,7 @@ adaptation, and the LLM capabilities in §4.24.
 
 ### 4.34 Training Intelligence — read-only capability layer and MCP server  (INT-1 and INT-1b implemented 2026-11-14)
 
-**Status: INT-1 to INT-8 and INT-11 closed or delivered (INT-4c parked); INT-10 closed 2026-11-18 with its device acceptance waived (shipped in StrengthApp v1.2); INT-9 and INT-12 deferred; INT-13 is iOS-only and owner-closed 2026-11-17.** The read-only
+**Status: INT-1 to INT-8 and INT-11 closed or delivered (INT-4c parked); INT-10 closed 2026-11-18 with its device acceptance waived (shipped in StrengthApp v1.2); INT-9 deferred and INT-12 withdrawn 2026-11-24; INT-13 is iOS-only and owner-closed 2026-11-17.** The read-only
 capability layer, the canonical envelope, typed requests, the execution service, configuration
 bounds and their tests exist in `strength_coach/intelligence/`; INT-1b adds the separately runnable
 MCP server (`strength_coach/intelligence/mcp/`, Streamable HTTP, revision 2026-07-28 with legacy
@@ -800,7 +800,7 @@ that gate and the transport is enabled on the trusted LAN. INT-2
 delivered the rest of the read-only catalogue on 2026-11-14 and INT-3 delivered the weekly review, its
 REST route and the iOS read surface; **INT-3 is closed 2026-11-15**. INT-5 delivered the server model
 provider, narration and its routes; INT-6 delivered server/web chat. Aggregate evidence producers for
-the aggregate capabilities remain deferred. INT-11 (local docs/code Explain) is implemented and closed with documented limitations: index, retrieval, explain endpoint, background startup refresh, web/iOS tabs and a 15-question evaluation; programme-block archive noise remains; the owner closed the iOS device-acceptance and release-tag items on 2026-11-17. INT-12 (web search/RAG) is deferred and has no backend code.
+the aggregate capabilities remain deferred. INT-11 (local docs/code Explain) is implemented and closed with documented limitations: index, retrieval, explain endpoint, background startup refresh, web/iOS tabs and a 15-question evaluation; programme-block archive noise remains; the owner closed the iOS device-acceptance and release-tag items on 2026-11-17. INT-12 (web search/RAG) was withdrawn on 2026-11-24 and has no backend code.
 
 The iOS-side phases are tracked in the canonical [Training Intelligence plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md): INT-7/7b/7c (Siri, Shortcuts, HomeKit, Action button) and INT-8 (plan review) are closed; INT-9 waits for iOS 27.3; INT-10 is closed (device acceptance waived, shipped in StrengthApp v1.2); INT-4c is parked on the PCC entitlement.
 
@@ -941,7 +941,8 @@ Created in INT-1b: `strength_coach/intelligence/mcp/`, `intelligence/{tokens,res
 `intelligence` optional extra, the `strength-intelligence-mcp` console script, `tools/intelligence_benchmark.py`
 and the MCP tests. Created in INT-5: `strength_coach/intelligence/model/` (narrative, chat, evaluation harness).
 Not created: a packaged deploy unit (systemd example); deployment is documented in the implementation
-page instead. Implemented: the INT-11 local knowledge index, retrieval and explain surfaces. Planned only: INT-12 web-search/RAG.
+page instead. Implemented: the INT-11 local knowledge index, retrieval and explain surfaces. Nothing is planned for
+INT-12: web search and RAG were withdrawn on 2026-11-24.
 
 **Hard constraints.** Read-only: no tool, route or capability may create, edit, void, start, complete
 or prescribe. SQLite is opened read-only in that process. No free-text notes, symptom narratives or

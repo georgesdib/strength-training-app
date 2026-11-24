@@ -5,7 +5,7 @@ weekly review (closed 2026-11-15), INT-4 native model surface, INT-5 server narr
 server/web chat (closed 2026-11-15) are implemented. Read-only, provider-neutral, independently
 runnable. Evidence producers for the aggregate capabilities remain deferred; INT-6 model tool calling
 and streaming are deferred by owner decision. INT-11 (local docs/code Explain) is implemented and
-closed with documented limitations; INT-12 (web search/RAG) is deferred. Programme-block archive
+closed with documented limitations; INT-12 (web search/RAG) was withdrawn on 2026-11-24. Programme-block archive
 context, missing outcome evidence for reactive trigger counts and iOS physical acceptance remain.
 **Scope owner:** the canonical plan is the portfolio
 [Training Intelligence plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md);
@@ -1030,12 +1030,12 @@ local incremental FTS5 index, retrieval, citation check, explain/status endpoint
 refresh and web/iOS Explain tabs exist. The owner closed the device-acceptance and release-tag items
 on 2026-11-17 by decision: no separate device run was made and no dedicated tag was cut, so Explain
 ships with the next tagged release. Known gaps: programme-block archive/contract context and no
-outcome evidence cited for reactive trigger counts. INT-12 web search/RAG is deferred.
+outcome evidence cited for reactive trigger counts. INT-12 web search/RAG was withdrawn on 2026-11-24.
 
-**INT-12 — Web search and RAG.** Deferred: opt-in fixed-provider web search with URL citations and
-SSRF/privacy controls; embeddings only if the INT-11 keyword baseline is measured insufficient. The
-existing MCP server is transport and facts-only; it is not a search engine and does not provide web
-access. Exposing either capability over MCP needs a new ADR and contract revision.
+**INT-12 — Web search and RAG (withdrawn).** Withdrawn by the owner on 2026-11-24: no web search,
+page fetch, URL citation or retrieval-augmented generation is planned. Nothing was built. The MCP
+server stays transport and facts-only; exposing external content would need a new ADR and contract
+revision.
 
 ## 32. INT-11 first slice — local knowledge index and CLI (2026-11-16)
 
