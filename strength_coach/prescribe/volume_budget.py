@@ -245,6 +245,20 @@ class BudgetConfig:
         if profile_budget:
             budget_raw = raw.setdefault("budget", {})
             _deep_merge(budget_raw, dict(profile_budget))
+        # Profile versions are append-only. An older version may carry only one side of a
+        # target/total pair (the UI writes the pair only when that column changes). When the
+        # canonical target table moves, the leftover total becomes stale and the strict
+        # equality check would make the settings page unloadable. The per-group target map is
+        # the dose, so recompute a mismatched total from it. The canonical file stays strict.
+        profile_sets_targets = bool(profile_budget) and bool(
+            {
+                "weekly_target",
+                "weekly_target_effective",
+                "weekly_total",
+                "weekly_total_effective",
+            }
+            & set(profile_budget)
+        )
         body = raw.get("budget") or {}
         targets = {
             str(key): float(value)
@@ -271,11 +285,15 @@ class BudgetConfig:
             float(raw_effective_total) if raw_effective_total is not None
             else sum(effective_targets.values())
         )
-        if abs(effective_total - sum(effective_targets.values())) > 0.51:
-            raise ValueError(
-                "volume budget weekly_total_effective must equal the sum of "
-                "weekly_target_effective"
-            )
+        expected_effective_total = sum(effective_targets.values())
+        if abs(effective_total - expected_effective_total) > 0.51:
+            if profile_sets_targets:
+                effective_total = expected_effective_total
+            else:
+                raise ValueError(
+                    "volume budget weekly_total_effective must equal the sum of "
+                    "weekly_target_effective"
+                )
         indirect_path = paths.config_dir("volume-indirect.v1.yaml")
         indirect_raw = (
             yaml_files.load_yaml_file(indirect_path) if indirect_path.exists() else {}
@@ -284,12 +302,16 @@ class BudgetConfig:
         total = float(raw_total) if raw_total is not None else sum(targets.values())
         if total < 0:
             raise ValueError("volume budget weekly_total must be non-negative")
-        if abs(total - sum(targets.values())) > 0.51:
-            raise ValueError(
-                "volume budget weekly_total "
-                f"{total:g} must equal the sum of weekly_target "
-                f"{sum(targets.values()):g}; change both when changing the dose"
-            )
+        expected_total = sum(targets.values())
+        if abs(total - expected_total) > 0.51:
+            if profile_sets_targets:
+                total = expected_total
+            else:
+                raise ValueError(
+                    "volume budget weekly_total "
+                    f"{total:g} must equal the sum of weekly_target "
+                    f"{expected_total:g}; change both when changing the dose"
+                )
         floor = int(body.get("main_lift_floor", 3))
         if floor < 1:
             raise ValueError("volume budget main_lift_floor must be at least 1")

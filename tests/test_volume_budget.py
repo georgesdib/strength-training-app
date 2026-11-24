@@ -87,6 +87,29 @@ def test_weekly_total_is_explicit_and_must_match_the_category_sum(tmp_path):
     assert config.weekly_target["squat"] == 14
 
 
+def test_stale_profile_totals_are_repaired_from_the_current_targets():
+    # Append-only profile versions can carry only one side of a target/total pair. After a
+    # canonical target change the leftover total must not make the settings page unloadable.
+    cfg = volume_budget.BudgetConfig.load(profile_budget={
+        "weekly_total": 69,
+        "weekly_total_effective": 80.25,
+    })
+    assert cfg.weekly_total == pytest.approx(sum(cfg.weekly_target.values()))
+    assert cfg.weekly_total_effective == pytest.approx(
+        sum(cfg.weekly_target_effective.values())
+    )
+
+
+def test_stale_profile_targets_are_preserved_and_the_total_is_recomputed():
+    cfg = volume_budget.BudgetConfig.load(profile_budget={
+        "weekly_target_effective": {"squat": 10},
+    })
+    assert cfg.weekly_target_effective["squat"] == 10
+    assert cfg.weekly_total_effective == pytest.approx(
+        sum(cfg.weekly_target_effective.values())
+    )
+
+
 def test_reduce_floor_is_configurable_and_validated(tmp_path):
     source = volume_budget.BudgetConfig.load().source_path
     text = source.read_text(encoding="utf-8")
