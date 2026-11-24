@@ -1515,20 +1515,22 @@ function renderPrescription(p, options = {}) {
     ? `Start cached plan (${esc(p.for_date)})` : "Start workout";
   const startHint = cachedStart
     ? "Starts this cached plan, not the current form selection; a confirmation follows."
-    : "Freezes this plan and opens the start form.";
+    : p.executable
+      ? "Freezes this plan and opens the start form."
+      : "This plan has unresolved loads. Start it and enter the actual load for each flagged set.";
+  const startCanOpen = !pendingRatings.length;
   const startAction = `<div class="form-row">
-      ${p.executable && !pendingRatings.length
+      ${startCanOpen
         ? `<button class="primary" type="button" data-action="open-workout-start">${startLabel}</button>`
         : `<button class="primary" type="button" disabled>${startLabel}</button>`}
-      <span class="muted">${p.executable && !pendingRatings.length
-        ? startHint : pendingRatings.length
-          ? "Rate the suggested exercises in Settings → Resolver preview first."
-          : "Fix the warnings above before starting."}</span>
+      <span class="muted">${startCanOpen
+        ? startHint
+        : "Rate the suggested exercises in Settings → Resolver preview first."}</span>
     </div>`;
   $("#prescribe-result").innerHTML = `<div class="panel">
     ${cachedBox}
     <div class="panel-head"><h2>${esc(p.for_date)} · ${esc(p.session_label || sessionLabel(p.session_type || "unknown"))}</h2>
-      <span class="badge ${p.executable ? "" : "bad"}">${p.executable ? "executable" : "not executable"}</span></div>
+      <span class="badge ${p.executable ? "" : "bad"}">${p.executable ? "executable" : "needs input"}</span></div>
     ${timeLine}${vbtNoteBox}${volumeBox}${compBox}${topSetBox}${pendingBox}${warnings}${spinalBox}${minimumBox}${deloadBox}${suggestionBox}${selectionBox}${signalBox}${cadenceBox}
     <div class="table-scroll desktop-table"><table><thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>kg</th><th>RIR</th><th>recent stress</th><th>readiness</th><th>e1RM n</th><th>refs</th></tr></thead>
     <tbody>${rows}</tbody></table></div>

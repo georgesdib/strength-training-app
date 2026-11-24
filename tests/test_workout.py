@@ -77,6 +77,26 @@ def test_a_plan_without_a_minimum_session_has_no_summary(conn):
     assert started["minimum_session"] is None
 
 
+def test_start_accepts_an_unresolved_load_and_the_first_set_fills_it(conn):
+    # A first exercise has no history: the plan carries no load, but the workout can start and
+    # the actual set becomes the baseline. This is the no-history path, not a dropped item.
+    plan = {
+        **PLAN,
+        "items": [
+            {**PLAN["items"][0], "load_kg": None},
+            PLAN["items"][1],
+        ],
+    }
+    started = workout.start(conn, for_date="2024-01-01", plan=plan, readiness=READINESS)
+    assert started["plan"]["items"][0]["load_kg"] is None
+
+    updated = workout.add_set(
+        conn, started["workout_id"], exercise_id="trap_bar_deadlift",
+        load_kg=120, reps=5, rir=2,
+    )
+    assert updated["sets"][0]["load_kg"] == 120
+
+
 def test_start_rejects_inconsistent_set_groups_without_a_workout(conn):
     bad = {
         **PLAN,

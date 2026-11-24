@@ -1010,6 +1010,15 @@ function submitWorkoutSet(event) {
   var selectedOption = select.options[select.selectedIndex];
   var planItemIndex = selectedOption && selectedOption.dataset.planIndex != null
     ? Number(selectedOption.dataset.planIndex) : null;
+  var planItem = workoutPlanItem(exerciseId);
+  var enteredLoad = numericOrNull("#workout-set-load");
+  if (planItem && planItem.load_basis === "external" && enteredLoad == null) {
+    $("#workout-set-msg").textContent = "Enter the load you used for this exercise.";
+    $("#workout-set-load").setAttribute("aria-invalid", "true");
+    $("#workout-set-load").focus();
+    return;
+  }
+  $("#workout-set-load").removeAttribute("aria-invalid");
   var body = {
     exercise_id: exerciseId,
     plan_item_index: planItemIndex,

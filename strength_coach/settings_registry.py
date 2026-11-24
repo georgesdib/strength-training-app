@@ -30,10 +30,9 @@ from strength_coach.prescribe import warmup as warmup_feature
 from strength_coach.prescribe.config import Thresholds
 from strength_coach.utils import paths
 
-LANDMARK_GROUPS = (
-    "squat", "hinge", "hinge_unilateral", "horizontal_push", "horizontal_pull",
-    "vertical_push", "vertical_pull", "core",
-)
+# Derived from the canonical landmark table so a new managed group (for example
+# hip_extension) appears in the Settings/API without a second hard-coded list.
+LANDMARK_GROUPS = tuple((VolumeConfig.load().landmarks or {}).keys())
 CLASSES = ("prescription_policy", "guarded_safety", "display")
 
 

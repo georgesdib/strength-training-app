@@ -46,7 +46,7 @@
     document.querySelectorAll(".view").forEach(function (section) {
       const view = (section.id || "").replace(/^view-/, "");
       if (!view) return;
-      section.querySelectorAll("h2, h3").forEach(function (heading) {
+      section.querySelectorAll("h2, h3, summary").forEach(function (heading) {
         const title = (heading.textContent || "").trim().replace(/\s+/g, " ");
         if (!title) return;
         let node = heading.parentElement;
@@ -54,6 +54,13 @@
         while (node && node !== section) {
           if (node.id) { target = node.id; break; }
           node = node.parentElement;
+        }
+        if (!target && heading.tagName === "SUMMARY") {
+          const details = heading.closest("details");
+          if (details) {
+            if (!details.id) details.id = "search-panel-" + view + "-" + (found.length + 1);
+            target = details.id;
+          }
         }
         if (!target) target = section.id;
         const key = target + "|" + title;
@@ -191,10 +198,19 @@
   }
 
   function reveal(element) {
-    element.scrollIntoView({block: "start", behavior: "smooth"});
-    element.classList.add("search-highlight");
-    setTimeout(function () { element.classList.remove("search-highlight"); }, 1800);
-    if (/^(INPUT|SELECT|TEXTAREA)$/.test(element.tagName)) element.focus();
+    // A search hit can live inside a collapsed <details>; open every ancestor before
+    // scrolling, otherwise the browser scrolls to an invisible element.
+    let node = element;
+    while (node) {
+      if (node.tagName === "DETAILS") node.open = true;
+      node = node.parentElement;
+    }
+    requestAnimationFrame(function () {
+      element.scrollIntoView({block: "start", behavior: "smooth"});
+      element.classList.add("search-highlight");
+      setTimeout(function () { element.classList.remove("search-highlight"); }, 1800);
+      if (/^(INPUT|SELECT|TEXTAREA)$/.test(element.tagName)) element.focus();
+    });
   }
 
   function activate(row) {

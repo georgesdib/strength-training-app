@@ -328,7 +328,7 @@ function renderVolumeSettings(data) {
         ${policyInput("volume.under_mev.add_sets", "Under-MEV add sets", "int", "1", "1")}
         ${policyInput("volume.under_mev.max_sets_per_item", "Under-MEV per-item max", "int", "1", "1")}
       </div>
-      <details class="advanced"><summary>MEV / MAV / MRV landmarks</summary>
+      <details class="advanced" id="settings-volume-landmarks"><summary>MEV / MAV / MRV landmarks</summary>
         <div class="table-scroll"><table><thead><tr><th>group</th><th>MEV</th><th>MAV low</th>
           <th>MAV high</th><th>MRV</th></tr></thead><tbody>${landmarkRows}</tbody></table></div>
       </details>

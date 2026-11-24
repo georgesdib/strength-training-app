@@ -526,6 +526,21 @@ if (next == null || next.group_index !== 1) throw new Error("later sets stay on 
     assert result.returncode == 0, result.stderr
 
 
+def test_search_expands_details_and_start_allows_unresolved_loads() -> None:
+    search = (STATIC / "search.js").read_text(encoding="utf-8")
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    workout = (STATIC / "workout.js").read_text(encoding="utf-8")
+    settings = (STATIC / "settings.js").read_text(encoding="utf-8")
+
+    # A search hit inside a collapsed advanced panel must open the panel before scrolling.
+    assert 'node.tagName === "DETAILS"' in search
+    assert 'heading.closest("details")' in search
+    assert 'id="settings-volume-landmarks"' in settings
+    # Starting is blocked only by pending ratings, not by an unresolved load.
+    assert "startCanOpen" in app and "needs input" in app
+    assert "Enter the load you used for this exercise." in workout
+
+
 def test_remaining_ui_controls_are_present() -> None:
     page = INDEX.read_text(encoding="utf-8")
     app = (STATIC / "app.js").read_text(encoding="utf-8")
