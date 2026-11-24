@@ -4,7 +4,7 @@ The resume point for this project. If you are picking this up cold — human or 
 this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 
 
-Last updated: 2026-11-23 · **v1.7.1 released; resolver structure WP0–WP9 deployed to production from `development` (`5a3c1df`), then backend, iOS and portfolio histories merged into `main` through PRs #27, #8 and #2; no release tag was created by those merges; per-set heart-rate recovery was released in display only on 2026-11-22; unified offline execution merged into `development` and the server deployed at `34e7f29` on 2026-11-23, with the app build pending** · version `1.7.1`
+Last updated: 2026-11-24 · **v1.7.1 released; resolver structure WP0–WP9 deployed to production from `development` (`5a3c1df`), then backend, iOS and portfolio histories merged into `main` through PRs #27, #8 and #2; no release tag was created by those merges; per-set heart-rate recovery was released in display only on 2026-11-22; unified offline execution merged into `development` and the server deployed at `34e7f29` on 2026-11-23, with the app build pending** · version `1.7.1`
 
 
 ---
