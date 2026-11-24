@@ -198,6 +198,10 @@ without conditioning on provenance penalises the athlete for following the presc
 
 - **ASSUMPTION-55** — the Part D advisory thresholds (low exposure below 0.7 for two weeks; a positive residual above its own spread) are display heuristics and never change a prescription.
 
+- **ASSUMPTION-59** — the persistence follow-up gates (β ≥ 0.3 with a 95 % interval lower bound > 0; ≥ 50 pairs; ≥ 20 distinct current sessions; ≥ 4 exercises with ≥ 3 pairs; P2 estimated only at ≥ 20 triplets) are usefulness and precision bars fixed before the run, not measured cut-points. One look; a positive authorises a descriptive sentence only. Pre-registered in `docs/PERFORMANCE-PERSISTENCE-PLAN.md`.
+
+- **ASSUMPTION-58** — the Phase 0 decision thresholds (10-percentage-point risk difference, OR > 1 with a CI excluding 1, 0.5-MAD next-session shift, 40 % channel agreement with kappa ≥ 0.10, a 5–40 % trigger rate, and 20 session-lifts with 15 trigger sets) are usefulness bars fixed before the analysis, not measured cut-points; the 8-pair H2 floor is an implementation guard. They are pre-registered in `docs/PERFORMANCE-CARRYOVER-PHASE0.md`, and the result may not be re-read against a different rule.
+
 - **ASSUMPTION-50** — the knee-flexion landmarks (MEV 3 / MAV 4–8 / MRV 10), the 6-set weekly target, the 4-set session cap and the 63-set weekly total are coaching estimates chosen to fit the two-exposure template, not measurements; MEV 3 is a maintenance floor, not a validated minimum (`docs/archive/VOLUME-MODULATION-PLAN.md` §13, `DEC-KNEEFLEX-01`).
 
 - **ASSUMPTION-38** — historically a session was assumed to be one calendar date; unverifiable without timestamps. Superseded 2026-11-01 by the training-day model (`DEC-SESSION-03`): same-date fragments are grouped, while the plan remains one per day.

@@ -501,7 +501,7 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | v1.7.1 | Longevity corrective release | **released 2026-11-18 (1.7.1)** — execution-time allowlist, tail exclusion, elapsed-time integration with coverage, above-band state, HR cache invalidation, canonical web panel, VO₂max provenance and remote-narration consent; no migration (§4.36) |
 | — | Deeper labelled calibration set | retired 2026-11-13 (§4.14, `DEC-EVAL-09`) |
 | v1.5 | LLM integration: read-only delivered; constrained proposer withdrawn 2026-11-17 | §4.24; selector retirement done (Phase 1b) |
-| future | Personalised volume-response model | idea only; shadow/gated (§13, Q28) |
+| future | Personalised volume-response model | idea only; shadow/gated (§13, Q28). Phase 0 mechanism analysis **ran 2026-11-24 and closed with verdict `stop`** (current-session carry-over untestable; a weak next-exposure persistence flag remains); record in [`docs/archive/PERFORMANCE-CARRYOVER-PHASE0.md`](docs/archive/PERFORMANCE-CARRYOVER-PHASE0.md); no rule built. The continuous persistence follow-up **ran 2026-11-24: label `carry-over`** (a session about 0.44 MAD worse predicted the next about 0.44 MAD worse, after days/sets/time/lift; weaker in the second half and within 7 days), recorded in [`docs/archive/PERFORMANCE-PERSISTENCE-PLAN.md`](docs/archive/PERFORMANCE-PERSISTENCE-PLAN.md); descriptive use only, **no rule built**. Revisit only if (a) roughly 25-30 eligible app workouts with stored velocity targets exist (about six months of running the VBT lifts through the prescription path) **and** (b) the next attempt is prospective (alternating blocks or a pre-registered N-of-1); no calendar review |
 | future | Athlete Feedback & Coaching (AFC) — deferred AFC-3 second cut | AFC-2, AFC-2i, AFC-3 and AFC-4 implemented 2026-11-13; physical iPhone report acceptance owner-confirmed 2026-11-14 (§4.33) |
 | done (Phases 0–4, R1–R10, 6.0–6.7) | Native iPhone and watchOS client | Phase 0 complete 2026-11-07; Phases 1–2 complete and owner-confirmed on the physical iPhone (2026-11-07); Phase 3A closed 2026-11-08 (HealthKit readiness, physical acceptance owner-confirmed); Phase 4 closed 2026-11-08 (offline capture and replay, physical acceptance owner-confirmed); R1–R5 and R7–R11 closed (R11 delivered 2026-11-18); Phase 6.0–6.7 complete with physical Apple Watch acceptance owner-confirmed 2026-11-14 (§4.32); the AFC-2i session report is implemented; unified offline execution (C1/C2/S5, phone-committed watch writes) implemented and physical acceptance owner-closed 2026-11-23; server deployed at `34e7f29`, app build pending. Apple PCC remains an optional AI-only network exception (§4.29; [`iOS client plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/IOS-CLIENT-PLAN.md)) |
 
@@ -990,10 +990,11 @@ rejected ideas are recorded in §6.1; the LLM workstream lives in §4.24.
   weight and baseline config/registry-driven rather than hard-coded. Not delivered: the table
   is used for measurements; daily readiness needs weight/role/baseline metadata and shadow
   validation. The daily input cadence and the score's non-authoritative status are unchanged.
-- Personalised volume-response model — future, shadow-only: estimate productive/tolerable
-  volume per group/lift with calibrated uncertainty and a pre-registered prospective gate; no
-  prescription change until validated. Fixed budget and safety guards remain authoritative.
-  Idea only; see `docs/archive/VOLUME-MODULATION-PLAN.md` §13 and Q28.
+- Personalised volume-response model — **closed as a controller** (2026-11-24): the retrospective
+  mechanism analysis stopped and the continuous persistence follow-up is descriptive only, so no
+  rule was built. A future attempt must satisfy the data and prospective-design trigger in the
+  future backlog row above; fixed budget and safety guards remain authoritative. See
+  `docs/archive/VOLUME-MODULATION-PLAN.md` §13 and Q28.
 - Athlete Feedback & Coaching (AFC) — programme KPIs, post-workout report, longitudinal observations and nudges (§4.33; [`AFC plan`](https://github.com/georgesdib/strength-app/blob/main/docs/plans/AFC.md); not scheduled).
 
 ### 6.1 Delivered or rejected from the former backlog

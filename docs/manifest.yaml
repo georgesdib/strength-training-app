@@ -789,6 +789,22 @@ documents:
   status: archived
   audience: public
   nav: true
+- id: performance-carryover-phase0
+  path: docs/archive/PERFORMANCE-CARRYOVER-PHASE0.md
+  title: PERFORMANCE CARRY-OVER — PHASE 0 PRE-REGISTERED ANALYSIS
+  description: pre-registered mechanism analysis for performance-informed volume, its approved thresholds and the closed result (verdict stop)
+  category: archive
+  status: archived
+  audience: public
+  nav: true
+- id: performance-persistence-plan
+  path: docs/archive/PERFORMANCE-PERSISTENCE-PLAN.md
+  title: PERFORMANCE PERSISTENCE — CONTINUOUS FOLLOW-UP PRE-REGISTRATION
+  description: pre-registered continuous test of next-exposure persistence; run 2026-11-24, label carry-over, descriptive use only
+  category: archive
+  status: archived
+  audience: public
+  nav: true
 - id: archive-readiness-audit
   path: docs/archive/READINESS-AUDIT.md
   title: READINESS AUDIT — can the current readiness policy be validated?
