@@ -582,7 +582,7 @@ What remains:
 - `/api/ios/v1/` is the only authenticated surface (per-device bearer token); every
   unversioned route remains unauthenticated as described above;
 - logs do not record passwords or session tokens;
-- authentication, per-user data, password reset, birth date/gender/timezone, CSRF and TLS are
+- authentication, per-user data, password reset, gender/timezone, CSRF and TLS are
   the `ROADMAP.md` §4.19 backlog. They must land before any exposure beyond the home LAN.
 
 ## Request limits

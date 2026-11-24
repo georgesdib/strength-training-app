@@ -1,6 +1,8 @@
 # W10 — AGE IN ATHLETE STATE
 
-**Status:** audit complete 2026-10-23. No schema migration or prescription change.
+**Status:** audit complete 2026-10-23; **closed 2026-11-24: age will not be stored.** No age field,
+derived age or age-aware wording will be added. The options below are retained only as the historical
+audit record; none is planned.
 **Question:** should age be stored, and what may it change?
 
 ---
