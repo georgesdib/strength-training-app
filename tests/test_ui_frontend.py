@@ -580,6 +580,10 @@ def test_volume_panel_is_consolidated_and_linked_to_its_guide() -> None:
     assert "/api/settings/volume" in settings
     assert "budgetValue(key)" in settings
     assert "settings-volume-cap-sum" in settings
+    # Weekly and effective targets are floats, and the configured effective values include
+    # 12.75 and 10.125; a half-step input marks those existing values invalid in the browser.
+    assert 'type="number" step="any" min="0" data-volume-target=' in settings
+    assert 'type="number" step="any" min="0" data-volume-effective=' in settings
 
     node = shutil.which("node")
     if node:

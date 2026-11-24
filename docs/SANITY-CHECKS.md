@@ -25,7 +25,7 @@ disagreement in the literature).
 | Ab wheel is core, not erector dose | CONFIRMED | Anti-extension isometric; erectors stabilise but are not the trained target. |
 | Planks log **seconds** in a reps column | CONFIRMED by the data | Values in the tens-to-hundreds for a hold are durations, not repetitions. Modelled as `rep_semantics: seconds`. |
 | Pause-bench variants are programme lifts | CORRECTED | They had been left as generic accessories; the brief's hinge day allows "close-grip **or pause** bench", so `bench_press_pause` is a first-class main lift with `vbt_family: bench`. |
-| A non-main-lift squat may still be a primary compound | CORRECTED | Kept `main_lift: false` for programme role, but added `primary_compound: true` and `programme_slot_of`. Rationale: an effort rule scoped only to `main_lift` would leave most heavy squatting unregulated. |
+| A non-main-lift squat may still be a primary compound | CORRECTED | Front squat, high-bar squat and the other variants keep `main_lift: false` while carrying `primary_compound: true` and `programme_slot_of`, so an effort rule scoped only to `main_lift` would still leave most heavy squatting unregulated. The competition squat was promoted to `main_lift: true` later (`DEC-PROGRAMME-10`, 2026-11-24) because the athlete trains it as a main lift; it keeps `primary_compound: true` and `programme_slot_of`. |
 
 ### Ordering bugs these checks surfaced
 Regex order is the fragile part of a taxonomy, and two real misclassifications were caught by

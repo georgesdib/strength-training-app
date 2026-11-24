@@ -11,7 +11,7 @@ window_weeks: 4
 # sets is a real zero. Complete is an explicit athlete choice, never inferred from a blank frame.
 ledger:
   coverage: unknown    # unknown | complete
-  set_accounting: hard # hard | effective (direct 1, configured indirect 0.5)
+  set_accounting: hard # hard | effective (direct 1, configured indirect 0.25)
 apply_mrv_cap: true
 
 under_mev:
@@ -46,21 +46,21 @@ budget:
   enabled: false
   # Explicit total. It must equal the sum of weekly_target below; the check catches editing only
   # one of the two numbers. Change both when changing the weekly dose.
-  weekly_total: 69
+  weekly_total: 66.5
   # Effective-set target used only when ledger.set_accounting=effective. Direct 1.0,
   # indirect 0.25; this preserves the current direct dose and is NOT applied while accounting
   # remains hard. The total must equal the sum of weekly_target_effective.
-  weekly_total_effective: 80.25
+  weekly_total_effective: 77.125
   weekly_target_effective:
-    squat: 10
-    hinge: 6.5
+    squat: 8.5
+    hinge: 5.5
     hinge_unilateral: 0
     knee_flexion: 6
     horizontal_push: 12.75
     horizontal_pull: 10.125
     vertical_push: 6
     vertical_pull: 6.75
-    core: 10.125
+    core: 9.5
     erector_extension: 3
     power_jump: 9
   # Opt-in reduce mode: keep at least this many sets of a filled group's main lift. A coaching
@@ -70,8 +70,8 @@ budget:
   trim_enabled: true
   top_up_enabled: true
   weekly_target:
-    squat: 10
-    hinge: 6.5
+    squat: 8.5
+    hinge: 5.5
     hinge_unilateral: 0
     knee_flexion: 6
     horizontal_push: 12

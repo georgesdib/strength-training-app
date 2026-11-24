@@ -80,10 +80,11 @@ entities:
     display: "Competition Squat"
     log_names: ["Competition Squat"]
     pattern: squat
-    main_lift: false               # not a constitution main lift...
-    # ...but it is a heavy compound, so the RIR effort window still applies to it.
-    # A rule scoped to main_lift alone would ignore whichever squat is actually
-    # performed most, which is often not one of the constitution's named lifts.
+    # DEC-PROGRAMME-10 (2026-11-24): the athlete trains this as a main lift. It was a
+    # primary compound with main_lift false so the RIR window still covered it; it is now
+    # both, so session main_lifts, e1RM coverage, regime checks and volume-budget reduce
+    # treat it like the other named lifts.
+    main_lift: true
     primary_compound: true
     primary_muscles: [erectors, quadriceps]
     e1rm_applicable: true

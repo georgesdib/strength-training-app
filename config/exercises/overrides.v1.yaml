@@ -36,3 +36,24 @@ entities:
     primary_muscles:
     - abs
     loadable: false
+  competition_squat:
+    display: Competition Squat
+    log_names:
+    - Competition Squat
+    pattern: squat
+    main_lift: true
+    primary_compound: true
+    primary_muscles:
+    - erectors
+    - glutes
+    - quadriceps
+    e1rm_applicable: true
+    bodyweight_type: false
+    direct_erector: true
+    programme_slot_of: ssb_squat
+    erector_family: false
+    high_fatigue_spinal: true
+    spinal_cost: 1.0
+    vbt_family: squat
+    loadable: true
+    time_based: false

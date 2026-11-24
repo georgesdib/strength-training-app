@@ -1223,7 +1223,7 @@ def test_volume_settings_endpoint_reads_effective_budget_and_policy(server):
     assert status == 200
     data = json.loads(body)
     assert data["date"] == "2024-01-01"
-    assert data["budget"]["weekly_target"]["squat"] == 10
+    assert data["budget"]["weekly_target"]["squat"] == 8.5
     assert data["budget"]["session_cap"]["total"] == 30
     assert data["policy"]["volume.ledger.coverage"] == "unknown"
     assert data["athlete"]["main_lift_policy"] == "preserve"
@@ -1247,14 +1247,14 @@ def test_volume_settings_requires_reason_and_high_impact_confirmation(server):
     assert "reason" in body
 
     status, body = post_status(server, "/api/settings/volume", {
-        "budget": {"weekly_target": {"squat": 11}, "weekly_total": 70},
+        "budget": {"weekly_target": {"squat": 11}, "weekly_total": 69},
         "reason": "increase squat target",
     })
     assert status == 400
     assert "VOLUME" in body
 
     saved = post(server, "/api/settings/volume", {
-        "budget": {"weekly_target": {"squat": 11}, "weekly_total": 70},
+        "budget": {"weekly_target": {"squat": 11}, "weekly_total": 69},
         "reason": "increase squat target",
         "confirm_text": "VOLUME",
     })
@@ -1425,7 +1425,7 @@ def test_prescribe_suggests_a_scheduled_deload_and_applies_only_when_confirmed(s
     suggested_squat = next(
         item for item in suggested["items"] if item["exercise_id"] == "ssb_squat"
     )
-    assert suggested_squat["sets"] == 5
+    assert suggested_squat["sets"] == 4
 
     applied = post(server, "/api/prescribe", {
         "date": "2024-02-05", "session_type": "squat", "deload_confirmed": True,
@@ -1433,7 +1433,7 @@ def test_prescribe_suggests_a_scheduled_deload_and_applies_only_when_confirmed(s
     assert applied["notes"]["deload"]["trigger"] == "scheduled"
     assert applied["fallback_level"] == "fatigue_reduced"
     squat = next(item for item in applied["items"] if item["exercise_id"] == "ssb_squat")
-    assert squat["sets"] == 4
+    assert squat["sets"] == 3
 
 
 def test_progress_dashboard_endpoint(server):

@@ -155,7 +155,7 @@ def _definitions() -> tuple[SettingDefinition, ...]:
            choices=("unknown", "complete")),
         _d("volume.ledger.set_accounting", "Volume", "Set accounting", "str", "hard",
            "volume.v1.yaml", "prescription_policy",
-           "hard = raw working sets; effective = direct 1 plus configured indirect 0.5.",
+           "hard = raw working sets; effective = direct 1 plus configured indirect 0.25.",
            choices=("hard", "effective")),
         _d("volume.under_mev.enabled", "Volume", "Under-MEV progression", "bool", True,
            "volume.v1.yaml", "prescription_policy", "Add a set after persistent under-MEV."),

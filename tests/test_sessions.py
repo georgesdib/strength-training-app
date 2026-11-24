@@ -84,17 +84,28 @@ def test_ambiguous_session_is_flagged_as_such():
 
 
 # --- programme substitution ----------------------------------------------
-def test_competition_squat_instead_of_ssb_is_flagged_as_substitution():
-    """Competition squat is a primary compound but not a constitution main lift."""
+def test_competition_squat_is_recorded_as_a_main_lift():
+    """DEC-PROGRAMME-10: the competition squat is a named main lift, not only a compound."""
     rows = [
         {"Date": "2024-01-01", "Exercise": "Competition Squat", "Weight_Used": "120",
          "RIR": "2"}
     ] + bench_sets(2)
     [session] = build(rows)
-    assert session.main_lifts == ("bench_press",)
+    assert session.main_lifts == ("bench_press", "competition_squat")
     assert "competition_squat" in session.primary_compounds
-    assert sessions.FLAG_SUBSTITUTED_MAIN_LIFT not in session.flags  # bench IS a main lift
+    assert sessions.FLAG_SUBSTITUTED_MAIN_LIFT not in session.flags
     assert session.session_type in {"squat", "bench_squat"}
+
+
+def test_primary_compound_squat_without_a_main_lift_is_flagged_as_substitution():
+    """A non-main-lift variant still reads as a substituted main lift."""
+    [session] = build([
+        {"Date": "2024-01-01", "Exercise": "Front Squat", "Weight_Used": "80",
+         "RIR": "2"}
+    ])
+    assert session.main_lifts == ()
+    assert "front_squat" in session.primary_compounds
+    assert sessions.FLAG_SUBSTITUTED_MAIN_LIFT in session.flags
 
 
 # --- structural flags -----------------------------------------------------

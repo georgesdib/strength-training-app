@@ -12,7 +12,7 @@ squat:
     rest_s: 120
     essential: false
   - exercise_id: ssb_squat
-    sets: 5
+    sets: 4
     reps_low: 3
     reps_high: 5
     load_kg: 105.5
@@ -79,7 +79,7 @@ hinge:
     rest_s: 120
     essential: false
   - exercise_id: trap_bar_deadlift
-    sets: 5
+    sets: 4
     reps_low: 3
     reps_high: 5
     load_kg: 158.5
@@ -155,7 +155,7 @@ bench_squat:
     rest_s: 180
     essential: true
   - exercise_id: competition_squat
-    sets: 4
+    sets: 3
     reps_low: 3
     reps_high: 5
     load_kg: 111.0

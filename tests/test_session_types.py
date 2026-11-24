@@ -55,9 +55,9 @@ def test_plan_a_restores_squat_and_raises_hinge_volume():
     squat = templates.SessionTemplate.load("squat")
     hinge = templates.SessionTemplate.load("hinge")
     bench_squat = templates.SessionTemplate.load("bench_squat")
-    assert next(s.sets for s in squat.slots if s.id == "squat_main") == 5
-    assert next(s.sets for s in hinge.slots if s.id == "hinge_main") == 5
-    assert next(s.sets for s in bench_squat.slots if s.id == "squat_support") == 4
+    assert next(s.sets for s in squat.slots if s.id == "squat_main") == 4
+    assert next(s.sets for s in hinge.slots if s.id == "hinge_main") == 4
+    assert next(s.sets for s in bench_squat.slots if s.id == "squat_support") == 3
 
 
 def test_history_without_squat_rotates_instead_of_three_squats():

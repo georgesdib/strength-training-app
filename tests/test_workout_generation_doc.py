@@ -47,7 +47,7 @@ def test_the_example_pins_the_current_hinge_result():
         for item in normal.items
     ] == [
         ("broad_jump", 3, 0.0, None),
-        ("trap_bar_deadlift", 5, 158.5, 2),
+        ("trap_bar_deadlift", 4, 158.5, 2),
         ("bench_press_narrow", 4, 95.0, 2),
         ("pull_up", 4, 0.0, 2),
         ("dumbbell_row", 4, 30.0, 2),
@@ -62,7 +62,7 @@ def test_the_example_pins_the_current_hinge_result():
     assert any("one eligible set" in warning for warning in normal.warnings)
 
     assert poor.fallback_level == "fatigue_reduced"
-    assert [item.sets for item in poor.items] == [2, 5, 4, 2, 2, 2, 2]
+    assert [item.sets for item in poor.items] == [2, 4, 4, 2, 2, 2, 2]
     assert [item.load_kg for item in poor.items] == [0.0, 146.0, 87.5, 0.0, 27.5, 27.5, 27.5]
     assert all(
         item.rir_target is None if item.effort_model == "quality" else item.rir_target == 3

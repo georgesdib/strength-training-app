@@ -29,7 +29,7 @@ session_types:
           load_source: bodyweight
         - id: squat_main
           exercise: ssb_squat
-          sets: 5
+          sets: 4
           reps: {low: 3, high: 5}
           rir: {low: 2, high: 3}
           rest_s: 180
@@ -98,7 +98,7 @@ session_types:
           load_source: bodyweight
         - id: hinge_main
           exercise: trap_bar_deadlift
-          sets: 5
+          sets: 4
           reps: {low: 3, high: 5}
           rir: {low: 2, high: 3}
           rest_s: 180
@@ -177,10 +177,10 @@ session_types:
         - id: squat_support
           # DEC-PROGRAMME-08: a second SSB exposure here made bench+squat a repeat of the
           # squat session's main lift two days apart. The competition squat keeps the squat
-          # pattern and the 4-set volume while changing the bar, and it is the squat the
-          # athlete actually trains, so the load comes from real recent sets.
+          # pattern and a 3-set support volume while changing the bar, and it is the squat
+          # the athlete actually trains, so the load comes from real recent sets.
           exercise: competition_squat
-          sets: 4
+          sets: 3
           reps: {low: 3, high: 5}
           rir: {low: 2, high: 3}
           rest_s: 180

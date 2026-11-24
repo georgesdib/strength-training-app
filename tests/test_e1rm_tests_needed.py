@@ -15,6 +15,7 @@ MAIN_LIFTS = {
     "bench_press",
     "bench_press_narrow",
     "bench_press_pause",
+    "competition_squat",
     "ssb_squat",
     "trap_bar_deadlift",
 }

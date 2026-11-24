@@ -134,8 +134,9 @@ check: {fn: primary_compound_rir_window}
 on_fail: {action: veto, code: RIR_FLOOR}
 notes: >
   Scoped to `primary_compound`, not `main_lift`, because the most-performed squat in
-  an export may not be one of the constitution's named lifts. Scoping to main_lift
-  would leave most heavy squatting unregulated. Depends on DQ-SENT-03: if the modal
+  an export may not be one of the constitution's named lifts (a front or high-bar squat,
+  for example). The competition squat is named now (`DEC-PROGRAMME-10`), but the
+  predicate stays on the compound class. Depends on DQ-SENT-03: if the modal
   RIR value is a default bucket it must not be read as an easy set. The only exception
   to `forbid_max_single` is a declared test session (DEC-TEST-01), recorded through
   `strength-coach test` as an e1RM override rather than a training set.

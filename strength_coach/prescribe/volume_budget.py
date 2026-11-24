@@ -39,7 +39,7 @@ MANAGED_KEYS = (
 )
 
 DEFAULT_TARGET = {
-    "squat": 10.0, "hinge": 6.5, "hinge_unilateral": 0.0, "knee_flexion": 6.0,
+    "squat": 8.5, "hinge": 5.5, "hinge_unilateral": 0.0, "knee_flexion": 6.0,
     "horizontal_push": 12.0, "horizontal_pull": 9.0, "vertical_push": 3.0,
     "vertical_pull": 4.5, "core": 6.0, "erector_extension": 3.0, "power_jump": 9.0,
 }

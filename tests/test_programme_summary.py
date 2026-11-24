@@ -26,14 +26,14 @@ def test_the_review_names_the_sumo_and_not_the_replaced_lift():
 
 def test_the_weekly_totals_are_the_documented_cycle():
     totals = summary.weekly_sets()
-    assert totals["squat (SSB main + competition support)"] == 7
+    assert totals["squat (SSB main + competition support)"] == 5.5
     assert totals["bench (main + support)"] == 12
-    assert totals["trap-bar deadlift"] == 5
+    assert totals["trap-bar deadlift"] == 4
     assert totals["sumo deadlift"] == 1.5
     assert totals["vertical pull"] == 4.5
     assert totals["knee-flexion hamstrings"] == 6
-    assert sum(totals.values()) == 69
-    assert summary.render().count("**69 working sets/week**") == 1
+    assert sum(totals.values()) == 66.5
+    assert summary.render().count("**66.5 working sets/week**") == 1
 
 
 def test_the_spinal_costs_match_the_cycle():

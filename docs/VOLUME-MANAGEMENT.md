@@ -96,6 +96,11 @@ review decision `DEC-PROGRAMME-04`, not from a new MRV estimate.
 deadlift at spinal cost 2.5, replacing the single-leg RDL. The paragraph above is the 2026-10-20
 snapshot; current weekly volume is in `docs/STRENGTH-PROGRAM-REVIEW.md`.
 
+**Volume reduction (2026-11-24, `DEC-PROGRAMME-11`):** SSB is 4×3–5, trap-bar hinge is 4×3–5,
+and the bench+squat competition-squat support is 3×3–5. The weekly hard target is 66.5 (was 69)
+and the effective target 77.125 (was 80.25). The hinge target is now below its configured MEV;
+that is the owner's chosen dose, not a landmark change.
+
 ## 3. Implemented behaviour
 
 ### Ledger

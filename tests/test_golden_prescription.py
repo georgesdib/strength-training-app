@@ -24,10 +24,11 @@ SESSION_TYPES = ("squat", "hinge", "bench_squat", "bench_hinge")
 # json.dumps(p.as_rows(), sort_keys=True, separators=(",", ":")). They are not regenerated
 # from the extracted implementation. Regenerated 2026-11-11 for the approved empty-bar warm-up
 # rung (first warm-up = min(20 kg, 50% ramp), 10 reps), a deliberate prescription change.
+# Regenerated 2026-11-24 for the owner's template volume reduction (DEC-PROGRAMME-11).
 GOLDEN_ROWS_SHA256 = {
-    "squat": "f49c0065e4baebbd06bf4747bf6215a3b6174a748b739e628b75e057510255d4",
-    "hinge": "d94f49565d7e5e3a64b01f07d4ac933a3ec7d414ca95acc2e90c03fdc6887f69",
-    "bench_squat": "e48cd98e3e708519e79620d243710c5daa95bf2749c7ebcc09cc8f6ca0d7407a",
+    "squat": "53245da4f2b7bb93e999d970818a10830b42ba0c69c1f4df0c3858060ae20fb2",
+    "hinge": "55bbe8ac9ff6f22acde3daa8b348474c162066a9cc984556bf18307265c32070",
+    "bench_squat": "02631aa0efb727b9c8845e467a582be88a8bc8fa6ce9dc51d0d179c8d3348cca",
     "bench_hinge": "8f015bdf99df4b8a43de823f789d80ccfe006a35260ad864054fdf7e83b5b1ef",
 }
 

@@ -22,7 +22,7 @@ def test_main_lift_shape_keeps_essential_slots_and_trims_optional_slots():
         )
     finally:
         store.close()
-    assert shape.note["status"] == "partial"
+    assert shape.note["status"] == "applied"
     assert "squat_main" in shape.note["retained_slots"]
     assert "bench_support" in shape.note["retained_slots"]
     assert "power" in shape.note["omitted_slots"]

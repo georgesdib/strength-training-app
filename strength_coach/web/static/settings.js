@@ -241,9 +241,9 @@ function renderVolumeSettings(data) {
   const comp = budget.compensation || {};
   const targetRows = Object.keys(targets).map((key) => `
     <tr><td><code>${esc(key)}</code></td>
-      <td><input type="number" step="0.5" min="0" data-volume-target="${esc(key)}"
+      <td><input type="number" step="any" min="0" data-volume-target="${esc(key)}"
         aria-label="${esc(key)} weekly target" value="${esc(targets[key])}"></td>
-      <td><input type="number" step="0.5" min="0" data-volume-effective="${esc(key)}"
+      <td><input type="number" step="any" min="0" data-volume-effective="${esc(key)}"
         aria-label="${esc(key)} effective weekly target" value="${esc(effectiveTargets[key] ?? targets[key])}"></td>
     </tr>`).join("");
   const capRows = Object.keys(caps).map((key) => `
