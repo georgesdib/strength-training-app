@@ -27,6 +27,7 @@ from typing import Any
 
 import pandas as pd
 
+from strength_coach.domain.athlete_state import suitability_values
 from strength_coach.ingest.sessions import Session
 from strength_coach.store import symptom_attribution
 from strength_coach.utils import measurements as measurement_utils
@@ -662,12 +663,15 @@ def append_exercise_suitability(
     *,
     exercise_id: str,
     rated_on: str,
-    can_do: bool,
-    will_do: bool,
-    feels_bad: bool,
+    can_do: bool | None = True,
+    will_do: bool | None = True,
+    feels_bad: bool | None = False,
     note: str | None = None,
     source: str = "user",
 ) -> None:
+    flags = suitability_values({
+        "can_do": can_do, "will_do": will_do, "feels_bad": feels_bad,
+    })
     conn.execute(
         """
         INSERT INTO exercise_suitability (exercise_id, rated_on, can_do, will_do, feels_bad,
@@ -677,9 +681,9 @@ def append_exercise_suitability(
         (
             exercise_id,
             rated_on,
-            1 if can_do else 0,
-            1 if will_do else 0,
-            1 if feels_bad else 0,
+            1 if flags["can_do"] else 0,
+            1 if flags["will_do"] else 0,
+            1 if flags["feels_bad"] else 0,
             note,
             source,
         ),

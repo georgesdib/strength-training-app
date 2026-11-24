@@ -329,7 +329,8 @@ def _definitions() -> tuple[SettingDefinition, ...]:
            minimum=0.0, maximum=1.0),
         _d("resolver.eligibility.auto_requires_can_do", "Resolver", "Require can_do", "bool", True,
            "settings profile (registry defaults)", "prescription_policy",
-           "Only an explicit can_do=1 is auto-selectable."),
+           "A rating with can_do=1 (or absent in an existing rating, which means yes) is "
+           "auto-selectable; an entirely unrated exercise still follows Unrated exercises."),
         _d("resolver.eligibility.unrated_mode", "Resolver", "Unrated exercises", "str",
            "confirm", "settings profile (registry defaults)", "prescription_policy",
            "confirm suggests an unrated exercise and asks for a rating; exclude hides it.",

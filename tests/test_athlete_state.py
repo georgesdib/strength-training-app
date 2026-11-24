@@ -15,6 +15,7 @@ import pytest
 from conftest import make_readiness, make_training
 
 from strength_coach import cli
+from strength_coach.domain.athlete_state import suitability_values
 from strength_coach.prescribe import build_prescription
 from strength_coach.store import db, importer, queries, repositories
 
@@ -105,6 +106,18 @@ def test_latest_profile_wins_and_history_is_kept():
 
         with pytest.raises(sqlite3.IntegrityError, match="append-only"):
             conn.execute("UPDATE athlete_profile SET max_session_minutes = 60")
+
+
+def test_suitability_absent_fields_use_the_documented_defaults():
+    assert suitability_values({}) == {
+        "can_do": True, "will_do": True, "feels_bad": False,
+    }
+    assert suitability_values({"feels_bad": True}) == {
+        "can_do": True, "will_do": True, "feels_bad": True,
+    }
+    assert suitability_values({"can_do": False, "will_do": None}) == {
+        "can_do": False, "will_do": True, "feels_bad": False,
+    }
 
 
 def test_suitability_latest_rating_wins():

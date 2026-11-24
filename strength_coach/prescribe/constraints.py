@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
+from strength_coach.domain.athlete_state import suitability_values
 from strength_coach.store import queries
 from strength_coach.utils import exercises
 
@@ -71,11 +72,12 @@ def evaluate(conn, exercise_ids: list[str], *, as_of: str | None = None) -> Cons
         rating = ratings.get(exercise_id)
         if rating is None:
             continue
-        if not rating["can_do"]:
+        flags = suitability_values(rating)
+        if not flags["can_do"]:
             vetoes.append((exercise_id, "suitability: can_do = 0"))
-        elif not rating["will_do"]:
+        elif not flags["will_do"]:
             warnings.append(f"{exercise_id}: you said you will not do it; a substitution is needed")
-        elif rating["feels_bad"]:
+        elif flags["feels_bad"]:
             warnings.append(f"{exercise_id}: rated as feeling bad; consider a substitute")
 
     return ConstraintReport(status=STATUS_RECORDED, vetoes=tuple(vetoes), warnings=tuple(warnings))

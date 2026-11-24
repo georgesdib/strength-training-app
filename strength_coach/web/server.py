@@ -6441,9 +6441,11 @@ class Handler(BaseHTTPRequestHandler):
             raise FieldError(
                 "rated_on must be YYYY-MM-DD", {"rated_on": "must be YYYY-MM-DD"}
             ) from exc
-        can_do = _truth(body.get("can_do", True))
-        will_do = _truth(body.get("will_do", True))
-        feels_bad = _truth(body.get("feels_bad", False))
+        # Absent or null fields take the athlete-facing defaults: can do yes, will do yes
+        # (won't-do false), feels bad no. Explicit values still use the normal truth parser.
+        can_do = True if body.get("can_do") is None else _truth(body["can_do"])
+        will_do = True if body.get("will_do") is None else _truth(body["will_do"])
+        feels_bad = False if body.get("feels_bad") is None else _truth(body["feels_bad"])
         note = body.get("note") or None
 
         def same_rating(row: dict) -> bool:

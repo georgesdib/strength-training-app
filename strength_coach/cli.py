@@ -32,6 +32,7 @@ from strength_coach.agents import (
 from strength_coach.analytics import core as derived_core
 from strength_coach.critique import UnknownSessionError
 from strength_coach.domain import e1rm as e1rm_mod
+from strength_coach.domain.athlete_state import suitability_values
 from strength_coach.features import breaks as breaks_feature
 from strength_coach.features import (
     continuity_calibration,
@@ -2863,13 +2864,14 @@ def _import_state(conn, path: Path, *, force: bool) -> int:
     rated_on = str(suitability.get("rated_on") or datetime.date.today().isoformat())
     exercises = suitability.get("exercises") or {}
     for exercise_id, rating in exercises.items():
+        flags = suitability_values(rating)
         repositories.append_exercise_suitability(
             conn,
             exercise_id=str(exercise_id),
             rated_on=rated_on,
-            can_do=bool(rating.get("can_do", True)),
-            will_do=bool(rating.get("will_do", True)),
-            feels_bad=bool(rating.get("feels_bad", False)),
+            can_do=flags["can_do"],
+            will_do=flags["will_do"],
+            feels_bad=flags["feels_bad"],
             note=rating.get("note"),
             source=str(rating.get("source", "user")),
         )

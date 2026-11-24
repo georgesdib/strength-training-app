@@ -20,6 +20,7 @@ from typing import Any
 import pandas as pd
 
 from strength_coach import settings_profile
+from strength_coach.domain.athlete_state import suitability_values
 from strength_coach.features import dwell as dwell_feature
 from strength_coach.features import injury_signal, readiness_score, recent_stress, volume
 from strength_coach.prescribe import constraints as constraints_mod
@@ -1056,11 +1057,12 @@ def _candidate_class(
         if settings.require_can_do:
             return SUGGESTION if settings.unrated_mode == "confirm" else EXCLUDED
         return AUTO
-    if not rating["can_do"]:
+    flags = suitability_values(rating)
+    if not flags["can_do"]:
         return EXCLUDED
-    if not rating["will_do"]:
+    if not flags["will_do"]:
         return SUGGESTION if settings.will_do_blocks else EXCLUDED
-    if rating["feels_bad"]:
+    if flags["feels_bad"]:
         return SUGGESTION if settings.feels_bad_blocks else EXCLUDED
     return AUTO
 

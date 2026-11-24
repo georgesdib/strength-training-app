@@ -572,6 +572,21 @@ def test_e1rm_override_withdrawal_appends_a_tombstone(server):
     assert "reason" in json.loads(body)["fields"]
 
 
+def test_suitability_absent_flags_use_can_do_true_will_do_true_feels_bad_false(server):
+    first = post(server, "/api/state/suitability", {
+        "exercise_id": "ssb_squat", "rated_on": "2024-01-01",
+    })
+    rating = first["suitability"]["ssb_squat"]
+    assert (rating["can_do"], rating["will_do"], rating["feels_bad"]) == (1, 1, 0)
+
+    second = post(server, "/api/state/suitability", {
+        "exercise_id": "bench_press", "rated_on": "2024-01-01",
+        "feels_bad": True,
+    })
+    rating = second["suitability"]["bench_press"]
+    assert (rating["can_do"], rating["will_do"], rating["feels_bad"]) == (1, 1, 1)
+
+
 def test_same_day_suitability_repeat_is_idempotent(server, tmp_path):
     payload = {
         "exercise_id": "ssb_squat", "rated_on": "2024-01-01",

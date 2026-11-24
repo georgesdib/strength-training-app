@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from strength_coach.domain import plan_identity
+from strength_coach.domain.athlete_state import suitability_values
 from strength_coach.features import volume as volume_feature
 from strength_coach.prescribe import selection_tax, templates
 from strength_coach.prescribe.models import Prescription
@@ -347,7 +348,8 @@ def _suitability_class(exercise_id: str, suitability: Mapping[str, Mapping[str, 
     rating = suitability.get(exercise_id)
     if rating is None:
         return config.suitability_unrated
-    if int(rating.get("can_do", 1)) and not int(rating.get("feels_bad", 0)) and int(rating.get("will_do", 1)):
+    flags = suitability_values(rating)
+    if flags["can_do"] and not flags["feels_bad"] and flags["will_do"]:
         return config.suitability_positive
     return config.suitability_caution
 

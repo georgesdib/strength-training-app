@@ -452,6 +452,11 @@ Deliberate distinction: `feels_bad` is a preference the prescription may work ar
 `constraint.severity = hard_exclude` is a safety rule that vetoes. Conflating them would let
 a preference masquerade as a medical restriction, or the reverse.
 
+Stored rows always carry all three columns. At the API and state-import boundary, an absent
+field **inside an existing rating** is normalized to `can_do = 1`, `will_do = 1` (won't-do
+false) and `feels_bad = 0`. An absent rating is not a rating and does not receive those
+defaults: it still follows the resolver's unrated mode (`DEC-RESOLVER-34`).
+
 `rated_on` is a `YYYY-MM-DD` day and part of the primary key, so the table keeps at most one
 rating per exercise per day. The web write path makes an identical repeated write a no-op;
 a *different* rating for a day that already has one is refused with a field error and must be

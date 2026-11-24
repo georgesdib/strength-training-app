@@ -6,9 +6,17 @@ import yaml
 from conftest import make_readiness, make_training
 
 from strength_coach.prescribe import selection
+from strength_coach.prescribe.selection import _preference
 from strength_coach.rules import RuleContext
 from strength_coach.store import db, importer, repositories
 from strength_coach.utils import paths
+
+
+def test_suitability_preference_uses_absent_field_defaults():
+    assert _preference("ssb_squat", {}) == 0.5
+    assert _preference("ssb_squat", {"ssb_squat": {}}) == 1.0
+    assert _preference("ssb_squat", {"ssb_squat": {"will_do": False}}) == 0.5
+    assert _preference("ssb_squat", {"ssb_squat": {"feels_bad": True}}) == 0.0
 
 
 def store_with(rows=None):
