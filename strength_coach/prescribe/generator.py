@@ -1019,8 +1019,17 @@ def _pending_rating(
     suitability: Mapping[str, Mapping[str, Any]],
     settings: ResolverSettings,
 ) -> bool:
-    """The one rule for a selected-but-unconfirmed exercise."""
-    return suitability.get(exercise_id) is None and settings.unrated_mode != "exclude"
+    """The one rule for a selected-but-unconfirmed exercise.
+
+    When can_do is not required, an unrated exercise is deliberately startable: the athlete
+    opted into unrated selection, so it is not a pending confirmation. When can_do is required,
+    an unrated suggestion remains pending and blocks the start.
+    """
+    return (
+        suitability.get(exercise_id) is None
+        and settings.require_can_do
+        and settings.unrated_mode != "exclude"
+    )
 
 
 def _state_reason(state: str) -> str:

@@ -327,10 +327,10 @@ def _definitions() -> tuple[SettingDefinition, ...]:
            "Chance that a slot explores its best alternative instead of keeping its last "
            "choice. See docs/DWELL-AND-ROTATION.md.",
            minimum=0.0, maximum=1.0),
-        _d("resolver.eligibility.auto_requires_can_do", "Resolver", "Require can_do", "bool", True,
+        _d("resolver.eligibility.auto_requires_can_do", "Resolver", "Require can_do", "bool", False,
            "settings profile (registry defaults)", "prescription_policy",
-           "A rating with can_do=1 (or absent in an existing rating, which means yes) is "
-           "auto-selectable; an entirely unrated exercise still follows Unrated exercises."),
+           "true requires an explicit can_do=1 (unrated follows Unrated exercises); false "
+           "(default) allows an unrated selection and start."),
         _d("resolver.eligibility.unrated_mode", "Resolver", "Unrated exercises", "str",
            "confirm", "settings profile (registry defaults)", "prescription_policy",
            "confirm suggests an unrated exercise and asks for a rating; exclude hides it.",

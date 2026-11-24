@@ -310,7 +310,8 @@ The generated_session snapshot carries:
 - candidate pools and beam result;
 - evaluator snapshot (including quality);
 - top-set block;
-- pending ratings.
+- pending ratings, which are populated only when `auto_requires_can_do=true`. With the
+  default false, an unrated selection is startable and the list is empty.
 
 The snapshot is response/audit data. It never changes a prescription.
 
