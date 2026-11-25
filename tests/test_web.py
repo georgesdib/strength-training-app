@@ -1953,6 +1953,15 @@ def test_minimum_session_prescription_is_explicit_and_volume_only(server):
     assert "MOD-MIN-001" in " ".join(data["warnings"])
 
 
+def test_prescribe_rejects_an_unsupported_minimum_target(server):
+    status, body = post_status(server, "/api/prescribe", {
+        "date": "2024-01-01", "session_type": "hinge",
+        "minimum_session": True, "target_minutes": 35,
+    })
+    assert status == 400
+    assert "30, 45 or 60" in body
+
+
 def test_prospective_endpoint_is_read_only(server):
     status, body = get(server, "/api/prospective?weeks=4&date=2024-02-01")
     assert status == 200

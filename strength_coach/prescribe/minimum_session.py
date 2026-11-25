@@ -56,6 +56,23 @@ class MinimumSessionConfig:
         )
 
 
+def allowed_targets(config: MinimumSessionConfig | None = None) -> tuple[int, ...]:
+    """The targets the builder accepts, shared by every request boundary.
+
+    The web and iOS handlers validate against this list, so a client cannot ask for a target
+    the builder will reject after the plan request has already been accepted.
+    """
+    return (config or MinimumSessionConfig.load()).targets_minutes
+
+
+def targets_text(config: MinimumSessionConfig | None = None) -> str:
+    """Human-readable allowed targets for validation errors, e.g. "30, 45 or 60"."""
+    values = [str(value) for value in allowed_targets(config)]
+    if len(values) == 1:
+        return values[0]
+    return ", ".join(values[:-1]) + " or " + values[-1]
+
+
 def _field(item: Any, name: str, default: Any = None) -> Any:
     """Read a plan item as a PrescriptionItem or as its persisted dict form."""
     if isinstance(item, Mapping):

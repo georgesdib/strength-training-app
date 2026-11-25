@@ -21,7 +21,7 @@ from conftest import make_readiness, make_training
 
 from strength_coach import ios_config
 from strength_coach.features.deload import DeloadDecision
-from strength_coach.store import db, importer, ios_devices
+from strength_coach.store import db, importer, ios_devices, ios_workflow
 from strength_coach.web import ios_plan_worker
 from strength_coach.web import server as web_server
 from strength_coach.web.server import create_server
@@ -3008,4 +3008,32 @@ def test_a_late_correction_keeps_the_set_identity(ios):
     )
     assert status == 409, refused
     assert refused["code"] == "late_event_rejected"
+
+
+def test_minimum_target_accepts_only_configured_choices():
+    handler = object.__new__(web_server.Handler)
+    for target in (30, 45, 60):
+        settings = handler._ios_request_settings({
+            "settings": {"minimum_session": True, "minimum_target_minutes": target},
+        })
+        assert settings["minimum_target_minutes"] == target
+
+
+def test_minimum_target_rejects_intermediate_minutes():
+    handler = object.__new__(web_server.Handler)
+    with pytest.raises(ios_workflow.IOSWorkflowError) as exc:
+        handler._ios_request_settings({
+            "settings": {"minimum_session": True, "minimum_target_minutes": 35},
+        })
+    assert exc.value.status == 400
+    assert exc.value.code == "validation_failed"
+    assert "30, 45 or 60" in exc.value.message
+
+
+def test_minimum_target_is_ignored_when_the_session_is_not_minimum():
+    handler = object.__new__(web_server.Handler)
+    settings = handler._ios_request_settings({
+        "settings": {"minimum_session": False, "minimum_target_minutes": 35},
+    })
+    assert "minimum_target_minutes" not in settings
 

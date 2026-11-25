@@ -119,6 +119,7 @@ from strength_coach.prescribe import (
     volume_settings,
 )
 from strength_coach.prescribe import deload as deload_mod
+from strength_coach.prescribe import minimum_session as minimum_session_mod
 from strength_coach.prescribe import persistence as prescription_persistence
 from strength_coach.prescribe import schedule as schedule_mod
 from strength_coach.prescribe import selection as selection_mod
@@ -605,6 +606,27 @@ def _truth(value) -> bool:
     if isinstance(value, str):
         return value.lower() in {"1", "true", "yes", "on"}
     return bool(value)
+
+
+def _web_minimum_target(value, *, minimum_session: bool) -> int | None:
+    """Validate the MOD-MIN-001 target from the web form at the request boundary.
+
+    The builder accepts only the configured targets (30/45/60 by default). Reject anything
+    else here with a field error instead of accepting the request and failing later.
+    """
+    if not minimum_session or value in (None, ""):
+        return None
+    allowed = minimum_session_mod.allowed_targets()
+    message = f"must be one of {minimum_session_mod.targets_text()}"
+    if isinstance(value, (bool, float)) or not isinstance(value, (int, str)):
+        raise FieldError("target_minutes " + message, {"target_minutes": message})
+    try:
+        target = int(value)
+    except (TypeError, ValueError) as exc:
+        raise FieldError("target_minutes " + message, {"target_minutes": message}) from exc
+    if target not in allowed:
+        raise FieldError("target_minutes " + message, {"target_minutes": message})
+    return target
 
 
 def _settled(value):
@@ -2364,12 +2386,16 @@ class Handler(BaseHTTPRequestHandler):
             "session_type": session_type, "minimum_session": minimum,
         }
         target = raw.get("minimum_target_minutes")
-        if target not in (None, ""):
-            if isinstance(target, bool) or not isinstance(target, int) or not 1 <= target <= 240:
+        if minimum and target not in (None, ""):
+            allowed = minimum_session_mod.allowed_targets()
+            message = (
+                "must be one of " + minimum_session_mod.targets_text()
+            )
+            if isinstance(target, bool) or not isinstance(target, int) or target not in allowed:
                 raise ios_workflow.IOSWorkflowError(
                     400, "validation_failed",
-                    "minimum_target_minutes must be an integer from 1 to 240",
-                    fields={"minimum_target_minutes": "must be an integer from 1 to 240"},
+                    "minimum_target_minutes " + message,
+                    fields={"minimum_target_minutes": message},
                 )
             settings["minimum_target_minutes"] = int(target)
         throttle = raw.get("technique_throttle")
@@ -5611,8 +5637,9 @@ class Handler(BaseHTTPRequestHandler):
             technique_patterns = raw_patterns.strip() or None
         else:
             technique_patterns = None
-        target = body.get("target_minutes")
-        target_minutes = int(target) if target not in (None, "") else None
+        target_minutes = _web_minimum_target(
+            body.get("target_minutes"), minimum_session=minimum_session,
+        )
         top_set_raw = body.get("top_set_intent")
         if top_set_raw in (None, ""):
             top_set_intent = None
@@ -5739,6 +5766,7 @@ class Handler(BaseHTTPRequestHandler):
         selection_confirmed = _truth(body.get("selection_confirmed")) and apply_selection
         minimum_session = _truth(body.get("minimum_session"))
         minimum_include_main = _truth(body.get("minimum_include_main")) and minimum_session
+        minimum_accessories_only = _truth(body.get("minimum_accessories_only"))
         # MOD-TECH-001 is a user request, so it only runs when explicitly asked for; selected
         # patterns narrow it to those movement patterns, and an empty list means main work.
         technique_throttle = _truth(body.get("technique_throttle"))
@@ -5755,8 +5783,10 @@ class Handler(BaseHTTPRequestHandler):
             technique_patterns = raw_patterns.strip() or None
         else:
             technique_patterns = None
-        target = body.get("target_minutes")
-        target_minutes = int(target) if target not in (None, "") else None
+        target_minutes = _web_minimum_target(
+            body.get("target_minutes"),
+            minimum_session=minimum_session or minimum_accessories_only,
+        )
         top_set_raw = body.get("top_set_intent")
         if top_set_raw in (None, ""):
             top_set_intent = None
@@ -5794,7 +5824,7 @@ class Handler(BaseHTTPRequestHandler):
             minimum_session=minimum_session,
             minimum_target_minutes=target_minutes,
             minimum_include_main=minimum_include_main,
-            minimum_accessories_only=_truth(body.get("minimum_accessories_only")),
+            minimum_accessories_only=minimum_accessories_only,
             deload_decision=deload_decision,
             technique_throttle=technique_throttle,
             technique_throttle_pattern=technique_patterns,
