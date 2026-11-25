@@ -277,3 +277,80 @@ def test_cli_rollback_appends_a_new_version(tmp_path):
         assert len(readiness_registry.history(conn)) == 3
     finally:
         conn.close()
+
+
+def _define(conn, **overrides):
+    values = dict(
+        key="sleep_quality", label="Sleep quality", role="core", weight=1.0,
+        scale_min=1, scale_max=5, required=True,
+    )
+    values.update(overrides)
+    return readiness_registry.define_metric(conn, **values)
+
+
+def test_define_metric_adds_the_definition_and_a_registry_version(conn):
+    today = dt.date.today().isoformat()
+    registry = _define(conn)
+    metric = registry.metric("sleep_quality")
+    assert metric is not None
+    assert metric.role == "core" and metric.scale_max == 5
+    assert metric.weight == 1.0 and metric.counts_as_core is True
+    assert "sleep_quality" in registry.require_any_of
+
+    readiness_feature.record_manual(conn, today, {"sleep_quality": 4})
+    assessment = readiness_score.compute(conn, today)
+    assert any(component.field == "sleep_quality" for component in assessment.components)
+
+
+def test_define_device_metric_uses_its_baseline(conn):
+    registry = _define(
+        conn, key="skin_temp", label="Skin temperature", role="device", weight=0.5,
+        scale_min=None, scale_max=None, baseline_days=28, min_readings=7, slope=0.5,
+        higher_is_better=False, required=False,
+    )
+    metric = registry.metric("skin_temp")
+    assert metric.role == "device"
+    assert metric.baseline_days == 28 and metric.min_readings == 7
+    assert metric.higher_is_better is False
+
+
+def test_define_metric_rejects_duplicates_and_bad_arguments(conn):
+    _define(conn)
+    with pytest.raises(readiness_registry.RegistryError, match="already defined"):
+        _define(conn)
+    with pytest.raises(readiness_registry.RegistryError, match="lowercase"):
+        _define(conn, key="Bad-Key")
+    with pytest.raises(readiness_registry.RegistryError, match="scale"):
+        _define(conn, key="no_scale", scale_min=None, scale_max=None)
+    with pytest.raises(readiness_registry.RegistryError, match="baseline_days"):
+        _define(conn, key="device_no_baseline", role="device", scale_min=None,
+                scale_max=None, baseline_days=None, required=False)
+    with pytest.raises(readiness_registry.RegistryError, match="weight"):
+        _define(conn, key="heavy", weight=3.0)
+    with pytest.raises(readiness_registry.RegistryError, match="required"):
+        _define(conn, key="not_core", counts_as_core=False)
+
+
+def test_a_failed_define_rolls_back_the_definition(conn):
+    before = len(readiness_registry.history(conn))
+    with pytest.raises(readiness_registry.RegistryError):
+        _define(conn, order=1)
+    assert conn.execute(
+        "SELECT 1 FROM metric_definition WHERE metric_key = 'sleep_quality'"
+    ).fetchone() is None
+    assert len(readiness_registry.history(conn)) == before
+
+
+def test_cli_define_metric(tmp_path):
+    path = tmp_path / "coach.db"
+    assert cli.main([
+        "--db", str(path), "readiness", "registry", "define",
+        "--key", "sleep_quality", "--label", "Sleep quality", "--role", "core",
+        "--scale-min", "1", "--scale-max", "5", "--weight", "1", "--required",
+    ]) == 0
+    conn = db.connect(path)
+    try:
+        registry = readiness_registry.load(conn, dt.date.today().isoformat())
+        assert registry.metric("sleep_quality") is not None
+    finally:
+        conn.close()

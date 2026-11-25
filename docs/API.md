@@ -51,6 +51,7 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/readiness/schema?date=` | effective readiness registry: version, metrics with label/scale/direction, min fields, require-any-of and wearable weight; the contract forms render from |
 | `GET /api/readiness/registry/history` | append-only registry versions, newest first |
 | `POST /api/readiness/registry` | `{payload, note?}` -> validate and append a version effective today; never updates history |
+| `POST /api/readiness/registry/metrics` | `{key, label, role, weight, scale_min?, scale_max?, higher_is_better?, unit?, baseline_days?, min_readings?, slope?, counts_as_core?, required?, order?, note?}` -> create a new `metric_definition` and a registry version atomically |
 | `POST /api/readiness/registry/preview` | `{payload, date?}` -> validate a draft and list its changes against the effective version |
 | `GET /api/readiness/history?from=&to=&fields=` | inclusive observed readiness/bodyweight series with per-field sources; requires date bounds, merges manual-over-import per field, no fill |
 | `POST /api/readiness` | `{date, values, note}` -> merged readiness + score |

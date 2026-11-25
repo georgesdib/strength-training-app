@@ -170,10 +170,10 @@ minimum, `require_any_of` outside the enabled core set, or a device metric witho
 rejected with field-level errors. History is read-only; a rollback appends a version that copies
 an older payload.
 
-The CLI (`readiness registry list|show|set|history|preview`) and the web **Readiness inputs**
-panel perform the same operations; the panel previews the diff before saving. `metric_definition`
-supplies each metric's label, scale and direction; the registry stores only the operational
-fields.
+The CLI (`readiness registry list|show|set|history|preview|rollback|define`) and the web
+**Readiness inputs** panel perform the same operations; the panel previews the diff before
+saving. `metric_definition` supplies each metric's label, scale and direction; the registry
+stores only the operational fields. `define` is the only operation that creates a catalogue key.
 
 The **shadow report** compares the shipped rolling median with a trend-projected baseline
 (log-linear fit over the same prior readings), reporting the normalised difference. It is
@@ -546,10 +546,12 @@ Post-implementation audit remediation (2026-11-25):
   and the Phase 5A inventory; the registry is the only source. The Phase 5A locked revision was
   re-captured for that deliberate change.
 
+A new metric key is created through `readiness registry define` or **Settings → Readiness inputs →
+Add a new input**, which write the `metric_definition` row and the registry version in one
+transaction.
+
 Remaining limitations: core normalisation still uses `value / scale_max` (the min-max formula was
-not adopted; a 2-6 scale maps 2 to 0.33 rather than 0), core values remain whole numbers, and a
-brand-new metric key still needs its `metric_definition` row plus a registry version because no
-editor surface creates keys.
+not adopted; a 2-6 scale maps 2 to 0.33 rather than 0), and core values remain whole numbers.
 
 Amended 2026-10-26 (`DEC-READINESS-17`):
 

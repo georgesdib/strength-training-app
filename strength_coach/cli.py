@@ -332,10 +332,34 @@ def main(argv: list[str] | None = None) -> int:
     readiness = sub.add_parser("readiness", help="record a readiness day")
     readiness.add_argument("action", choices=("set", "override", "calibrate", "shadow", "preset", "context", "feedback", "registry"))
     readiness.add_argument("registry_action", nargs="?",
-                           choices=("list", "show", "set", "history", "preview", "rollback"),
+                           choices=("list", "show", "set", "history", "preview", "rollback", "define"),
                            default=None, help="registry action (after 'readiness registry')")
     readiness.add_argument("--version", dest="registry_version", type=int, default=None,
                            help="registry version for rollback")
+    readiness.add_argument("--key", default=None, help="new metric key (define)")
+    readiness.add_argument("--label", default=None, help="new metric label (define)")
+    readiness.add_argument("--role", choices=("core", "device"), default=None,
+                           help="new metric role (define)")
+    readiness.add_argument("--scale-min", type=float, default=None,
+                           help="declared scale minimum (define)")
+    readiness.add_argument("--scale-max", type=float, default=None,
+                           help="declared scale maximum (define)")
+    readiness.add_argument("--lower-is-better", action="store_true",
+                           help="invert direction (define; default higher is better)")
+    readiness.add_argument("--unit", default=None, help="unit (define)")
+    readiness.add_argument("--weight", type=float, default=None, help="relative weight (define)")
+    readiness.add_argument("--baseline-days", type=int, default=None,
+                           help="device baseline window (define)")
+    readiness.add_argument("--min-readings", type=int, default=None,
+                           help="device minimum readings (define)")
+    readiness.add_argument("--slope", type=float, default=None,
+                           help="device ratio half-width (define)")
+    readiness.add_argument("--counts-as-core", action=argparse.BooleanOptionalAction,
+                           default=None, help="count toward the core minimum (define)")
+    readiness.add_argument("--required", action="store_true",
+                           help="add to require_any_of (define)")
+    readiness.add_argument("--order", type=int, default=None,
+                           help="display order (define; default last)")
     readiness.add_argument("--file", default=None,
                            help="registry payload JSON file (registry set/preview)")
     readiness.add_argument("--payload", default=None,
@@ -1129,6 +1153,45 @@ def _cmd_readiness_registry(conn, args) -> int:
                 f"min_core={item['min_core_fields']}  digest={item['digest']}"
                 f"  {item['note'] or ''}"
             )
+        return 0
+
+    if action == "define":
+        missing = [
+            name for name in ("key", "label", "role", "weight")
+            if getattr(args, name) in (None, "")
+        ]
+        if missing:
+            print("readiness registry: --" + ", --".join(missing) + " required for define")
+            return 2
+        try:
+            registry = readiness_registry_feature.define_metric(
+                conn,
+                key=args.key,
+                label=args.label,
+                role=args.role,
+                weight=args.weight,
+                scale_min=args.scale_min,
+                scale_max=args.scale_max,
+                higher_is_better=not args.lower_is_better,
+                unit=args.unit,
+                baseline_days=args.baseline_days,
+                min_readings=args.min_readings,
+                slope=args.slope,
+                counts_as_core=args.counts_as_core,
+                required=args.required,
+                order=args.order,
+                note=args.note,
+            )
+        except readiness_registry_feature.RegistryError as exc:
+            _print_registry_error(exc)
+            return 2
+        if args.json:
+            print(json.dumps(registry.as_dict(), default=str))
+            return 0
+        print(
+            f"readiness registry version {registry.registry_id} effective "
+            f"{registry.effective_from} (added metric {args.key})"
+        )
         return 0
 
     if action == "rollback":

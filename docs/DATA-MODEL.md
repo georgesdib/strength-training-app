@@ -519,7 +519,7 @@ refused rather than reinterpreted.
 **It is not the live readiness-score driver.** The score reads the `readiness_registry`
 (documented above); `metric_definition` supplies only the metric's label, scale and direction.
 The table has no weight/role, baseline or slope columns. Adding a metric still needs its
-definition row plus a registry version (there is no editor surface for a brand-new key yet).
+definition row plus a registry version; `readiness registry define` and **Settings → Readiness inputs → Add a new input** create both atomically.
 
 A future dynamic composite would need at least:
 

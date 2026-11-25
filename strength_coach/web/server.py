@@ -4223,6 +4223,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._set_readiness_preset(c, body)))
             elif path == "/api/readiness/context":
                 self._json(200, self._with_conn(lambda c: self._set_readiness_context(c, body)))
+            elif path == "/api/readiness/registry/metrics":
+                self._json(200, self._with_conn(
+                    lambda c: self._create_readiness_metric(c, body)
+                ))
             elif path == "/api/readiness/registry":
                 self._json(200, self._with_conn(
                     lambda c: self._save_readiness_registry(c, body)
@@ -6011,6 +6015,55 @@ class Handler(BaseHTTPRequestHandler):
         except readiness_registry.RegistryError as exc:
             raise FieldError(str(exc), exc.fields) from exc
         return registry.as_dict()
+
+    def _create_readiness_metric(self, conn, body: dict) -> dict:
+        key = str(body.get("key") or "").strip()
+        label = str(body.get("label") or "").strip()
+        role = str(body.get("role") or "").strip()
+        missing = {
+            name: "required"
+            for name, value in (("key", key), ("label", label), ("role", role))
+            if not value
+        }
+        if missing:
+            raise FieldError("key, label and role are required", missing)
+        weight = body.get("weight")
+        if weight is None:
+            raise FieldError("weight is required", {"weight": "required"})
+        higher = body.get("higher_is_better", True)
+        if not isinstance(higher, bool):
+            raise FieldError("higher_is_better must be a boolean",
+                             {"higher_is_better": "must be a boolean"})
+        counts = body.get("counts_as_core")
+        if counts is not None and not isinstance(counts, bool):
+            raise FieldError("counts_as_core must be a boolean",
+                             {"counts_as_core": "must be a boolean"})
+        try:
+            registry = readiness_registry.define_metric(
+                conn,
+                key=key,
+                label=label,
+                role=role,
+                weight=weight,
+                scale_min=body.get("scale_min"),
+                scale_max=body.get("scale_max"),
+                higher_is_better=higher,
+                unit=body.get("unit") or None,
+                baseline_days=body.get("baseline_days"),
+                min_readings=body.get("min_readings"),
+                slope=body.get("slope"),
+                counts_as_core=counts,
+                required=_truth(body.get("required")),
+                order=body.get("order"),
+                note=body.get("note") or None,
+            )
+        except readiness_registry.RegistryError as exc:
+            raise FieldError(str(exc), exc.fields) from exc
+        metric = registry.metric(key)
+        return {
+            "registry": registry.as_dict(),
+            "metric": metric.as_dict() if metric is not None else None,
+        }
 
     def _preview_readiness_registry(self, conn, body: dict) -> dict:
         payload = body.get("payload")

@@ -117,7 +117,7 @@ clickable authority.
 | Log readiness | Per-date readiness; any subset valid; manual wins per field | [READINESS.md](READINESS.md) |
 | Readiness score override | Beside the daily score; global or per pattern; applies to that date only | [READINESS-SCORE.md](READINESS-SCORE.md) |
 | Quick readiness | Presets fill ordinary fields; no shortcut around the gate | [READINESS.md](READINESS.md) |
-| Readiness inputs | Versioned registry editor: enabled metrics, weights, baselines, minimum fields and wearable blend, with preview and history | [READINESS-SCORE.md](READINESS-SCORE.md) |
+| Readiness inputs | Versioned registry editor: enabled metrics, weights, baselines, minimum fields and wearable blend, with preview, history and **Add a new input** (definition + version) | [READINESS-SCORE.md](READINESS-SCORE.md) |
 | Volume valve | Poor-readiness set reduction; main lifts opt-in | [READINESS.md](READINESS.md) |
 | Calibration report | Readiness weight/baseline report; descriptive | [READINESS-WEIGHT-EVIDENCE.md](READINESS-WEIGHT-EVIDENCE.md) |
 | Cardio | Separate aerobic exposure; chart includes only weeks with logged sessions and labels reference bands as context | [LONGEVITY-REVIEW.md](LONGEVITY-REVIEW.md), [WEB-UI.md](WEB-UI.md) |

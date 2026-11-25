@@ -149,7 +149,7 @@ sleep/energy floor still applies when a score cannot be formed.
 Two surfaces, split by what they change.
 
 **Score inputs — the readiness registry.** `Settings → Readiness inputs` or
-`readiness registry list|show|set|history|preview|rollback` edits enabled metrics, relative
+`readiness registry list|show|set|history|preview|rollback|define` edits enabled metrics, relative
 weights, baselines, the minimum-field rule and the wearable blend. A save appends a version
 effective today; history is append-only and never rewritten. The seeded version 1 reproduces the
 pre-registry score, and historical dates keep the version that was effective for them. If two

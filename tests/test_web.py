@@ -922,6 +922,27 @@ def test_readiness_registry_endpoints_replace_the_old_settings_surface(server):
     status, _ = post_status(server, "/api/readiness/settings", {"date": "2024-01-01"})
     assert status == 404
 
+
+def test_readiness_registry_can_define_a_new_metric(server):
+    today = date.today().isoformat()
+    created = post(server, "/api/readiness/registry/metrics", {
+        "key": "sleep_quality", "label": "Sleep quality", "role": "core",
+        "scale_min": 1, "scale_max": 5, "weight": 1.0, "required": True,
+        "note": "test input",
+    })
+    assert created["metric"]["key"] == "sleep_quality"
+    assert created["registry"]["registry_id"] == 2
+
+    status, body = get(server, f"/api/readiness/schema?date={today}")
+    schema = json.loads(body)
+    assert "sleep_quality" in {metric["key"] for metric in schema["metrics"]}
+    assert "sleep_quality" in schema["require_any_of"]
+
+    saved = post(server, "/api/readiness", {
+        "date": today, "values": {"sleep_quality": 4},
+    })
+    assert saved["registry_version"] == 2
+
     status, body = get(server, "/api/readiness/shadow")
     assert status == 200
     assert "SHADOW BASELINE" in json.loads(body)["text"]

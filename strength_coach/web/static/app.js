@@ -2132,6 +2132,44 @@ $("#readiness-registry-form")?.addEventListener("submit", async (event) => {
   }
 });
 
+$("#registry-add-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const msg = $("#registry-add-msg");
+  const label = $("#new-metric-label").value.trim();
+  let key = $("#new-metric-key").value.trim();
+  if (!key) {
+    key = label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  }
+  const optional = (id) => ($(id).value === "" ? null : Number($(id).value));
+  const role = $("#new-metric-role").value;
+  const payload = {
+    key, label, role,
+    scale_min: optional("#new-metric-scale-min"),
+    scale_max: optional("#new-metric-scale-max"),
+    higher_is_better: $("#new-metric-direction").value === "1",
+    unit: $("#new-metric-unit").value.trim() || null,
+    weight: optional("#new-metric-weight"),
+    baseline_days: role === "device" ? optional("#new-metric-baseline-days") : null,
+    min_readings: role === "device" ? optional("#new-metric-min-readings") : null,
+    slope: role === "device" ? optional("#new-metric-slope") : null,
+    counts_as_core: role === "core" ? $("#new-metric-core").checked : false,
+    required: $("#new-metric-required").checked,
+    order: optional("#new-metric-order"),
+    note: $("#new-metric-note").value.trim() || null,
+  };
+  msg.textContent = "Adding…";
+  try {
+    const data = await api("/api/readiness/registry/metrics", {
+      method: "POST", body: JSON.stringify(payload),
+    });
+    msg.textContent = `added ${payload.key} in version ${data.registry.registry_id}`;
+    notify("Readiness input added.");
+    await loadReadiness($("#readiness-date").value);
+  } catch (error) {
+    msg.textContent = error.message;
+  }
+});
+
 $("#shadow-run").addEventListener("click", async () => {
   $("#shadow-result").innerHTML = "<p class='empty'>Comparing…</p>";
   try {

@@ -30,11 +30,12 @@ import datetime as dt
 import hashlib
 import json
 import math
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from typing import Any
 
-from strength_coach.store import queries, repositories
+from strength_coach.store import db, queries, repositories
 
 SCHEMA_VERSION = 1
 ROLES = ("core", "device")
@@ -445,6 +446,160 @@ def save(
         note=note,
     )
     return replace(registry, registry_id=registry_id, effective_from=day)
+
+
+KEY_PATTERN = re.compile(r"^[a-z][a-z0-9_]{1,40}$")
+
+
+def define_metric(
+    conn,
+    *,
+    key: str,
+    label: str,
+    role: str,
+    weight: float,
+    scale_min: float | None = None,
+    scale_max: float | None = None,
+    higher_is_better: bool = True,
+    unit: str | None = None,
+    baseline_days: int | None = None,
+    min_readings: int | None = None,
+    slope: float | None = None,
+    counts_as_core: bool | None = None,
+    required: bool = False,
+    order: int | None = None,
+    note: str | None = None,
+) -> Registry:
+    """Create a brand-new readiness metric and enable it in one registry version.
+
+    The catalogue row and the registry version are written in one transaction: the definition
+    is append-only, so a rejected payload must not leave an orphan key behind.
+    """
+    key = str(key or "").strip()
+    label = str(label or "").strip()
+    if not KEY_PATTERN.match(key):
+        raise RegistryError(
+            "key must be lowercase letters, digits or underscores, starting with a letter",
+            {"key": "invalid key"},
+        )
+    if not label:
+        raise RegistryError("label is required", {"label": "required"})
+    if role not in ROLES:
+        raise RegistryError(
+            f"role must be one of {ROLES}", {"role": "must be core or device"}
+        )
+    weight_value = _number(weight, "weight")
+    limit = CORE_WEIGHT_MAX if role == "core" else DEVICE_WEIGHT_MAX
+    if not WEIGHT_MIN <= weight_value <= limit:
+        raise RegistryError(
+            f"weight must be between {WEIGHT_MIN} and {limit}", {"weight": "out of bounds"}
+        )
+    if not isinstance(higher_is_better, bool):
+        raise RegistryError("higher_is_better must be a boolean")
+    if unit is not None and not isinstance(unit, str):
+        raise RegistryError("unit must be a string")
+    if counts_as_core is None:
+        counts_as_core = role == "core"
+    if not isinstance(counts_as_core, bool) or (role == "device" and counts_as_core):
+        raise RegistryError(
+            "counts_as_core applies to core metrics only",
+            {"counts_as_core": "device metric cannot count as core"},
+        )
+    if required and not counts_as_core:
+        raise RegistryError(
+            "a required metric must count as a core metric",
+            {"required": "requires counts_as_core"},
+        )
+
+    if role == "core":
+        if scale_min is None or scale_max is None:
+            raise RegistryError(
+                "a core metric needs scale_min and scale_max",
+                {"scale_min": "required", "scale_max": "required"},
+            )
+        low = _number(scale_min, "scale_min")
+        high = _number(scale_max, "scale_max")
+        if high <= low:
+            raise RegistryError("scale_max must be greater than scale_min",
+                                {"scale_max": "must exceed scale_min"})
+        baseline_days = 0
+        min_readings = None
+        slope = None
+        aggregation = "last"
+    else:
+        if scale_min is not None or scale_max is not None:
+            low = _number(scale_min, "scale_min")
+            high = _number(scale_max, "scale_max")
+            if high <= low:
+                raise RegistryError("scale_max must be greater than scale_min",
+                                    {"scale_max": "must exceed scale_min"})
+        if baseline_days is None or int(baseline_days) < 1:
+            raise RegistryError(
+                "a device metric needs baseline_days >= 1",
+                {"baseline_days": "required for device metrics"},
+            )
+        baseline_days = int(baseline_days)
+        if min_readings is None or int(min_readings) < 1:
+            raise RegistryError(
+                "a device metric needs min_readings >= 1",
+                {"min_readings": "required for device metrics"},
+            )
+        min_readings = int(min_readings)
+        slope_value = _number(slope if slope is not None else 0.5, "slope")
+        if slope_value <= 0:
+            raise RegistryError("slope must be positive", {"slope": "must be positive"})
+        slope = slope_value
+        aggregation = "mean"
+
+    today = _today()
+    with db.transaction(conn):
+        current = load(conn, today)
+        if current is None:
+            raise RegistryError("no effective readiness registry exists")
+        if conn.execute(
+            "SELECT 1 FROM metric_definition WHERE metric_key = ?", (key,)
+        ).fetchone() is not None:
+            raise RegistryError(
+                f"metric key {key!r} is already defined", {"key": "already defined"}
+            )
+        if order is None:
+            order = max((metric.order for metric in current.metrics), default=0) + 1
+        order = _integer(order, "order", minimum=1)
+
+        repositories.append_metric_definition(
+            conn,
+            metric_key=key,
+            label=label,
+            higher_is_better=higher_is_better,
+            aggregation=aggregation,
+            scale_min=scale_min,
+            scale_max=scale_max,
+            unit=unit,
+            source="readiness",
+        )
+        payload = current.to_payload()
+        entry = {
+            "key": key,
+            "role": role,
+            "enabled": True,
+            "weight": weight_value,
+            "baseline_days": baseline_days,
+            "counts_as_core": counts_as_core,
+            "order": order,
+        }
+        if role == "device":
+            entry["min_readings"] = min_readings
+            entry["slope"] = slope
+        payload["metrics"].append(entry)
+        if required:
+            required_keys = list(payload.get("require_any_of") or [])
+            if key not in required_keys:
+                required_keys.append(key)
+            payload["require_any_of"] = required_keys
+        return save(
+            conn, payload, effective_from=today,
+            note=note or f"add metric {key}",
+        )
 
 
 def diff(current: Registry | None, candidate: Registry) -> list[str]:
