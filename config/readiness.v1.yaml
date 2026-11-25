@@ -42,18 +42,3 @@ set_reduction:
   score_below: 0.50
   sets: 1
   include_essential: false
-
-score:
-  # HRV/RHR need a personal baseline before they can enter the score. The baseline is the
-  # median of the previous window, and a device field is skipped rather than guessed when the
-  # window has too few readings.
-  baseline_days: 28
-  baseline_min_readings: 7
-  # The subjective core is the primary signal (weight 1.0 per available field). Device fields
-  # carry half that weight; the proprietary wearable composite is only a 10% blend.
-  # Slope is the ratio half-width: 0.5 means a 50% deviation reaches 0 or 1.
-  hrv_slope: 0.5
-  rhr_slope: 0.5
-  hrv_weight: 0.5
-  rhr_weight: 0.5
-  wearable_weight: 0.10

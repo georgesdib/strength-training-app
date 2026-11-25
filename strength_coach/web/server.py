@@ -71,6 +71,7 @@ from strength_coach.features import (
     readiness_baseline,
     readiness_calibration,
     readiness_feedback,
+    readiness_registry,
     readiness_score,
     rep_velocity,
     retrospective_validation,
@@ -1148,6 +1149,16 @@ class Handler(BaseHTTPRequestHandler):
                             include_patterns=include_patterns,
                         )
                     )
+                elif path == "/api/ios/v1/readiness/schema":
+                    query = parse_qs(urlparse(self.path).query)
+                    day = (query.get("date") or [None])[0] or _ios_clock()["server_date"]
+                    try:
+                        day = readiness_score.parse_date(day)
+                    except ValueError as exc:
+                        raise FieldError(str(exc), {"date": str(exc)}) from exc
+                    payload = self._with_conn(
+                        lambda c: self._readiness_schema(c, day)
+                    )
                 elif path == "/api/ios/v1/today":
                     self._ios_idle_sweep(conn)
                     clock = _ios_clock()
@@ -1716,9 +1727,11 @@ class Handler(BaseHTTPRequestHandler):
                 400, "validation_failed", "values must include at least one field",
                 fields={"values": "required"},
             )
+        today = datetime.date.today().isoformat()
+        specs = queries.readiness_input_specs(conn, today)
         for field, value in clean.items():
             try:
-                readiness_utils.validate(field, value)
+                readiness_utils.validate_input(field, value, specs.get(field))
             except ValueError as exc:
                 raise ios_workflow.IOSWorkflowError(
                     400, "validation_failed", str(exc),
@@ -1730,7 +1743,6 @@ class Handler(BaseHTTPRequestHandler):
                 400, "validation_failed", "note must be a string",
                 fields={"note": "must be a string"},
             )
-        today = datetime.date.today().isoformat()
         readiness_feature.record_manual(
             conn, today, clean, note=note or None
         )
@@ -4020,6 +4032,20 @@ class Handler(BaseHTTPRequestHandler):
                     "path": str(source.relative_to(ROOT)),
                     "presets": readiness_feature.presets(),
                 })
+            elif path == "/api/readiness/schema":
+                query = parse_qs(urlparse(self.path).query)
+                day = (query.get("date") or [None])[0] or datetime.date.today().isoformat()
+                try:
+                    day = readiness_score.parse_date(day)
+                except ValueError as exc:
+                    raise FieldError(str(exc), {"date": str(exc)}) from exc
+                self._json(200, self._with_conn(
+                    lambda c: self._readiness_schema(c, day)
+                ))
+            elif path == "/api/readiness/registry/history":
+                self._json(200, self._with_conn(
+                    lambda c: {"versions": readiness_registry.history(c)}
+                ))
             elif path == "/api/readiness/history":
                 query = parse_qs(urlparse(self.path).query)
                 self._json(200, self._with_conn(
@@ -4197,8 +4223,18 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._set_readiness_preset(c, body)))
             elif path == "/api/readiness/context":
                 self._json(200, self._with_conn(lambda c: self._set_readiness_context(c, body)))
-            elif path == "/api/readiness/settings":
-                self._json(200, self._with_conn(lambda c: self._set_readiness_settings(c, body)))
+            elif path == "/api/readiness/registry/metrics":
+                self._json(200, self._with_conn(
+                    lambda c: self._create_readiness_metric(c, body)
+                ))
+            elif path == "/api/readiness/registry":
+                self._json(200, self._with_conn(
+                    lambda c: self._save_readiness_registry(c, body)
+                ))
+            elif path == "/api/readiness/registry/preview":
+                self._json(200, self._with_conn(
+                    lambda c: self._preview_readiness_registry(c, body)
+                ))
             elif path == "/api/readiness/volume":
                 self._json(200, self._with_conn(lambda c: self._set_readiness_volume(c, body)))
             elif path == "/api/programme/key":
@@ -5909,12 +5945,11 @@ class Handler(BaseHTTPRequestHandler):
         data = dict(queries.readiness_day(conn, day) or {"on_date": day, "known": False})
         # Legacy column kept for historical rows; grip is a measurement now (DEC-GRIP-01).
         data.pop("grip_strength_kg", None)
+        registry = readiness_registry.load(conn, day)
+        data["registry_version"] = None if registry is None else registry.registry_id
         data["score"] = readiness_score.compute(conn, day).as_dict()
         data["context_flags"] = queries.readiness_context(conn, day)
         data["presets"] = readiness_feature.presets()
-        data["settings"] = readiness_feature.as_dict(
-            readiness_score.effective_settings(conn, day)
-        )
         cfg = settings_profile.feature_settings(conn, day).readiness
         data["volume_valve"] = {
             "enabled": cfg.set_reduction_enabled,
@@ -5923,6 +5958,12 @@ class Handler(BaseHTTPRequestHandler):
             "include_essential": cfg.set_reduction_include_essential,
         }
         return data
+
+    def _readiness_schema(self, conn, day: str) -> dict:
+        registry = readiness_registry.load(conn, day)
+        if registry is None:
+            raise ValueError(f"no readiness registry effective on {day}")
+        return registry.as_dict()
 
     def _set_readiness(self, conn, body: dict) -> dict:
         day = str(body.get("date") or datetime.date.today().isoformat())
@@ -5934,9 +5975,10 @@ class Handler(BaseHTTPRequestHandler):
         if not isinstance(values, dict):
             raise FieldError("values must be an object", {"values": "must be an object"})
         clean = {key: value for key, value in values.items() if value not in (None, "")}
+        specs = queries.readiness_input_specs(conn, day)
         for field, value in clean.items():
             try:
-                readiness_utils.validate(field, value)
+                readiness_utils.validate_input(field, value, specs.get(field))
             except ValueError as exc:
                 raise FieldError(str(exc), {str(field): str(exc)}) from exc
         readiness_feature.record_manual(conn, day, clean, note=body.get("note") or None)
@@ -5962,19 +6004,80 @@ class Handler(BaseHTTPRequestHandler):
         )
         return self._readiness(conn, day)
 
-    def _set_readiness_settings(self, conn, body: dict) -> dict:
-        day = str(body.get("date") or datetime.date.today().isoformat())
-        current = readiness_score.effective_settings(conn, day)
-        fields = ("baseline_days", "baseline_min_readings", "hrv_slope", "rhr_slope",
-                  "hrv_weight", "rhr_weight", "wearable_weight")
-        values = {
-            name: body[name] if body.get(name) not in (None, "") else getattr(current, name)
-            for name in fields
+    def _save_readiness_registry(self, conn, body: dict) -> dict:
+        payload = body.get("payload")
+        if not isinstance(payload, dict):
+            raise FieldError("payload must be an object", {"payload": "must be an object"})
+        try:
+            registry = readiness_registry.save(
+                conn, payload, note=body.get("note") or None,
+            )
+        except readiness_registry.RegistryError as exc:
+            raise FieldError(str(exc), exc.fields) from exc
+        return registry.as_dict()
+
+    def _create_readiness_metric(self, conn, body: dict) -> dict:
+        key = str(body.get("key") or "").strip()
+        label = str(body.get("label") or "").strip()
+        role = str(body.get("role") or "").strip()
+        missing = {
+            name: "required"
+            for name, value in (("key", key), ("label", label), ("role", role))
+            if not value
         }
-        repositories.append_readiness_setting(
-            conn, effective_from=day, note=body.get("note") or None, **values,
-        )
-        return self._readiness(conn, day)
+        if missing:
+            raise FieldError("key, label and role are required", missing)
+        weight = body.get("weight")
+        if weight is None:
+            raise FieldError("weight is required", {"weight": "required"})
+        higher = body.get("higher_is_better", True)
+        if not isinstance(higher, bool):
+            raise FieldError("higher_is_better must be a boolean",
+                             {"higher_is_better": "must be a boolean"})
+        counts = body.get("counts_as_core")
+        if counts is not None and not isinstance(counts, bool):
+            raise FieldError("counts_as_core must be a boolean",
+                             {"counts_as_core": "must be a boolean"})
+        try:
+            registry = readiness_registry.define_metric(
+                conn,
+                key=key,
+                label=label,
+                role=role,
+                weight=weight,
+                scale_min=body.get("scale_min"),
+                scale_max=body.get("scale_max"),
+                higher_is_better=higher,
+                unit=body.get("unit") or None,
+                baseline_days=body.get("baseline_days"),
+                min_readings=body.get("min_readings"),
+                slope=body.get("slope"),
+                counts_as_core=counts,
+                required=_truth(body.get("required")),
+                order=body.get("order"),
+                note=body.get("note") or None,
+            )
+        except readiness_registry.RegistryError as exc:
+            raise FieldError(str(exc), exc.fields) from exc
+        metric = registry.metric(key)
+        return {
+            "registry": registry.as_dict(),
+            "metric": metric.as_dict() if metric is not None else None,
+        }
+
+    def _preview_readiness_registry(self, conn, body: dict) -> dict:
+        payload = body.get("payload")
+        if not isinstance(payload, dict):
+            raise FieldError("payload must be an object", {"payload": "must be an object"})
+        day = str(body.get("date") or datetime.date.today().isoformat())
+        try:
+            day = readiness_score.parse_date(day)
+        except ValueError as exc:
+            raise FieldError(str(exc), {"date": str(exc)}) from exc
+        try:
+            return readiness_registry.preview(conn, payload, on_date=day)
+        except readiness_registry.RegistryError as exc:
+            raise FieldError(str(exc), exc.fields) from exc
 
     def _set_readiness_volume(self, conn, body: dict) -> dict:
         day = str(body.get("date") or datetime.date.today().isoformat())
@@ -6271,7 +6374,8 @@ class Handler(BaseHTTPRequestHandler):
             raise FieldError("from must not be after to", {"from": "must not be after to"})
         raw_fields = query.get("fields", ["bodyweight_kg"])[0]
         fields = tuple(field.strip() for field in str(raw_fields).split(",") if field.strip())
-        unknown = [field for field in fields if field not in readiness_utils.READINESS_FIELDS]
+        allowed = queries.readiness_field_names(conn, end_day.isoformat())
+        unknown = [field for field in fields if field not in allowed]
         if unknown:
             raise FieldError(
                 "unknown readiness field(s): " + ", ".join(unknown),

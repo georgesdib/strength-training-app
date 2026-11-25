@@ -1,0 +1,1796 @@
+[
+  {
+    "assessment": {
+      "basis": "weighted subjective core (1.0 each)",
+      "category_factors": {
+        "core_carry": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "dorsiflexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "elbow_flexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "hinge": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "horizontal_pull": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "horizontal_push": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "knee_extension": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "knee_flexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "spinal_extension": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "squat": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "vertical_pull": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "vertical_push": {
+          "factor": 0.95,
+          "rir_bump": 1
+        }
+      },
+      "category_scores": {
+        "core_carry": 0.72,
+        "dorsiflexion": 0.72,
+        "elbow_flexion": 0.72,
+        "hinge": 0.72,
+        "horizontal_pull": 0.72,
+        "horizontal_push": 0.72,
+        "knee_extension": 0.72,
+        "knee_flexion": 0.72,
+        "spinal_extension": 0.72,
+        "squat": 0.72,
+        "vertical_pull": 0.72,
+        "vertical_push": 0.72
+      },
+      "components": [
+        {
+          "field": "sleep",
+          "normalised": 0.8,
+          "value": 4.0,
+          "weight": 1.0
+        },
+        {
+          "field": "energy",
+          "normalised": 0.6,
+          "value": 3.0,
+          "weight": 1.0
+        },
+        {
+          "field": "mood",
+          "normalised": 1.0,
+          "value": 5.0,
+          "weight": 1.0
+        },
+        {
+          "field": "stress",
+          "normalised": 0.4,
+          "value": 2.0,
+          "weight": 1.0
+        },
+        {
+          "field": "soreness",
+          "normalised": 0.8,
+          "value": 4.0,
+          "weight": 1.0
+        }
+      ],
+      "context_flags": [],
+      "device_suppressed": false,
+      "on_date": "2026-01-10",
+      "overrides": {},
+      "score": 0.72,
+      "status": "ready"
+    },
+    "name": "core_all"
+  },
+  {
+    "assessment": {
+      "basis": "weighted subjective core (1.0 each)",
+      "category_factors": {
+        "core_carry": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "dorsiflexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "elbow_flexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "hinge": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "horizontal_pull": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "horizontal_push": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "knee_extension": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "knee_flexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "spinal_extension": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "squat": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "vertical_pull": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "vertical_push": {
+          "factor": 0.95,
+          "rir_bump": 1
+        }
+      },
+      "category_scores": {
+        "core_carry": 0.7,
+        "dorsiflexion": 0.7,
+        "elbow_flexion": 0.7,
+        "hinge": 0.7,
+        "horizontal_pull": 0.7,
+        "horizontal_push": 0.7,
+        "knee_extension": 0.7,
+        "knee_flexion": 0.7,
+        "spinal_extension": 0.7,
+        "squat": 0.7,
+        "vertical_pull": 0.7,
+        "vertical_push": 0.7
+      },
+      "components": [
+        {
+          "field": "energy",
+          "normalised": 0.6,
+          "value": 3.0,
+          "weight": 1.0
+        },
+        {
+          "field": "mood",
+          "normalised": 1.0,
+          "value": 5.0,
+          "weight": 1.0
+        },
+        {
+          "field": "stress",
+          "normalised": 0.4,
+          "value": 2.0,
+          "weight": 1.0
+        },
+        {
+          "field": "soreness",
+          "normalised": 0.8,
+          "value": 4.0,
+          "weight": 1.0
+        }
+      ],
+      "context_flags": [],
+      "device_suppressed": false,
+      "on_date": "2026-01-10",
+      "overrides": {},
+      "score": 0.7,
+      "status": "ready"
+    },
+    "name": "core_missing_sleep"
+  },
+  {
+    "assessment": {
+      "basis": "weighted subjective core (1.0 each)",
+      "category_factors": {
+        "core_carry": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "dorsiflexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "elbow_flexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "hinge": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "horizontal_pull": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "horizontal_push": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "knee_extension": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "knee_flexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "spinal_extension": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "squat": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "vertical_pull": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "vertical_push": {
+          "factor": 0.95,
+          "rir_bump": 1
+        }
+      },
+      "category_scores": {
+        "core_carry": 0.75,
+        "dorsiflexion": 0.75,
+        "elbow_flexion": 0.75,
+        "hinge": 0.75,
+        "horizontal_pull": 0.75,
+        "horizontal_push": 0.75,
+        "knee_extension": 0.75,
+        "knee_flexion": 0.75,
+        "spinal_extension": 0.75,
+        "squat": 0.75,
+        "vertical_pull": 0.75,
+        "vertical_push": 0.75
+      },
+      "components": [
+        {
+          "field": "sleep",
+          "normalised": 0.8,
+          "value": 4.0,
+          "weight": 1.0
+        },
+        {
+          "field": "mood",
+          "normalised": 1.0,
+          "value": 5.0,
+          "weight": 1.0
+        },
+        {
+          "field": "stress",
+          "normalised": 0.4,
+          "value": 2.0,
+          "weight": 1.0
+        },
+        {
+          "field": "soreness",
+          "normalised": 0.8,
+          "value": 4.0,
+          "weight": 1.0
+        }
+      ],
+      "context_flags": [],
+      "device_suppressed": false,
+      "on_date": "2026-01-10",
+      "overrides": {},
+      "score": 0.75,
+      "status": "ready"
+    },
+    "name": "core_missing_energy"
+  },
+  {
+    "assessment": {
+      "basis": "weighted subjective core (1.0 each)",
+      "category_factors": {
+        "core_carry": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "dorsiflexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "elbow_flexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "hinge": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "horizontal_pull": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "horizontal_push": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "knee_extension": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "knee_flexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "spinal_extension": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "squat": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "vertical_pull": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "vertical_push": {
+          "factor": 0.95,
+          "rir_bump": 1
+        }
+      },
+      "category_scores": {
+        "core_carry": 0.65,
+        "dorsiflexion": 0.65,
+        "elbow_flexion": 0.65,
+        "hinge": 0.65,
+        "horizontal_pull": 0.65,
+        "horizontal_push": 0.65,
+        "knee_extension": 0.65,
+        "knee_flexion": 0.65,
+        "spinal_extension": 0.65,
+        "squat": 0.65,
+        "vertical_pull": 0.65,
+        "vertical_push": 0.65
+      },
+      "components": [
+        {
+          "field": "sleep",
+          "normalised": 0.8,
+          "value": 4.0,
+          "weight": 1.0
+        },
+        {
+          "field": "energy",
+          "normalised": 0.6,
+          "value": 3.0,
+          "weight": 1.0
+        },
+        {
+          "field": "stress",
+          "normalised": 0.4,
+          "value": 2.0,
+          "weight": 1.0
+        },
+        {
+          "field": "soreness",
+          "normalised": 0.8,
+          "value": 4.0,
+          "weight": 1.0
+        }
+      ],
+      "context_flags": [],
+      "device_suppressed": false,
+      "on_date": "2026-01-10",
+      "overrides": {},
+      "score": 0.65,
+      "status": "ready"
+    },
+    "name": "core_missing_mood"
+  },
+  {
+    "assessment": {
+      "basis": "weighted subjective core (1.0 each)",
+      "category_factors": {
+        "core_carry": {
+          "factor": 1.0,
+          "rir_bump": 0
+        },
+        "dorsiflexion": {
+          "factor": 1.0,
+          "rir_bump": 0
+        },
+        "elbow_flexion": {
+          "factor": 1.0,
+          "rir_bump": 0
+        },
+        "hinge": {
+          "factor": 1.0,
+          "rir_bump": 0
+        },
+        "horizontal_pull": {
+          "factor": 1.0,
+          "rir_bump": 0
+        },
+        "horizontal_push": {
+          "factor": 1.0,
+          "rir_bump": 0
+        },
+        "knee_extension": {
+          "factor": 1.0,
+          "rir_bump": 0
+        },
+        "knee_flexion": {
+          "factor": 1.0,
+          "rir_bump": 0
+        },
+        "spinal_extension": {
+          "factor": 1.0,
+          "rir_bump": 0
+        },
+        "squat": {
+          "factor": 1.0,
+          "rir_bump": 0
+        },
+        "vertical_pull": {
+          "factor": 1.0,
+          "rir_bump": 0
+        },
+        "vertical_push": {
+          "factor": 1.0,
+          "rir_bump": 0
+        }
+      },
+      "category_scores": {
+        "core_carry": 0.8,
+        "dorsiflexion": 0.8,
+        "elbow_flexion": 0.8,
+        "hinge": 0.8,
+        "horizontal_pull": 0.8,
+        "horizontal_push": 0.8,
+        "knee_extension": 0.8,
+        "knee_flexion": 0.8,
+        "spinal_extension": 0.8,
+        "squat": 0.8,
+        "vertical_pull": 0.8,
+        "vertical_push": 0.8
+      },
+      "components": [
+        {
+          "field": "sleep",
+          "normalised": 0.8,
+          "value": 4.0,
+          "weight": 1.0
+        },
+        {
+          "field": "energy",
+          "normalised": 0.6,
+          "value": 3.0,
+          "weight": 1.0
+        },
+        {
+          "field": "mood",
+          "normalised": 1.0,
+          "value": 5.0,
+          "weight": 1.0
+        },
+        {
+          "field": "soreness",
+          "normalised": 0.8,
+          "value": 4.0,
+          "weight": 1.0
+        }
+      ],
+      "context_flags": [],
+      "device_suppressed": false,
+      "on_date": "2026-01-10",
+      "overrides": {},
+      "score": 0.8,
+      "status": "ready"
+    },
+    "name": "core_missing_stress"
+  },
+  {
+    "assessment": {
+      "basis": "weighted subjective core (1.0 each)",
+      "category_factors": {
+        "core_carry": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "dorsiflexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "elbow_flexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "hinge": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "horizontal_pull": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "horizontal_push": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "knee_extension": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "knee_flexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "spinal_extension": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "squat": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "vertical_pull": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "vertical_push": {
+          "factor": 0.95,
+          "rir_bump": 1
+        }
+      },
+      "category_scores": {
+        "core_carry": 0.7,
+        "dorsiflexion": 0.7,
+        "elbow_flexion": 0.7,
+        "hinge": 0.7,
+        "horizontal_pull": 0.7,
+        "horizontal_push": 0.7,
+        "knee_extension": 0.7,
+        "knee_flexion": 0.7,
+        "spinal_extension": 0.7,
+        "squat": 0.7,
+        "vertical_pull": 0.7,
+        "vertical_push": 0.7
+      },
+      "components": [
+        {
+          "field": "sleep",
+          "normalised": 0.8,
+          "value": 4.0,
+          "weight": 1.0
+        },
+        {
+          "field": "energy",
+          "normalised": 0.6,
+          "value": 3.0,
+          "weight": 1.0
+        },
+        {
+          "field": "mood",
+          "normalised": 1.0,
+          "value": 5.0,
+          "weight": 1.0
+        },
+        {
+          "field": "stress",
+          "normalised": 0.4,
+          "value": 2.0,
+          "weight": 1.0
+        }
+      ],
+      "context_flags": [],
+      "device_suppressed": false,
+      "on_date": "2026-01-10",
+      "overrides": {},
+      "score": 0.7,
+      "status": "ready"
+    },
+    "name": "core_missing_soreness"
+  },
+  {
+    "assessment": {
+      "basis": "3 core field(s); need 3 and sleep or energy",
+      "category_factors": {},
+      "category_scores": {},
+      "components": [
+        {
+          "field": "mood",
+          "normalised": 1.0,
+          "value": 5.0,
+          "weight": 1.0
+        },
+        {
+          "field": "stress",
+          "normalised": 0.4,
+          "value": 2.0,
+          "weight": 1.0
+        },
+        {
+          "field": "soreness",
+          "normalised": 0.8,
+          "value": 4.0,
+          "weight": 1.0
+        }
+      ],
+      "context_flags": [],
+      "device_suppressed": false,
+      "on_date": "2026-01-10",
+      "overrides": {},
+      "score": null,
+      "status": "insufficient"
+    },
+    "name": "insufficient_no_sleep_or_energy"
+  },
+  {
+    "assessment": {
+      "basis": "2 core field(s); need 3 and sleep or energy",
+      "category_factors": {},
+      "category_scores": {},
+      "components": [
+        {
+          "field": "sleep",
+          "normalised": 0.8,
+          "value": 4.0,
+          "weight": 1.0
+        },
+        {
+          "field": "energy",
+          "normalised": 0.6,
+          "value": 3.0,
+          "weight": 1.0
+        }
+      ],
+      "context_flags": [],
+      "device_suppressed": false,
+      "on_date": "2026-01-10",
+      "overrides": {},
+      "score": null,
+      "status": "insufficient"
+    },
+    "name": "insufficient_two_fields"
+  },
+  {
+    "assessment": {
+      "basis": "no readiness entry",
+      "category_factors": {},
+      "category_scores": {},
+      "components": [],
+      "context_flags": [],
+      "device_suppressed": false,
+      "on_date": "2026-02-01",
+      "overrides": {},
+      "score": null,
+      "status": "unknown"
+    },
+    "name": "unknown_no_entry"
+  },
+  {
+    "assessment": {
+      "basis": "weighted subjective core (1.0 each); HRV/RHR baseline-relative (0.5 each)",
+      "category_factors": {
+        "core_carry": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "dorsiflexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "elbow_flexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "hinge": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "horizontal_pull": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "horizontal_push": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "knee_extension": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "knee_flexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "spinal_extension": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "squat": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "vertical_pull": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "vertical_push": {
+          "factor": 0.95,
+          "rir_bump": 1
+        }
+      },
+      "category_scores": {
+        "core_carry": 0.7191387559808612,
+        "dorsiflexion": 0.7191387559808612,
+        "elbow_flexion": 0.7191387559808612,
+        "hinge": 0.7191387559808612,
+        "horizontal_pull": 0.7191387559808612,
+        "horizontal_push": 0.7191387559808612,
+        "knee_extension": 0.7191387559808612,
+        "knee_flexion": 0.7191387559808612,
+        "spinal_extension": 0.7191387559808612,
+        "squat": 0.7191387559808612,
+        "vertical_pull": 0.7191387559808612,
+        "vertical_push": 0.7191387559808612
+      },
+      "components": [
+        {
+          "field": "sleep",
+          "normalised": 0.8,
+          "value": 4.0,
+          "weight": 1.0
+        },
+        {
+          "field": "energy",
+          "normalised": 0.6,
+          "value": 3.0,
+          "weight": 1.0
+        },
+        {
+          "field": "mood",
+          "normalised": 1.0,
+          "value": 5.0,
+          "weight": 1.0
+        },
+        {
+          "field": "stress",
+          "normalised": 0.4,
+          "value": 2.0,
+          "weight": 1.0
+        },
+        {
+          "field": "soreness",
+          "normalised": 0.8,
+          "value": 4.0,
+          "weight": 1.0
+        },
+        {
+          "field": "rhr_bpm",
+          "normalised": 0.7105263157894737,
+          "value": 45.0,
+          "weight": 0.5
+        }
+      ],
+      "context_flags": [],
+      "device_suppressed": false,
+      "on_date": "2026-01-10",
+      "overrides": {},
+      "score": 0.7191387559808612,
+      "status": "ready"
+    },
+    "name": "device_ready"
+  },
+  {
+    "assessment": {
+      "basis": "weighted subjective core (1.0 each); RHR present, baseline 6/7 readings",
+      "category_factors": {
+        "core_carry": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "dorsiflexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "elbow_flexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "hinge": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "horizontal_pull": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "horizontal_push": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "knee_extension": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "knee_flexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "spinal_extension": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "squat": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "vertical_pull": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "vertical_push": {
+          "factor": 0.95,
+          "rir_bump": 1
+        }
+      },
+      "category_scores": {
+        "core_carry": 0.72,
+        "dorsiflexion": 0.72,
+        "elbow_flexion": 0.72,
+        "hinge": 0.72,
+        "horizontal_pull": 0.72,
+        "horizontal_push": 0.72,
+        "knee_extension": 0.72,
+        "knee_flexion": 0.72,
+        "spinal_extension": 0.72,
+        "squat": 0.72,
+        "vertical_pull": 0.72,
+        "vertical_push": 0.72
+      },
+      "components": [
+        {
+          "field": "sleep",
+          "normalised": 0.8,
+          "value": 4.0,
+          "weight": 1.0
+        },
+        {
+          "field": "energy",
+          "normalised": 0.6,
+          "value": 3.0,
+          "weight": 1.0
+        },
+        {
+          "field": "mood",
+          "normalised": 1.0,
+          "value": 5.0,
+          "weight": 1.0
+        },
+        {
+          "field": "stress",
+          "normalised": 0.4,
+          "value": 2.0,
+          "weight": 1.0
+        },
+        {
+          "field": "soreness",
+          "normalised": 0.8,
+          "value": 4.0,
+          "weight": 1.0
+        }
+      ],
+      "context_flags": [],
+      "device_suppressed": false,
+      "on_date": "2026-01-10",
+      "overrides": {},
+      "score": 0.72,
+      "status": "ready"
+    },
+    "name": "device_below_min_readings"
+  },
+  {
+    "assessment": {
+      "basis": "weighted subjective core (1.0 each); optional wearable blended at 10%",
+      "category_factors": {
+        "core_carry": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "dorsiflexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "elbow_flexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "hinge": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "horizontal_pull": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "horizontal_push": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "knee_extension": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "knee_flexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "spinal_extension": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "squat": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "vertical_pull": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "vertical_push": {
+          "factor": 0.95,
+          "rir_bump": 1
+        }
+      },
+      "category_scores": {
+        "core_carry": 0.648,
+        "dorsiflexion": 0.648,
+        "elbow_flexion": 0.648,
+        "hinge": 0.648,
+        "horizontal_pull": 0.648,
+        "horizontal_push": 0.648,
+        "knee_extension": 0.648,
+        "knee_flexion": 0.648,
+        "spinal_extension": 0.648,
+        "squat": 0.648,
+        "vertical_pull": 0.648,
+        "vertical_push": 0.648
+      },
+      "components": [
+        {
+          "field": "sleep",
+          "normalised": 0.8,
+          "value": 4.0,
+          "weight": 1.0
+        },
+        {
+          "field": "energy",
+          "normalised": 0.6,
+          "value": 3.0,
+          "weight": 1.0
+        },
+        {
+          "field": "mood",
+          "normalised": 1.0,
+          "value": 5.0,
+          "weight": 1.0
+        },
+        {
+          "field": "stress",
+          "normalised": 0.4,
+          "value": 2.0,
+          "weight": 1.0
+        },
+        {
+          "field": "soreness",
+          "normalised": 0.8,
+          "value": 4.0,
+          "weight": 1.0
+        },
+        {
+          "field": "wearable_score",
+          "normalised": 0.0,
+          "value": 0.0,
+          "weight": 0.1
+        }
+      ],
+      "context_flags": [],
+      "device_suppressed": false,
+      "on_date": "2026-01-10",
+      "overrides": {},
+      "score": 0.648,
+      "status": "ready"
+    },
+    "name": "wearable_0"
+  },
+  {
+    "assessment": {
+      "basis": "weighted subjective core (1.0 each); optional wearable blended at 10%",
+      "category_factors": {
+        "core_carry": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "dorsiflexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "elbow_flexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "hinge": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "horizontal_pull": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "horizontal_push": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "knee_extension": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "knee_flexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "spinal_extension": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "squat": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "vertical_pull": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "vertical_push": {
+          "factor": 0.95,
+          "rir_bump": 1
+        }
+      },
+      "category_scores": {
+        "core_carry": 0.7030000000000001,
+        "dorsiflexion": 0.7030000000000001,
+        "elbow_flexion": 0.7030000000000001,
+        "hinge": 0.7030000000000001,
+        "horizontal_pull": 0.7030000000000001,
+        "horizontal_push": 0.7030000000000001,
+        "knee_extension": 0.7030000000000001,
+        "knee_flexion": 0.7030000000000001,
+        "spinal_extension": 0.7030000000000001,
+        "squat": 0.7030000000000001,
+        "vertical_pull": 0.7030000000000001,
+        "vertical_push": 0.7030000000000001
+      },
+      "components": [
+        {
+          "field": "sleep",
+          "normalised": 0.8,
+          "value": 4.0,
+          "weight": 1.0
+        },
+        {
+          "field": "energy",
+          "normalised": 0.6,
+          "value": 3.0,
+          "weight": 1.0
+        },
+        {
+          "field": "mood",
+          "normalised": 1.0,
+          "value": 5.0,
+          "weight": 1.0
+        },
+        {
+          "field": "stress",
+          "normalised": 0.4,
+          "value": 2.0,
+          "weight": 1.0
+        },
+        {
+          "field": "soreness",
+          "normalised": 0.8,
+          "value": 4.0,
+          "weight": 1.0
+        },
+        {
+          "field": "wearable_score",
+          "normalised": 0.55,
+          "value": 55.0,
+          "weight": 0.1
+        }
+      ],
+      "context_flags": [],
+      "device_suppressed": false,
+      "on_date": "2026-01-10",
+      "overrides": {},
+      "score": 0.7030000000000001,
+      "status": "ready"
+    },
+    "name": "wearable_55"
+  },
+  {
+    "assessment": {
+      "basis": "weighted subjective core (1.0 each); optional wearable blended at 10%",
+      "category_factors": {
+        "core_carry": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "dorsiflexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "elbow_flexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "hinge": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "horizontal_pull": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "horizontal_push": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "knee_extension": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "knee_flexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "spinal_extension": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "squat": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "vertical_pull": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "vertical_push": {
+          "factor": 0.95,
+          "rir_bump": 1
+        }
+      },
+      "category_scores": {
+        "core_carry": 0.748,
+        "dorsiflexion": 0.748,
+        "elbow_flexion": 0.748,
+        "hinge": 0.748,
+        "horizontal_pull": 0.748,
+        "horizontal_push": 0.748,
+        "knee_extension": 0.748,
+        "knee_flexion": 0.748,
+        "spinal_extension": 0.748,
+        "squat": 0.748,
+        "vertical_pull": 0.748,
+        "vertical_push": 0.748
+      },
+      "components": [
+        {
+          "field": "sleep",
+          "normalised": 0.8,
+          "value": 4.0,
+          "weight": 1.0
+        },
+        {
+          "field": "energy",
+          "normalised": 0.6,
+          "value": 3.0,
+          "weight": 1.0
+        },
+        {
+          "field": "mood",
+          "normalised": 1.0,
+          "value": 5.0,
+          "weight": 1.0
+        },
+        {
+          "field": "stress",
+          "normalised": 0.4,
+          "value": 2.0,
+          "weight": 1.0
+        },
+        {
+          "field": "soreness",
+          "normalised": 0.8,
+          "value": 4.0,
+          "weight": 1.0
+        },
+        {
+          "field": "wearable_score",
+          "normalised": 1.0,
+          "value": 100.0,
+          "weight": 0.1
+        }
+      ],
+      "context_flags": [],
+      "device_suppressed": false,
+      "on_date": "2026-01-10",
+      "overrides": {},
+      "score": 0.748,
+      "status": "ready"
+    },
+    "name": "wearable_100"
+  },
+  {
+    "assessment": {
+      "basis": "weighted subjective core (1.0 each)",
+      "category_factors": {
+        "core_carry": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "dorsiflexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "elbow_flexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "hinge": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "horizontal_pull": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "horizontal_push": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "knee_extension": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "knee_flexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "spinal_extension": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "squat": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "vertical_pull": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "vertical_push": {
+          "factor": 0.95,
+          "rir_bump": 1
+        }
+      },
+      "category_scores": {
+        "core_carry": 0.72,
+        "dorsiflexion": 0.72,
+        "elbow_flexion": 0.72,
+        "hinge": 0.72,
+        "horizontal_pull": 0.72,
+        "horizontal_push": 0.72,
+        "knee_extension": 0.72,
+        "knee_flexion": 0.72,
+        "spinal_extension": 0.72,
+        "squat": 0.72,
+        "vertical_pull": 0.72,
+        "vertical_push": 0.72
+      },
+      "components": [
+        {
+          "field": "sleep",
+          "normalised": 0.8,
+          "value": 4.0,
+          "weight": 1.0
+        },
+        {
+          "field": "energy",
+          "normalised": 0.6,
+          "value": 3.0,
+          "weight": 1.0
+        },
+        {
+          "field": "mood",
+          "normalised": 1.0,
+          "value": 5.0,
+          "weight": 1.0
+        },
+        {
+          "field": "stress",
+          "normalised": 0.4,
+          "value": 2.0,
+          "weight": 1.0
+        },
+        {
+          "field": "soreness",
+          "normalised": 0.8,
+          "value": 4.0,
+          "weight": 1.0
+        }
+      ],
+      "context_flags": [],
+      "device_suppressed": false,
+      "on_date": "2026-01-10",
+      "overrides": {},
+      "score": 0.72,
+      "status": "ready"
+    },
+    "name": "wearable_101"
+  },
+  {
+    "assessment": {
+      "basis": "weighted subjective core (1.0 each)",
+      "category_factors": {
+        "core_carry": {
+          "factor": 0.9,
+          "rir_bump": 1
+        },
+        "dorsiflexion": {
+          "factor": 0.9,
+          "rir_bump": 1
+        },
+        "elbow_flexion": {
+          "factor": 0.9,
+          "rir_bump": 1
+        },
+        "hinge": {
+          "factor": 0.9,
+          "rir_bump": 1
+        },
+        "horizontal_pull": {
+          "factor": 0.9,
+          "rir_bump": 1
+        },
+        "horizontal_push": {
+          "factor": 0.9,
+          "rir_bump": 1
+        },
+        "knee_extension": {
+          "factor": 0.9,
+          "rir_bump": 1
+        },
+        "knee_flexion": {
+          "factor": 0.9,
+          "rir_bump": 1
+        },
+        "spinal_extension": {
+          "factor": 0.9,
+          "rir_bump": 1
+        },
+        "squat": {
+          "factor": 0.9,
+          "rir_bump": 1
+        },
+        "vertical_pull": {
+          "factor": 0.9,
+          "rir_bump": 1
+        },
+        "vertical_push": {
+          "factor": 0.9,
+          "rir_bump": 1
+        }
+      },
+      "category_scores": {
+        "core_carry": 0.42,
+        "dorsiflexion": 0.42,
+        "elbow_flexion": 0.42,
+        "hinge": 0.42,
+        "horizontal_pull": 0.42,
+        "horizontal_push": 0.42,
+        "knee_extension": 0.42,
+        "knee_flexion": 0.42,
+        "spinal_extension": 0.42,
+        "squat": 0.42,
+        "vertical_pull": 0.42,
+        "vertical_push": 0.42
+      },
+      "components": [
+        {
+          "field": "sleep",
+          "normalised": 0.8,
+          "value": 4.0,
+          "weight": 1.0
+        },
+        {
+          "field": "energy",
+          "normalised": 0.6,
+          "value": 3.0,
+          "weight": 1.0
+        },
+        {
+          "field": "mood",
+          "normalised": 1.0,
+          "value": 5.0,
+          "weight": 1.0
+        },
+        {
+          "field": "stress",
+          "normalised": 0.4,
+          "value": 2.0,
+          "weight": 1.0
+        },
+        {
+          "field": "soreness",
+          "normalised": 0.8,
+          "value": 4.0,
+          "weight": 1.0
+        }
+      ],
+      "context_flags": [],
+      "device_suppressed": false,
+      "on_date": "2026-01-10",
+      "overrides": {
+        "global": {
+          "effective_on": "2026-01-10",
+          "reason": "test",
+          "scope": "global",
+          "source": "user",
+          "value": 0.42
+        }
+      },
+      "score": 0.42,
+      "status": "ready"
+    },
+    "name": "override_global"
+  },
+  {
+    "assessment": {
+      "basis": "weighted subjective core (1.0 each)",
+      "category_factors": {
+        "core_carry": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "dorsiflexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "elbow_flexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "hinge": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "horizontal_pull": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "horizontal_push": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "knee_extension": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "knee_flexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "spinal_extension": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "squat": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "vertical_pull": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "vertical_push": {
+          "factor": 0.95,
+          "rir_bump": 1
+        }
+      },
+      "category_scores": {
+        "core_carry": 0.72,
+        "dorsiflexion": 0.72,
+        "elbow_flexion": 0.72,
+        "hinge": 0.61,
+        "horizontal_pull": 0.72,
+        "horizontal_push": 0.72,
+        "knee_extension": 0.72,
+        "knee_flexion": 0.72,
+        "spinal_extension": 0.72,
+        "squat": 0.72,
+        "vertical_pull": 0.72,
+        "vertical_push": 0.72
+      },
+      "components": [
+        {
+          "field": "sleep",
+          "normalised": 0.8,
+          "value": 4.0,
+          "weight": 1.0
+        },
+        {
+          "field": "energy",
+          "normalised": 0.6,
+          "value": 3.0,
+          "weight": 1.0
+        },
+        {
+          "field": "mood",
+          "normalised": 1.0,
+          "value": 5.0,
+          "weight": 1.0
+        },
+        {
+          "field": "stress",
+          "normalised": 0.4,
+          "value": 2.0,
+          "weight": 1.0
+        },
+        {
+          "field": "soreness",
+          "normalised": 0.8,
+          "value": 4.0,
+          "weight": 1.0
+        }
+      ],
+      "context_flags": [],
+      "device_suppressed": false,
+      "on_date": "2026-01-10",
+      "overrides": {
+        "category:hinge": {
+          "effective_on": "2026-01-10",
+          "reason": "test",
+          "scope": "category:hinge",
+          "source": "user",
+          "value": 0.61
+        }
+      },
+      "score": 0.72,
+      "status": "ready"
+    },
+    "name": "override_category"
+  },
+  {
+    "assessment": {
+      "basis": "no readiness entry; manual readiness override (no numeric score)",
+      "category_factors": {
+        "core_carry": {
+          "factor": 0.85,
+          "rir_bump": 2
+        },
+        "dorsiflexion": {
+          "factor": 0.85,
+          "rir_bump": 2
+        },
+        "elbow_flexion": {
+          "factor": 0.85,
+          "rir_bump": 2
+        },
+        "hinge": {
+          "factor": 0.85,
+          "rir_bump": 2
+        },
+        "horizontal_pull": {
+          "factor": 0.85,
+          "rir_bump": 2
+        },
+        "horizontal_push": {
+          "factor": 0.85,
+          "rir_bump": 2
+        },
+        "knee_extension": {
+          "factor": 0.85,
+          "rir_bump": 2
+        },
+        "knee_flexion": {
+          "factor": 0.85,
+          "rir_bump": 2
+        },
+        "spinal_extension": {
+          "factor": 0.85,
+          "rir_bump": 2
+        },
+        "squat": {
+          "factor": 0.85,
+          "rir_bump": 2
+        },
+        "vertical_pull": {
+          "factor": 0.85,
+          "rir_bump": 2
+        },
+        "vertical_push": {
+          "factor": 0.85,
+          "rir_bump": 2
+        }
+      },
+      "category_scores": {
+        "core_carry": 0.3,
+        "dorsiflexion": 0.3,
+        "elbow_flexion": 0.3,
+        "hinge": 0.3,
+        "horizontal_pull": 0.3,
+        "horizontal_push": 0.3,
+        "knee_extension": 0.3,
+        "knee_flexion": 0.3,
+        "spinal_extension": 0.3,
+        "squat": 0.3,
+        "vertical_pull": 0.3,
+        "vertical_push": 0.3
+      },
+      "components": [],
+      "context_flags": [],
+      "device_suppressed": false,
+      "on_date": "2026-01-10",
+      "overrides": {
+        "global": {
+          "effective_on": "2026-01-10",
+          "reason": "test",
+          "scope": "global",
+          "source": "user",
+          "value": 0.3
+        }
+      },
+      "score": null,
+      "status": "unknown"
+    },
+    "name": "override_without_score"
+  },
+  {
+    "assessment": {
+      "basis": "weighted subjective core (1.0 each); HRV/RHR suppressed by readiness context flag",
+      "category_factors": {
+        "core_carry": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "dorsiflexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "elbow_flexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "hinge": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "horizontal_pull": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "horizontal_push": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "knee_extension": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "knee_flexion": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "spinal_extension": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "squat": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "vertical_pull": {
+          "factor": 0.95,
+          "rir_bump": 1
+        },
+        "vertical_push": {
+          "factor": 0.95,
+          "rir_bump": 1
+        }
+      },
+      "category_scores": {
+        "core_carry": 0.72,
+        "dorsiflexion": 0.72,
+        "elbow_flexion": 0.72,
+        "hinge": 0.72,
+        "horizontal_pull": 0.72,
+        "horizontal_push": 0.72,
+        "knee_extension": 0.72,
+        "knee_flexion": 0.72,
+        "spinal_extension": 0.72,
+        "squat": 0.72,
+        "vertical_pull": 0.72,
+        "vertical_push": 0.72
+      },
+      "components": [
+        {
+          "field": "sleep",
+          "normalised": 0.8,
+          "value": 4.0,
+          "weight": 1.0
+        },
+        {
+          "field": "energy",
+          "normalised": 0.6,
+          "value": 3.0,
+          "weight": 1.0
+        },
+        {
+          "field": "mood",
+          "normalised": 1.0,
+          "value": 5.0,
+          "weight": 1.0
+        },
+        {
+          "field": "stress",
+          "normalised": 0.4,
+          "value": 2.0,
+          "weight": 1.0
+        },
+        {
+          "field": "soreness",
+          "normalised": 0.8,
+          "value": 4.0,
+          "weight": 1.0
+        }
+      ],
+      "context_flags": [
+        "travel"
+      ],
+      "device_suppressed": true,
+      "on_date": "2026-01-10",
+      "overrides": {},
+      "score": 0.72,
+      "status": "ready"
+    },
+    "name": "device_suppressed"
+  }
+]

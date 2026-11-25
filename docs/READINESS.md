@@ -146,7 +146,18 @@ sleep/energy floor still applies when a score cannot be formed.
 
 ## 6. Changing it
 
-Everything a user might reasonably want different is in `config/readiness.v1.yaml`:
+Two surfaces, split by what they change.
+
+**Score inputs — the readiness registry.** `Settings → Readiness inputs` or
+`readiness registry list|show|set|history|preview|rollback|define` edits enabled metrics, relative
+weights, baselines, the minimum-field rule and the wearable blend. A save appends a version
+effective today; history is append-only and never rewritten. The seeded version 1 reproduces the
+pre-registry score, and historical dates keep the version that was effective for them. If two
+versions share an effective date, the last appended one wins; `rollback --version N` appends a
+new version copying N's payload rather than reactivating it. `metric_definition` supplies each
+metric's label, scale and direction.
+
+**Everything else — `config/readiness.v1.yaml`:**
 
 | key | effect |
 |---|---|
@@ -154,12 +165,11 @@ Everything a user might reasonably want different is in `config/readiness.v1.yam
 | `set_reduction` | whether poor readiness removes sets, at what score, how many, and whether essentials are included |
 | `modifier.at_or_below` | the threshold on those fields |
 | `merge.strategy` / `merge.tie_break` | which duplicate row wins; only the implemented values are accepted |
-| `score.baseline_days` / `score.baseline_min_readings` | HRV/RHR baseline window and minimum |
-| `score.hrv_weight` / `score.rhr_weight` | device-field weights (default 0.5) |
-| `score.wearable_weight` | optional wearable blend (default 0.10) |
 
-An unimplemented value raises rather than being ignored — a config that silently did nothing
-would leave the athlete believing they had changed the behaviour.
+The old `score.*` block was removed from the file and from `ReadinessConfig`; the registry is
+the only source for readiness scoring parameters. An unimplemented value still raises rather
+than being ignored — a config that silently did nothing would leave the athlete believing they
+had changed the behaviour.
 
 Changing a modifier field or threshold **changes a prescribed load**, so it is a decision, not
 a preference of convenience: record it in `docs/DECISIONS.md` when you do.

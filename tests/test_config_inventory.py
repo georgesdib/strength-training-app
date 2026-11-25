@@ -113,9 +113,8 @@ def test_readiness_defaults_match_loader(tmp_path, monkeypatch):
         for row in group["parameters"]
     }
     assert rows["readiness.merge.strategy"]["value"] == expected.merge_strategy
-    assert rows["readiness.score.baseline_days"]["value"] == expected.baseline_days
-    assert rows["readiness.score.baseline_days"]["configured"] is False
-    assert rows["readiness.score.baseline_days"]["source_kind"] == "python_default"
+    assert rows["readiness.merge.tie_break"]["value"] == expected.tie_break
+    assert not any(key.startswith("readiness.score.") for key in rows)
 
 
 def test_phase_boundaries_distinguish_before_active_and_post_review():

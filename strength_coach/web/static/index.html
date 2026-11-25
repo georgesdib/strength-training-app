@@ -538,8 +538,10 @@
             <label class="grow">Note <input type="text" id="readiness-note" placeholder="optional"></label>
           </div>
           <div class="form-row" id="workflow-readiness-presets"></div>
-          <p class="field-hint">1–5, higher is better. For <strong>stress</strong> and
-            <strong>soreness</strong>, 5 means none. Any subset is valid.</p>
+          <p class="field-hint">Scales are declared by the readiness registry; higher is better
+            unless stated. For <strong>stress</strong> and <strong>soreness</strong>, 5 means none.
+            Any subset is valid.</p>
+          <p class="field-hint" id="readiness-required-note"></p>
           <div id="readiness-fields" class="grid-fields"></div>
           <details class="advanced">
             <summary>Device fields (optional)</summary>
@@ -923,20 +925,50 @@
           <button class="ghost" type="button" id="readiness-context-save">Save context flags</button>
           <span id="context-msg" class="muted"></span>
         </div>
-        <div class="panel">
-          <div class="panel-head"><h2>Baseline settings</h2><span class="muted">athlete overrides config</span></div>
-        <p class="section-help"><span>Athlete-specific readiness baseline and weighting overrides.</span> <a class="doc-link" href="#docs?doc=docs/READINESS-SCORE.md">Readiness score</a></p>
-          <form id="settings-form" class="grid-fields">
-            <label>Baseline days <input id="setting-baseline-days" type="number" min="1" max="365"></label>
-            <label>Minimum readings <input id="setting-min-readings" type="number" min="1"></label>
-            <label>HRV slope <input id="setting-hrv-slope" type="number" step="0.05" min="0.05" max="1"></label>
-            <label>RHR slope <input id="setting-rhr-slope" type="number" step="0.05" min="0.05" max="1"></label>
-            <label>HRV weight <input id="setting-hrv-weight" type="number" step="0.05" min="0" max="1"></label>
-            <label>RHR weight <input id="setting-rhr-weight" type="number" step="0.05" min="0" max="1"></label>
-            <label>Wearable weight <input id="setting-wearable-weight" type="number" step="0.05" min="0" max="1"></label>
-            <button class="primary" type="submit">Set for this athlete</button>
+        <div class="panel" id="readiness-registry-panel">
+          <div class="panel-head"><h2>Readiness inputs and baseline</h2><span class="muted">weights and baseline; versioned</span></div>
+          <p class="section-help"><span>The score's inputs, weights and baseline settings. Saving appends a version effective today; history is never rewritten.</span> <a class="doc-link" href="#docs?doc=docs/READINESS-SCORE.md">Readiness score</a></p>
+          <form id="readiness-registry-form">
+            <div class="grid-fields">
+              <label>Minimum core fields <input id="registry-min-core" type="number" min="1" max="20"></label>
+              <label>Wearable blend <input id="registry-wearable" type="number" step="0.05" min="0" max="0.5"></label>
+            </div>
+            <div id="registry-metrics" class="table-scroll"></div>
+            <div class="form-row">
+              <label class="grow">Note <input id="registry-note" type="text" placeholder="why this change"></label>
+            </div>
+            <div class="form-row">
+              <button type="button" class="ghost" id="registry-preview">Preview changes</button>
+              <button class="primary" type="submit">Save registry version</button>
+              <span id="registry-msg" class="muted"></span>
+            </div>
           </form>
-          <p id="settings-source" class="muted"></p>
+          <div id="registry-preview-result"></div>
+          <details class="advanced" id="registry-add-panel">
+            <summary>Add a new input</summary>
+            <form id="registry-add-form" class="grid-fields">
+              <label>Label <input id="new-metric-label" type="text" required></label>
+              <label>Key <input id="new-metric-key" type="text" placeholder="auto from label"></label>
+              <label>Role <select id="new-metric-role"><option value="core">core</option><option value="device">device</option></select></label>
+              <label>Scale min <input id="new-metric-scale-min" type="number" step="1" value="1"></label>
+              <label>Scale max <input id="new-metric-scale-max" type="number" step="1" value="5"></label>
+              <label>Direction <select id="new-metric-direction"><option value="1">higher is better</option><option value="0">lower is better</option></select></label>
+              <label>Unit <input id="new-metric-unit" type="text" placeholder="optional"></label>
+              <label>Weight <input id="new-metric-weight" type="number" step="0.05" min="0.05" max="2" value="1"></label>
+              <label>Baseline days <input id="new-metric-baseline-days" type="number" min="1" value="28"></label>
+              <label>Min readings <input id="new-metric-min-readings" type="number" min="1" value="7"></label>
+              <label>Slope <input id="new-metric-slope" type="number" step="0.05" min="0.05" value="0.5"></label>
+              <label>Order <input id="new-metric-order" type="number" min="1" placeholder="auto"></label>
+              <label><input id="new-metric-core" type="checkbox" checked> counts as core</label>
+              <label><input id="new-metric-required" type="checkbox"> required one of</label>
+              <label class="grow">Note <input id="new-metric-note" type="text" placeholder="why this input"></label>
+              <div class="form-row">
+                <button class="primary" type="submit">Add input</button>
+                <span id="registry-add-msg" class="muted"></span>
+              </div>
+            </form>
+          </details>
+          <details class="advanced"><summary>Version history</summary><div id="registry-history"></div></details>
         </div>
         <div class="panel">
           <div class="panel-head"><h2>Volume valve</h2><span class="muted">poor-readiness set reduction; main lifts opt-in</span></div>

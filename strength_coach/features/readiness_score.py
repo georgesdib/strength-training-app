@@ -21,10 +21,10 @@ from __future__ import annotations
 import datetime as dt
 import statistics
 from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import Any
 
-from strength_coach.features import injury_signal
+from strength_coach.features import injury_signal, readiness_registry
 from strength_coach.features import readiness as readiness_config
 from strength_coach.store import queries
 from strength_coach.utils import readiness as readiness_utils
@@ -101,20 +101,36 @@ def category_for(exercise_id: str, entity: Mapping[str, Any] | None = None) -> s
     return None
 
 
-def _core_values(readiness: Mapping[str, Any] | None) -> list[Component]:
+def _core_values(
+    readiness: Mapping[str, Any] | None, registry: readiness_registry.Registry
+) -> list[Component]:
+    """Enabled core metrics, normalised by the top of their declared scale.
+
+    The seed scale is 1-5, where value / scale_max reproduces the pre-registry mapping
+    (1 -> 0.2, 5 -> 1.0); a lower-is-better metric is inverted. A value outside the declared
+    scale is treated as absent, matching the old 1-5 check.
+    """
     if not readiness:
         return []
     out = []
-    for field in CORE_FIELDS:
-        value = readiness.get(field)
+    for metric in registry.core:
+        if not metric.enabled:
+            continue
+        value = readiness.get(metric.key)
         if value is None:
             continue
         try:
             number = float(value)
         except (TypeError, ValueError):
             continue
-        if 1 <= number <= 5:
-            out.append(Component(field, number, number / 5.0, 1.0))
+        low = 1.0 if metric.scale_min is None else float(metric.scale_min)
+        high = metric.scale_max
+        if high is None or float(high) <= 0 or not low <= number <= float(high):
+            continue
+        normalised = number / float(high)
+        if not metric.higher_is_better:
+            normalised = 1.0 - normalised
+        out.append(Component(metric.key, number, _clamp(normalised), metric.weight))
     return out
 
 
@@ -122,23 +138,27 @@ def _clamp(value: float) -> float:
     return max(0.0, min(1.0, value))
 
 
+_DEVICE_LABELS = {"hrv_ms": "HRV", "rhr_bpm": "RHR"}
+
+
 def _device_components(conn, data: Mapping[str, Any], on_date: str,
                        config: readiness_config.ReadinessConfig,
-                       context_flags: tuple[str, ...] = ()):
-    """Baseline-relative HRV/RHR components, with an explicit missing-baseline note."""
+                       context_flags: tuple[str, ...],
+                       registry: readiness_registry.Registry):
+    """Baseline-relative device components, with an explicit missing-baseline note."""
     if any(flag in config.device_suppression_flags for flag in context_flags):
         return [], ["HRV/RHR suppressed by readiness context flag"]
-    history = queries.readiness_history(conn, on_date, config.baseline_days)
     components: list[Component] = []
     notes: list[str] = []
-    for field, direction, label in (
-        ("hrv_ms", "higher", "HRV"),
-        ("rhr_bpm", "lower", "RHR"),
-    ):
+    for metric in registry.device:
+        if not metric.enabled:
+            continue
+        field = metric.key
         try:
             value = float(data.get(field))
         except (TypeError, ValueError):
             continue
+        history = queries.readiness_history(conn, on_date, metric.baseline_days)
         values = []
         for row in history:
             try:
@@ -147,18 +167,19 @@ def _device_components(conn, data: Mapping[str, Any], on_date: str,
                 continue
             if number > 0:
                 values.append(number)
-        if len(values) < config.baseline_min_readings:
-            notes.append(f"{label} present, baseline {len(values)}/{config.baseline_min_readings} readings")
+        minimum = int(metric.min_readings or 1)
+        label = _DEVICE_LABELS.get(field, metric.label)
+        if len(values) < minimum:
+            notes.append(f"{label} present, baseline {len(values)}/{minimum} readings")
             continue
         baseline = statistics.median(values)
         ratio = value / baseline
         # 0.5 is baseline; a 50% deviation maps to 0 or 1. The slope is a heuristic, not a
         # validated clinical cutoff; its low weight is what keeps that honest.
-        slope = config.hrv_slope if field == "hrv_ms" else config.rhr_slope
-        delta = ratio - 1.0 if direction == "higher" else 1.0 - ratio
+        slope = float(metric.slope or 0.5)
+        delta = ratio - 1.0 if metric.higher_is_better else 1.0 - ratio
         normalised = 0.5 + delta / (2.0 * slope)
-        weight = config.hrv_weight if field == "hrv_ms" else config.rhr_weight
-        components.append(Component(field, value, _clamp(normalised), weight))
+        components.append(Component(field, value, _clamp(normalised), metric.weight))
     return components, notes
 
 
@@ -175,38 +196,27 @@ def _wearable(data: Mapping[str, Any], weight: float):
     return Component("wearable_score", number, number / 100.0, weight)
 
 
-def _basis(data: Mapping[str, Any], components: tuple[Component, ...],
-           notes: list[str], config: readiness_config.ReadinessConfig) -> str:
-    parts = ["weighted subjective core (1.0 each)"]
-    if config.setting_source == "athlete":
-        parts.append("athlete score setting")
-    if any(c.field in {"hrv_ms", "rhr_bpm"} for c in components):
-        parts.append("HRV/RHR baseline-relative (0.5 each)")
+def _basis(components: tuple[Component, ...], notes: list[str],
+           registry: readiness_registry.Registry) -> str:
+    parts: list[str] = []
+    core_weights = {metric.weight for metric in registry.core if metric.enabled}
+    if core_weights == {1.0}:
+        parts.append("weighted subjective core (1.0 each)")
+    else:
+        weights = ", ".join(f"{weight:g}" for weight in sorted(core_weights))
+        parts.append(f"weighted subjective core ({weights})")
+    device_keys = {metric.key for metric in registry.device}
+    if any(component.field in device_keys for component in components):
+        device_weights = {metric.weight for metric in registry.device if metric.enabled}
+        if device_weights == {0.5}:
+            parts.append("HRV/RHR baseline-relative (0.5 each)")
+        else:
+            weights = ", ".join(f"{weight:g}" for weight in sorted(device_weights))
+            parts.append(f"HRV/RHR baseline-relative ({weights})")
     parts.extend(notes)
-    if any(c.field == "wearable_score" for c in components):
-        parts.append(f"optional wearable blended at {config.wearable_weight:.0%}")
+    if any(component.field == "wearable_score" for component in components):
+        parts.append(f"optional wearable blended at {registry.wearable_weight:.0%}")
     return "; ".join(parts)
-
-
-def effective_settings(conn, on_date: str,
-                       config: readiness_config.ReadinessConfig | None = None
-                       ) -> readiness_config.ReadinessConfig:
-    """Config, overlaid by the latest athlete setting effective on or before the date."""
-    base = config or readiness_config.ReadinessConfig.load()
-    row = queries.readiness_setting(conn, on_date)
-    if row is None:
-        return base
-    return replace(
-        base,
-        baseline_days=int(row["baseline_days"]),
-        baseline_min_readings=int(row["baseline_min_readings"]),
-        hrv_slope=float(row["hrv_slope"]),
-        rhr_slope=float(row["rhr_slope"]),
-        hrv_weight=float(row["hrv_weight"]),
-        rhr_weight=float(row["rhr_weight"]),
-        wearable_weight=float(row["wearable_weight"]),
-        setting_source="athlete",
-    )
 
 
 def _partial_basis(reason: str, overrides: Mapping[str, dict]) -> str:
@@ -275,10 +285,13 @@ def require_ready(
 
 
 def compute(conn, on_date: str, config: readiness_config.ReadinessConfig | None = None) -> ReadinessAssessment:
-    config = effective_settings(conn, on_date, config)
+    config = config or readiness_config.ReadinessConfig.load()
+    registry = readiness_registry.load(conn, on_date)
+    if registry is None:
+        raise RuntimeError("readiness registry is missing; run the migrations")
     data = queries.readiness_day(conn, on_date)
     context_flags = tuple(queries.readiness_context(conn, on_date))
-    components = _core_values(data)
+    components = _core_values(data, registry)
     overrides = queries.readiness_overrides(conn, on_date)
     present = {c.field for c in components}
     # A day without a numeric score still honours an explicit override (READINESS-SCORE §2.2a):
@@ -290,22 +303,28 @@ def compute(conn, on_date: str, config: readiness_config.ReadinessConfig | None 
             overrides, override_scores, override_factors,
             context_flags=context_flags,
         )
-    if len(components) < MIN_CORE_FIELDS or not ({"sleep", "energy"} & present):
+    required = list(registry.require_any_of)
+    required_text = (
+        required[0] if len(required) == 1
+        else ", ".join(required[:-1]) + " or " + required[-1]
+    )
+    if len(components) < registry.min_core_fields or not (set(required) & present):
         return ReadinessAssessment(
             on_date, "insufficient", None, tuple(components),
             _partial_basis(
-                f"{len(components)} core field(s); need {MIN_CORE_FIELDS} and sleep or energy",
+                f"{len(components)} core field(s); need {registry.min_core_fields} "
+                f"and {required_text}",
                 overrides,
             ),
             overrides, override_scores, override_factors, context_flags=context_flags,
         )
 
     device_components, device_notes = _device_components(
-        conn, data, on_date, config, context_flags
+        conn, data, on_date, config, context_flags, registry
     )
     suppressed = any(flag in config.device_suppression_flags for flag in context_flags)
     components.extend(device_components)
-    wearable = _wearable(data, config.wearable_weight)
+    wearable = _wearable(data, registry.wearable_weight)
     if wearable is not None:
         components.append(wearable)
 
@@ -313,7 +332,8 @@ def compute(conn, on_date: str, config: readiness_config.ReadinessConfig | None 
     score = sum(c.normalised * c.weight for c in components
                 if c.field not in {"wearable_score"}) / total_weight
     if wearable is not None:
-        score = score * (1.0 - config.wearable_weight) + wearable.normalised * config.wearable_weight
+        score = (score * (1.0 - registry.wearable_weight)
+                 + wearable.normalised * registry.wearable_weight)
     score = _clamp(score)
 
     global_override = overrides.get("global")
@@ -335,7 +355,7 @@ def compute(conn, on_date: str, config: readiness_config.ReadinessConfig | None 
         status="ready",
         score=score,
         components=tuple(components),
-        basis=_basis(data, components, device_notes, config),
+        basis=_basis(components, device_notes, registry),
         overrides=overrides,
         category_scores=categories,
         category_factors=factors,

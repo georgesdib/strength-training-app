@@ -57,6 +57,7 @@ from strength_coach.features import outcomes as outcomes_feature
 from strength_coach.features import programme as programme_feature
 from strength_coach.features import prospective as prospective_feature
 from strength_coach.features import readiness as readiness_feature
+from strength_coach.features import readiness_registry as readiness_registry_feature
 from strength_coach.features import regime_change as regime_feature
 from strength_coach.features import relative_strength as relative_strength_feature
 from strength_coach.features import residual as residual_feature
@@ -329,7 +330,41 @@ def main(argv: list[str] | None = None) -> int:
     demands_cmd.add_argument("--json", action="store_true")
 
     readiness = sub.add_parser("readiness", help="record a readiness day")
-    readiness.add_argument("action", choices=("set", "override", "calibrate", "settings", "shadow", "preset", "context", "feedback"))
+    readiness.add_argument("action", choices=("set", "override", "calibrate", "shadow", "preset", "context", "feedback", "registry"))
+    readiness.add_argument("registry_action", nargs="?",
+                           choices=("list", "show", "set", "history", "preview", "rollback", "define"),
+                           default=None, help="registry action (after 'readiness registry')")
+    readiness.add_argument("--version", dest="registry_version", type=int, default=None,
+                           help="registry version for rollback")
+    readiness.add_argument("--key", default=None, help="new metric key (define)")
+    readiness.add_argument("--label", default=None, help="new metric label (define)")
+    readiness.add_argument("--role", choices=("core", "device"), default=None,
+                           help="new metric role (define)")
+    readiness.add_argument("--scale-min", type=float, default=None,
+                           help="declared scale minimum (define)")
+    readiness.add_argument("--scale-max", type=float, default=None,
+                           help="declared scale maximum (define)")
+    readiness.add_argument("--lower-is-better", action="store_true",
+                           help="invert direction (define; default higher is better)")
+    readiness.add_argument("--unit", default=None, help="unit (define)")
+    readiness.add_argument("--weight", type=float, default=None, help="relative weight (define)")
+    readiness.add_argument("--baseline-days", type=int, default=None,
+                           help="device baseline window (define)")
+    readiness.add_argument("--min-readings", type=int, default=None,
+                           help="device minimum readings (define)")
+    readiness.add_argument("--slope", type=float, default=None,
+                           help="device ratio half-width (define)")
+    readiness.add_argument("--counts-as-core", action=argparse.BooleanOptionalAction,
+                           default=None, help="count toward the core minimum (define)")
+    readiness.add_argument("--required", action="store_true",
+                           help="add to require_any_of (define)")
+    readiness.add_argument("--order", type=int, default=None,
+                           help="display order (define; default last)")
+    readiness.add_argument("--file", default=None,
+                           help="registry payload JSON file (registry set/preview)")
+    readiness.add_argument("--payload", default=None,
+                           help="registry payload JSON text (registry set/preview)")
+    readiness.add_argument("--json", action="store_true", help="machine-readable output")
     readiness.add_argument("--weeks", type=int, default=12)
     readiness.add_argument("--name", default=None, help="readiness preset key")
     readiness.add_argument("--flags", default=None,
@@ -352,18 +387,6 @@ def main(argv: list[str] | None = None) -> int:
                            help="override value 0.00-1.00 (same scale as the score)")
     readiness.add_argument("--reason", default=None,
                            help="why the computed score is overridden")
-    readiness.add_argument("--baseline-days", type=int, default=None,
-                           help="baseline window in days (athlete setting)")
-    readiness.add_argument("--baseline-min-readings", type=int, default=None,
-                           help="minimum baseline readings (athlete setting)")
-    readiness.add_argument("--hrv-slope", type=float, default=None,
-                           help="HRV ratio half-width, e.g. 0.5")
-    readiness.add_argument("--rhr-slope", type=float, default=None,
-                           help="RHR ratio half-width, e.g. 0.5")
-    readiness.add_argument("--hrv-weight", type=float, default=None)
-    readiness.add_argument("--rhr-weight", type=float, default=None)
-    readiness.add_argument("--wearable-weight", type=float, default=None)
-    readiness.add_argument("--setting-note", default=None)
 
     workout_parser = sub.add_parser("workout", help="inspect or finish the active live workout")
     workout_sub = workout_parser.add_subparsers(dest="action", required=True)
@@ -1084,10 +1107,192 @@ def _record_readiness(conn, on_date: str, values: dict[str, float],
     return readiness_feature.record_manual(conn, on_date, values, note=note)
 
 
+def _print_registry_error(exc) -> None:
+    print(f"readiness registry: {exc}")
+    for field, reason in sorted(exc.fields.items()):
+        print(f"  {field}: {reason}")
+
+
+def _registry_payload(args) -> str | None:
+    if args.file and args.payload:
+        print("readiness registry: pass either --file or --payload, not both")
+        return None
+    if args.file:
+        try:
+            return Path(args.file).read_text(encoding="utf-8")
+        except OSError as exc:
+            print(f"readiness registry: cannot read {args.file}: {exc}")
+            return None
+    return args.payload
+
+
+def _cmd_readiness_registry(conn, args) -> int:
+    action = args.registry_action
+    if not action:
+        print("readiness registry: choose list, show, set, history or preview")
+        return 2
+    day = args.date or datetime.date.today().isoformat()
+    try:
+        datetime.date.fromisoformat(day)
+    except ValueError:
+        print("readiness registry: --date must be YYYY-MM-DD")
+        return 2
+
+    if action in ("list", "history"):
+        versions = readiness_registry_feature.history(conn)
+        if action == "history":
+            versions = list(reversed(versions))
+        if args.json:
+            print(json.dumps({"versions": versions}, default=str))
+            return 0
+        print(f"readiness registry: {len(versions)} version(s)")
+        for item in versions:
+            print(
+                f"  {item['registry_id']:>3}  {item['effective_from']}  "
+                f"schema={item['schema_version']}  metrics={item['metrics']}  "
+                f"min_core={item['min_core_fields']}  digest={item['digest']}"
+                f"  {item['note'] or ''}"
+            )
+        return 0
+
+    if action == "define":
+        missing = [
+            name for name in ("key", "label", "role", "weight")
+            if getattr(args, name) in (None, "")
+        ]
+        if missing:
+            print("readiness registry: --" + ", --".join(missing) + " required for define")
+            return 2
+        try:
+            registry = readiness_registry_feature.define_metric(
+                conn,
+                key=args.key,
+                label=args.label,
+                role=args.role,
+                weight=args.weight,
+                scale_min=args.scale_min,
+                scale_max=args.scale_max,
+                higher_is_better=not args.lower_is_better,
+                unit=args.unit,
+                baseline_days=args.baseline_days,
+                min_readings=args.min_readings,
+                slope=args.slope,
+                counts_as_core=args.counts_as_core,
+                required=args.required,
+                order=args.order,
+                note=args.note,
+            )
+        except readiness_registry_feature.RegistryError as exc:
+            _print_registry_error(exc)
+            return 2
+        if args.json:
+            print(json.dumps(registry.as_dict(), default=str))
+            return 0
+        print(
+            f"readiness registry version {registry.registry_id} effective "
+            f"{registry.effective_from} (added metric {args.key})"
+        )
+        return 0
+
+    if action == "rollback":
+        if args.registry_version is None:
+            print("readiness registry: --version is required for rollback")
+            return 2
+        rows = queries.readiness_registry_history(conn)
+        target = next(
+            (row for row in rows if int(row["registry_id"]) == int(args.registry_version)),
+            None,
+        )
+        if target is None:
+            print(f"readiness registry: version {args.registry_version} not found")
+            return 2
+        try:
+            registry = readiness_registry_feature.save(
+                conn, target["payload_json"],
+                note=args.note or f"rollback to version {args.registry_version}",
+            )
+        except readiness_registry_feature.RegistryError as exc:
+            _print_registry_error(exc)
+            return 2
+        if args.json:
+            print(json.dumps(registry.as_dict(), default=str))
+            return 0
+        print(
+            f"readiness registry version {registry.registry_id} effective "
+            f"{registry.effective_from} (rollback to {args.registry_version})"
+        )
+        return 0
+
+    if action == "show":
+        registry = readiness_registry_feature.load(conn, day)
+        if registry is None:
+            print(f"readiness registry: no version effective on {day}")
+            return 2
+        if args.json:
+            print(json.dumps(registry.as_dict(), default=str))
+            return 0
+        print(
+            f"registry {registry.registry_id} effective {registry.effective_from} "
+            f"(schema {registry.schema_version}) for {day}"
+        )
+        print(
+            f"min_core_fields={registry.min_core_fields} "
+            f"require_any_of={', '.join(registry.require_any_of)} "
+            f"wearable_weight={registry.wearable_weight:g}"
+        )
+        print("  key          role    on   weight  baseline  readings  slope  order")
+        for metric in registry.metrics:
+            readings = "-" if metric.min_readings is None else str(metric.min_readings)
+            slope = "-" if metric.slope is None else f"{metric.slope:g}"
+            print(
+                f"  {metric.key:<12} {metric.role:<7} "
+                f"{'yes' if metric.enabled else 'no':<4} {metric.weight:>6.2f}  "
+                f"{metric.baseline_days:>8}  {readings:>8}  {slope:>5}  {metric.order:>5}"
+            )
+        return 0
+
+    payload = _registry_payload(args)
+    if payload is None:
+        if not (args.file or args.payload):
+            print("readiness registry: --file or --payload is required")
+        return 2
+
+    if action == "preview":
+        try:
+            result = readiness_registry_feature.preview(conn, payload, on_date=day)
+        except readiness_registry_feature.RegistryError as exc:
+            _print_registry_error(exc)
+            return 2
+        if args.json:
+            print(json.dumps(result, default=str))
+            return 0
+        print(f"readiness registry preview for {day}: valid")
+        changes = result["changes"]
+        print("  no changes" if not changes else "\n".join(f"  {line}" for line in changes))
+        return 0
+
+    try:
+        registry = readiness_registry_feature.save(
+            conn, payload, effective_from=args.date, note=args.note,
+        )
+    except readiness_registry_feature.RegistryError as exc:
+        _print_registry_error(exc)
+        return 2
+    if args.json:
+        print(json.dumps(registry.as_dict(), default=str))
+        return 0
+    print(
+        f"readiness registry version {registry.registry_id} effective {registry.effective_from}"
+    )
+    return 0
+
+
 def _cmd_readiness(args) -> int:
     store = db.Store(args.db)
     try:
         conn = store.connection
+        if args.action == "registry":
+            return _cmd_readiness_registry(conn, args)
         if args.action == "calibrate":
             from strength_coach.features import readiness_calibration
 
@@ -1139,37 +1344,6 @@ def _cmd_readiness(args) -> int:
                 current = queries.readiness_context(conn, args.date)
                 print(f"readiness context {args.date}: {', '.join(current) or 'none'}")
             _print_readiness_score(readiness_score.compute(conn, args.date))
-            return 0
-        if args.action == "settings":
-            effective = readiness_score.effective_settings(conn, args.date)
-            supplied = {
-                "baseline_days": args.baseline_days,
-                "baseline_min_readings": args.baseline_min_readings,
-                "hrv_slope": args.hrv_slope,
-                "rhr_slope": args.rhr_slope,
-                "hrv_weight": args.hrv_weight,
-                "rhr_weight": args.rhr_weight,
-                "wearable_weight": args.wearable_weight,
-            }
-            if any(value is not None for value in supplied.values()):
-                values = {
-                    key: value if value is not None else getattr(effective, key)
-                    for key, value in supplied.items()
-                }
-                try:
-                    repositories.append_readiness_setting(
-                        conn, effective_from=args.date, note=args.setting_note, **values,
-                    )
-                except ValueError as exc:
-                    print(f"readiness settings: {exc}")
-                    return 2
-                effective = readiness_score.effective_settings(conn, args.date)
-                print(f"readiness settings recorded from {args.date}")
-            print(f"baseline_days={effective.baseline_days} "
-                  f"baseline_min_readings={effective.baseline_min_readings} "
-                  f"hrv_slope={effective.hrv_slope:g} rhr_slope={effective.rhr_slope:g} "
-                  f"weights hrv={effective.hrv_weight:g} rhr={effective.rhr_weight:g} "
-                  f"wearable={effective.wearable_weight:g} ({effective.setting_source})")
             return 0
         args.date = args.date or datetime.date.today().isoformat()
         if args.action == "override":
@@ -2917,8 +3091,8 @@ def _import_state(conn, path: Path, *, force: bool) -> int:
     readiness_count = 0
     for entry in raw.get("readiness") or []:
         day = str(entry.get("date") or entry.get("on_date") or "")
-        values = {field: entry[field] for field in readiness_utils.READINESS_FIELDS
-                  if field in entry}
+        fields = queries.readiness_field_names(conn, day)
+        values = {field: entry[field] for field in fields if field in entry}
         try:
             readiness_count += _record_readiness(
                 conn, day, values, note=entry.get("note")

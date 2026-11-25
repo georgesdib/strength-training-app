@@ -98,7 +98,7 @@ Rubric marks are no longer requested. The calibration loop is dormant ([`docs/RU
 
 ### Step 4 — Log today's readiness
 
-Open **Workflow → Readiness** and enter the subjective measures available to you, such as sleep, energy, mood, soreness and stress. Device-derived HRV/RHR values and a wearable score are optional. Enter only data you have; do not invent values to complete the form.
+Open **Workflow → Readiness** and enter the measures the server's readiness registry declares as enabled — normally sleep, energy, mood, soreness and stress, with optional device HRV/RHR. The form renders the registry's labels, scales, units and order; the phone's **Today → Log readiness** renders the same registry. Bodyweight and the wearable score are separate inputs, and HealthKit HRV/resting heart rate/bodyweight are shown on the phone with a manual value winning. Enter only data you have; do not invent values to complete the form.
 
 The CLI equivalent is:
 
@@ -108,7 +108,37 @@ The CLI equivalent is:
   --sleep 4 --energy 4 --mood 4 --soreness 4 --stress 4
 ```
 
-The example numbers are illustrative, not targets. Follow the scale labels in the UI. A score requires a sufficient subset of the core inputs. If readiness is incomplete, the app requires an explicit acknowledgement that no score will be applied before it proceeds.
+The example numbers are illustrative, not targets. Follow the scale labels in the UI. A score requires the registry's minimum number of core fields and at least one of its required-one-of fields (sleep or energy by default). If readiness is incomplete, the app requires an explicit acknowledgement that no score will be applied before it proceeds.
+
+### Change readiness inputs, weights and baselines
+
+The score's inputs are a **versioned readiness registry**, not fixed code. Edit it in **Settings → Readiness inputs** or with the CLI; every save appends a version effective today, and history is never rewritten.
+
+Web: enable or disable a metric, change its relative weight, set a device metric's baseline window/readings/slope, mark core metrics as counting toward the minimum and as required-one-of, set the minimum core fields and the wearable blend. **Preview changes** shows the diff; **Save registry version** writes it. **Version history** lists every version.
+
+CLI (same operations and validation):
+
+```bash
+.venv/bin/strength-coach readiness registry show --json > registry.json
+# edit registry.json: enabled, weight, baseline_days, min_readings, slope,
+# counts_as_core, require_any_of, min_core_fields, wearable_weight
+.venv/bin/strength-coach readiness registry preview --file registry.json
+.venv/bin/strength-coach readiness registry set --file registry.json --note "why"
+.venv/bin/strength-coach readiness registry list
+.venv/bin/strength-coach readiness registry rollback --version 3
+```
+
+Weights are relative (only ratios matter): core **0.05–2.0**, device **0.05–1.0**, wearable blend **0–0.5**. A weight of zero is not allowed; disable the metric instead. Backdating is rejected, and a rollback is a new version that copies an older payload (`rollback --version N`) — it never edits or reactivates the old row. If two versions share an effective date, the last appended one wins.
+
+**Adding a brand-new input.** Open **Settings → Readiness inputs → Add a new input**, or run:
+
+```bash
+.venv/bin/strength-coach readiness registry define \
+  --key sleep_quality --label "Sleep quality" --role core \
+  --scale-min 1 --scale-max 5 --weight 1 --required
+```
+
+Use `--role device --baseline-days 28 --min-readings 7 --slope 0.5 --unit ms` for a measured input; add `--lower-is-better` when a higher value is worse. The catalogue definition and the new registry version are written together in one transaction. The key is permanent — it can be disabled later but not renamed or deleted — so use a stable lower-case name. The phone picks the input up from the schema on its next fetch; it is unavailable offline until the cache refreshes.
 
 ## 4. Your normal workout workflow
 
@@ -184,7 +214,7 @@ The reports do not automatically retune readiness weights, calibration threshold
 
 ### Readiness
 
-Readiness is a date-specific adjustment input. Depending on the score and configured rules, it can reduce load, increase the RIR allowance, and remove an accessory set. Main-lift set reduction is a separate opt-in setting. Readiness does not override a hard constraint or injury ceiling. The score's weights and cut-points are transparent design choices, not validated individual thresholds.
+Readiness is a date-specific adjustment input. Depending on the score and configured rules, it can reduce load, increase the RIR allowance, and remove an accessory set. Main-lift set reduction is a separate opt-in setting. Readiness does not override a hard constraint or injury ceiling. The score's inputs, weights and baselines come from the versioned readiness registry; see *Change readiness inputs, weights and baselines* above. They are transparent design choices, not validated individual thresholds.
 
 ### Loads and e1RM
 
