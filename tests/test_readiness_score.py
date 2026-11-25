@@ -11,7 +11,7 @@ from conftest import make_readiness, make_training
 from strength_coach import cli
 from strength_coach.domain import e1rm as e1rm_mod
 from strength_coach.features import readiness as readiness_feature
-from strength_coach.features import readiness_score
+from strength_coach.features import readiness_registry, readiness_score
 from strength_coach.prescribe import build_prescription, loads
 from strength_coach.store import db, hrv_recovery, importer, queries, repositories
 
@@ -407,27 +407,25 @@ def test_wearable_score_rejects_out_of_range():
         else:
             raise AssertionError("wearable score >100 was accepted")
 
-def test_athlete_setting_overrides_baseline_and_weights():
+def test_registry_edit_overrides_baseline_and_weights():
     baseline = [(d, {"HRV": "60", "RHR": "60"}) for d in range(1, 8)]
     rows = _readiness_with_history(
         baseline, {"Sleep": "4", "Energy": "4", "Mood": "4", "Stress": "4",
                    "Soreness": "4", "HRV": "90", "RHR": "45"},
     )
     with store_with(readiness_rows=rows) as store:
-        default = readiness_score.compute(store.connection, TODAY)
-        repositories.append_readiness_setting(
-            store.connection, effective_from=TODAY, baseline_days=14,
-            baseline_min_readings=7, hrv_slope=0.25, rhr_slope=0.25,
-            hrv_weight=1.0, rhr_weight=1.0, wearable_weight=0.10,
-            note="test",
-        )
-        configured = readiness_score.compute(store.connection, TODAY)
-        effective = readiness_score.effective_settings(store.connection, TODAY)
+        conn = store.connection
+        default = readiness_score.compute(conn, TODAY)
+        payload = readiness_registry.load(conn, TODAY).to_payload()
+        metrics = {metric["key"]: metric for metric in payload["metrics"]}
+        for key in ("hrv_ms", "rhr_bpm"):
+            metrics[key].update({"weight": 1.0, "baseline_days": 14, "slope": 0.25})
+        readiness_registry.save(conn, payload, effective_from=TODAY, note="test")
+        configured = readiness_score.compute(conn, TODAY)
+        effective = readiness_score.effective_settings(conn, TODAY)
 
-    assert effective.setting_source == "athlete"
-    assert effective.baseline_days == 14
+    assert effective.baseline_days == 28  # the legacy setting surface no longer drives the score
     assert configured.score != default.score
-    assert "athlete score setting" in configured.basis
     assert any(c.weight == 1.0 for c in configured.components if c.field == "hrv_ms")
 
 
