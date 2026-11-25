@@ -550,8 +550,8 @@ A new metric key is created through `readiness registry define` or **Settings �
 Add a new input**, which write the `metric_definition` row and the registry version in one
 transaction.
 
-Remaining limitations: core normalisation still uses `value / scale_max` (the min-max formula was
-not adopted; a 2-6 scale maps 2 to 0.33 rather than 0), and core values remain whole numbers.
+Core normalisation is `value / scale_max` (the min-max formula was not adopted; a 2-6 scale maps
+2 to 0.33 rather than 0). Core values remain whole numbers.
 
 Amended 2026-10-26 (`DEC-READINESS-17`):
 
@@ -564,6 +564,8 @@ Closed:
 
 - learned weight adoption — the held-out comparison found no improvement; fixed transparent
   weights are retained (`DEC-READINESS-10`, [`READINESS-WEIGHT-EVIDENCE.md`](READINESS-WEIGHT-EVIDENCE.md)).
+- core normalisation — `value / scale_max` is the final mapping; min–max was not adopted
+  (2026-11-25).
 
 ## 5. Decisions and open questions
 
