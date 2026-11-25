@@ -434,8 +434,9 @@ These are planning windows, not promises; missing data pauses the dependent phas
 
 **Out of scope**
 
-- Parent-variant e1RM ratios and weakness/injury targeting — parent ratios remain unscheduled,
-  display-only at most; see [PARENT-VARIANT-WEAKNESS-EVIDENCE.md](docs/PARENT-VARIANT-WEAKNESS-EVIDENCE.md).
+- Parent-variant e1RM ratios and weakness/injury targeting — parent ratios are **closed
+  (2026-11-25)**: the descriptive display is delivered and the profile is not pursued; see
+  [PARENT-VARIANT-WEAKNESS-EVIDENCE.md](docs/PARENT-VARIANT-WEAKNESS-EVIDENCE.md).
 - A single combined cardio/strength fatigue score.
 - Optimiser, ML, automatic programme generation.
 - Automatic cardio-driven load or RIR changes.
@@ -489,7 +490,6 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | P1 | Record **≥3 measured tests per main lift** so `MOD-E1RM-001` can calibrate the formula (the bias question is data-starved, not mechanism-starved) | **next** — `e1rm tests-needed` reports counted tests per main lift against the gate (the Athlete page shows the same table); `e1rm calibrate` shows the ratio and CI; record from the Athlete page, an Exercises row or the post-workout panel |
 | P2 | Fold the monitoring design history into docs/MONITORING-ANALYSIS.md | **scheduled 2027-01-22, with the Phase 5A review gate** — the canonical analysis already indexes the design trail; at the gate, summarise docs/design/... into the canonical document and retire or mark the separate trail. Do not do it earlier: Phase 5A classifies each metric, and the design must not be presented as settled first |
 | P2 | Web authentication + per-user data | **backlog; overkill for now** — CLI-only user provisioning, auth DB, per-user coach DB, login/session/CSRF, password reset, gender/timezone onboarding, TLS reverse proxy and home-network host. Temporary no-auth HTTP bind is accepted under `LIM-57` |
-| P2 | Parent-variant e1RM ratios | **descriptive display delivered** — three configured relationships in Performance, date/gap-gated and target-free (`DEC-MON-03`); a repeated-pair profile with an uncertainty band is unscheduled, display-only at most (§4.20.2) |
 | P2 | Weakness/injury-targeted selection | deferred to after v1.3 / ~April 2027; gates in §4.20.3 and `DEC-SELECT-05` |
 | P2 | Volume-ledger denominator and zero-week coverage | **implemented** — calendar-window denominator, complete-coverage zero-fill, break/deload reset for under-MEV; live profile coverage complete; design in VOLUME-MODULATION-PLAN §14, Q29 |
 | P2 | Step 8 effective-set accounting | **implemented and live 2026-10-27** — 0.25 map, target 68.25, landmarks unscaled, effective budget/ledger, raw UI column, `hard`/`effective` switch; rollback one profile change (VOLUME-MODULATION-PLAN §15–16) |
@@ -508,6 +508,12 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 as a controller in `DEC-E1RM-PLAUS-01`: a cap on the per-session e1RM increase bounds the change, not
 the level, and at 2 % of a 180 kg e1RM it would brake ordinary progression. The display-only
 plausibility advisory remains the guard, and the idea is not to be revisited.
+
+**Closed 2026-11-25: parent-variant e1RM ratios.** The descriptive display remains — three
+configured relationships in Performance, date/gap-gated, no target and no load conversion — but the
+repeated-pair profile with an uncertainty band is **not pursued**. It is display-only at most, and
+variants are trained in blocks, so comparable pairs are rare. Reopen only with a new owner request, a
+formal parent relation and enough pairs to make an interval meaningful.
 
 ### 4.19.1 Deferred: web authentication and per-user data
 
@@ -531,13 +537,15 @@ Moved out of the strength-programme review so it can close. These are **not** v0
    period only after it beats the fixed/persistence baseline in a retrospective walk-forward.
    The current continuity and fatigue models failed; they remain fixed/shadow-only. A prospective
    run is 8–12 weeks / 24–36 sessions with no retuning and no load effect.
-2. **Parent-variant e1RM ratios.** Evidence review 2026-10-25: a ratio is a relative performance
-   profile, **not** a weakness or injury measure. The descriptive display shipped in 2026-11: three
-   configured relationships in Performance, each gated by a 14-day pair gap, 42-day age and two
-   observations per side, with no target and no load conversion (`DEC-MON-03`). What remains unscheduled is a **repeated-pair profile**: ratios aggregated across many paired
-   observations under comparable rep/RIR/equipment conditions, reported with a bootstrap or
-   credible interval on a formal parent relation — display-only at most, never a silent load
-   conversion or targeting rule. No schedule. See
+2. **Parent-variant e1RM ratios — closed 2026-11-25.** Evidence review 2026-10-25: a ratio is a
+   relative performance profile, **not** a weakness or injury measure. The descriptive display
+   shipped in 2026-11: three configured relationships in Performance, each gated by a 14-day pair
+   gap, 42-day age and two observations per side, with no target and no load conversion
+   (`DEC-MON-03`). The **repeated-pair profile** — comparable rep/RIR/equipment conditions, a
+   minimum number of pairs, a bootstrap or credible interval and a formal parent relation — is
+   **not pursued**: display-only at most, and variants are trained in blocks so comparable pairs
+   are rare. Reopen only with a new owner request and enough pairs to make an interval
+   meaningful. See
    [PARENT-VARIANT-WEAKNESS-EVIDENCE.md](docs/PARENT-VARIANT-WEAKNESS-EVIDENCE.md).
 3. **Weakness/injury targeting.** No positive targeting. A display-only own-history context is
    implemented. A gated testing plan is in
@@ -566,7 +574,7 @@ No implementation, no automatic substitution and no load effect follows from thi
 | decision | state | where |
 |---|---|---|
 | Prospective validation of a future continuity/fatigue candidate | gate only; current candidates rejected | §4.20.1, DEC-VALIDATION-01 |
-| Parent-variant e1RM ratios | descriptive display delivered; a repeated-pair profile with an uncertainty band is unscheduled; not weakness | §4.20.2; `PARENT-VARIANT-WEAKNESS-EVIDENCE.md` |
+| Parent-variant e1RM ratios | **closed 2026-11-25**: descriptive display delivered; repeated-pair profile not pursued; never a weakness measure | §4.20.2; `PARENT-VARIANT-WEAKNESS-EVIDENCE.md` |
 | Weakness targeting | plan only; deferred to after v1.3 / ~April 2027 | §4.20.3, `WEAKNESS-TARGETING-PLAN.md`, Q22, DEC-SELECT-05 |
 | Selection A/B boundary (pause/narrow, SSB/high-bar) | dormant policy decision; current default is conservative (A only same exercise) | Q21, docs/SELECTION-COMPARABILITY.md |
 | Cardio model | v1.6 | §4.13, Q14 |
