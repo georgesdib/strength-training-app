@@ -588,16 +588,17 @@ Decided:
 - **Overrides cover global and category scores**, win over computed readiness, change the load,
   but never bypass constraints or injury ceilings.
 
-Still open:
+Closed 2026-11-25:
 
-1. Is a 1–5 soreness scale direction "higher = less sore" intuitive enough, or should the UI
-   invert the label?
-2. The exact category list and exercise-to-category mapping; the table above is a starting
-   proposal, not final.
-3. The exact regularisation/feature weighting in calibration; the feature set is specified, the
-   fit is not.
-5. Whether a category with no linked injury should say `unknown` or `not configured`; both
-   avoid "fine", but they mean different things.
+1. **Soreness direction** — kept as stored: 1–5 with higher = less sore, consistent with the other
+   readiness inputs; no UI label inversion.
+2. **Category list and exercise-to-category mapping** — not an open design question: the list is
+   configuration (patterns, primary muscles or explicit exercise ids) validated against the
+   taxonomy, and per-lift mapping is accepted (§2.6, `ASSUMPTION-17`).
+3. **Calibration regularisation/feature weighting** — closed as not applicable: learned weights
+   are not adopted (`DEC-READINESS-10`), fixed transparent weights remain and no fit is planned.
+4. **Category with no linked injury** — display `unknown` ("no injury configured for this
+   category"); never "not configured".
 
 Decided: overrides use 0.00–1.00 like the score and require a reason; the combined readiness +
 continuity cap is 20%, applying to loads only.

@@ -52,7 +52,6 @@ Only open and future work is listed. Released versions and completed phases are 
 | — | AFC-5 evidence-gated prescription adaptation | **scoped, docs only; gated** | separate decision and evidence | §4.33a |
 | — | Training Intelligence remaining work | **INT-9 waits for iOS 27.3; aggregate evidence producers deferred; T-3a optional; multi-tool orchestration deferred** | see §4.34a | §4.34a |
 | — | Resolver structure remaining work | **WP4 real-data p50 latency measurement is the only deferred item; offline watch start shipped 2026-11-23** | see §4.37a | §4.37a |
-| — | Unified offline execution — iOS build | **server deployed at `34e7f29` 2026-11-23; app build pending** | build and physical acceptance | iOS client plan |
 
 ## 2A. Phase 5 — prospective validation and evidence-driven improvements
 
