@@ -22,12 +22,13 @@ from strength_coach.store import db, importer, repositories
 
 ROOT = Path(__file__).resolve().parents[1]
 
-# Captured from the last commit before AFC implementation (d599706, 2026-11-13).
+# Captured from the last commit before AFC implementation (d599706, 2026-11-13);
+# re-captured 2026-11-25 to include the 2026-11-24 volume-target changes.
 PROSPECTIVE_REPORT_SHA256 = (
     "46280bd94cabdf3f342e3f067f6973ff37e4a0b76841e3d9897dfcee5f7a872f"
 )
 LOCKED_CONFIG_REVISION = (
-    "5c6b5885c980ef00df1273a4ebb8ed697900dfd002c3080116e5befc2e805923"
+    "c439cd5b96c5eea6d77ddc9c3722c7ae44612aff81a395adb47a9a35f27eff0f"
 )
 LOCAL_OVERRIDES = sorted((ROOT / "config").glob("*.local.yaml"))
 
