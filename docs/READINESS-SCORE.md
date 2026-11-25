@@ -521,7 +521,9 @@ Amended 2026-11-25 (`DEC-READINESS-21`):
 - the per-athlete `readiness_setting` overlay, its API, CLI action and panel were removed; its
   rows remain for history only;
 - the seeded version 1 reproduces the pre-registry score exactly (19-scenario golden fixture,
-  including device baselines, wearable range, overrides and suppression).
+  including device baselines, wearable range, overrides and suppression); a read-only copy of
+  the live database produced identical status, score, components, basis, overrides and factors
+  on **1,021** readiness/override dates.
 
 Amended 2026-10-26 (`DEC-READINESS-17`):
 

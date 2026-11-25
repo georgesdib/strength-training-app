@@ -45,7 +45,7 @@ VALUES
 
 -- Seed version 1 with the pre-registry defaults. 1970-01-01 makes the seed effective for every
 -- date, so historical prescriptions and current scores resolve to the same inputs they had.
-INSERT INTO readiness_registry (effective_from, schema_version, payload_json, note)
+INSERT INTO readiness_registry (effective_from, schema_version, payload_json, note, created_at)
 VALUES (
     '1970-01-01',
     1,
@@ -73,5 +73,6 @@ VALUES (
          "slope": 0.5, "order": 7}
       ]
     }',
-    'seed: pre-registry defaults'
+    'seed: pre-registry defaults',
+    '1970-01-01T00:00:00.000Z'
 );
