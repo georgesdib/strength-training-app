@@ -489,7 +489,7 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 | P1 | Record **≥3 measured tests per main lift** so `MOD-E1RM-001` can calibrate the formula (the bias question is data-starved, not mechanism-starved) | **next** — `e1rm tests-needed` reports counted tests per main lift against the gate (the Athlete page shows the same table); `e1rm calibrate` shows the ratio and CI; record from the Athlete page, an Exercises row or the post-workout panel |
 | P2 | Fold the monitoring design history into docs/MONITORING-ANALYSIS.md | **scheduled 2027-01-22, with the Phase 5A review gate** — the canonical analysis already indexes the design trail; at the gate, summarise docs/design/... into the canonical document and retire or mark the separate trail. Do not do it earlier: Phase 5A classifies each metric, and the design must not be presented as settled first |
 | P2 | Web authentication + per-user data | **backlog; overkill for now** — CLI-only user provisioning, auth DB, per-user coach DB, login/session/CSRF, password reset, gender/timezone onboarding, TLS reverse proxy and home-network host. Temporary no-auth HTTP bind is accepted under `LIM-57` |
-| P2 | Parent-variant e1RM ratios | unscheduled; display-only at most (§4.20.2) |
+| P2 | Parent-variant e1RM ratios | **descriptive display delivered** — three configured relationships in Performance, date/gap-gated and target-free (`DEC-MON-03`); an athlete-specific ratio with uncertainty is unscheduled, display-only at most (§4.20.2) |
 | P2 | Weakness/injury-targeted selection | deferred to after v1.3 / ~April 2027; gates in §4.20.3 and `DEC-SELECT-05` |
 | P2 | Volume-ledger denominator and zero-week coverage | **implemented** — calendar-window denominator, complete-coverage zero-fill, break/deload reset for under-MEV; live profile coverage complete; design in VOLUME-MODULATION-PLAN §14, Q29 |
 | P2 | Step 8 effective-set accounting | **implemented and live 2026-10-27** — 0.25 map, target 68.25, landmarks unscaled, effective budget/ledger, raw UI column, `hard`/`effective` switch; rollback one profile change (VOLUME-MODULATION-PLAN §15–16) |
@@ -532,9 +532,12 @@ Moved out of the strength-programme review so it can close. These are **not** v0
    The current continuity and fatigue models failed; they remain fixed/shadow-only. A prospective
    run is 8–12 weeks / 24–36 sessions with no retuning and no load effect.
 2. **Parent-variant e1RM ratios.** Evidence review 2026-10-25: a ratio is a relative performance
-   profile, **not** a weakness or injury measure. It may later be a descriptive prior/display
-   aid with uncertainty, never a silent load conversion or targeting rule. Needs a formal parent
-   relation and paired data. No schedule. See
+   profile, **not** a weakness or injury measure. The descriptive display shipped in 2026-11: three
+   configured relationships in Performance, each gated by a 14-day pair gap, 42-day age and two
+   observations per side, with no target and no load conversion (`DEC-MON-03`). What remains
+   unscheduled is an **athlete-specific** ratio with an uncertainty band and a formal parent
+   relation backed by paired data — display-only at most, never a silent load conversion or
+   targeting rule. No schedule. See
    [PARENT-VARIANT-WEAKNESS-EVIDENCE.md](docs/PARENT-VARIANT-WEAKNESS-EVIDENCE.md).
 3. **Weakness/injury targeting.** No positive targeting. A display-only own-history context is
    implemented. A gated testing plan is in
@@ -563,7 +566,7 @@ No implementation, no automatic substitution and no load effect follows from thi
 | decision | state | where |
 |---|---|---|
 | Prospective validation of a future continuity/fatigue candidate | gate only; current candidates rejected | §4.20.1, DEC-VALIDATION-01 |
-| Parent-variant e1RM ratios | unscheduled; display-only profile/prior, not weakness | §4.20.2; `PARENT-VARIANT-WEAKNESS-EVIDENCE.md` |
+| Parent-variant e1RM ratios | descriptive display delivered; an athlete-specific profile/prior with uncertainty is unscheduled; not weakness | §4.20.2; `PARENT-VARIANT-WEAKNESS-EVIDENCE.md` |
 | Weakness targeting | plan only; deferred to after v1.3 / ~April 2027 | §4.20.3, `WEAKNESS-TARGETING-PLAN.md`, Q22, DEC-SELECT-05 |
 | Selection A/B boundary (pause/narrow, SSB/high-bar) | dormant policy decision; current default is conservative (A only same exercise) | Q21, docs/SELECTION-COMPARABILITY.md |
 | Cardio model | v1.6 | §4.13, Q14 |
