@@ -77,7 +77,7 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/observations?date=N&weeks=N` | AFC-3 longitudinal observations over the AFC-2 evidence contract: repeated RIR deviation, repeated incomplete work, VBT residual deviation; abstentions carry their reason. Persists new observations append-only (idempotent on the evidence id) |
 | `GET /api/nudge?date=N` | at most one AFC-4 review-category nudge from the current AFC-3 observation, or `null` when suppressed or unsupported |
 | `POST /api/nudge` | `{action: dismiss\|snooze, key, evidence_id?, date?}` -> append-only suppression and the next nudge; dismiss is permanent for that evidence window, snooze hides the key through `date + 14 days` inclusive and returns the following day |
-| `GET /api/regime?weeks=N&date=N` | read-only main-lift/substitute regime check |
+| `GET /api/regime?weeks=N&date=N` | informational-only, read-only main-lift/substitute regime check |
 | `GET /api/settings` | masked LLM settings, drop settings, config/database paths and app version |
 | `GET /api/settings/ios` | effective `ios.v1.yaml` values, defaults, ranges, labels, descriptions, path/source and per-request reload semantics |
 | `POST /api/settings/ios` | validate and atomically update only the four known `ios.v1.yaml` keys; the next request uses the new values, no restart |

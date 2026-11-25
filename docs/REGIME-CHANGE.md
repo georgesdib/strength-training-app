@@ -1,6 +1,7 @@
 # REGIME-CHANGE DETECTION
 
-**Status:** implemented 2026-10-24. Read-only; no prescription effect.
+**Status:** implemented 2026-10-24. **Informational only:** read-only, no prescription effect, no alert
+and no automatic action.
 
 ---
 
@@ -77,6 +78,9 @@ Output:
 - coverage and a review-question note.
 
 ## 5. What it does not do
+
+The check is **informational only**: nothing reads it to change a prescription, so a wrong finding
+costs only a review question.
 
 - no automatic prescription change;
 - no diagnosis or injury verdict;

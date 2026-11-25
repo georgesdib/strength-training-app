@@ -203,8 +203,8 @@ ratio inherits its precision limits.
   or unavailable) with an explanatory reason. **Record a strength test** scrolls to and focuses
   the existing dynamically rendered `#test-form`; it does not create a second form or submission
   path.
-- **Prescribe → Regime change** — read-only 8-week check for a main lift disappearing while a
-  same-category substitute rises; a review question, never an action.
+- **Prescribe → Regime change** — informational-only, read-only 8-week check for a main lift
+  disappearing while a same-category substitute rises; a review question, never an action.
 - **Explain** — project docs/code/private retrieval with grounded citations and a form for top chunks, context budget and answer word limit.
 - **Chat** — read-only multi-turn conversation over the same capability catalogue, with a 20-turn cap, only the recent ten messages sent, session-only browser memory, a separate “Suggestion — not applied” block, source capabilities and unverified-number warnings. It never writes or applies a suggestion. A collapsed **Show raw data** disclosure at the end of each answer shows the exact request sent to the model and the provider's raw response; it lives only in the browser session and is never stored.
 - **Narrate** — under Programme Intelligence: choose any registered read-only capability, edit its JSON payload, and ask the configured model for a validated narrative. The model and token count are shown; numbers absent from the envelope appear as an **Unverified numbers** warning rather than a failure. Selecting a capability shows its description, required/optional payload fields and a working example; **Show raw output** exposes the exact facts passed to the model. Health-class capabilities (weekly review, readiness history, longevity) require an explicit disclosure and checkbox that names the configured provider/model before the request is sent, and the server rejects a health envelope without `health_consent`. The deterministic envelope is available without narration. The envelope is unchanged and the prompt/narrative are not stored. A missing model is a clear error, not a fallback.

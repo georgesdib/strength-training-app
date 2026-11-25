@@ -105,7 +105,7 @@ clickable authority.
 | Exposure ratio | Rolling 7/28-day hard-set ratio, coverage, abstention and per-group signals; no prescription effect | [FATIGUE-SIGNALS.md](FATIGUE-SIGNALS.md) |
 | Performance residual | VBT-only execution residual per lift with the signal/evaluation gates; shadow, never a prescription effect | [FATIGUE-SIGNALS.md](FATIGUE-SIGNALS.md) |
 | Shadow review | Append-only decision counts, abstention reasons and the activation gate; the gate never enables anything | [FATIGUE-SIGNALS.md](FATIGUE-SIGNALS.md) |
-| Regime change | Read-only main-lift/substitute change check | [REGIME-CHANGE.md](REGIME-CHANGE.md) |
+| Regime change | Informational-only, read-only main-lift/substitute change check | [REGIME-CHANGE.md](REGIME-CHANGE.md) |
 | Strength fatigue diagnostic | Rejected predictor; descriptive state only; first ten lifts with Show more | [FATIGUE-FITNESS.md](FATIGUE-FITNESS.md) |
 | Exercise selection | Ranked suggestions; explicit apply; no model/LLM computation | [SELECTION-COMPARABILITY.md](SELECTION-COMPARABILITY.md) |
 | Retrospective validation | Walk-forward check against simple baselines | [RETROSPECTIVE-VALIDATION.md](RETROSPECTIVE-VALIDATION.md) |
