@@ -130,7 +130,15 @@ CLI (same operations and validation):
 
 Weights are relative (only ratios matter): core **0.05–2.0**, device **0.05–1.0**, wearable blend **0–0.5**. A weight of zero is not allowed; disable the metric instead. Backdating is rejected, and a rollback is a new version that copies an older payload (`rollback --version N`) — it never edits or reactivates the old row. If two versions share an effective date, the last appended one wins.
 
-**Adding a brand-new input** is not yet exposed in the editor: the registry can enable, disable or reweight metrics that already have a catalogue definition. A new metric key still needs its `metric_definition` row (label, scale, direction, unit) added first; until that surface exists, use the shipped metrics.
+**Adding a brand-new input.** Open **Settings → Readiness inputs → Add a new input**, or run:
+
+```bash
+.venv/bin/strength-coach readiness registry define \
+  --key sleep_quality --label "Sleep quality" --role core \
+  --scale-min 1 --scale-max 5 --weight 1 --required
+```
+
+Use `--role device --baseline-days 28 --min-readings 7 --slope 0.5 --unit ms` for a measured input; add `--lower-is-better` when a higher value is worse. The catalogue definition and the new registry version are written together in one transaction. The key is permanent — it can be disabled later but not renamed or deleted — so use a stable lower-case name. The phone picks the input up from the schema on its next fetch; it is unavailable offline until the cache refreshes.
 
 ## 4. Your normal workout workflow
 
