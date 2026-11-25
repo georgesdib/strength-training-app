@@ -28,8 +28,8 @@ strength-coach web --port 8001
 `--host` through. It is convenience only: it ends in the same `strength-coach web`.
 
 **Home network only, no authentication.** The default bind is `0.0.0.0`; use it only behind a
-trusted home router and never forward the port. The accepted temporary risk is `LIM-57`;
-authentication/per-user/TLS are planned in `ROADMAP.md` §4.19.
+trusted home router and never forward the port. The accepted risk is `LIM-57`; authentication,
+per-user data and TLS are not planned (`DEC-WEB-04`).
 
 ### Autostart (systemd)
 

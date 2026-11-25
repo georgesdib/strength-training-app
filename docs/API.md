@@ -570,7 +570,7 @@ unattributed set has both as null.
 
 ## Request security
 
-**Temporary home-network mode (2026-10-28, `DEC-WEB-03`):** the loopback Host, Origin and
+**Home-network mode (2026-10-28, `DEC-WEB-03`; permanent 2026-11-25, `DEC-WEB-04`):** the loopback Host, Origin and
 `Sec-Fetch-Site` guards were removed by owner decision; the UI binds `0.0.0.0` and has **no
 authentication**. The accepted risk is `LIM-57`. Never expose it to the public internet.
 
@@ -582,8 +582,8 @@ What remains:
 - `/api/ios/v1/` is the only authenticated surface (per-device bearer token); every
   unversioned route remains unauthenticated as described above;
 - logs do not record passwords or session tokens;
-- authentication, per-user data, password reset, gender/timezone, CSRF and TLS are
-  the `ROADMAP.md` §4.19 backlog. They must land before any exposure beyond the home LAN.
+- authentication, per-user data, password reset, timezone onboarding, CSRF and TLS are **not
+  planned** (`DEC-WEB-04`). The server must not be exposed beyond the home LAN.
 
 ## Request limits
 
@@ -601,8 +601,8 @@ What remains:
 ## Dates
 
 - The **local calendar date in YYYY-MM-DD** is authoritative for UI defaults and daily records.
-  The server's local timezone is authoritative today; a profile timezone (default
-  Europe/London) is part of the auth/per-user backlog. Do not assume a remote browser shares it.
+  The server's local timezone is authoritative today; a profile timezone is not planned
+  (`DEC-WEB-04`). Do not assume a remote browser shares it.
 - Use `formatLocalDate`/`today`; never `toLocaleDateString` or a UTC
   `toISOString().slice(0, 10)` for a date default.
 

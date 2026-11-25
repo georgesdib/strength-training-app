@@ -489,7 +489,6 @@ Completed and closed items were removed from this list on 2026-10-25; the status
 |---|---|---|
 | P1 | Record **≥3 measured tests per main lift** so `MOD-E1RM-001` can calibrate the formula (the bias question is data-starved, not mechanism-starved) | **next** — `e1rm tests-needed` reports counted tests per main lift against the gate (the Athlete page shows the same table); `e1rm calibrate` shows the ratio and CI; record from the Athlete page, an Exercises row or the post-workout panel |
 | P2 | Fold the monitoring design history into docs/MONITORING-ANALYSIS.md | **scheduled 2027-01-22, with the Phase 5A review gate** — the canonical analysis already indexes the design trail; at the gate, summarise docs/design/... into the canonical document and retire or mark the separate trail. Do not do it earlier: Phase 5A classifies each metric, and the design must not be presented as settled first |
-| P2 | Web authentication + per-user data | **backlog; overkill for now** — CLI-only user provisioning, auth DB, per-user coach DB, login/session/CSRF, password reset, gender/timezone onboarding, TLS reverse proxy and home-network host. Temporary no-auth HTTP bind is accepted under `LIM-57` |
 | P2 | Weakness/injury-targeted selection | deferred to after v1.3 / ~April 2027; gates in §4.20.3 and `DEC-SELECT-05` |
 | P2 | Volume-ledger denominator and zero-week coverage | **implemented** — calendar-window denominator, complete-coverage zero-fill, break/deload reset for under-MEV; live profile coverage complete; design in VOLUME-MODULATION-PLAN §14, Q29 |
 | P2 | Step 8 effective-set accounting | **implemented and live 2026-10-27** — 0.25 map, target 68.25, landmarks unscaled, effective budget/ledger, raw UI column, `hard`/`effective` switch; rollback one profile change (VOLUME-MODULATION-PLAN §15–16) |
@@ -515,19 +514,12 @@ repeated-pair profile with an uncertainty band is **not pursued**. It is display
 variants are trained in blocks, so comparable pairs are rare. Reopen only with a new owner request, a
 formal parent relation and enough pairs to make an interval meaningful.
 
-### 4.19.1 Deferred: web authentication and per-user data
-
-**Status: backlog, not implemented. Temporary state: unauthenticated home-LAN HTTP (`DEC-WEB-03`, `LIM-57`).** The owner judged the full design overkill for now; this section is the agreed implementation proposal, not a claim that any part exists.
-
-- **Auth store:** `data/auth.db` with `app_user` (id, username, password hash, `must_change_password`, disabled, timestamps), `session` (hashed token, user id, CSRF token, expiry, last seen) and `login_attempt` for rate limiting. Passwords use scrypt or Argon2id with a unique salt.
-- **Private data:** one coach database per user at `data/users/<user-id>/coach.db`; no `user_id` columns added to the clinical schema. The authenticated request resolves the user's database. Move the existing `data/coach.db` into the first user's directory after a backup, never copy it into a shared store.
-- **CLI-only provisioning:** `user create`, `user list`, `user enable/disable`, and `user reset-password <username>`. Reset requires **no old password**; it prompts for the new one twice or accepts `--password-stdin`, invalidates all sessions, and may set `must_change_password`. Local shell access is the admin boundary.
-- **First user:** provisioned through the CLI with a temporary password, forced change at first login, and onboarding for gender and timezone. **Never commit the actual username, password or other profile values**; use placeholders in design docs.
-- **Login and sessions:** username + password; server-side session token in the auth DB; `HttpOnly`, `SameSite=Lax`, `Secure` cookie when TLS is active; CSRF token; rate-limited failed logins; logout and password change invalidate sessions; unauthenticated APIs return `401`.
-- **Profile onboarding:** require gender and timezone after first login. Store gender as the agreed dropdown with `prefer not to say` and the IANA timezone. Do not use gender to compute load or volume. Age is not stored and will not be added (`LIM-35`), so onboarding asks for none.
-- **Home access/TLS:** Caddy or nginx terminates HTTPS; the app stays on loopback behind it or gains built-in TLS. Only the configured home hostname/origin is accepted. HTTPS is required before non-loopback credentials are accepted; no public-internet exposure.
-- **Isolation and logs:** every API, import, export, backup and log query resolves the authenticated user. The current global Logs page must become per-user or admin-only.
-- **Acceptance tests:** CLI create/reset/disable, hash verification, login/logout, forced password change, session expiry/invalidation, CSRF, rate limiting, per-user database isolation, profile onboarding, TLS/origin configuration, and non-loopback access.
+**Closed 2026-11-25: web authentication and per-user data.** Not pursued. The server stays a
+single-user tool on a trusted home LAN over HTTP (`DEC-WEB-03`, `LIM-57`): no auth store, sessions,
+login UI, per-user databases, profile onboarding or TLS is planned (`DEC-WEB-04`). The work would
+cost roughly 10-15 sessions across the backend and iOS, plus a data move and a re-pair, for a
+benefit that only appears with multiple users or access beyond the LAN. Reopen only with a new
+owner decision if either happens.
 
 ### 4.20 Post-review follow-ups  (unscheduled)
 

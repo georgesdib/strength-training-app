@@ -244,8 +244,8 @@ Commands:
 - **No baseline context package.** `provenance.context_hash` covers the request context (capability,
   arguments, database and config revisions) under builder version `context.v1`. INT-2 replaces the
   argument component with the baseline package without changing the field.
-- **Timezone** is the platform's local zone name, not an IANA profile timezone (that is
-  ROADMAP §4.19). The authoritative date remains the server's local calendar date.
+- **Timezone** is the platform's local zone name, not an IANA profile timezone (not planned;
+  `DEC-WEB-04`). The authoritative date remains the server's local calendar date.
 - **No cache.** Every call reads; caching is deferred until the target host measurement exists.
 - **The timeout does not cancel work.** It bounds the response; a blocked SQLite read finishes in
   its worker thread and its result is discarded. Leftover work is a bounded read on a connection
@@ -536,7 +536,7 @@ context was therefore left unimplemented.
 
 - Set the host timezone. The authoritative training date is the server-local calendar date; an
   unset TZ on a headless machine makes it UTC and can shift the window by a day. A stored IANA
-  profile timezone remains ROADMAP §4.19 work; the envelope reports the platform zone name.
+  profile timezone is not planned (`DEC-WEB-04`); the envelope reports the platform zone name.
 - The service user must be able to read the database. The transport opens it `mode=ro` and never
   runs migrations; point `--db` at the existing database rather than copying it into a second
   writable store.
