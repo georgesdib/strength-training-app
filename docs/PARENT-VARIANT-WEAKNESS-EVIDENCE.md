@@ -180,7 +180,7 @@ test. Parent-variant ratios alone do not meet those gates.
 3. The app’s first weakness assessment remains **own-lift repeated performance**; the next
    credible upgrade is a standardised same-lift test, not a cross-variant ratio.
 4. **Closed 2026-11-25:** the descriptive display is delivered; the repeated-pair profile is not
-   pursued. ROADMAP §4.20.2 records the closure and the only reopen condition.
+   pursued. ROADMAP-RETIRED.md §4.20.2 records the closure and the only reopen condition.
 
 ## Related
 

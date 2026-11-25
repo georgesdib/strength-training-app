@@ -254,8 +254,8 @@ Status reflects the implementation, not only the original recommendation.
 - [x] MRV question closed — not estimable without independent volume variation; no experiment.
 - [x] 3RM/5RM calibration cadence (`test --status`).
 - [x] Explicit warm-up prescription (50/70/85 ramp).
-- [x] Review closed: prospective validation is moved to ROADMAP §4.20 as a gate for a future candidate. The retrospective check rejected the current continuity/fatigue models; no prospective period is active.
-- [x] Parent-variant e1RM ratios moved to ROADMAP §4.20. Weakness/injury targeting is deferred there (`DEC-SELECT-04/05`); only the display-only own-history context is implemented.
+- [x] Review closed: prospective validation is moved to ROADMAP-RETIRED.md §4.20 as a gate for a future candidate. The retrospective check rejected the current continuity/fatigue models; no prospective period is active.
+- [x] Parent-variant e1RM ratios moved to ROADMAP-RETIRED.md §4.20. Weakness/injury targeting is deferred there (`DEC-SELECT-04/05`); only the display-only own-history context is implemented.
 
 | priority | change | reason | effort | status |
 |---|---|---|---|---|
@@ -267,8 +267,8 @@ Status reflects the implementation, not only the original recommendation.
 | P1 | Define a rolling next-session policy that preserves A/B/C balance across missed weeks | Current fixed sequence is brittle | Medium | **Done** (session types) |
 | P2 | Schedule a 3RM/5RM calibration every 8–12 weeks; no routine 1RM | Keeps e1RM honest without adding maximal testing | Small | **Done** — 10-week reminder |
 | P2 | Add warm-up/ramp sets to the prescription or document the assumption explicitly | The template only describes working sets | Small | **Done** — 50/70/85 ramp |
-| P2 | Validate the calibrated continuity and selection models prospectively before letting them drive loads automatically | Avoid overfitting to a small, noisy log | Large | **Moved** to ROADMAP §4.20 — no candidate; current models failed the retrospective baseline |
-| P3 | Parent-variant e1RM ratios and weakness/injury selection | Useful later, but not needed to fix the current programme | Large | **Moved** to ROADMAP §4.20; targeting deferred (`DEC-SELECT-04/05`) |
+| P2 | Validate the calibrated continuity and selection models prospectively before letting them drive loads automatically | Avoid overfitting to a small, noisy log | Large | **Moved** to ROADMAP-RETIRED.md §4.20 — no candidate; current models failed the retrospective baseline |
+| P3 | Parent-variant e1RM ratios and weakness/injury selection | Useful later, but not needed to fix the current programme | Large | **Moved** to ROADMAP-RETIRED.md §4.20; targeting deferred (`DEC-SELECT-04/05`) |
 
 ## 5. Bottom line
 
@@ -279,7 +279,7 @@ Status reflects the implementation, not only the original recommendation.
 - **Weakest links now:** data depth and future model validation; neither is a programme-design
   defect in the current template.
 - **Verdict:** a good, safer and more balanced default for a back-sensitive lifter. The review
-  is **closed**; future model/ratio/targeting work is in ROADMAP §4.20.
+  is **closed**; future model/ratio/targeting work is in ROADMAP-RETIRED.md §4.20.
 
 ---
 

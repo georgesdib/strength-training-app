@@ -145,11 +145,15 @@ def test_public_docs_do_not_expose_profile_values() -> None:
 
 
 def test_status_matches_roadmap() -> None:
+    # ROADMAP.md is forward-looking: there may be no version in progress, but there must be
+    # an explicitly active phase. If a beta/in-progress version is listed, README must agree.
     roadmap = _read("ROADMAP.md")
+    assert "| Phase 5A | Prospective validation | **active" in roadmap, (
+        "ROADMAP has no active phase"
+    )
     current = set(re.findall(r"(v\d+\.\d+)\s+beta", roadmap))
     if not current:
         current = set(re.findall(r"(v\d+\.\d+)\s+in progress", roadmap))
-    assert current, "ROADMAP has no current phase"
     for name in ("README.md",):
         text = _read(name)
         for version in sorted(current):

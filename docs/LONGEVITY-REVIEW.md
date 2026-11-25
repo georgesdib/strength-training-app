@@ -80,7 +80,7 @@ fitness floor, not endurance sport. The interference literature supports this do
 lifting ([Ferraro-Farro 2026](https://doi.org/10.1055/a-2820-4527)).
 
 **What the app needs first:** cardio capture (modality, duration, HR, sRPE), then a
-prescription and a fatigue model. That is ROADMAP §4.13. **Capture is done** (2026-10-20):
+prescription and a fatigue model. That is ROADMAP-RETIRED.md §4.13. **Capture is done** (2026-10-20):
 `cardio_log`, `strength-coach cardio`, the Cardio page and `GET/POST /api/cardio`. The
 prescription and fatigue model are still open, and the injury signal still cannot see
 running/cycling load.
@@ -173,7 +173,7 @@ mortality reduction.
 - **Stretching as injury prevention**: no standalone evidence; keep mobility specific to the
   lifts if needed.
 - **A single "fatigue score"** for cardio plus lifting: the two exposures have different
-  fatigue signatures (ROADMAP §4.13).
+  fatigue signatures (ROADMAP-RETIRED.md §4.13).
 
 ## 4. What is outside the app's scope
 
@@ -184,7 +184,7 @@ different product with its own data-quality problems.
 
 ## 5. Sequence (1 and 3 applied)
 
-1. **Cardio capture** (ROADMAP §4.13): table, CLI/web entry, display; no prescription change.
+1. **Cardio capture** (ROADMAP-RETIRED.md §4.13): table, CLI/web entry, display; no prescription change.
    **Done 2026-10-20.**
 2. **Cardio prescription** after capture exists: a weekly target and one interval session,
    config-driven, with injury links for running/cycling.
@@ -201,7 +201,7 @@ different product with its own data-quality problems.
   **Applied:** pulling variants and power.
 - Q18: which longevity assessment metrics should the app record, and how often?
 
-Cardio scope is Q14 and ROADMAP §4.13. This review only ranks the priorities.
+Cardio scope is Q14 and ROADMAP-RETIRED.md §4.13. This review only ranks the priorities.
 
 ## 7. Limitations
 

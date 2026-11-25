@@ -831,6 +831,14 @@ documents:
   status: archived
   audience: maintainer
   nav: false
+- id: roadmap-retired
+  path: ROADMAP-RETIRED.md
+  title: ROADMAP — retired work
+  description: 'retired, withdrawn and decided-against roadmap items, with their decisions; audit only, not a default read or a to-do list'
+  category: archive
+  status: archived
+  audience: maintainer
+  nav: false
 - id: archive-ui-design-implementation-plan
   path: docs/archive/UI-DESIGN-IMPLEMENTATION-PLAN.md
   title: Strength Training App UI Design — audit and implementation plan

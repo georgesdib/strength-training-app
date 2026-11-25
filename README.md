@@ -42,10 +42,10 @@ measurement/readiness cleanup and documentation infrastructure. **v1.5.0 is the 
 release**: the read-only training intelligence workstream — capability layer, MCP server, REST
 facade, deterministic weekly review, server narration, web/CLI narrate and chat with the
 deterministic dossier — plus the selector retirement and the evaluation harness. It changes no
-training decision, prescription or schema. The cardio capture audit and a reproducible cardio
-impulse/shadow load are deferred to v1.6 (ROADMAP §4.13a); the deeper labelled calibration set is
-retired (`DEC-EVAL-09`, §4.14). Prospective validation
-remains a future gate, not an active candidate; review follow-ups are in ROADMAP §4.20.
+training decision, prescription or schema. The cardio impulse/shadow load was retired in 2026 (`DEC-LONGEVITY-03`,
+ROADMAP-RETIRED.md §4.13a); the deeper labelled calibration set is retired
+(`DEC-EVAL-09`, §4.14). Prospective validation remains a future gate, not an active candidate;
+review follow-ups are in ROADMAP §4.19 and §4.20.3.
 See [ROADMAP.md](ROADMAP.md).
 
 What runs today:

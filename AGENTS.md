@@ -7,7 +7,7 @@ Lean entry point for agents editing the Python server. Read the workspace-level
 - docs/AGENT-MIGRATIONS.md — append-only and schema/migration rules.
 - docs/AGENT-DEBUGGING.md — logs, failure triage, data quarantine and long-running tests.
 
-ROADMAP.md holds live phase status; completed roadmap history is split into `ROADMAP-DONE.md` and is read only for an audit or a past-deliverable question. docs/DECISIONS.md holds expensive-to-reverse decisions. Do not duplicate either here.
+ROADMAP.md holds open and future work only; completed roadmap history is in `ROADMAP-DONE.md` and retired/decided-against work is in `ROADMAP-RETIRED.md`, both read only for an audit or a past-deliverable question. docs/DECISIONS.md holds expensive-to-reverse decisions. Do not duplicate any of them here.
 
 Output discipline and high-risk approval rules are defined by the workspace `../AGENTS.md`.
 
