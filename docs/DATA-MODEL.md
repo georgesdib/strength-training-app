@@ -242,22 +242,31 @@ The full derivation — sentinels, merge, storage, and what actually moves a loa
 [`docs/READINESS.md`](READINESS.md). Which fields drive MOD-FAT-001, the threshold and the merge
 tie-break are config (`config/readiness.v1.yaml`, `DEC-READINESS-04`).
 
-### 5.3 `readiness_setting` (append-only, per athlete)
+### 5.3 `readiness_registry` (append-only, date-effective)
 
 | column | notes |
 |---|---|
-| setting_id PK | opaque id |
-| effective_from | date the setting takes effect |
-| baseline_days / baseline_min_readings | HRV/RHR baseline window and minimum |
-| hrv_slope / rhr_slope | ratio half-width for normalisation |
-| hrv_weight / rhr_weight / wearable_weight | weights/blend |
-| note | optional |
-| source | user |
-| created_at | when entered |
+| registry_id PK | opaque id |
+| effective_from | date the version takes effect |
+| schema_version | payload schema (currently 1) |
+| payload_json | metrics, weights, baselines, minimum-field rule and wearable blend |
+| note | optional, why the version exists |
+| created_at | when appended |
 
-The latest row with `effective_from <= date` wins. It overrides `config/readiness.v1.yaml`;
-no row means config/defaults. Append-only, because changing a baseline changes a prescribed
-load.
+The latest row with `effective_from <= date` wins. The seed (version 1, 1970-01-01) reproduces
+the pre-registry score; every edit appends a version effective today and history is never
+updated. The payload is validated in code: keys must exist in `metric_definition`, role bounds
+are core 0.05-2.0 and device 0.05-1.0, a device metric needs its own baseline/readings/slope,
+and `require_any_of` must name enabled core metrics. `metric_definition` supplies label, scale
+and direction; the registry supplies only the operational fields. See
+[`READINESS-SCORE.md`](READINESS-SCORE.md) section 2.1b1.
+
+### 5.3a `readiness_setting` (historical, no longer written)
+
+The former per-athlete overlay is retained for history only; nothing reads or writes it after
+2026-11-25 (`DEC-READINESS-21`). Its columns were `setting_id`, `effective_from`,
+`baseline_days`, `baseline_min_readings`, `hrv_slope`, `rhr_slope`, `hrv_weight`, `rhr_weight`,
+`wearable_weight`, `note`, `source` and `created_at`.
 
 ## 6. `vbt_calibration` — append-only, versioned
 

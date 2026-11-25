@@ -70,8 +70,9 @@ The page uses a **collapsible left menu**: the ☰ button opens it, and ×, the 
   retired (`DEC-EVAL-09`): there is no marks column, no mark form, no calibration button and no
   report. Sessions completed after the retirement show no items.
 - **Workflow** — guided readiness → preview → start → active workout → post-workout comparison; owns the daily readiness form, the computed global/category score and the **Override the score** panel beside it. The panel names the date it writes (the readiness date above it), offers global or per-pattern scopes, and states that a category override wins over global and that both expire with the date. The prescription preview is also here.
-- **Readiness** — baseline and policy settings; the daily log and score overrides live in Workflow;
-  per-athlete baseline settings and the shadow baseline report are available; quick presets show
+- **Readiness** — the versioned **Readiness inputs** registry editor (per-metric enabled/weight/
+  baseline, minimum core fields, wearable blend, preview and history) and the shadow baseline
+  report; the daily log and score overrides live in Workflow; quick presets show
   their sleep/energy/soreness/stress values and an **Edit preset YAML** action edits
   `config/readiness-presets.v1.yaml` with validation before saving; the **Volume valve** sets the
   poor-readiness accessory set reduction; the volume ledger and MRV cap are on Prescribe. A

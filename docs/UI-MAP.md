@@ -45,7 +45,7 @@ current destinations; they do not duplicate their forms or imply new data contra
 | **Today** | Today action hub |
 | **Training** | Workflow, History, Exercises |
 | **Progress** | Overview, Performance, Outcomes |
-| **Health & Longevity** | Longevity overview, Cardio, Measures, Readiness settings |
+| **Health & Longevity** | Longevity overview, Cardio, Measures, Readiness inputs |
 | **Programme Intelligence** | Prescribe, Programme, Review, Narrate, Chat, Explain |
 | **Administration** | Athlete, Import, Settings, Logs, Docs |
 
@@ -74,7 +74,7 @@ clickable authority.
 | **Narrate** | One read-only capability envelope explained by the configured model; health-class capabilities need an explicit disclosure and consent checkbox; the envelope is unchanged and the prompt/narrative are not stored | [INTELLIGENCE-IMPLEMENTATION.md](INTELLIGENCE-IMPLEMENTATION.md), [WEB-UI.md](WEB-UI.md) | [ARCHITECTURE.md](ARCHITECTURE.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Chat** | Read-only multi-turn training chat over a fresh six-capability dossier; session-only memory, 20-turn cap, separate suggestions block, unverified-number warnings, source capabilities and a collapsed raw request/response disclosure | [INTELLIGENCE-IMPLEMENTATION.md](INTELLIGENCE-IMPLEMENTATION.md), [WEB-UI.md](WEB-UI.md) | [ARCHITECTURE.md](ARCHITECTURE.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Explain** | Ask how the system works: FTS5 retrieval over allowlisted local docs, code, tests and private notes, answers with verified citations, an explicit ungrounded label when nothing matches, and local retrieval bounds | [WEB-UI.md](WEB-UI.md), [INTELLIGENCE-IMPLEMENTATION.md](INTELLIGENCE-IMPLEMENTATION.md) | [ARCHITECTURE.md](ARCHITECTURE.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
-| **Readiness** | Quick readiness; Baseline settings; Volume valve; Calibration report | [READINESS.md](READINESS.md), [READINESS-SCORE.md](READINESS-SCORE.md) | [LIFT-READINESS.md](LIFT-READINESS.md), [READINESS-WEIGHT-EVIDENCE.md](READINESS-WEIGHT-EVIDENCE.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
+| **Readiness** | Quick readiness; Readiness inputs (registry); Volume valve; Calibration report | [READINESS.md](READINESS.md), [READINESS-SCORE.md](READINESS-SCORE.md) | [LIFT-READINESS.md](LIFT-READINESS.md), [READINESS-WEIGHT-EVIDENCE.md](READINESS-WEIGHT-EVIDENCE.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Cardio** | Recorded activity only: imported weekly equivalents, effective max-HR/bands, resistance share, coverage by year, and a per-workout list with Hide. No manual entry, no load effect | [LONGEVITY-REVIEW.md](LONGEVITY-REVIEW.md), [OUTCOMES.md](OUTCOMES.md), [WEB-UI.md](WEB-UI.md) | [REFERENCES.md](REFERENCES.md), [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Measures** | Measurements; one method-separated chart per metric with recorded values and a selectable chart window (3/6/12 months or all history, paged 200 per request); append-only history with exact-record older paging | [OUTCOMES.md](OUTCOMES.md), [DATA-MODEL.md](DATA-MODEL.md), [WEB-UI.md](WEB-UI.md) | [LONGEVITY-REVIEW.md](LONGEVITY-REVIEW.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
 | **Import** | Import training/readiness; After the import | [USER-GUIDE.md](../USER-GUIDE.md), [DATA-QUALITY.md](DATA-QUALITY.md) | [PRIVACY.md](PRIVACY.md), [DECISIONS.md](DECISIONS.md), [ROADMAP.md](../ROADMAP.md) |
@@ -117,7 +117,7 @@ clickable authority.
 | Log readiness | Per-date readiness; any subset valid; manual wins per field | [READINESS.md](READINESS.md) |
 | Readiness score override | Beside the daily score; global or per pattern; applies to that date only | [READINESS-SCORE.md](READINESS-SCORE.md) |
 | Quick readiness | Presets fill ordinary fields; no shortcut around the gate | [READINESS.md](READINESS.md) |
-| Baseline settings | Athlete-specific readiness baseline overrides | [READINESS-SCORE.md](READINESS-SCORE.md) |
+| Readiness inputs | Versioned registry editor: enabled metrics, weights, baselines, minimum fields and wearable blend, with preview and history | [READINESS-SCORE.md](READINESS-SCORE.md) |
 | Volume valve | Poor-readiness set reduction; main lifts opt-in | [READINESS.md](READINESS.md) |
 | Calibration report | Readiness weight/baseline report; descriptive | [READINESS-WEIGHT-EVIDENCE.md](READINESS-WEIGHT-EVIDENCE.md) |
 | Cardio | Separate aerobic exposure; chart includes only weeks with logged sessions and labels reference bands as context | [LONGEVITY-REVIEW.md](LONGEVITY-REVIEW.md), [WEB-UI.md](WEB-UI.md) |

@@ -569,7 +569,7 @@ Ranked hypotheses (not implemented):
    the flare rule (must preserve the "last two training days" semantics).
 2. **`workout.summary`** repeatedly builds a rule context and load-base map for a single session;
    reuse one context per summary or restrict to the session window.
-3. **Readiness settings YAML is parsed per computed score**; cache/load it once per request.
+3. **The readiness registry payload is parsed per computed score**; cache/load it once per request.
 
 These were hypotheses; the first remediation pass is now implemented.
 

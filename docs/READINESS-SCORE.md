@@ -71,8 +71,9 @@ Inputs and directions (higher score = more ready):
 
 For a field present on the date:
 
-- 1-5: `normalised = value / 5` (so a neutral 4/5 is 0.80 and a 5/5 is 1.00);
-- HRV: `median(previous 28 days)` baseline; ratio clipped to 0.5-1.5, mapped to 0-1;
+- a scored field: `normalised = value / scale_max` from its declared scale (the shipped 1-5
+  fields keep a neutral 4/5 at 0.80 and 5/5 at 1.00); a lower-is-better metric is inverted;
+- HRV: `median(previous 28 days)` baseline by default; ratio mapped around 0.5;
 - RHR: same baseline, ratio **inverted** before mapping.
 
 ```
@@ -83,14 +84,19 @@ global = sum(weight_i * normalised_i) / sum(weight_i)   over present, eligible f
 `readiness_day.composite` (and its `composite.enabled` flag) was removed by migration 0050;
 `MOD-FAT-001` reads the computed score from `readiness_score.compute(...)`.
 
-Defaults (config, not code): weight 1 for the five subjective fields; weight 0.5 for HRV and
-RHR when a baseline exists; no score with fewer than **three** subjective fields (report
-"insufficient", not a number). Missing fields are excluded, never zero. If a wearable score is
-present, the final score is `0.90 * subjective/device score + 0.10 * wearable/100`.
+Defaults live in the **readiness registry**, not in code: weight 1 for the five subjective
+fields; weight 0.5 for HRV and RHR when a baseline exists; a 28-day / 7-reading baseline; no
+score with fewer than **three** core fields (report "insufficient", not a number) and sleep or
+energy must be one of them. Missing fields are excluded, never zero. If a wearable score is
+present, the final score is `(1 - w) * subjective/device score + w * wearable/100`, with `w`
+the registry blend (0.10 by default).
 
-**Athlete settings.** A `readiness_setting` row effective on the date overrides the config
-window, minimum readings, slopes and weights. Precedence is **athlete > config > code default**;
-the score report says `athlete score setting` when one is active. Settings are append-only.
+**The registry is the single source.** For a date it is the latest `readiness_registry` version
+with `effective_from <= date`; the seed reproduces the pre-registry score exactly. Inputs,
+weights, scale, direction and the minimum-field rule are edited in Settings or with
+`readiness registry`, and every save appends a version effective today — no backdating and no
+in-place edits. The old per-athlete `readiness_setting` overlay was removed on 2026-11-25
+(`DEC-READINESS-21`); its rows remain for history only.
 
 Every display shows the contributors and their weights, a confidence label based on how many
 fields were present, and the baseline dates used for HRV/RHR.
@@ -110,27 +116,31 @@ Example with sleep 2 (0.25), energy 4 (0.75), mood 4 (0.75), stress 4 (0.75), so
 (0.75): equal score = **0.65**. With explicit weights sleep ×2, energy ×1.5 and the rest ×1,
 the score falls to about **0.60**. Neither number is evidence; the first is the default.
 
-**Explicit weights (later, per athlete).** Give each field a weight or a floor, e.g. sleep 2,
-energy 1.5, HRV 0.5, because the evidence is strongest for sleep and weakest for HRV. This can
-be more faithful to the athlete, but:
+**Explicit weights (available through the registry).** Each enabled metric carries a relative
+weight: 0.05-2.0 for a core metric and 0.05-1.0 for a device metric; values outside those bounds
+are rejected. Because the score divides by the sum of weights, only ratios matter. Explicit
+weights can be more faithful to the athlete, but:
 
 - the weights are not validated;
 - with a handful of sessions they fit noise, not readiness;
 - they make the score harder to explain and easier to game.
 
-**Recommendation:** equal weights in shadow mode; explicit weights only as per-athlete config
-after enough scored sessions, with the contributors still shown. Keep the **individual safety
-floor** regardless of weights: sleep or energy at or below 2 still applies the old 5% cut even
-if the composite is high. That prevents a single catastrophic field being averaged away.
+**Recommendation:** keep the equal-weight defaults; treat an explicit-weight change as a
+deliberate, versioned edit rather than tuning on a few sessions, and keep the contributors
+visible. Learned weights remain not adopted (`DEC-READINESS-10`). The **individual safety
+floor** stays regardless of weights: sleep or energy at or below 2 still applies the old 5% cut
+even if the composite is high.
 
 ### 2.1b HRV and RHR: implementation
 
 HRV and RHR enter the score only when the athlete has a personal baseline:
 
-- baseline = median of the previous **28 days**, at least **7** readings (imported or manual);
+- baseline = median of the previous **28 days**, at least **7** readings (imported or manual)
+  by default; window, minimum and slope are per-metric registry fields;
 - HRV is higher-is-better, RHR lower-is-better; both are normalised around 0.5 at baseline;
 - a 50% deviation from baseline maps to 0 or 1; the slope is a heuristic, not a clinical cutoff;
-- each device field has weight **0.5**, against 1.0 for each subjective field;
+- each device field defaults to weight **0.5**, against 1.0 for each subjective field, and the
+  registry caps a device weight at 1.0 so it never outweighs a core field;
 - if the baseline is missing, the field is shown as present but **not scored**; it is never
   replaced by an arbitrary population value;
 - a day with only device data is still insufficient: three subjective fields plus sleep or
@@ -141,11 +151,24 @@ benefits are small and not clearly significant, and there is no standard decisio
 ([Manresa-Rocamora 2021](https://doi.org/10.3390/ijerph181910299);
 [Schaffarczyk 2026](https://doi.org/10.3389/fspor.2026.1858271)).
 
-### 2.1b1 Per-athlete baseline settings
+### 2.1b1 Readiness registry (per-athlete, versioned)
 
-The rolling median is the default. An athlete can set the baseline window, minimum readings,
-slopes and weights in `readiness_setting`; the latest row effective on the score date wins.
-Nothing is auto-fitted. The CLI/UI show the effective values and their source.
+The rolling median and the defaults are the shipped version 1 of `readiness_registry`, seeded
+effective 1970-01-01. An edit appends a version effective today; the score for a date reads the
+latest version at or before it, so historical prescriptions keep the inputs they used. Nothing
+is auto-fitted.
+
+The editable set is: enabled, relative weight, baseline window/readings/slope (device metrics),
+counts-as-core and required-one-of (core metrics), minimum core fields and the wearable blend.
+Validation is strict — unknown keys, out-of-bounds weights, fewer enabled core metrics than the
+minimum, `require_any_of` outside the enabled core set, or a device metric without a baseline are
+rejected with field-level errors. History is read-only; a rollback appends a version that copies
+an older payload.
+
+The CLI (`readiness registry list|show|set|history|preview`) and the web **Readiness inputs**
+panel perform the same operations; the panel previews the diff before saving. `metric_definition`
+supplies each metric's label, scale and direction; the registry stores only the operational
+fields.
 
 The **shadow report** compares the shipped rolling median with a trend-projected baseline
 (log-linear fit over the same prior readings), reporting the normalised difference. It is
@@ -491,6 +514,15 @@ Delivered on 2026-10-19:
 - HRV/RHR baseline-relative components (0.5 weight, 7 readings in 28 days);
 - optional wearable score at a 10% blend.
 
+Amended 2026-11-25 (`DEC-READINESS-21`):
+
+- the daily score reads the append-only, date-effective `readiness_registry`; inputs, weights,
+  scales, baselines and the minimum-field rule are registry rows edited in Settings or the CLI;
+- the per-athlete `readiness_setting` overlay, its API, CLI action and panel were removed; its
+  rows remain for history only;
+- the seeded version 1 reproduces the pre-registry score exactly (19-scenario golden fixture,
+  including device baselines, wearable range, overrides and suppression).
+
 Amended 2026-10-26 (`DEC-READINESS-17`):
 
 - an override is used even when no numeric score can be formed: the status stays
@@ -510,8 +542,9 @@ Periodic review and the app-wide threshold policy are specified in
 
 Decided:
 
-- **Equal weights retained**; explicit per-athlete weights and learned weights are not adopted;
-  the sleep/energy floor stays.
+- **Equal weights remain the default**; weights are editable only through the versioned
+  registry, an explicit-weight change is a deliberate edit rather than tuning, and learned
+  weights remain not adopted; the sleep/energy floor stays.
 - **Cut-points and injury caps accepted.**
 - **Per-lift mapping accepted**: squat → `squat`/`squat_unilateral`, bench →
   `horizontal_push`/`horizontal_push_bw`, deadlift → `hinge`; unmapped lifts inherit global.
