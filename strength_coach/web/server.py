@@ -71,6 +71,7 @@ from strength_coach.features import (
     readiness_baseline,
     readiness_calibration,
     readiness_feedback,
+    readiness_registry,
     readiness_score,
     rep_velocity,
     retrospective_validation,
@@ -1147,6 +1148,16 @@ class Handler(BaseHTTPRequestHandler):
                             include_tiz=include_tiz,
                             include_patterns=include_patterns,
                         )
+                    )
+                elif path == "/api/ios/v1/readiness/schema":
+                    query = parse_qs(urlparse(self.path).query)
+                    day = (query.get("date") or [None])[0] or _ios_clock()["server_date"]
+                    try:
+                        day = readiness_score.parse_date(day)
+                    except ValueError as exc:
+                        raise FieldError(str(exc), {"date": str(exc)}) from exc
+                    payload = self._with_conn(
+                        lambda c: self._readiness_schema(c, day)
                     )
                 elif path == "/api/ios/v1/today":
                     self._ios_idle_sweep(conn)
@@ -4020,6 +4031,16 @@ class Handler(BaseHTTPRequestHandler):
                     "path": str(source.relative_to(ROOT)),
                     "presets": readiness_feature.presets(),
                 })
+            elif path == "/api/readiness/schema":
+                query = parse_qs(urlparse(self.path).query)
+                day = (query.get("date") or [None])[0] or datetime.date.today().isoformat()
+                try:
+                    day = readiness_score.parse_date(day)
+                except ValueError as exc:
+                    raise FieldError(str(exc), {"date": str(exc)}) from exc
+                self._json(200, self._with_conn(
+                    lambda c: self._readiness_schema(c, day)
+                ))
             elif path == "/api/readiness/history":
                 query = parse_qs(urlparse(self.path).query)
                 self._json(200, self._with_conn(
@@ -5909,6 +5930,8 @@ class Handler(BaseHTTPRequestHandler):
         data = dict(queries.readiness_day(conn, day) or {"on_date": day, "known": False})
         # Legacy column kept for historical rows; grip is a measurement now (DEC-GRIP-01).
         data.pop("grip_strength_kg", None)
+        registry = readiness_registry.load(conn, day)
+        data["registry_version"] = None if registry is None else registry.registry_id
         data["score"] = readiness_score.compute(conn, day).as_dict()
         data["context_flags"] = queries.readiness_context(conn, day)
         data["presets"] = readiness_feature.presets()
@@ -5923,6 +5946,12 @@ class Handler(BaseHTTPRequestHandler):
             "include_essential": cfg.set_reduction_include_essential,
         }
         return data
+
+    def _readiness_schema(self, conn, day: str) -> dict:
+        registry = readiness_registry.load(conn, day)
+        if registry is None:
+            raise ValueError(f"no readiness registry effective on {day}")
+        return registry.as_dict()
 
     def _set_readiness(self, conn, body: dict) -> dict:
         day = str(body.get("date") or datetime.date.today().isoformat())

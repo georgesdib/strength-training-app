@@ -47,7 +47,8 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/rep-velocity/analysis?weeks=&date=` | stratified cross-session descriptive report |
 | `POST /api/workout/<id>/abandon` | abandon the active workout |
 | `GET /api/review/<session>` | read-only historical rubric sheet: stored `rubric_score` rows and `rubric_mark` marks; nothing is re-scored | session detail |
-| `GET /api/readiness/<date>` | merged readiness |
+| `GET /api/readiness/<date>` | merged readiness; `registry_version` names the effective readiness registry |
+| `GET /api/readiness/schema?date=` | effective readiness registry: version, metrics with label/scale/direction, min fields, require-any-of and wearable weight; the contract forms render from |
 | `GET /api/readiness/history?from=&to=&fields=` | inclusive observed readiness/bodyweight series with per-field sources; requires date bounds, merges manual-over-import per field, no fill |
 | `POST /api/readiness` | `{date, values, note}` -> merged readiness + score |
 | `POST /api/readiness/override` | `{date, scope, value, reason}` -> merged readiness + score |
@@ -444,7 +445,8 @@ in the StrengthApp repository.
 | `GET /api/ios/v1/intelligence/prescription?prescription_id=&for_date=&include_provenance=` | bearer | exactly the `get_prescription` envelope; at most one of `prescription_id` or `for_date`; no identifier returns the current persisted prescription |
 | `GET /api/ios/v1/intelligence/programme-summary?as_of=&block_weeks=` | bearer | exactly the `get_programme_block_summary` envelope; `block_weeks` is 4, 6 or 8 |
 | `GET /api/ios/v1/intelligence/adherence?as_of=&weeks=&from=&to=&group_by=&exercise_id=&session_type=` | bearer | exactly the `get_adherence_analysis` envelope; `from` and `to` travel together |
-| `POST /api/ios/v1/readiness` | bearer + Idempotency-Key | `{values, note?}` -> the existing readiness payload; values use the accepted manual field set; unknown/empty/zero-placeholder fields are rejected |
+| `POST /api/ios/v1/readiness` | bearer + Idempotency-Key | `{values, note?}` -> the existing readiness payload; values are validated against the effective registry; unknown/empty/zero-placeholder fields are rejected |
+| `GET /api/ios/v1/readiness/schema` | bearer | effective readiness registry (same payload as the web schema route); the phone form renders from it |
 | `POST /api/ios/v1/healthkit/workouts` | bearer + Idempotency-Key | `{workouts:[{key, activity_type, started_at, ended_at, duration_s, source_name, avg_heart_rate?, max_heart_rate?, active_energy_kj?, distance_m?, avg_mets?, srpe?, timezone?}]}` -> `{workouts, created, existing, rejected, rejected_keys}`; key is the HealthKit UUID (16 bytes) or a content digest (32); a workout starting before `history_cutoff` is rejected so history cannot be duplicated; an immutable conflict or malformed workout is rejected per item and its key is returned |
 | `POST /api/ios/v1/healthkit/samples` | bearer + Idempotency-Key | `{samples:[{key, workout_key, kind, sampled_at, value, unit, association, source_name?}], metrics?:[{key, kind, measured_at, value, method}]}` -> `{samples, created, existing, rejected, rejected_keys, metrics?}`; samples land beside their workout (uploaded first), metrics in `measurement`; `kind` is `vo2max`, `steps_per_day` or `sitting_hours_per_day`; the two windowed metrics arrive already averaged by the phone (one row per window, `measured_at` is the window's last day, key is the window digest, `source` is `device`, replay of the same key is a no-op) and an implausible value is skipped, not fatal; per-item tolerance, a bad row is counted, its key returned and skipped |
 | `GET /api/ios/v1/healthkit/activity/summary?weeks=N` | bearer | `{summary, recent}` — the same computation the browser panel uses, authenticated for the phone |
