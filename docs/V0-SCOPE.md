@@ -53,7 +53,7 @@ Each of these is deferred *with a reason*, not forgotten:
 
 | Deferred | Why |
 |---|---|
-| RAG / vector store | rules are cited by ID; exact lookup is better than semantic search here. RAG is only for programme prose, later |
+| RAG / vector store | rules are cited by ID; exact lookup is better than semantic search here. Withdrawn with INT-12 on 2026-11-24. |
 | Critique/prescription agents (real LLM) | the deterministic core must be proven first; `NullLLM` exercises the failure path from day one. **Delivered for v0.1, then withdrawn 2026-11-17** for CLI/UI parity; only read-only narration and chat remain |
 | Days A and C | blocked by the SSB question (H1) and the erector ramp anchor (Q5) |
 | Erector dose ramp (PRG-EREC-001) | returns `unknown` — no symptom input, no anchored week 1 |

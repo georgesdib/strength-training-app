@@ -118,8 +118,8 @@ place. DataFrames are for computation; SQLite is for memory.
   `strength_coach/web/` and calls the same core; it is not a hosted product and runs
   unauthenticated on a trusted home LAN (`LIM-57`, `DEC-WEB-04`).
 - No vector database for v0: the rules document is small and cited by ID, so exact
-  retrieval by ID beats semantic search. RAG is planned only for the *programme prose*,
-  where chunk IDs must be stable.
+  retrieval by ID beats semantic search. RAG was withdrawn with INT-12 (2026-11-24); the
+  programme prose needs no retrieval beyond cited rule IDs.
 
 
 ## Local web UI

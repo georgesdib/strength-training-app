@@ -990,8 +990,8 @@ with a fake client; normal tests make no model call. MCP parity is covered by th
 cross-transport test comparing MCP structured content with the in-process envelope.
 
 **Scope.** Multi-tool orchestration is deferred to INT-6; INT-5 stays one capability per call. Web
-access and RAG are deferred for both the web UI and iOS: there is no browsing, URL fetch, web tool
-or vector retrieval; the model sees structured capability facts only. The server also
+access and RAG were withdrawn (INT-12, 2026-11-24) for both the web UI and iOS: there is no
+browsing, URL fetch, web tool or vector retrieval; the model sees structured capability facts only. The server also
 needs `config/llm.local.toml` with a provider key before `narrate` can call a model.
 
 ## 30. INT-6 — server/web chat (closed 2026-11-15)

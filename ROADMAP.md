@@ -81,7 +81,7 @@ table disagrees with the code, the table is wrong — fix it before adding featu
 | — | Post-workout form assessment | **done 2026-10-25** | optional per-lift 1–5; Workout + History edit; rubric 1.2.0 |
 | v0.1 | Complete | **done** | 3.1-3.4, 3.6-3.7 done; 3.5 video descoped; 3.8 labelled set moved to §4.14 |
 | — | Performance | **resolver sequential build 133.15 s → 42.13 s historical; clean-set snapshot A/B 46.19 s → 35.41 s on the current 375-session DB; multiprocessing not justified** | `docs/PERFORMANCE-PROFILE.md`; schedule/settings/policy/E1RM/VBT caches plus the per-generation clean-set snapshot, no behaviour change |
-| — | UI | **local web done; hosted UI deferred** | `strength_coach/web/`, `docs/WEB-UI.md`, `http://127.0.0.1:8000`; six task areas and actionable Today; integrated 4/8/12-week Progress with reusable dependency-free SVG line/bar charts, selectable e1RM, pattern/exercise working-set trends, observed-day calendar/frequency, lagged dose associations, bounded original-plan vs logged execution, retained sRPE/main-lift summaries and explicit data gaps; basis/unit-safe load/reps graphs and consolidated exercise dialog; Settings defaults, seven-day plan cache, History form override, resolver and VBT work; **UI redesign P0–P3 complete; final audit passed 2026-11-06** in `docs/archive/UI-DESIGN-IMPLEMENTATION-PLAN.md` |
+| — | UI | **local web done; hosted UI not planned** | `strength_coach/web/`, `docs/WEB-UI.md`, `http://127.0.0.1:8000`; six task areas and actionable Today; integrated 4/8/12-week Progress with reusable dependency-free SVG line/bar charts, selectable e1RM, pattern/exercise working-set trends, observed-day calendar/frequency, lagged dose associations, bounded original-plan vs logged execution, retained sRPE/main-lift summaries and explicit data gaps; basis/unit-safe load/reps graphs and consolidated exercise dialog; Settings defaults, seven-day plan cache, History form override, resolver and VBT work; **UI redesign P0–P3 complete; final audit passed 2026-11-06** in `docs/archive/UI-DESIGN-IMPLEMENTATION-PLAN.md` |
 | — | Engine audit W0–W12 | **closed 2026-10-23** | `docs/archive/AUDIT-CLOSEOUT.md`; open items in `docs/LIMITATIONS-REGISTER.md` |
 | — | 2026-11-06 documentation manifest + archive | **done 2026-11-06** | Public documentation now has one authoritative manifest (`docs/manifest.yaml`) consumed by the Docs API/viewer and tests, a curated index (`docs/README.md`), and an archive of 27 completed plans/closed audits under `docs/archive/` with an index. The W0–W12 reports are grouped in `docs/archive/audits/`, the HTTP API reference is split into `docs/API.md`, and readiness has a reference map. Categories replace the flat list in the Docs viewer; `docs/design/` remains maintainer-only and `private/` is never listed or served (boundary tests added). Links and tests updated; no application, API, schema or prescription change |
 | — | 2026-11-06 demand evidence + readiness/measurement cleanup | **done 2026-11-06** | Demand-profile form cites existing evidence ids from the reviewed catalogue through a preselected, iOS-safe checkbox list (a native multi-select shows "0 items" on iPhone). `conventional_deadlift` is a taxonomy `primary_compound` (`DEC-RESOLVER-13`, `main_lift` unchanged) so `PRG-RIR-001`'s RIR window covers its logged sets; its local UI override is removed and the generated programme/workout docs are regenerated (digest only). Readiness drops the unused nutrition/hydration inputs (`DEC-READINESS-20`, constitution 1.21.0 guard list only) and body fat moves to the periodic measurement log as `body_fat_pct` (`DEC-MEASURE-02`, migration 0051 copies 828 historical values and future imports are idempotent). The never-written readiness `composite`/`composite_basis` columns and `composite.enabled` config key are removed (migration 0050). LIM-59 closed as a design choice; no prescription or load arithmetic changed |
@@ -652,12 +652,13 @@ requirements; any one may be rejected. A vector database is permitted only if th
 benchmark shows a simpler deterministic/keyword or hybrid approach is insufficient. **Superseded
 in part (2026-11-14):** the MCP server is no longer an Iteration 2 candidate — it is planned as
 INT-1/INT-2 (§4.34) with application authentication, and Tailscale remains reachability only. The
-retrieval, vector-store and orchestration candidates are unchanged and remain conditional.
+vector-store and RAG retrieval candidates were withdrawn with INT-12 (2026-11-24); bounded
+orchestration remains conditional.
 
 | phase | scope | depends on | status |
 |---|---|---|---|
 | 6 | Needs assessment: recurring gaps, trusted corpus, retrieval requirements, simpler alternatives, MCP/Tailscale tool boundary and authorization, benchmark, cost/latency/privacy/maintenance case | Iteration 1 exit gate; owner authorisation | **conditional** (MCP clause superseded by INT-1) |
-| 7 | Advanced component trial: one approved component at a time (RAG, hybrid retrieval, bounded orchestration or MCP transport), off by default, baseline comparison | phase 6 decision; privacy review | **conditional** (MCP transport clause superseded by INT-1) |
+| 7 | Advanced component trial: one approved component at a time (bounded orchestration; RAG/hybrid retrieval withdrawn with INT-12; MCP transport superseded by INT-1), off by default, baseline comparison | phase 6 decision; privacy review | **conditional** (MCP transport clause superseded by INT-1) |
 
 **Proceed criteria for any Iteration 2 component:** documented recurring need; simpler
 alternative tested; measurable benefit on a pre-registered evaluation set; acceptable cost,
@@ -830,7 +831,8 @@ model.
 **INT-5 server narration delivered (2026-11-15):** intelligence narrate and the web Narrate view
 cover every registered capability, with a daily token budget, advisory number warnings, a
 ten-capability evaluation harness and MCP parity. Phase 1b retired the old LLM exercise chooser.
-Multi-tool orchestration is deferred by owner decision. Web access, web citations and RAG are deferred for both the web UI and iOS.
+Multi-tool orchestration is deferred by owner decision. Web access, web citations and RAG were
+withdrawn (INT-12, 2026-11-24) for both the web UI and iOS.
 
 **INT-5 first slice (2026-11-15):** a **Narrate** web view calls `POST /api/intelligence/narrate` for any registered capability; the CLI equivalent remains. The validated narrative, trace and no-model error are shared. Multi-tool orchestration, evaluation, budget, MCP parity and Phase 1b retirement remain; the server needs a model key.
 
