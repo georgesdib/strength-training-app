@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+Shipped to production on 2026-11-25; no version tag was created.
+
+- **Readiness metric registry.** The readiness score now reads an append-only, date-effective
+  `readiness_registry` (migration 0081) rather than a mutable settings row. The seeded version
+  reproduces the previous score bit-exactly on 1,021 readiness/override dates; migration 0082
+  opens `readiness_entry.field`. Settings, the CLI and the API edit enabled metrics, weights,
+  baselines, the minimum-field rule and the wearable blend, and `readiness registry define`
+  creates a brand-new input (definition + version atomically). The obsolete `score.*` config was
+  removed, and the old `/api/readiness/settings` surface is gone.
+
 Shipped to production on 2026-11-22 (display-only); no version tag was created.
 
 - Session detail shows Apple's average and peak heart rate from the linked workout, on the web and

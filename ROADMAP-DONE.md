@@ -1450,7 +1450,7 @@ is structurally identical and loses only the prose. **The full v0 slice runs**:
 `strength-coach run --date` imports if needed, prescribes the date, persists the prescription
 inside a run trace, and prints a rationale that cites a rule or a stored fact.
 
-### 4.9 Readiness score and follow-ups  (core + devices done; learned weights closed)
+### 4.9 Readiness score and follow-ups  (core + devices + registry done; learned weights closed)
 
 Implemented (2026-10-19/20):
 
@@ -1468,6 +1468,16 @@ Implemented (2026-10-19/20):
 
 Full design and evidence: [`docs/READINESS-SCORE.md`](docs/READINESS-SCORE.md) and
 [`docs/READINESS-WEIGHT-EVIDENCE.md`](docs/READINESS-WEIGHT-EVIDENCE.md).
+
+**Readiness metric registry — released 2026-11-25.** The score now reads an append-only,
+date-effective `readiness_registry` (migration 0081) instead of the mutable settings row. The
+seeded version reproduces the pre-registry score bit-exactly on 1,021 readiness/override dates;
+migration 0082 opens `readiness_entry.field`. Settings/CLI/API edit enabled metrics, weights,
+baselines, the minimum-field rule and the wearable blend, and `readiness registry define` creates
+a brand-new key with its `metric_definition` and registry version in one transaction. The obsolete
+`score.*` configuration was removed. Production release: backup, migrations 0081/0082, service
+restart and registry check completed; the iOS schema-driven form is merged, with physical-device
+acceptance still outstanding.
 
 ### 4.13a delivered cardio phases
 

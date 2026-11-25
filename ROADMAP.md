@@ -144,8 +144,8 @@ or explicitly decided against is recorded with its reason in
 
 ### 4.9 Readiness score — open follow-up
 
-The readiness score and its closed follow-ups are in ROADMAP-DONE.md §4.9. The only open item is
-the validation below.
+The readiness score, its closed follow-ups and the 2026-11-25 metric registry are in
+ROADMAP-DONE.md §4.9. The only open item is the validation below.
 
 #### 4.9.6 Per-lift readiness validation — open, unscheduled
 
@@ -279,10 +279,6 @@ comparability is tracked in ROADMAP-RETIRED.md §4.14, and the cardio impulse (R
 Recorded so genuinely open ideas are not lost; these are explicitly **not** commitments.
 Delivered and rejected ideas are recorded in `ROADMAP-DONE.md` and `ROADMAP-RETIRED.md`.
 
-- Readiness composite driven by `metric_definition`: make the daily metric list, direction,
-  weight and baseline config/registry-driven rather than hard-coded. Not delivered: the table
-  is used for measurements; daily readiness needs weight/role/baseline metadata and shadow
-  validation. The daily input cadence and the score's non-authoritative status are unchanged.
 - Personalised volume-response model — **closed as a controller** (2026-11-24): no rule was
   built, and the retrospective mechanism analysis stopped. A future attempt is unapproved and
   must satisfy a strict trigger: roughly 25–30 eligible app workouts with stored velocity
