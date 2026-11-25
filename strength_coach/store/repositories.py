@@ -723,6 +723,25 @@ def append_metric_definition(
     )
 
 
+def append_readiness_registry(
+    conn: sqlite3.Connection,
+    *,
+    effective_from: str,
+    payload_json: str,
+    schema_version: int = 1,
+    note: str | None = None,
+) -> int:
+    """Append a readiness registry version. Validation belongs to the model; this is storage."""
+    cursor = conn.execute(
+        """
+        INSERT INTO readiness_registry (effective_from, schema_version, payload_json, note)
+        VALUES (?, ?, ?, ?)
+        """,
+        (effective_from, schema_version, payload_json, note),
+    )
+    return int(cursor.lastrowid)
+
+
 def append_readiness_entry(
     conn: sqlite3.Connection,
     *,

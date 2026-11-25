@@ -734,6 +734,31 @@ def metric_definitions(conn) -> dict[str, dict]:
     return {str(row["metric_key"]): dict(row) for row in rows}
 
 
+def readiness_registry_row(conn, on_date: str) -> dict | None:
+    """Effective readiness registry for a date: latest effective_from <= date.
+
+    The payload is validated by the readiness registry model, not here; this is the read path
+    and mirrors the settings_profile semantic so a dated prescription sees the version that
+    was effective for it.
+    """
+    row = conn.execute(
+        "SELECT * FROM readiness_registry WHERE effective_from <= ? "
+        "ORDER BY effective_from DESC, registry_id DESC LIMIT 1",
+        (on_date,),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def readiness_registry_history(conn, limit: int = 50) -> list[dict]:
+    """Registry versions, newest first; history is read-only and append-only."""
+    rows = conn.execute(
+        "SELECT * FROM readiness_registry "
+        "ORDER BY effective_from DESC, registry_id DESC LIMIT ?",
+        (int(limit),),
+    )
+    return [dict(row) for row in rows]
+
+
 def measurements(
     conn,
     *,
