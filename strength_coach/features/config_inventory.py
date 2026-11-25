@@ -433,20 +433,6 @@ def _readiness_group() -> dict[str, Any]:
         "set_reduction.sets",
         "sets",
     )
-    add(
-        "readiness.score.baseline_days",
-        "Readiness baseline window",
-        cfg.baseline_days,
-        "score.baseline_days",
-        "days",
-    )
-    add(
-        "readiness.score.baseline_min_readings",
-        "Readiness baseline minimum readings",
-        cfg.baseline_min_readings,
-        "score.baseline_min_readings",
-        "readings",
-    )
     return {"key": "readiness", "label": "Readiness parameters", "parameters": rows}
 
 

@@ -96,9 +96,6 @@ def _date(value: object, field: str) -> dt.date:
         ) from exc
 
 
-ALLOWED_FIELDS = tuple(readiness_utils.READINESS_FIELDS) + ("score",)
-
-
 def _fields(value: object) -> tuple[str, ...]:
     if value is None:
         return ("score",)
@@ -108,11 +105,9 @@ def _fields(value: object) -> tuple[str, ...]:
         )
     cleaned: list[str] = []
     for entry in value:
-        if not isinstance(entry, str) or entry not in ALLOWED_FIELDS:
+        if not isinstance(entry, str) or not entry:
             raise IntelligenceError(
-                "invalid_argument",
-                "unknown readiness field; use score or a ready-made readiness field",
-                field="fields",
+                "invalid_argument", "fields must name readiness fields", field="fields"
             )
         if entry not in cleaned:
             cleaned.append(entry)
@@ -126,9 +121,15 @@ def readiness_history(
     end = request.end.isoformat()
     window_days = (request.end - request.start).days + 1
 
-    observed = queries.readiness_series(
-        conn, start, end, tuple(readiness_utils.READINESS_FIELDS)
-    )
+    allowed = set(readiness_utils.READINESS_FIELDS) | queries.readiness_metric_keys(conn, end)
+    unknown = [field for field in request.fields if field not in allowed and field != "score"]
+    if unknown:
+        raise IntelligenceError(
+            "invalid_argument",
+            "unknown readiness field: " + ", ".join(unknown),
+            field="fields",
+        )
+    observed = queries.readiness_series(conn, start, end, tuple(allowed))
     observed_days = [point["date"] for point in observed]
 
     facts: dict[str, FactBlock] = {}

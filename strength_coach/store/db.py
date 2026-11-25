@@ -132,6 +132,8 @@ def migrate(
                 (migration.version, migration.checksum),
             )
         except sqlite3.Error as exc:  # pragma: no cover - surfaced, never swallowed
+            if conn.in_transaction:
+                conn.rollback()
             raise MigrationError(f"failed to apply {migration.path.name}: {exc}") from exc
         newly_applied.append(migration.version)
 

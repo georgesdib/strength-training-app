@@ -190,3 +190,90 @@ def test_a_disabled_metric_is_rejected(conn):
     readiness_feature.record_manual(
         conn, dt.date.today().isoformat(), {"bodyweight_kg": 80, "wearable_score": 50},
     )
+
+
+def test_a_new_metric_is_recognised_through_retrieval(conn):
+    today = dt.date.today().isoformat()
+    payload = _add_metric(conn, _seed_payload(conn))
+    payload["min_core_fields"] = 1
+    payload["require_any_of"] = ["sleep_quality"]
+    readiness_registry.save(conn, payload, effective_from=today)
+    readiness_feature.record_manual(conn, today, {"sleep_quality": 4})
+
+    day = queries.readiness_day(conn, today)
+    assert day is not None and day["sleep_quality"] == 4
+    assert today in queries.readiness_dates(conn, today, today)
+    series = queries.readiness_series(conn, today, today, ("sleep_quality",))
+    assert series and series[0]["sleep_quality"] == 4
+    tomorrow = (dt.date.today() + dt.timedelta(days=1)).isoformat()
+    history = queries.readiness_history(conn, tomorrow, 7)
+    assert any(row["sleep_quality"] == 4 for row in history)
+
+    assessment = readiness_score.compute(conn, today)
+    assert assessment.status == "ready"
+    assert any(c.field == "sleep_quality" for c in assessment.components)
+
+
+@pytest.mark.parametrize(
+    "mutate, field",
+    [
+        (lambda p: p["metrics"][0].update({"weight": float("nan")}), "metrics[0].weight"),
+        (lambda p: p["metrics"][0].update({"weight": float("inf")}), "metrics[0].weight"),
+        (lambda p: p.update({"wearable_weight": float("nan")}), "wearable_weight"),
+        (lambda p: p["metrics"][5].update({"slope": float("inf")}), "metrics[5].slope"),
+    ],
+)
+def test_non_finite_registry_numbers_are_rejected(conn, mutate, field):
+    payload = _seed_payload(conn)
+    mutate(payload)
+    with pytest.raises(readiness_registry.RegistryError) as exc:
+        readiness_registry.parse(payload, queries.metric_definitions(conn))
+    assert "finite" in str(exc.value)
+
+
+def test_effective_dates_are_canonical(conn):
+    today = dt.date.today()
+    basic = today.strftime("%Y%m%d")
+    payload = _seed_payload(conn)
+    saved = readiness_registry.save(conn, payload, effective_from=basic)
+    assert saved.effective_from == today.isoformat()
+    loaded = readiness_registry.load(conn, basic)
+    assert loaded.registry_id == saved.registry_id
+    preview = readiness_registry.preview(conn, payload, on_date=basic)
+    assert preview["on_date"] == today.isoformat()
+
+
+def test_multiple_versions_on_the_same_date_use_the_last_appended(conn):
+    today = dt.date.today().isoformat()
+    payload = _seed_payload(conn)
+    payload["metrics"][0]["weight"] = 1.2
+    first = readiness_registry.save(conn, payload, effective_from=today)
+    payload["metrics"][0]["weight"] = 1.4
+    second = readiness_registry.save(conn, payload, effective_from=today)
+    effective = readiness_registry.load(conn, today)
+    assert effective.registry_id == second.registry_id
+    assert effective.metric("sleep").weight == 1.4
+    assert first.registry_id < second.registry_id
+
+
+def test_cli_rollback_appends_a_new_version(tmp_path):
+    path = tmp_path / "coach.db"
+    conn = db.connect(path)
+    try:
+        db.migrate(conn)
+        payload = readiness_registry.load(conn, dt.date.today().isoformat()).to_payload()
+        payload["metrics"][0]["weight"] = 1.5
+        readiness_registry.save(conn, payload, note="v2")
+    finally:
+        conn.close()
+
+    assert cli.main([
+        "--db", str(path), "readiness", "registry", "rollback", "--version", "1",
+    ]) == 0
+    conn = db.connect(path)
+    try:
+        effective = readiness_registry.load(conn, dt.date.today().isoformat())
+        assert effective.metric("sleep").weight == 1.0
+        assert len(readiness_registry.history(conn)) == 3
+    finally:
+        conn.close()

@@ -594,6 +594,34 @@ def _effective_readiness_rows(conn, start: str, end: str) -> dict[str, dict]:
     return merged_by_day
 
 
+def readiness_metric_keys(conn, before: str) -> set[str]:
+    """Registry metric keys declared by any version effective on or before `before`.
+
+    The union is deliberate: a date may predate a metric being disabled, and a historical row
+    is still readiness data even when the current version no longer scores it.
+    """
+    keys: set[str] = set()
+    rows = conn.execute(
+        "SELECT payload_json FROM readiness_registry WHERE effective_from <= ?",
+        (str(before),),
+    )
+    for row in rows:
+        try:
+            payload = json.loads(row["payload_json"])
+        except (TypeError, ValueError):
+            continue
+        for metric in payload.get("metrics") or []:
+            key = metric.get("key")
+            if isinstance(key, str) and key:
+                keys.add(key)
+    return keys
+
+
+def readiness_field_names(conn, before: str) -> set[str]:
+    """Every field that can make a date readiness data: legacy fields plus registry metrics."""
+    return set(readiness_utils.READINESS_FIELDS) | readiness_metric_keys(conn, before)
+
+
 def readiness_day(conn, on_date: str) -> dict | None:
     """One canonical effective readiness row, or None when the date has no usable data.
 
@@ -603,9 +631,8 @@ def readiness_day(conn, on_date: str) -> dict | None:
     """
     day = str(on_date)
     merged = _effective_readiness_rows(conn, day, day).get(day)
-    if merged is None or not any(
-        merged.get(field) is not None for field in readiness_utils.READINESS_FIELDS
-    ):
+    fields = readiness_field_names(conn, day)
+    if merged is None or not any(merged.get(field) is not None for field in fields):
         return None
     return merged
 
@@ -655,9 +682,10 @@ def readiness_history(conn, before: str, days: int = 28) -> list[dict]:
 def readiness_dates(conn, start: str, end: str) -> list[str]:
     """Dates with at least one effective readiness value in the inclusive window."""
     rows = _effective_readiness_rows(conn, str(start), str(end))
+    fields = readiness_field_names(conn, str(end))
     return [
         day for day in sorted(rows)
-        if any(rows[day].get(field) is not None for field in readiness_utils.READINESS_FIELDS)
+        if any(rows[day].get(field) is not None for field in fields)
     ]
 
 

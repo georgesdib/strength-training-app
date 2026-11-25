@@ -28,7 +28,7 @@ PROSPECTIVE_REPORT_SHA256 = (
     "46280bd94cabdf3f342e3f067f6973ff37e4a0b76841e3d9897dfcee5f7a872f"
 )
 LOCKED_CONFIG_REVISION = (
-    "c439cd5b96c5eea6d77ddc9c3722c7ae44612aff81a395adb47a9a35f27eff0f"
+    "146a1fea5c2364b6a05d58318e0e086120bb99f4989b6de38fe307d680598e5f"
 )
 LOCAL_OVERRIDES = sorted((ROOT / "config").glob("*.local.yaml"))
 

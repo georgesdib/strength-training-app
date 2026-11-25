@@ -125,9 +125,10 @@ CLI (same operations and validation):
 .venv/bin/strength-coach readiness registry preview --file registry.json
 .venv/bin/strength-coach readiness registry set --file registry.json --note "why"
 .venv/bin/strength-coach readiness registry list
+.venv/bin/strength-coach readiness registry rollback --version 3
 ```
 
-Weights are relative (only ratios matter): core **0.05–2.0**, device **0.05–1.0**, wearable blend **0–0.5**. A weight of zero is not allowed; disable the metric instead. Backdating is rejected, and a rollback is a new version that copies an older payload.
+Weights are relative (only ratios matter): core **0.05–2.0**, device **0.05–1.0**, wearable blend **0–0.5**. A weight of zero is not allowed; disable the metric instead. Backdating is rejected, and a rollback is a new version that copies an older payload (`rollback --version N`) — it never edits or reactivates the old row. If two versions share an effective date, the last appended one wins.
 
 **Adding a brand-new input** is not yet exposed in the editor: the registry can enable, disable or reweight metrics that already have a catalogue definition. A new metric key still needs its `metric_definition` row (label, scale, direction, unit) added first; until that surface exists, use the shipped metrics.
 

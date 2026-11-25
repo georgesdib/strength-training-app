@@ -332,8 +332,10 @@ def main(argv: list[str] | None = None) -> int:
     readiness = sub.add_parser("readiness", help="record a readiness day")
     readiness.add_argument("action", choices=("set", "override", "calibrate", "shadow", "preset", "context", "feedback", "registry"))
     readiness.add_argument("registry_action", nargs="?",
-                           choices=("list", "show", "set", "history", "preview"),
+                           choices=("list", "show", "set", "history", "preview", "rollback"),
                            default=None, help="registry action (after 'readiness registry')")
+    readiness.add_argument("--version", dest="registry_version", type=int, default=None,
+                           help="registry version for rollback")
     readiness.add_argument("--file", default=None,
                            help="registry payload JSON file (registry set/preview)")
     readiness.add_argument("--payload", default=None,
@@ -1127,6 +1129,35 @@ def _cmd_readiness_registry(conn, args) -> int:
                 f"min_core={item['min_core_fields']}  digest={item['digest']}"
                 f"  {item['note'] or ''}"
             )
+        return 0
+
+    if action == "rollback":
+        if args.registry_version is None:
+            print("readiness registry: --version is required for rollback")
+            return 2
+        rows = queries.readiness_registry_history(conn)
+        target = next(
+            (row for row in rows if int(row["registry_id"]) == int(args.registry_version)),
+            None,
+        )
+        if target is None:
+            print(f"readiness registry: version {args.registry_version} not found")
+            return 2
+        try:
+            registry = readiness_registry_feature.save(
+                conn, target["payload_json"],
+                note=args.note or f"rollback to version {args.registry_version}",
+            )
+        except readiness_registry_feature.RegistryError as exc:
+            _print_registry_error(exc)
+            return 2
+        if args.json:
+            print(json.dumps(registry.as_dict(), default=str))
+            return 0
+        print(
+            f"readiness registry version {registry.registry_id} effective "
+            f"{registry.effective_from} (rollback to {args.registry_version})"
+        )
         return 0
 
     if action == "show":
@@ -2997,8 +3028,8 @@ def _import_state(conn, path: Path, *, force: bool) -> int:
     readiness_count = 0
     for entry in raw.get("readiness") or []:
         day = str(entry.get("date") or entry.get("on_date") or "")
-        values = {field: entry[field] for field in readiness_utils.READINESS_FIELDS
-                  if field in entry}
+        fields = queries.readiness_field_names(conn, day)
+        values = {field: entry[field] for field in fields if field in entry}
         try:
             readiness_count += _record_readiness(
                 conn, day, values, note=entry.get("note")

@@ -516,10 +516,10 @@ It is consumed by the periodic **measurement** path (`features/measurements.py`,
 `DEC-MEASURE-01`): a measurement whose key has no row, or whose direction changes, is
 refused rather than reinterpreted.
 
-**It is not a live readiness-score driver.** The current readiness score uses hardcoded core
-fields plus weights/slopes from `config/readiness.v1.yaml`; there is no imported composite
-column or config flag any more. Adding a new readiness metric therefore still needs code/config
-work. The table has no weight/role, baseline or slope columns.
+**It is not the live readiness-score driver.** The score reads the `readiness_registry`
+(documented above); `metric_definition` supplies only the metric's label, scale and direction.
+The table has no weight/role, baseline or slope columns. Adding a metric still needs its
+definition row plus a registry version (there is no editor surface for a brand-new key yet).
 
 A future dynamic composite would need at least:
 

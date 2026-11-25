@@ -5,6 +5,8 @@
 -- the request/registry layer (enabled metrics plus bodyweight/wearable); this table only
 -- guarantees the append-only history and the row shape. No rows are dropped.
 
+BEGIN IMMEDIATE;
+
 CREATE TABLE readiness_entry_new (
     entry_id    TEXT PRIMARY KEY,
     on_date     TEXT NOT NULL,
@@ -26,3 +28,5 @@ CREATE TRIGGER readiness_entry_no_update BEFORE UPDATE ON readiness_entry
 BEGIN SELECT RAISE(ABORT, 'append-only: readiness_entry rows cannot be updated'); END;
 CREATE TRIGGER readiness_entry_no_delete BEFORE DELETE ON readiness_entry
 BEGIN SELECT RAISE(ABORT, 'append-only: readiness_entry rows cannot be deleted'); END;
+
+COMMIT;

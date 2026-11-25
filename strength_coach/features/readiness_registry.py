@@ -29,6 +29,7 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import json
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from typing import Any
@@ -152,7 +153,12 @@ class Registry:
 def _number(value: Any, field: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise RegistryError(f"{field} must be a number", {field: "must be a number"})
-    return float(value)
+    number = float(value)
+    if not math.isfinite(number):
+        raise RegistryError(
+            f"{field} must be a finite number", {field: "must be finite"}
+        )
+    return number
 
 
 def _integer(value: Any, field: str, *, minimum: int | None = None) -> int:
@@ -215,6 +221,19 @@ def _metric(
             raise RegistryError(
                 f"{field}.key {key!r} has no scale in metric_definition",
                 {f"{field}.key": "missing scale"},
+            )
+        try:
+            low = float(definition["scale_min"])
+            high = float(definition["scale_max"])
+        except (TypeError, ValueError) as exc:
+            raise RegistryError(
+                f"{field}.key {key!r} has a non-numeric scale",
+                {f"{field}.key": "invalid scale"},
+            ) from exc
+        if not math.isfinite(low) or not math.isfinite(high) or high <= low:
+            raise RegistryError(
+                f"{field}.key {key!r} has an invalid scale",
+                {f"{field}.key": "invalid scale"},
             )
         if raw.get("min_readings") is not None or raw.get("slope") is not None:
             raise RegistryError(
@@ -348,8 +367,18 @@ def parse(
     )
 
 
+def _canonical_date(value: str, field: str = "date") -> str:
+    try:
+        return dt.date.fromisoformat(str(value)).isoformat()
+    except (TypeError, ValueError) as exc:
+        raise RegistryError(
+            f"{field} must be YYYY-MM-DD", {field: "must be YYYY-MM-DD"}
+        ) from exc
+
+
 def load(conn, on_date: str) -> Registry | None:
     """Effective registry for a date, with metric_definition metadata attached."""
+    on_date = _canonical_date(on_date, "on_date")
     row = queries.readiness_registry_row(conn, on_date)
     if row is None:
         return None
@@ -405,6 +434,7 @@ def save(
             "effective_from cannot be in the past",
             {"effective_from": "cannot be in the past"},
         )
+    day = parsed_day.isoformat()
     registry = parse(payload, queries.metric_definitions(conn))
     payload_json = json.dumps(registry.to_payload(), sort_keys=True)
     registry_id = repositories.append_readiness_registry(
@@ -454,7 +484,7 @@ def diff(current: Registry | None, candidate: Registry) -> list[str]:
 
 def preview(conn, payload: str | Mapping[str, Any], *, on_date: str | None = None) -> dict[str, Any]:
     """Validate a candidate without writing it; return the effective date and the diff."""
-    day = on_date or _today()
+    day = _canonical_date(on_date or _today(), "on_date")
     candidate = parse(payload, queries.metric_definitions(conn))
     current = load(conn, day)
     return {

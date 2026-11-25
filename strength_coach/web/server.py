@@ -6321,7 +6321,8 @@ class Handler(BaseHTTPRequestHandler):
             raise FieldError("from must not be after to", {"from": "must not be after to"})
         raw_fields = query.get("fields", ["bodyweight_kg"])[0]
         fields = tuple(field.strip() for field in str(raw_fields).split(",") if field.strip())
-        unknown = [field for field in fields if field not in readiness_utils.READINESS_FIELDS]
+        allowed = queries.readiness_field_names(conn, end_day.isoformat())
+        unknown = [field for field in fields if field not in allowed]
         if unknown:
             raise FieldError(
                 "unknown readiness field(s): " + ", ".join(unknown),

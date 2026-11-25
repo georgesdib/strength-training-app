@@ -530,6 +530,27 @@ Amended 2026-11-25 (`DEC-READINESS-21`):
   the live database produced identical status, score, components, basis, overrides and factors
   on **1,021** readiness/override dates.
 
+Post-implementation audit remediation (2026-11-25):
+
+- readiness retrieval (`readiness_day`, `readiness_dates`, `readiness_series`, `readiness_history`
+  and the API `fields` allow-list) recognises registry-defined metrics, including a date whose
+  only value is a newly registered input;
+- every numeric registry parameter rejects NaN and ±Infinity, and a metric's declared scale must
+  be finite with `max > min`;
+- effective dates are canonicalised to `YYYY-MM-DD`; multiple versions on one date resolve to the
+  last appended; `readiness registry rollback --version N` appends a new version instead of
+  modifying history;
+- migration 0082 runs inside an explicit transaction and its tests cover source preservation,
+  row contents, the index, both triggers, foreign keys and rollback on failure;
+- the obsolete `score.*` settings were removed from `ReadinessConfig`, `config/readiness.v1.yaml`
+  and the Phase 5A inventory; the registry is the only source. The Phase 5A locked revision was
+  re-captured for that deliberate change.
+
+Remaining limitations: core normalisation still uses `value / scale_max` (the min-max formula was
+not adopted; a 2-6 scale maps 2 to 0.33 rather than 0), core values remain whole numbers, and a
+brand-new metric key still needs its `metric_definition` row plus a registry version because no
+editor surface creates keys.
+
 Amended 2026-10-26 (`DEC-READINESS-17`):
 
 - an override is used even when no numeric score can be formed: the status stays
