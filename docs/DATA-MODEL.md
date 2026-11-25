@@ -183,13 +183,15 @@ app computes its own non-authoritative score.
 |---|---|
 | entry_id PK | opaque id |
 | on_date | the day the reading describes |
-| field | an accepted readiness field; historical rows may carry the legacy `nutrition`, `hydration`, `fat_pct` or `grip_strength_kg` values, which the code now rejects for new writes |
-| value | numeric; 1–5 for score fields, positive for device fields (including grip strength in kg), 0–100 for wearable_score |
-| source | `manual` (currently the only writer) |
+| field | any enabled metric in the effective readiness registry, plus `bodyweight_kg` and `wearable_score`; historical rows may carry the legacy `nutrition`, `hydration`, `fat_pct` or `grip_strength_kg` values, which the code rejects for new writes |
+| value | numeric; the registry metric's scale for core fields (1–5 by default), positive for device fields, 0–100 for wearable_score |
+| source | `manual` or `preset` (import rows stay in `readiness_day`) |
 | recorded_at | when it was entered |
 | note | optional |
 
-Manual readings are one row per field, never an update. `queries.readiness_day` overlays the
+The closed `field` CHECK was removed by migration 0082 so a registry-added metric needs no
+schema change; validation now lives in the request/registry layer and rejects unknown, disabled
+or legacy fields. Manual readings are one row per field, never an update. `queries.readiness_day` overlays the
 latest entry per (date, field) over the imported `readiness_day` row, so a manual value wins
 **per field** and the imported fields around it survive (`DEC-READINESS-03`). The returned
 dict includes `sources` and `manual_merge_note` (imported value, manual value, winner) so the

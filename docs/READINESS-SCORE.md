@@ -158,6 +158,11 @@ effective 1970-01-01. An edit appends a version effective today; the score for a
 latest version at or before it, so historical prescriptions keep the inputs they used. Nothing
 is auto-fitted.
 
+The accepted inputs are exactly the **enabled** registry metrics plus `bodyweight_kg` and
+`wearable_score`; an unknown, disabled or legacy field is rejected by the shared repository,
+CLI, web and iOS paths with a field-level error. `readiness_entry.field` is therefore open
+(migration 0082), because a registry-added metric must be storable without a schema change.
+
 The editable set is: enabled, relative weight, baseline window/readings/slope (device metrics),
 counts-as-core and required-one-of (core metrics), minimum core fields and the wearable blend.
 Validation is strict — unknown keys, out-of-bounds weights, fewer enabled core metrics than the
