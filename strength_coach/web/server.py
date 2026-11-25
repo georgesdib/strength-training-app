@@ -1727,9 +1727,11 @@ class Handler(BaseHTTPRequestHandler):
                 400, "validation_failed", "values must include at least one field",
                 fields={"values": "required"},
             )
+        today = datetime.date.today().isoformat()
+        specs = queries.readiness_input_specs(conn, today)
         for field, value in clean.items():
             try:
-                readiness_utils.validate(field, value)
+                readiness_utils.validate_input(field, value, specs.get(field))
             except ValueError as exc:
                 raise ios_workflow.IOSWorkflowError(
                     400, "validation_failed", str(exc),
@@ -1741,7 +1743,6 @@ class Handler(BaseHTTPRequestHandler):
                 400, "validation_failed", "note must be a string",
                 fields={"note": "must be a string"},
             )
-        today = datetime.date.today().isoformat()
         readiness_feature.record_manual(
             conn, today, clean, note=note or None
         )
@@ -5970,9 +5971,10 @@ class Handler(BaseHTTPRequestHandler):
         if not isinstance(values, dict):
             raise FieldError("values must be an object", {"values": "must be an object"})
         clean = {key: value for key, value in values.items() if value not in (None, "")}
+        specs = queries.readiness_input_specs(conn, day)
         for field, value in clean.items():
             try:
-                readiness_utils.validate(field, value)
+                readiness_utils.validate_input(field, value, specs.get(field))
             except ValueError as exc:
                 raise FieldError(str(exc), {str(field): str(exc)}) from exc
         readiness_feature.record_manual(conn, day, clean, note=body.get("note") or None)

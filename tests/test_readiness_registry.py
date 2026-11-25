@@ -8,8 +8,9 @@ import json
 import pytest
 
 from strength_coach import cli
-from strength_coach.features import readiness_registry
-from strength_coach.store import db, queries
+from strength_coach.features import readiness as readiness_feature
+from strength_coach.features import readiness_registry, readiness_score
+from strength_coach.store import db, queries, repositories
 
 
 @pytest.fixture()
@@ -141,3 +142,51 @@ def test_cli_lists_shows_sets_and_previews(conn, tmp_path, capsys):
     assert cli.main(["--db", str(db_path), "readiness", "registry", "preview",
                      "--file", str(invalid_file)]) == 2
     assert "out of bounds" in capsys.readouterr().out
+
+
+def _add_metric(conn, payload, key="sleep_quality"):
+    repositories.append_metric_definition(
+        conn, metric_key=key, label="Sleep quality", higher_is_better=True,
+        aggregation="last", scale_min=1, scale_max=5, source="readiness",
+    )
+    payload["metrics"].append({
+        "key": key, "role": "core", "enabled": True, "weight": 1.0,
+        "baseline_days": 0, "counts_as_core": True, "order": 8,
+    })
+    return payload
+
+
+def test_a_registry_added_metric_is_accepted_and_scored(conn):
+    payload = _add_metric(conn, _seed_payload(conn))
+    readiness_registry.save(conn, payload, effective_from=dt.date.today().isoformat())
+    readiness_feature.record_manual(
+        conn, dt.date.today().isoformat(),
+        {"sleep": 4, "energy": 4, "mood": 4, "stress": 4, "soreness": 4,
+         "sleep_quality": 5},
+    )
+    assessment = readiness_score.compute(conn, dt.date.today().isoformat())
+    component = next(c for c in assessment.components if c.field == "sleep_quality")
+    assert component.normalised == 1.0
+
+
+def test_an_unknown_metric_is_rejected(conn):
+    with pytest.raises(ValueError, match="not an enabled readiness input"):
+        readiness_feature.record_manual(
+            conn, dt.date.today().isoformat(), {"vibes": 3},
+        )
+
+
+def test_a_disabled_metric_is_rejected(conn):
+    payload = _seed_payload(conn)
+    metrics = {metric["key"]: metric for metric in payload["metrics"]}
+    metrics["energy"]["enabled"] = False
+    payload["require_any_of"] = ["sleep"]
+    readiness_registry.save(conn, payload, effective_from=dt.date.today().isoformat())
+    with pytest.raises(ValueError, match="not an enabled readiness input"):
+        readiness_feature.record_manual(
+            conn, dt.date.today().isoformat(), {"energy": 4},
+        )
+    # The non-score inputs remain accepted.
+    readiness_feature.record_manual(
+        conn, dt.date.today().isoformat(), {"bodyweight_kg": 80, "wearable_score": 50},
+    )

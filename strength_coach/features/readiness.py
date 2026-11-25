@@ -23,7 +23,7 @@ from typing import Any
 
 import yaml
 
-from strength_coach.store import repositories
+from strength_coach.store import queries, repositories
 from strength_coach.utils import paths
 from strength_coach.utils import readiness as readiness_utils
 
@@ -234,10 +234,11 @@ def record_manual(conn, on_date: str, values: Mapping[str, float],
         raise ValueError(f"date must be YYYY-MM-DD: {on_date}") from exc
     if not values:
         raise ValueError("give at least one readiness field")
+    specs = queries.readiness_input_specs(conn, on_date)
     for field, value in values.items():
         if field in readiness_utils.LEGACY_FIELDS:
             raise ValueError(f"{field} is a legacy calibration label, not a readiness input")
-        readiness_utils.validate(field, value)
+        readiness_utils.validate_input(field, value, specs.get(field))
     # A multi-field save must be all-or-nothing: a constraint error halfway through would
     # leave a partial readiness day that looks like a complete reading.
     started = not conn.in_transaction

@@ -735,6 +735,35 @@ def readiness_registry_row(conn, on_date: str) -> dict | None:
     return dict(row) if row else None
 
 
+def readiness_input_specs(conn, on_date: str) -> dict[str, dict]:
+    """Accepted readiness inputs for a date.
+
+    Enabled registry metrics plus the two non-score inputs that are still stored here:
+    bodyweight (a measurement) and the wearable score (a blend input). A disabled or unknown
+    metric is absent, so callers reject it rather than storing a value nothing reads.
+    """
+    specs: dict[str, dict] = {
+        "bodyweight_kg": {"role": "measure"},
+        "wearable_score": {"role": "wearable"},
+    }
+    row = readiness_registry_row(conn, on_date)
+    if row is None:
+        return specs
+    payload = json.loads(row["payload_json"])
+    definitions = metric_definitions(conn)
+    for metric in payload.get("metrics") or []:
+        if not metric.get("enabled"):
+            continue
+        definition = definitions.get(metric["key"]) or {}
+        specs[str(metric["key"])] = {
+            "role": metric.get("role"),
+            "scale_min": definition.get("scale_min"),
+            "scale_max": definition.get("scale_max"),
+            "label": definition.get("label"),
+        }
+    return specs
+
+
 def readiness_registry_history(conn, limit: int = 50) -> list[dict]:
     """Registry versions, newest first; history is read-only and append-only."""
     rows = conn.execute(

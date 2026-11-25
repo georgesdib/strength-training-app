@@ -29,7 +29,7 @@ import pandas as pd
 
 from strength_coach.domain.athlete_state import suitability_values
 from strength_coach.ingest.sessions import Session
-from strength_coach.store import symptom_attribution
+from strength_coach.store import queries, symptom_attribution
 from strength_coach.utils import measurements as measurement_utils
 from strength_coach.utils import numeric
 from strength_coach.utils import readiness as readiness_utils
@@ -758,7 +758,8 @@ def append_readiness_entry(
     """
     if source not in {"manual", "import", "preset"}:
         raise ValueError(f"unknown readiness source {source!r}")
-    readiness_utils.validate(field, value)
+    specs = queries.readiness_input_specs(conn, on_date)
+    readiness_utils.validate_input(field, value, specs.get(field))
     entry_id = uuid.uuid4().hex
     recorded_at = datetime.datetime.now(datetime.UTC).strftime(
         "%Y-%m-%dT%H:%M:%S.%fZ"
