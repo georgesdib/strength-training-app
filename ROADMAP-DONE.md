@@ -1476,8 +1476,8 @@ migration 0082 opens `readiness_entry.field`. Settings/CLI/API edit enabled metr
 baselines, the minimum-field rule and the wearable blend, and `readiness registry define` creates
 a brand-new key with its `metric_definition` and registry version in one transaction. The obsolete
 `score.*` configuration was removed. Production release: backup, migrations 0081/0082, service
-restart and registry check completed; the iOS schema-driven form is merged, with physical-device
-acceptance still outstanding.
+restart and registry check completed; the iOS schema-driven form is merged, and the owner waived
+physical-device acceptance on 2026-11-25 (simulator acceptance is the evidence).
 
 ### 4.13a delivered cardio phases
 
