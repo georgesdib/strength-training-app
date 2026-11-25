@@ -51,7 +51,6 @@ Only open and future work is listed. Released versions and completed phases are 
 | — | Exercise-level symptom research (Phase 3) | **planned; unscheduled** | pre-registration and a separate owner decision | §4.28 |
 | — | AFC-5 evidence-gated prescription adaptation | **scoped, docs only; gated** | separate decision and evidence | §4.33a |
 | — | Training Intelligence remaining work | **INT-9 waits for iOS 27.3; aggregate evidence producers deferred; T-3a optional; multi-tool orchestration deferred** | see §4.34a | §4.34a |
-| — | Resolver structure remaining work | **WP4 real-data p50 latency measurement is the only deferred item; offline watch start shipped 2026-11-23** | see §4.37a | §4.37a |
 
 ## 2A. Phase 5 — prospective validation and evidence-driven improvements
 
@@ -252,24 +251,11 @@ Still open:
   is closed.
 - **Multi-tool orchestration** is deferred by owner decision.
 
-### 4.37a Resolver structure — remaining work
-
-WP0–WP9, the corrective closeout and the stimulus extension are complete and were deployed
-from `development` on 2026-11-21. Their record is in
-[`ROADMAP-DONE.md`](ROADMAP-DONE.md) §4.37 and the
-[portfolio plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/RESOLVER-PRESCRIPTION-STRUCTURE.md).
-
-The **pending-session shell** is withdrawn: unified offline execution implemented offline watch
-start from the cached plan on 2026-11-23 and the phone commits the watch's writes, so no
-pending-session shell or new table is needed (`IOS-WATCH-CONTRACT` D16). Offline watch start is
-shipped, not deferred. The only resolver item still deferred is the **WP4 real-data p50 latency
-measurement**, deferred by the owner; it changes no behaviour or payload.
-
 ## 5. Known gaps and risks
 
 This section keeps **no list**. Every accepted limitation is registered with an id, a status and
 a "revisit when" in [`docs/LIMITATIONS-REGISTER.md`](docs/LIMITATIONS-REGISTER.md); forward-looking
-work lives in §4.19 and the open items in §4.33a, §4.34a and §4.37a. The table that used to sit here was folded into
+work lives in §4.19 and the open items in §4.33a and §4.34a. The table that used to sit here was folded into
 that register on 2026-10-26 — `LIM-45`–`LIM-49` are its new rows, and the rest already existed
 (`LIM-07`/`LIM-10` duration and timestamps, `LIM-14` spinal cost, `LIM-24`/`LIM-43` e1RM bias).
 Two rows that described *planned work* were not limitations and did not move: calibration
