@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import hashlib
 import json
 import sys
 from dataclasses import replace
@@ -57,6 +58,7 @@ from strength_coach.features import outcomes as outcomes_feature
 from strength_coach.features import programme as programme_feature
 from strength_coach.features import prospective as prospective_feature
 from strength_coach.features import readiness as readiness_feature
+from strength_coach.features import readiness_registry as readiness_registry_feature
 from strength_coach.features import regime_change as regime_feature
 from strength_coach.features import relative_strength as relative_strength_feature
 from strength_coach.features import residual as residual_feature
@@ -329,7 +331,15 @@ def main(argv: list[str] | None = None) -> int:
     demands_cmd.add_argument("--json", action="store_true")
 
     readiness = sub.add_parser("readiness", help="record a readiness day")
-    readiness.add_argument("action", choices=("set", "override", "calibrate", "settings", "shadow", "preset", "context", "feedback"))
+    readiness.add_argument("action", choices=("set", "override", "calibrate", "settings", "shadow", "preset", "context", "feedback", "registry"))
+    readiness.add_argument("registry_action", nargs="?",
+                           choices=("list", "show", "set", "history", "preview"),
+                           default=None, help="registry action (after 'readiness registry')")
+    readiness.add_argument("--file", default=None,
+                           help="registry payload JSON file (registry set/preview)")
+    readiness.add_argument("--payload", default=None,
+                           help="registry payload JSON text (registry set/preview)")
+    readiness.add_argument("--json", action="store_true", help="machine-readable output")
     readiness.add_argument("--weeks", type=int, default=12)
     readiness.add_argument("--name", default=None, help="readiness preset key")
     readiness.add_argument("--flags", default=None,
@@ -1084,10 +1094,140 @@ def _record_readiness(conn, on_date: str, values: dict[str, float],
     return readiness_feature.record_manual(conn, on_date, values, note=note)
 
 
+def _registry_version_summary(row) -> dict:
+    payload = json.loads(row["payload_json"])
+    return {
+        "registry_id": int(row["registry_id"]),
+        "effective_from": str(row["effective_from"]),
+        "schema_version": int(row["schema_version"]),
+        "created_at": row["created_at"],
+        "note": row["note"],
+        "metrics": len(payload.get("metrics") or []),
+        "min_core_fields": payload.get("min_core_fields"),
+        "wearable_weight": payload.get("wearable_weight"),
+        "digest": hashlib.sha256(str(row["payload_json"]).encode("utf-8")).hexdigest()[:12],
+    }
+
+
+def _print_registry_error(exc) -> None:
+    print(f"readiness registry: {exc}")
+    for field, reason in sorted(exc.fields.items()):
+        print(f"  {field}: {reason}")
+
+
+def _registry_payload(args) -> str | None:
+    if args.file and args.payload:
+        print("readiness registry: pass either --file or --payload, not both")
+        return None
+    if args.file:
+        try:
+            return Path(args.file).read_text(encoding="utf-8")
+        except OSError as exc:
+            print(f"readiness registry: cannot read {args.file}: {exc}")
+            return None
+    return args.payload
+
+
+def _cmd_readiness_registry(conn, args) -> int:
+    action = args.registry_action
+    if not action:
+        print("readiness registry: choose list, show, set, history or preview")
+        return 2
+    day = args.date or datetime.date.today().isoformat()
+    try:
+        datetime.date.fromisoformat(day)
+    except ValueError:
+        print("readiness registry: --date must be YYYY-MM-DD")
+        return 2
+
+    if action in ("list", "history"):
+        rows = queries.readiness_registry_history(conn)
+        versions = [_registry_version_summary(row) for row in rows]
+        if action == "history":
+            versions = list(reversed(versions))
+        if args.json:
+            print(json.dumps({"versions": versions}, default=str))
+            return 0
+        print(f"readiness registry: {len(versions)} version(s)")
+        for item in versions:
+            print(
+                f"  {item['registry_id']:>3}  {item['effective_from']}  "
+                f"schema={item['schema_version']}  metrics={item['metrics']}  "
+                f"min_core={item['min_core_fields']}  digest={item['digest']}"
+                f"  {item['note'] or ''}"
+            )
+        return 0
+
+    if action == "show":
+        registry = readiness_registry_feature.load(conn, day)
+        if registry is None:
+            print(f"readiness registry: no version effective on {day}")
+            return 2
+        if args.json:
+            print(json.dumps(registry.as_dict(), default=str))
+            return 0
+        print(
+            f"registry {registry.registry_id} effective {registry.effective_from} "
+            f"(schema {registry.schema_version}) for {day}"
+        )
+        print(
+            f"min_core_fields={registry.min_core_fields} "
+            f"require_any_of={', '.join(registry.require_any_of)} "
+            f"wearable_weight={registry.wearable_weight:g}"
+        )
+        print("  key          role    on   weight  baseline  readings  slope  order")
+        for metric in registry.metrics:
+            readings = "-" if metric.min_readings is None else str(metric.min_readings)
+            slope = "-" if metric.slope is None else f"{metric.slope:g}"
+            print(
+                f"  {metric.key:<12} {metric.role:<7} "
+                f"{'yes' if metric.enabled else 'no':<4} {metric.weight:>6.2f}  "
+                f"{metric.baseline_days:>8}  {readings:>8}  {slope:>5}  {metric.order:>5}"
+            )
+        return 0
+
+    payload = _registry_payload(args)
+    if payload is None:
+        if not (args.file or args.payload):
+            print("readiness registry: --file or --payload is required")
+        return 2
+
+    if action == "preview":
+        try:
+            result = readiness_registry_feature.preview(conn, payload, on_date=day)
+        except readiness_registry_feature.RegistryError as exc:
+            _print_registry_error(exc)
+            return 2
+        if args.json:
+            print(json.dumps(result, default=str))
+            return 0
+        print(f"readiness registry preview for {day}: valid")
+        changes = result["changes"]
+        print("  no changes" if not changes else "\n".join(f"  {line}" for line in changes))
+        return 0
+
+    try:
+        registry = readiness_registry_feature.save(
+            conn, payload, effective_from=args.date, note=args.note,
+        )
+    except readiness_registry_feature.RegistryError as exc:
+        _print_registry_error(exc)
+        return 2
+    if args.json:
+        print(json.dumps(registry.as_dict(), default=str))
+        return 0
+    print(
+        f"readiness registry version {registry.registry_id} effective {registry.effective_from}"
+    )
+    return 0
+
+
 def _cmd_readiness(args) -> int:
     store = db.Store(args.db)
     try:
         conn = store.connection
+        if args.action == "registry":
+            return _cmd_readiness_registry(conn, args)
         if args.action == "calibrate":
             from strength_coach.features import readiness_calibration
 
