@@ -875,19 +875,52 @@ def test_the_fatigue_review_can_be_acknowledged_over_the_api(server):
     assert task["status"] == "not_due"
 
 
-def test_readiness_settings_and_shadow_endpoints(server):
-    data = post(server, "/api/readiness/settings", {
-        "date": "2024-01-01",
-        "baseline_days": 14,
-        "baseline_min_readings": 4,
-        "hrv_slope": 0.4,
-        "rhr_slope": 0.4,
-        "hrv_weight": 0.4,
-        "rhr_weight": 0.4,
-        "wearable_weight": 0.1,
+def _registry_payload(schema: dict) -> dict:
+    metrics = []
+    for metric in schema["metrics"]:
+        entry = {key: metric[key] for key in (
+            "key", "role", "enabled", "weight", "baseline_days", "counts_as_core", "order",
+        )}
+        if metric["role"] == "device":
+            entry["min_readings"] = metric["min_readings"]
+            entry["slope"] = metric["slope"]
+        metrics.append(entry)
+    return {
+        "schema_version": schema["schema_version"],
+        "min_core_fields": schema["min_core_fields"],
+        "require_any_of": schema["require_any_of"],
+        "wearable_weight": schema["wearable_weight"],
+        "metrics": metrics,
+    }
+
+
+def test_readiness_registry_endpoints_replace_the_old_settings_surface(server):
+    status, body = get(server, "/api/readiness/registry/history")
+    assert status == 200
+    assert len(json.loads(body)["versions"]) == 1
+
+    status, body = get(server, "/api/readiness/schema?date=2024-01-01")
+    schema = json.loads(body)
+    payload = _registry_payload(schema)
+    payload["metrics"][0]["weight"] = 1.5
+
+    preview = post(server, "/api/readiness/registry/preview", {
+        "payload": payload, "date": "2024-01-01",
     })
-    assert data["settings"]["setting_source"] == "athlete"
-    assert data["settings"]["baseline_days"] == 14
+    assert any("sleep.weight: 1.0 -> 1.5" in line for line in preview["changes"])
+
+    saved = post(server, "/api/readiness/registry", {"payload": payload, "note": "test"})
+    assert saved["registry_id"] == 2
+
+    status, body = get(server, "/api/readiness/registry/history")
+    assert len(json.loads(body)["versions"]) == 2
+
+    status, body = get(server, "/api/readiness/" + date.today().isoformat())
+    assert status == 200
+    assert json.loads(body)["registry_version"] == 2
+
+    status, _ = post_status(server, "/api/readiness/settings", {"date": "2024-01-01"})
+    assert status == 404
 
     status, body = get(server, "/api/readiness/shadow")
     assert status == 200
@@ -3783,3 +3816,7 @@ def test_readiness_form_is_rendered_from_the_registry_schema(server):
     status, body = get(server, "/")
     assert status == 200
     assert 'id="readiness-required-note"' in body
+    assert 'id="readiness-registry-form"' in body
+    assert 'id="registry-metrics"' in body
+    assert "registryPayloadFromForm" in js
+    assert "/api/readiness/settings" not in js

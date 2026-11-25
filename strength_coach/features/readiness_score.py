@@ -21,7 +21,7 @@ from __future__ import annotations
 import datetime as dt
 import statistics
 from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import Any
 
 from strength_coach.features import injury_signal, readiness_registry
@@ -219,27 +219,6 @@ def _basis(components: tuple[Component, ...], notes: list[str],
     return "; ".join(parts)
 
 
-def effective_settings(conn, on_date: str,
-                       config: readiness_config.ReadinessConfig | None = None
-                       ) -> readiness_config.ReadinessConfig:
-    """Config, overlaid by the latest athlete setting effective on or before the date."""
-    base = config or readiness_config.ReadinessConfig.load()
-    row = queries.readiness_setting(conn, on_date)
-    if row is None:
-        return base
-    return replace(
-        base,
-        baseline_days=int(row["baseline_days"]),
-        baseline_min_readings=int(row["baseline_min_readings"]),
-        hrv_slope=float(row["hrv_slope"]),
-        rhr_slope=float(row["rhr_slope"]),
-        hrv_weight=float(row["hrv_weight"]),
-        rhr_weight=float(row["rhr_weight"]),
-        wearable_weight=float(row["wearable_weight"]),
-        setting_source="athlete",
-    )
-
-
 def _partial_basis(reason: str, overrides: Mapping[str, dict]) -> str:
     """Say that an override is the only readiness statement when no score can be formed."""
     if not overrides:
@@ -306,7 +285,7 @@ def require_ready(
 
 
 def compute(conn, on_date: str, config: readiness_config.ReadinessConfig | None = None) -> ReadinessAssessment:
-    config = effective_settings(conn, on_date, config)
+    config = config or readiness_config.ReadinessConfig.load()
     registry = readiness_registry.load(conn, on_date)
     if registry is None:
         raise RuntimeError("readiness registry is missing; run the migrations")

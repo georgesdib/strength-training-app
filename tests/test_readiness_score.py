@@ -422,9 +422,7 @@ def test_registry_edit_overrides_baseline_and_weights():
             metrics[key].update({"weight": 1.0, "baseline_days": 14, "slope": 0.25})
         readiness_registry.save(conn, payload, effective_from=TODAY, note="test")
         configured = readiness_score.compute(conn, TODAY)
-        effective = readiness_score.effective_settings(conn, TODAY)
 
-    assert effective.baseline_days == 28  # the legacy setting surface no longer drives the score
     assert configured.score != default.score
     assert any(c.weight == 1.0 for c in configured.components if c.field == "hrv_ms")
 

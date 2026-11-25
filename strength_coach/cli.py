@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import argparse
 import datetime
-import hashlib
 import json
 import sys
 from dataclasses import replace
@@ -331,7 +330,7 @@ def main(argv: list[str] | None = None) -> int:
     demands_cmd.add_argument("--json", action="store_true")
 
     readiness = sub.add_parser("readiness", help="record a readiness day")
-    readiness.add_argument("action", choices=("set", "override", "calibrate", "settings", "shadow", "preset", "context", "feedback", "registry"))
+    readiness.add_argument("action", choices=("set", "override", "calibrate", "shadow", "preset", "context", "feedback", "registry"))
     readiness.add_argument("registry_action", nargs="?",
                            choices=("list", "show", "set", "history", "preview"),
                            default=None, help="registry action (after 'readiness registry')")
@@ -362,18 +361,6 @@ def main(argv: list[str] | None = None) -> int:
                            help="override value 0.00-1.00 (same scale as the score)")
     readiness.add_argument("--reason", default=None,
                            help="why the computed score is overridden")
-    readiness.add_argument("--baseline-days", type=int, default=None,
-                           help="baseline window in days (athlete setting)")
-    readiness.add_argument("--baseline-min-readings", type=int, default=None,
-                           help="minimum baseline readings (athlete setting)")
-    readiness.add_argument("--hrv-slope", type=float, default=None,
-                           help="HRV ratio half-width, e.g. 0.5")
-    readiness.add_argument("--rhr-slope", type=float, default=None,
-                           help="RHR ratio half-width, e.g. 0.5")
-    readiness.add_argument("--hrv-weight", type=float, default=None)
-    readiness.add_argument("--rhr-weight", type=float, default=None)
-    readiness.add_argument("--wearable-weight", type=float, default=None)
-    readiness.add_argument("--setting-note", default=None)
 
     workout_parser = sub.add_parser("workout", help="inspect or finish the active live workout")
     workout_sub = workout_parser.add_subparsers(dest="action", required=True)
@@ -1094,21 +1081,6 @@ def _record_readiness(conn, on_date: str, values: dict[str, float],
     return readiness_feature.record_manual(conn, on_date, values, note=note)
 
 
-def _registry_version_summary(row) -> dict:
-    payload = json.loads(row["payload_json"])
-    return {
-        "registry_id": int(row["registry_id"]),
-        "effective_from": str(row["effective_from"]),
-        "schema_version": int(row["schema_version"]),
-        "created_at": row["created_at"],
-        "note": row["note"],
-        "metrics": len(payload.get("metrics") or []),
-        "min_core_fields": payload.get("min_core_fields"),
-        "wearable_weight": payload.get("wearable_weight"),
-        "digest": hashlib.sha256(str(row["payload_json"]).encode("utf-8")).hexdigest()[:12],
-    }
-
-
 def _print_registry_error(exc) -> None:
     print(f"readiness registry: {exc}")
     for field, reason in sorted(exc.fields.items()):
@@ -1141,8 +1113,7 @@ def _cmd_readiness_registry(conn, args) -> int:
         return 2
 
     if action in ("list", "history"):
-        rows = queries.readiness_registry_history(conn)
-        versions = [_registry_version_summary(row) for row in rows]
+        versions = readiness_registry_feature.history(conn)
         if action == "history":
             versions = list(reversed(versions))
         if args.json:
@@ -1279,37 +1250,6 @@ def _cmd_readiness(args) -> int:
                 current = queries.readiness_context(conn, args.date)
                 print(f"readiness context {args.date}: {', '.join(current) or 'none'}")
             _print_readiness_score(readiness_score.compute(conn, args.date))
-            return 0
-        if args.action == "settings":
-            effective = readiness_score.effective_settings(conn, args.date)
-            supplied = {
-                "baseline_days": args.baseline_days,
-                "baseline_min_readings": args.baseline_min_readings,
-                "hrv_slope": args.hrv_slope,
-                "rhr_slope": args.rhr_slope,
-                "hrv_weight": args.hrv_weight,
-                "rhr_weight": args.rhr_weight,
-                "wearable_weight": args.wearable_weight,
-            }
-            if any(value is not None for value in supplied.values()):
-                values = {
-                    key: value if value is not None else getattr(effective, key)
-                    for key, value in supplied.items()
-                }
-                try:
-                    repositories.append_readiness_setting(
-                        conn, effective_from=args.date, note=args.setting_note, **values,
-                    )
-                except ValueError as exc:
-                    print(f"readiness settings: {exc}")
-                    return 2
-                effective = readiness_score.effective_settings(conn, args.date)
-                print(f"readiness settings recorded from {args.date}")
-            print(f"baseline_days={effective.baseline_days} "
-                  f"baseline_min_readings={effective.baseline_min_readings} "
-                  f"hrv_slope={effective.hrv_slope:g} rhr_slope={effective.rhr_slope:g} "
-                  f"weights hrv={effective.hrv_weight:g} rhr={effective.rhr_weight:g} "
-                  f"wearable={effective.wearable_weight:g} ({effective.setting_source})")
             return 0
         args.date = args.date or datetime.date.today().isoformat()
         if args.action == "override":

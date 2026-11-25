@@ -27,6 +27,7 @@ operational fields. A key that is not in metric_definition is rejected.
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
@@ -358,6 +359,27 @@ def load(conn, on_date: str) -> Registry | None:
         registry_id=int(row["registry_id"]),
         effective_from=str(row["effective_from"]),
     )
+
+
+def history(conn, limit: int = 50) -> list[dict]:
+    """Version summaries, newest first; payloads are not returned in bulk."""
+    out = []
+    for row in queries.readiness_registry_history(conn, limit):
+        payload = json.loads(row["payload_json"])
+        out.append({
+            "registry_id": int(row["registry_id"]),
+            "effective_from": str(row["effective_from"]),
+            "schema_version": int(row["schema_version"]),
+            "created_at": row["created_at"],
+            "note": row["note"],
+            "metrics": len(payload.get("metrics") or []),
+            "min_core_fields": payload.get("min_core_fields"),
+            "wearable_weight": payload.get("wearable_weight"),
+            "digest": hashlib.sha256(
+                str(row["payload_json"]).encode("utf-8")
+            ).hexdigest()[:12],
+        })
+    return out
 
 
 def _today() -> str:

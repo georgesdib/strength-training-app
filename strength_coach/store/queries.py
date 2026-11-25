@@ -661,20 +661,6 @@ def readiness_dates(conn, start: str, end: str) -> list[str]:
     ]
 
 
-def readiness_setting(conn, on_date: str) -> dict | None:
-    """Latest per-athlete score setting effective on or before the date."""
-    row = conn.execute(
-        """
-        SELECT * FROM readiness_setting
-         WHERE effective_from <= ?
-         ORDER BY effective_from DESC, created_at DESC, rowid DESC
-         LIMIT 1
-        """,
-        (str(on_date),),
-    ).fetchone()
-    return dict(row) if row is not None else None
-
-
 def readiness_overrides(conn, on_date: str) -> dict[str, dict]:
     """Latest readiness override per scope for a date; scopes are global/category:*."""
     rows = conn.execute(

@@ -4041,6 +4041,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(
                     lambda c: self._readiness_schema(c, day)
                 ))
+            elif path == "/api/readiness/registry/history":
+                self._json(200, self._with_conn(
+                    lambda c: {"versions": readiness_registry.history(c)}
+                ))
             elif path == "/api/readiness/history":
                 query = parse_qs(urlparse(self.path).query)
                 self._json(200, self._with_conn(
@@ -4218,8 +4222,14 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._set_readiness_preset(c, body)))
             elif path == "/api/readiness/context":
                 self._json(200, self._with_conn(lambda c: self._set_readiness_context(c, body)))
-            elif path == "/api/readiness/settings":
-                self._json(200, self._with_conn(lambda c: self._set_readiness_settings(c, body)))
+            elif path == "/api/readiness/registry":
+                self._json(200, self._with_conn(
+                    lambda c: self._save_readiness_registry(c, body)
+                ))
+            elif path == "/api/readiness/registry/preview":
+                self._json(200, self._with_conn(
+                    lambda c: self._preview_readiness_registry(c, body)
+                ))
             elif path == "/api/readiness/volume":
                 self._json(200, self._with_conn(lambda c: self._set_readiness_volume(c, body)))
             elif path == "/api/programme/key":
@@ -5935,9 +5945,6 @@ class Handler(BaseHTTPRequestHandler):
         data["score"] = readiness_score.compute(conn, day).as_dict()
         data["context_flags"] = queries.readiness_context(conn, day)
         data["presets"] = readiness_feature.presets()
-        data["settings"] = readiness_feature.as_dict(
-            readiness_score.effective_settings(conn, day)
-        )
         cfg = settings_profile.feature_settings(conn, day).readiness
         data["volume_valve"] = {
             "enabled": cfg.set_reduction_enabled,
@@ -5991,19 +5998,31 @@ class Handler(BaseHTTPRequestHandler):
         )
         return self._readiness(conn, day)
 
-    def _set_readiness_settings(self, conn, body: dict) -> dict:
+    def _save_readiness_registry(self, conn, body: dict) -> dict:
+        payload = body.get("payload")
+        if not isinstance(payload, dict):
+            raise FieldError("payload must be an object", {"payload": "must be an object"})
+        try:
+            registry = readiness_registry.save(
+                conn, payload, note=body.get("note") or None,
+            )
+        except readiness_registry.RegistryError as exc:
+            raise FieldError(str(exc), exc.fields) from exc
+        return registry.as_dict()
+
+    def _preview_readiness_registry(self, conn, body: dict) -> dict:
+        payload = body.get("payload")
+        if not isinstance(payload, dict):
+            raise FieldError("payload must be an object", {"payload": "must be an object"})
         day = str(body.get("date") or datetime.date.today().isoformat())
-        current = readiness_score.effective_settings(conn, day)
-        fields = ("baseline_days", "baseline_min_readings", "hrv_slope", "rhr_slope",
-                  "hrv_weight", "rhr_weight", "wearable_weight")
-        values = {
-            name: body[name] if body.get(name) not in (None, "") else getattr(current, name)
-            for name in fields
-        }
-        repositories.append_readiness_setting(
-            conn, effective_from=day, note=body.get("note") or None, **values,
-        )
-        return self._readiness(conn, day)
+        try:
+            day = readiness_score.parse_date(day)
+        except ValueError as exc:
+            raise FieldError(str(exc), {"date": str(exc)}) from exc
+        try:
+            return readiness_registry.preview(conn, payload, on_date=day)
+        except readiness_registry.RegistryError as exc:
+            raise FieldError(str(exc), exc.fields) from exc
 
     def _set_readiness_volume(self, conn, body: dict) -> dict:
         day = str(body.get("date") or datetime.date.today().isoformat())

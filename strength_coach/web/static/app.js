@@ -1891,6 +1891,8 @@ async function loadReadiness(date) {
       api("/api/readiness/schema?date=" + encodeURIComponent(date)),
     ]);
     renderReadinessForm(schema);
+    renderRegistryEditor(schema);
+    loadRegistryHistory();
     document.querySelectorAll("#readiness-form [data-field]").forEach((input) => {
       const value = data[input.dataset.field];
       input.value = value ?? "";
@@ -1921,23 +1923,11 @@ async function loadReadiness(date) {
     $("#readiness-context").innerHTML = flags.map((flag) =>
       `<label><input type="checkbox" data-context="${esc(flag)}" ${active.has(flag) ? "checked" : ""}> ${esc(flag.replaceAll("_", " "))}</label>`
     ).join("");
-    if (data.settings) {
-      const s = data.settings;
-      $("#setting-baseline-days").value = s.baseline_days;
-      $("#setting-min-readings").value = s.baseline_min_readings;
-      $("#setting-hrv-slope").value = s.hrv_slope;
-      $("#setting-rhr-slope").value = s.rhr_slope;
-      $("#setting-hrv-weight").value = s.hrv_weight;
-      $("#setting-rhr-weight").value = s.rhr_weight;
-      $("#setting-wearable-weight").value = s.wearable_weight;
-      const v = data.volume_valve || {};
-      $("#volume-enabled").checked = v.enabled !== false;
-      $("#volume-score").value = v.score_below ?? 0.5;
-      $("#volume-sets").value = v.sets ?? 1;
-      $("#volume-essential").checked = !!v.include_essential;
-      $("#settings-source").textContent =
-        "effective source: " + s.setting_source + " · config file plus athlete overrides";
-    }
+    const v = data.volume_valve || {};
+    $("#volume-enabled").checked = v.enabled !== false;
+    $("#volume-score").value = v.score_below ?? 0.5;
+    $("#volume-sets").value = v.sets ?? 1;
+    $("#volume-essential").checked = !!v.include_essential;
     renderReadiness(data);
   } catch (error) {
     setWorkflowReadiness(null);
@@ -2032,29 +2022,113 @@ $("#volume-form").addEventListener("submit", async (event) => {
   }
 });
 
-$("#settings-form").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const payload = {
-    date: $("#readiness-date").value,
-    baseline_days: Number($("#setting-baseline-days").value),
-    baseline_min_readings: Number($("#setting-min-readings").value),
-    hrv_slope: Number($("#setting-hrv-slope").value),
-    rhr_slope: Number($("#setting-rhr-slope").value),
-    hrv_weight: Number($("#setting-hrv-weight").value),
-    rhr_weight: Number($("#setting-rhr-weight").value),
-    wearable_weight: Number($("#setting-wearable-weight").value),
+function renderRegistryEditor(schema) {
+  readinessRegistry = schema;
+  $("#registry-min-core").value = schema.min_core_fields;
+  $("#registry-wearable").value = schema.wearable_weight;
+  const required = new Set(schema.require_any_of || []);
+  const rows = schema.metrics.map((metric) => {
+    const device = metric.role === "device";
+    const core = metric.role === "core";
+    return `<tr data-key="${esc(metric.key)}">
+      <td>${esc(metric.label)}<br><span class="muted">${esc(metric.role)}</span></td>
+      <td><input type="checkbox" data-reg="enabled" ${metric.enabled ? "checked" : ""}></td>
+      <td><input type="number" data-reg="weight" step="0.05" min="0.05"
+        max="${device ? 1 : 2}" value="${metric.weight}"></td>
+      <td>${device ? `<input type="number" data-reg="baseline_days" min="1" value="${metric.baseline_days}">` : "—"}</td>
+      <td>${device ? `<input type="number" data-reg="min_readings" min="1" value="${metric.min_readings}">` : "—"}</td>
+      <td>${device ? `<input type="number" data-reg="slope" step="0.05" min="0.05" max="1" value="${metric.slope}">` : "—"}</td>
+      <td>${core ? `<input type="checkbox" data-reg="counts_as_core" ${metric.counts_as_core ? "checked" : ""}>` : "—"}</td>
+      <td>${core && metric.counts_as_core ? `<input type="checkbox" data-reg="required" ${required.has(metric.key) ? "checked" : ""}>` : "—"}</td>
+    </tr>`;
+  }).join("");
+  $("#registry-metrics").innerHTML = `<table><thead><tr><th>Metric</th><th>on</th>
+    <th>weight</th><th>baseline days</th><th>min readings</th><th>slope</th>
+    <th>counts as core</th><th>required (one of)</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function registryPayloadFromForm() {
+  const metrics = readinessRegistry.metrics.map((metric) => {
+    const row = document.querySelector(`#registry-metrics tr[data-key="${metric.key}"]`);
+    const input = (name) => row.querySelector(`[data-reg="${name}"]`);
+    const device = metric.role === "device";
+    const core = metric.role === "core";
+    const entry = {
+      key: metric.key,
+      role: metric.role,
+      enabled: input("enabled").checked,
+      weight: Number(input("weight").value),
+      baseline_days: device ? Number(input("baseline_days").value) : 0,
+      counts_as_core: core ? input("counts_as_core").checked : false,
+      order: metric.order,
+    };
+    if (device) {
+      entry.min_readings = Number(input("min_readings").value);
+      entry.slope = Number(input("slope").value);
+    }
+    return entry;
+  });
+  const required = [...document.querySelectorAll("#registry-metrics tr")]
+    .filter((row) => {
+      const box = row.querySelector('[data-reg="required"]');
+      return box && box.checked;
+    }).map((row) => row.dataset.key);
+  return {
+    schema_version: readinessRegistry.schema_version,
+    min_core_fields: Number($("#registry-min-core").value),
+    require_any_of: required,
+    wearable_weight: Number($("#registry-wearable").value),
+    metrics,
   };
+}
+
+async function loadRegistryHistory() {
+  const target = $("#registry-history");
+  if (!target) return;
   try {
-    const data = await api("/api/readiness/settings", {
-      method: "POST", body: JSON.stringify(payload),
-    });
-    renderReadiness(data);
-    $("#settings-source").textContent =
-      "effective source: " + data.settings.setting_source + " · athlete setting recorded";
-    notify("Readiness settings saved.");
-    loadOverview();
+    const data = await api("/api/readiness/registry/history");
+    target.innerHTML = "<table><thead><tr><th>version</th><th>effective</th>" +
+      "<th>metrics</th><th>min</th><th>note</th></tr></thead><tbody>" +
+      (data.versions || []).map((row) => `<tr><td>${row.registry_id}</td>
+        <td>${esc(row.effective_from)}</td><td>${row.metrics}</td>
+        <td>${row.min_core_fields ?? ""}</td><td>${esc(row.note || "")}</td></tr>`).join("") +
+      "</tbody></table>";
   } catch (error) {
-    $("#settings-source").textContent = error.message;
+    target.innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+}
+
+$("#registry-preview")?.addEventListener("click", async () => {
+  const target = $("#registry-preview-result");
+  try {
+    const data = await api("/api/readiness/registry/preview", {
+      method: "POST",
+      body: JSON.stringify({ payload: registryPayloadFromForm(),
+        date: $("#readiness-date").value }),
+    });
+    const changes = data.changes || [];
+    target.innerHTML = changes.length
+      ? "<ul>" + changes.map((line) => `<li>${esc(line)}</li>`).join("") + "</ul>"
+      : "<p class='muted'>No changes from the effective registry.</p>";
+  } catch (error) {
+    target.innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+  }
+});
+
+$("#readiness-registry-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  $("#registry-msg").textContent = "Saving…";
+  try {
+    const data = await api("/api/readiness/registry", {
+      method: "POST",
+      body: JSON.stringify({ payload: registryPayloadFromForm(),
+        note: $("#registry-note").value || null }),
+    });
+    $("#registry-msg").textContent = `saved version ${data.registry_id}`;
+    notify("Readiness registry version saved.");
+    await loadReadiness($("#readiness-date").value);
+  } catch (error) {
+    $("#registry-msg").textContent = error.message;
   }
 });
 

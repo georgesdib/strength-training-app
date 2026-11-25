@@ -49,6 +49,9 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/review/<session>` | read-only historical rubric sheet: stored `rubric_score` rows and `rubric_mark` marks; nothing is re-scored | session detail |
 | `GET /api/readiness/<date>` | merged readiness; `registry_version` names the effective readiness registry |
 | `GET /api/readiness/schema?date=` | effective readiness registry: version, metrics with label/scale/direction, min fields, require-any-of and wearable weight; the contract forms render from |
+| `GET /api/readiness/registry/history` | append-only registry versions, newest first |
+| `POST /api/readiness/registry` | `{payload, note?}` -> validate and append a version effective today; never updates history |
+| `POST /api/readiness/registry/preview` | `{payload, date?}` -> validate a draft and list its changes against the effective version |
 | `GET /api/readiness/history?from=&to=&fields=` | inclusive observed readiness/bodyweight series with per-field sources; requires date bounds, merges manual-over-import per field, no fill |
 | `POST /api/readiness` | `{date, values, note}` -> merged readiness + score |
 | `POST /api/readiness/override` | `{date, scope, value, reason}` -> merged readiness + score |

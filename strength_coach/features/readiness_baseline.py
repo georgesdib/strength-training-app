@@ -11,7 +11,7 @@ import datetime as dt
 import math
 import statistics
 
-from strength_coach.features import readiness_score
+from strength_coach.features import readiness as readiness_config
 from strength_coach.store import queries
 
 
@@ -56,7 +56,7 @@ def _projection(history: list[dict], field: str, target: dt.date,
 
 def report(conn, end: str | None = None, days: int = 90) -> str:
     end = end or dt.date.today().isoformat()
-    settings = readiness_score.effective_settings(conn, end)
+    settings = readiness_config.ReadinessConfig.load()
     boundary = dt.date.fromisoformat(end)
     start = (boundary - dt.timedelta(days=max(0, int(days) - 1))).isoformat()
     dates = queries.readiness_dates(conn, start, end)
