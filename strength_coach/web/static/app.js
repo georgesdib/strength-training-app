@@ -1740,24 +1740,74 @@ async function loadFatigue() {
 }
 
 /* --- readiness ---------------------------------------------------------- */
-const SCORE_FIELDS = ["sleep", "energy", "mood", "soreness", "stress"];
-const DEVICE_FIELDS = ["hrv_ms", "rhr_bpm", "bodyweight_kg", "wearable_score"];
 const LABELS = { sleep: "Sleep", energy: "Energy", mood: "Mood", soreness: "Soreness",
   stress: "Stress",
   hrv_ms: "HRV (ms)", rhr_bpm: "Resting HR (bpm)",
   bodyweight_kg: "Bodyweight (kg)",
   wearable_score: "Wearable readiness (0-100)" };
+const EXTRA_LABELS = { bodyweight_kg: "Bodyweight (kg)",
+  wearable_score: "Wearable readiness (0-100)" };
+const EXTRA_FIELDS = Object.keys(EXTRA_LABELS);
 
-const READINESS_FIELD_MAP = Object.fromEntries(
-  [...SCORE_FIELDS, ...DEVICE_FIELDS].map((field) => [field, `[data-field="${field}"]`])
-);
-READINESS_FIELD_MAP.date = "#readiness-date";
-READINESS_FIELD_MAP.values = "#readiness-fields";
+let readinessSchema = null;
+let readinessLabels = { ...LABELS };
+let readinessFieldMap = { date: "#readiness-date", values: "#readiness-fields" };
 
-function fieldInput(field, device = false) {
-  if (device) return `<label>${esc(LABELS[field])} <input type="number" step="0.1" min="0"
+function scaleOptions(metric) {
+  const min = Number(metric.scale_min ?? 1);
+  const max = Number(metric.scale_max ?? 5);
+  if (min === 1 && max === 5 && LABELS[metric.key] && metric.role === "core") {
+    return readinessScaleOptions(metric.key);
+  }
+  const options = [];
+  for (let value = min; value <= max; value += 1) {
+    options.push(`<option value="${value}">${value}</option>`);
+  }
+  return ['<option value="">—</option>'].concat(options).join("");
+}
+
+function metricInput(metric, required) {
+  const mark = required.includes(metric.key) ? " *" : "";
+  if (metric.role === "device") {
+    return `<label>${esc(metric.label)}${mark} <input type="number" step="0.1" min="0"
+      data-field="${metric.key}" placeholder="${esc(metric.unit || "")}"></label>`;
+  }
+  return `<label>${esc(metric.label)}${mark} <select data-field="${metric.key}">${scaleOptions(metric)}</select></label>`;
+}
+
+function extraInput(field) {
+  return `<label>${esc(EXTRA_LABELS[field])} <input type="number" step="0.1" min="0"
     data-field="${field}" placeholder=""></label>`;
-  return `<label>${esc(LABELS[field])} <select data-field="${field}">${readinessScaleOptions(field)}</select></label>`;
+}
+
+function renderReadinessForm(schema) {
+  readinessSchema = schema;
+  readinessLabels = { ...LABELS };
+  for (const metric of schema.metrics) readinessLabels[metric.key] = metric.label;
+  const required = schema.require_any_of || [];
+  const enabled = schema.metrics.filter((metric) => metric.enabled);
+  const core = enabled.filter((metric) => metric.role === "core")
+    .sort((a, b) => a.order - b.order);
+  const device = enabled.filter((metric) => metric.role === "device")
+    .sort((a, b) => a.order - b.order);
+  $("#readiness-fields").innerHTML = core.map((metric) => metricInput(metric, required)).join("");
+  $("#readiness-device").innerHTML =
+    device.map((metric) => metricInput(metric, required)).join("") +
+    EXTRA_FIELDS.map(extraInput).join("");
+  const note = $("#readiness-required-note");
+  if (note) {
+    const labels = required.map((key) => readinessLabels[key] || key);
+    note.textContent = labels.length > 0
+      ? "Required: at least one of " + labels.join(" or ") + "."
+      : "";
+  }
+  readinessFieldMap = { date: "#readiness-date", values: "#readiness-fields" };
+  for (const metric of schema.metrics) {
+    readinessFieldMap[metric.key] = `[data-field="${metric.key}"]`;
+  }
+  for (const field of EXTRA_FIELDS) {
+    readinessFieldMap[field] = `[data-field="${field}"]`;
+  }
 }
 
 /* --- workout workflow -------------------------------------------------- */
@@ -1820,8 +1870,7 @@ $("#workflow-ack")?.addEventListener("click", () => {
 });
 
 $("#readiness-date").value = today();
-$("#readiness-fields").innerHTML = SCORE_FIELDS.map((f) => fieldInput(f)).join("");
-$("#readiness-device").innerHTML = DEVICE_FIELDS.map((f) => fieldInput(f, true)).join("");
+loadReadiness($("#readiness-date").value);
 function syncOverrideDateLabel() {
   // The override lives beside the daily score, so it must say which date it writes.
   const label = $("#override-date-label");
@@ -1837,24 +1886,32 @@ $("#readiness-date").addEventListener("change", () => {
 async function loadReadiness(date) {
   if (!date) return;
   try {
-    const data = await api("/api/readiness/" + encodeURIComponent(date));
+    const [data, schema] = await Promise.all([
+      api("/api/readiness/" + encodeURIComponent(date)),
+      api("/api/readiness/schema?date=" + encodeURIComponent(date)),
+    ]);
+    renderReadinessForm(schema);
     document.querySelectorAll("#readiness-form [data-field]").forEach((input) => {
       const value = data[input.dataset.field];
       input.value = value ?? "";
     });
     const presets = data.presets || {};
+    const enabledCore = (readinessSchema?.metrics || [])
+      .filter((metric) => metric.enabled && metric.role === "core")
+      .sort((a, b) => a.order - b.order);
+    const presetKeys = enabledCore.length > 0
+      ? enabledCore.map((metric) => metric.key) : ["sleep", "energy", "soreness", "stress"];
     const presetHtml = Object.entries(presets).map(([name, preset]) => {
       const values = preset.values || {};
-      const compact = [values.sleep, values.energy, values.soreness, values.stress]
-        .map((value) => value == null ? "—" : value).join("/");
-      const aria = `${preset.label || name}: sleep ${values.sleep}, energy ${values.energy}, ` +
-        `soreness ${values.soreness}, stress ${values.stress}`;
+      const compact = presetKeys.map((key) => values[key] == null ? "—" : values[key]).join("/");
+      const aria = `${preset.label || name}: ` +
+        presetKeys.map((key) => `${readinessLabels[key] || key} ${values[key]}`).join(", ");
       return `<button type="button" class="ghost preset-button"
         data-action="readiness-preset" data-preset="${esc(name)}" aria-label="${esc(aria)}"
         title="${esc(aria)}">${esc(preset.label || name)}
         <span class="preset-values">${esc(compact)}</span></button>`;
     }).join("") +
-      '<span class="muted preset-legend">Values: sleep / energy / soreness / stress</span>' +
+      `<span class="muted preset-legend">Values: ${presetKeys.map((key) => esc(readinessLabels[key] || key)).join(" / ")}</span>` +
       '<button type="button" class="ghost" data-action="edit-readiness-presets">Edit preset YAML</button>';
     $("#readiness-presets").innerHTML = presetHtml;
     const workflowPresets = $("#workflow-readiness-presets");
@@ -2064,7 +2121,7 @@ $("#readiness-form").addEventListener("submit", async (event) => {
     notify("Readiness saved.");
     loadOverview();
   } catch (error) {
-    applyFieldErrors(error, $("#readiness-result"), READINESS_FIELD_MAP);
+    applyFieldErrors(error, $("#readiness-result"), readinessFieldMap);
   }
 });
 
@@ -2075,8 +2132,8 @@ function renderReadiness(data) {
     return;
   }
   setWorkflowReadiness(data);
-  const rows = Object.keys(LABELS).filter((field) => data[field] != null).map((field) => `
-    <tr><td>${esc(LABELS[field])}</td><td>${fmt(data[field])}</td>
+  const rows = Object.keys(readinessLabels).filter((field) => data[field] != null).map((field) => `
+    <tr><td>${esc(readinessLabels[field])}</td><td>${fmt(data[field])}</td>
     <td><span class="badge">${esc(data.sources?.[field] || "import")}</span></td></tr>`).join("");
   $("#readiness-result").innerHTML = `<div class="warnbox"><strong>Merged readiness</strong>
     <table><thead><tr><th>Field</th><th>value</th><th>source</th></tr></thead><tbody>${rows}</tbody></table></div>`;

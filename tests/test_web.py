@@ -3757,3 +3757,29 @@ def test_overview_includes_the_programme_header(server):
     assert header is not None
     assert set(header) >= {"trained_week", "deload"}
     assert "calendar_week" in header["deload"]
+
+
+def test_readiness_schema_endpoint_and_registry_version(server):
+    status, body = get(server, "/api/readiness/schema?date=2024-01-01")
+    assert status == 200
+    schema = json.loads(body)
+    assert schema["registry_id"] == 1
+    assert schema["min_core_fields"] == 3
+    assert schema["require_any_of"] == ["sleep", "energy"]
+    keys = [metric["key"] for metric in schema["metrics"]]
+    assert keys == ["sleep", "energy", "mood", "stress", "soreness", "hrv_ms", "rhr_bpm"]
+    assert schema["metrics"][0]["scale_max"] == 5
+
+    status, body = get(server, "/api/readiness/2024-01-01")
+    assert status == 200
+    assert json.loads(body)["registry_version"] == 1
+
+
+def test_readiness_form_is_rendered_from_the_registry_schema(server):
+    js = client_js(server)
+    assert "/api/readiness/schema" in js
+    assert "renderReadinessForm" in js
+    assert "SCORE_FIELDS" not in js
+    status, body = get(server, "/")
+    assert status == 200
+    assert 'id="readiness-required-note"' in body
