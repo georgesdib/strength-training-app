@@ -112,33 +112,15 @@ function renderPerformanceE1rm(data, vbt) {
   if (!target) return;
   var summary = data.summary || {};
   var points = data.points || [];
-  var series = [
-    {id: "raw", label: "Raw e1RM observations", className: "chart-series-raw",
-      points: points.map(function (point) { return {date: point.date, value: point.kg}; })},
-    {id: "median", label: "Rolling median", className: "chart-series-median",
-      points: points.map(function (point) { return {date: point.date, value: point.rolling_median_kg}; })},
-  ];
-  if (vbt) {
-    var vbtPoints = (vbt.e1rm_series || []).filter(function (point) {
-      return point.e1rm_kg != null;
-    }).map(function (point) { return {date: point.date, value: point.e1rm_kg}; });
-    if (vbtPoints.length) {
-      series.push({id: "vbt", label: "VBT e1RM (per-rep line)",
-        className: "chart-series-vbt", points: vbtPoints});
-    }
-    var pooledPoints = (vbt.pooled_e1rm_series || []).filter(function (point) {
-      return point.e1rm_kg != null;
-    }).map(function (point) { return {date: point.date, value: point.e1rm_kg}; });
-    if (pooledPoints.length) {
-      series.push({id: "pooled", label: "VBT e1RM (pooled model)",
-        className: "chart-series-pooled", points: pooledPoints});
-    }
+  var chart = "";
+  if (vbt && (vbt.e1rm_series || []).length >= 2) {
+    // Same weekly chart as the Exercises panel, so the two views cannot diverge.
+    chart = renderE1rmSeries(
+      vbt.e1rm_series, vbt.rir_e1rm_series, vbt.pooled_e1rm_series
+    );
+  } else {
+    chart = performanceSvg(points);
   }
-  var chart = dateSeriesChart({
-    title: "e1RM over time", xTitle: "Training date", yTitle: "e1RM (kg)",
-    series: series,
-    note: "Raw and rolling median are Epley+RIR within the selected range. Green: VBT per-rep e1RM; orange dashed: VBT pooled e1RM; both use the lift's weekly history and are display only. A VBT point whose implied load is below the heaviest fitted load is still shown and is flagged in the exercise panel.",
-  });
   var rows = points.map(function (point) {
     return "<tr><td>" + esc(point.date) + "</td><td>" + fmt(point.kg) +
       "</td><td>" + fmt(point.rolling_median_kg) + "</td><td>" + point.n_window + "</td></tr>";

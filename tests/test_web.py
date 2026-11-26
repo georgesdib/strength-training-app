@@ -660,7 +660,7 @@ def test_performance_e1rm_chart_overlays_the_vbt_series(server):
     status, page = get(server, "/")
     assert status == 200
     js = client_js(server)
-    assert "chart-series-vbt" in js
+    assert "renderE1rmSeries(" in js
     assert "/vbt-profile" in js
 
 

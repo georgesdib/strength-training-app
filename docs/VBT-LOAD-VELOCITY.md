@@ -152,9 +152,9 @@ Exercises → Open → **VBT load–velocity profile**:
 - **e1RM series**: the weekly display-only series described in §6, with the computed
   Epley+RIR e1RM overlaid.
 
-**Performance** overlays the same per-rep and pooled e1RM series on its e1RM chart, using that
-view's lift selector and date range, so the velocity-implied and computed trajectories can be
-inspected without opening the exercise dialog.
+**Performance** renders the same weekly chart, using that view's lift selector, so the
+velocity-implied and computed trajectories can be inspected without opening the exercise
+dialog. The table below the chart still lists the Epley observations inside the selected range.
 
 The profile is computed on read and cached in process, keyed on a cheap history revision
 (max set id, row count, latest override, latest rep row, session edits and voids). A repeat
