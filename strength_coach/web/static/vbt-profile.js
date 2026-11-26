@@ -298,13 +298,12 @@ function renderE1rmSeries(series, rirSeries, pooledSeries) {
   var first = series[0];
   var last = series[series.length - 1];
   var flagged = series.concat(pooled).some(function (p) { return p && p.flag; });
-  var legend = "<p class='muted vbt-legend'>Green: VBT e1RM (per-rep line)." +
+  var legendText = "Green: VBT e1RM (per-rep line)." +
     (pooledLines ? " Orange: VBT e1RM (pooled model)." : "") +
     (rirLines ? " Blue: e1RM from RIR (Epley, eligible session best)." : "") +
-    (flagged ? " Flagged points fall outside the fitted load range." : "") + "</p>";
-  return "<h4 class='vbt-series-title'>VBT e1RM over time <span class='muted'>(" +
-    esc(first.date) + " → " + esc(last.date) + ")</span></h4>" + legend +
-    "<svg class='vbt-chart vbt-series' viewBox='0 0 " + W + " " + H + "' role='img' aria-label='VBT e1RM and RIR e1RM over time'>" +
+    (flagged ? " Flagged points fall outside the fitted load range." : "") +
+    " (" + first.date + " → " + last.date + ")";
+  var svg = "<svg class='vbt-chart vbt-series' viewBox='0 0 " + W + " " + H + "' role='img' aria-label='VBT e1RM and RIR e1RM over time'>" +
     grid +
     "<line x1='" + ml + "' y1='" + (H - mb) + "' x2='" + (W - mr) + "' y2='" + (H - mb) + "' class='vbt-axis'/>" +
     "<polyline points='" + vbt + "' class='vbt-line' fill='none'/>" +
@@ -312,6 +311,11 @@ function renderE1rmSeries(series, rirSeries, pooledSeries) {
     "<text x='" + ml + "' y='" + (H - 12) + "' class='vbt-tick'>" + esc(first.date) + "</text>" +
     "<text x='" + (W - mr) + "' y='" + (H - 12) + "' text-anchor='end' class='vbt-tick'>" + esc(last.date) + "</text>" +
     "</svg>";
+  if (typeof chartFrame === "function") {
+    return chartFrame("VBT e1RM over time", svg, legendText);
+  }
+  return "<h4 class='vbt-series-title'>VBT e1RM over time</h4>" +
+    "<p class='muted vbt-legend'>" + esc(legendText) + "</p>" + svg;
 }
 
 document.getElementById("exercise-vbt-reps").addEventListener("change", function () {
