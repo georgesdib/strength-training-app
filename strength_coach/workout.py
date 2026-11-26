@@ -663,7 +663,8 @@ def _summary_evidence(
                     str(code) for code in (quality.get("reasons") or {})
                 ),
                 limitations=(
-                    "targets are conditional on rep count and RIR band; not a success score",
+                    "targets are evaluated at the prescribed load, reps and RIR; the median fallback is "
+                    "flat; not a success score",
                 ),
             ).as_dict()
         )

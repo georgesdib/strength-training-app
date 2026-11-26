@@ -5,8 +5,10 @@ applies explicit comparability rules, computes per-set residuals and aggregates 
 exercise. It never writes, never changes a prescription and never combines exercises into a
 single score.
 
-The target is conditional on rep count and RIR band, not on load. Actual load and load basis are
-reported as context; only a known/compatible load basis enters the comparability decision.
+A frozen target is either a per-rep line or pooled model evaluated at the prescribed load,
+reps and RIR, or a flat median band. The comparison evaluates the line/pooled model at the load
+actually used; an actual load or rep count outside the fitted range is an extrapolation and not
+comparable, and a known/compatible load basis still gates comparability.
 """
 
 from __future__ import annotations

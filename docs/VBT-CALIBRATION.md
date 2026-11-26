@@ -33,17 +33,22 @@ Expected magnitudes in a real export (reproduce with `tools/profile_data.py`):
 
 ## 2. What a target is
 
-A target is **conditional on rep count**, not a single number per lift:
+A target is **conditional on rep count**, and a fitted target is also conditional on load and
+RIR — it is not a single number per lift:
 
 ```
-target(lift, reps, rir_band) = (median_velocity, low, high)          # fallback
-target(lift, reps, rir_band) = velocity_slope/load + intercept + rir_coef  # fitted line
+target(lift, reps, rir_band)       = (median_velocity, low, high)              # flat fallback
+target(lift, reps, rir_band, load) = slope·load + intercept + rir_coef·rir      # per-rep line
+target(lift, reps, rir_band, load) = slope·load + rep_coef·reps + rir_coef·rir  # pooled fallback
 ```
 
-where `low/high = median ∓ k·MAD`, with `k = 2.0` and a **relative floor** so a
-zero-dispersion sample cannot collapse the band onto the median (see
-`utils.stats.robust_band`). Storing the band instead of a point is what makes the check
-"did velocity fall outside the expected range" honest at small *n*.
+The per-rep line is primary where the rep count has enough load variation; the pooled model
+covers a rep count with no line; the median band is the flat fallback. In every case
+`low/high` comes from the fit's residual spread (the median fallback uses
+`median ∓ k·MAD`, with `k = 2.0` and a **relative floor** so a zero-dispersion sample cannot
+collapse the band onto the median; see `utils.stats.robust_band`). Storing the band instead of
+a point is what makes the check "did velocity fall outside the expected range" honest at small
+*n*.
 
 Why not a single "target velocity" per lift: velocity at 3 reps and at 6 reps are different
 quantities, and a target that ignores rep count will systematically flag one of them.
@@ -56,13 +61,14 @@ Never interpolate silently. Resolve in order and record which level was used:
 |---|---|---|
 | **L0** | lift + rep count directly, if `n ≥ 12` and `≥ 3` distinct sessions | `scope: lift` |
 | **L1** | pool by `vbt_family` at the same rep count, if `n_family ≥ 24`. Only genuine variants pool: bench grips, squat types. Named hinges (trap bar, sumo, RDL, conventional), good mornings, rack pulls, and the rear-foot-down and rear-foot-elevated split squats each have their own family, because their load-velocity curves differ | `scope: family` |
-| **L2** | *not implemented.* Pooled rep-count fits were designed but the shipped calibration uses lift and family only, because a pooled line can hide a lift-specific curve | — |
-| **L3** | *not implemented* (same reason) | — |
+| **L2** | **pooled rep-count fallback** when no L0/L1 target exists at the prescribed rep count: a two-stage pooled model across the lift's rep counts (shared load/RIR slope, per-rep intercepts, weighted rep trend). Gates: 12 sets, 3 sessions, 3 loads, and at least two rep counts with three sets each. The target is evaluated at the prescribed load, reps and RIR and labelled `pooled`; an unobserved rep count or a load outside the fitted range is `pooled_extrapolated` | `scope: lift`, `fit_method: pooled` |
+| **L3** | *not implemented* — no further pooling; a rep count with no L0/L1/L2 target gets no target | — |
 | **L4** | no target | `scope: none`, `vbt_status: uncalibrated` |
 
 Consequence at L4: **the prescription omits a velocity target entirely** and says so. It
-does not guess. A lift with a few dozen clean sets will frequently land on L1 (its family),
-and the prescription must label the target as family-derived rather than lift-derived.
+does not guess. A lift with a few dozen clean sets will frequently land on L1 (its family) or
+L2 (the pooled rep-count fallback), and the prescription must label the target as family- or
+pool-derived rather than lift-derived.
 
 ## 4. Manual override (per lift)
 
@@ -92,7 +98,9 @@ Rules:
 Every computation creates a new `vbt_calibration` row:
 
 `calibration_id`, `exercise_id`, `scope`, `rep_count`, `rir_band`, `velocity_median`,
-`velocity_mad`, `velocity_low`, `velocity_high`, `n_sets`, `n_sessions`, `window_start`,
+`velocity_mad`, `velocity_low`, `velocity_high`, `fit_method`, `velocity_slope`,
+`velocity_intercept`, `velocity_rir_coef`, `velocity_residual_mad`, `load_min`, `load_max`,
+`velocity_rep_coef`, `reps_min`, `reps_max`, `n_sets`, `n_sessions`, `window_start`,
 `window_end`, `method_version`, `params_hash`, `computed_at`, `supersedes_id`.
 
 Nothing is updated in place. Recalibrating after new data produces a new row. The
@@ -143,12 +151,15 @@ only where the ladder produces one:
 
 - the target is the calibrated **median mean velocity** for that lift, rep count and RIR band,
   or — when the group has at least 12 sets across 3 sessions, 3 distinct loads and a 10 % load
-  span — the **fitted line evaluated at the item's prescribed load and RIR**. Outside the fitted
-  load range the median band is used and the provenance says `median`; the plan records
-  `fit_method` plus the coefficients, so a target is never extrapolated silently. The per-set
-  comparison evaluates the line at the load **actually used** and reports the expected velocity
-  and its residual; a load outside the fitted range is reported as an extrapolation and excluded
-  from comparability;
+  span — the **fitted line evaluated at the item's prescribed load and RIR**, or, when no line or
+  median exists at that rep count, the **pooled rep-count fallback** evaluated at the prescribed
+  load, reps and RIR (§3 L2). Outside a line's fitted load range the median band is used and the
+  provenance says `median`; a pooled prediction outside the observed rep or load range is issued
+  but labelled `pooled_extrapolated`. The plan records `fit_method` plus the coefficients, so a
+  target is never extrapolated silently. The per-set comparison evaluates the line or pooled model
+  at the load **actually used** and reports the expected velocity and its residual; an actual load
+  or rep count outside the fitted range is reported as an extrapolation and excluded from
+  comparability;
 - the item records the legacy `velocity_target` and `vbt_basis` fields and a structured
   `vbt` object with target/lower/upper, rep count, RIR band, scope/family, sample size,
   method version, calibration id and source;
@@ -159,9 +170,10 @@ only where the ladder produces one:
 - a swap clears the old target because the replacement lift has a different velocity profile;
   added exercises have no target; changing set counts preserves a still-applicable target;
 - **no target** is attached when no lift has 12 clean sets across 3 sessions at the prescribed
-  rep count. A session modified by a safety rule keeps its targets (`DEC-VBT-07`): the target is
-  conditional on rep count and RIR band, so a lighter set is still comparable and the per-set
-  rules exclude a set whose effort left the band;
+  rep count. A session modified by a safety rule keeps its targets (`DEC-VBT-07`): a line or
+  pooled target is evaluated at the prescribed load, RIR and reps, and the comparison uses the
+  load actually used, so a lighter set is still comparable; the per-set rules exclude a set whose
+  effort left the band or whose load/rep count left the fitted range;
 - **hex-bar deadlift targets are no longer withheld** (`DEC-VBT-06`): the failed accuracy
   criterion in `docs/VBT-EVIDENCE.md` concerns RIR-from-velocity, not the mean-velocity target,
   and the ladder above still refuses a target when the sample is thin. `VBT_UNRELIABLE` stays in
@@ -234,8 +246,9 @@ The Exercises dialog shows a fitted load–velocity profile and a display-only i
 - **Gates:** at least 12 sets, 3 sessions, 3 distinct loads and a load span of at least 10 % of
   the heaviest load. Below any gate the panel says why and draws no line.
 - **Implied 1RM:** the load at a minimal-velocity anchor, with the anchor taken from a
-  per-family table (`ASSUMPTION-58`). It is refused when the implied load is below the heaviest
-  fitted load or beyond 2.5× it. The panel labels it display only.
+  per-family table (`ASSUMPTION-58`). It is shown even when it is inconsistent with the data: an
+  implied load below the heaviest fitted load, or beyond 2.5× it, is kept and flagged in the
+  payload and the panel rather than hidden. The panel labels it display only.
 - **Effect:** none. No load, RIR, set, target or rule reads this module; the prescription
   calibration in §1–§8 remains the authority and is unchanged.
 

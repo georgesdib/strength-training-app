@@ -62,7 +62,9 @@ doi:10.1139/apnm-2024-0136).
 The standard export gives **one mean velocity per set**, plus load, reps, RIR and date. That is
 enough to:
 
-- estimate a per-lift, per-rep-count median velocity inside an RIR band;
+- estimate a per-lift, per-rep-count median velocity inside an RIR band, and — where the
+  loads vary — a per-rep-count load-velocity line with RIR as a covariate, plus a pooled
+  rep-count fallback when a rep count has no line of its own;
 - attach a target to a prescription where at least 12 clean sets across 3 sessions exist
   (or a family pool of 24, and only for genuine variants such as bench grips or squat types —
   named hinges, good mornings, rack pulls and split squats are never pooled with each other);
@@ -70,25 +72,33 @@ enough to:
   currently excluded by evidence: the hex-bar exclusion was reversed by the owner
   (`DEC-VBT-06`), so the trap bar is calibrated like every other lift.
 
-An optional device CSV can add **per-rep detail**, but it stays descriptive. It does not enter
-the set-mean calibration, targets or prescription.
+An optional device CSV can add **per-rep detail**. The velocity-loss series stays descriptive,
+but since `DEC-VBT-09` a per-rep series also supplies the **set mean** when the stored mean is
+missing (set-mean override first), so those sets enter calibration instead of reading as
+"no velocity". The loss itself never sets a target.
 
 It is **not** enough to:
 
 - compute within-set velocity loss from the standard export (that needs per-rep samples or
   start/end velocities); per-rep detail, when supplied, allows only a descriptive report;
-- build an individual load-velocity profile (needs a progressive loading test);
+- build a *validated* individual load-velocity profile from a controlled progressive loading
+  test. The app now fits an **observational** line per rep count (and a pooled fallback) from
+  the stored sets, which is useful but inherits the self-selected loads and narrow blocks; a
+  controlled test is still what a precise, validated profile and MVT would need;
 - estimate a minimal velocity threshold at 1RM (needs near-maximal sets);
 - control for belt, device or technique changes.
 
 ## 4. Consequences in the app
 
-- A target is `target(lift, reps, rir band)`, never a single number per lift.
+- A target is `target(lift, reps, rir band)`, and a fitted target also takes the prescribed
+  load and RIR — never a single number per lift.
 - No target is better than a guessed one; the prescription says "unavailable" and why.
-- The target is a **median with a robust band**, and the basis records scope and sample size.
-- A session already modified by a safety rule keeps its velocity targets: the target is
-  conditional on rep count and RIR band, not load, so a lighter set is still comparable and the
-  per-set rules exclude it when the amended effort left the band (`DEC-VBT-07`).
+- The target is a **per-rep line**, a **pooled rep-count fallback**, or a **median with a robust
+  band**, and the basis records which, plus scope, sample size and coefficients.
+- A session already modified by a safety rule keeps its velocity targets: a line or pooled target
+  is evaluated at the prescribed load, RIR and reps, so a lighter set is still comparable; the
+  per-set rules exclude it when the amended effort left the band or the load/rep count left the
+  fitted range (`DEC-VBT-07`).
 - Hex-bar targets are no longer withheld (`DEC-VBT-06`). Chen 2026 is about estimating RIR from
   velocity; a mean-velocity target with a robust band at a fixed rep count is a different
   quantity, and the 12-set/3-session ladder still refuses one when the sample is thin. The
@@ -121,13 +131,13 @@ observations. Until then, the honest result is `insufficient`.
 Still missing for live velocity-based autoregulation:
 
 - a live/streamed feed and a validated set-termination rule;
-- a **progressive loading test** per lift to fit an individual load-velocity line and a minimal
-  velocity threshold;
+- a **progressive loading test** (or enough near-maximal sets) for a validated minimal
+  velocity threshold; the load-velocity line itself is now fitted observationally from history;
 - device and setup metadata (belt, machine, sensor position) so curves are comparable;
 - a calibration method version bump, with the old targets kept as superseded rows.
 
-None of that is faked now. Optional per-rep data is descriptive and does not enter the set-mean
-calibration, targets or prescription.
+None of that is faked now. Optional per-rep data supplies a missing set mean (`DEC-VBT-09`)
+but its velocity-loss series remains descriptive and never sets a target or a stop rule.
 
 ---
 

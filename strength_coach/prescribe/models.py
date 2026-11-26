@@ -127,7 +127,8 @@ def validate_plan_items(items: Any, *, where: str = "plan") -> None:
 class VbtTarget:
     """Structured provenance for one issued velocity target.
 
-    The target is conditional on a rep count and an RIR band. The calibration id links to the
+    The target is conditional on a rep count and, for a fitted or pooled target, on the
+    prescribed load and RIR. The calibration id links to the
     append-only vbt_calibration row, so a historical prescription can explain the exact target
     it was issued with even after later recalibration. Values are never reconstructed from a
     current calibration.

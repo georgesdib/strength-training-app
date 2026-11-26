@@ -2,7 +2,8 @@
  *
  * The server owns calibration and comparison arithmetic. This module only formats target
  * provenance and renders the server's applicability/comparison result. A target is conditional
- * on rep count and RIR band; it is never presented as a load-specific target or a success score.
+ * on rep count and, for a fitted or pooled target, on the prescribed load and RIR; the
+ * comparison uses the load actually used. It is never presented as a success score.
  */
 
 var VBT_REASON_TEXT = {
@@ -92,8 +93,9 @@ function vbtTargetDetails(item) {
     " · method " + esc(target.method_version || "—") +
     (target.calibration_id ? " · id " + esc(target.calibration_id) : "") +
     (target.source ? " · source " + esc(target.source) : "") +
-    "</p><p class='muted'>The target is conditional on rep count and RIR band; load is " +
-    "context, not a target input.</p></details>";
+    "</p><p class='muted'>A fitted or pooled target is evaluated at the prescribed load, RIR " +
+    "and reps; the comparison uses the load actually used. The median fallback is flat." +
+    "</p></details>";
 }
 
 function vbtGroupForOrdinal(item, ordinal) {

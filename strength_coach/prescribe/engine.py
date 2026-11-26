@@ -1714,11 +1714,11 @@ def _attach_vbt_targets(
     the current export that is often unavailable, and the honest answer is "no target" rather
     than a plausible velocity.
 
-    A session amended by a safety rule keeps its targets. The target is conditional on rep count
-    and RIR band, never on load, so a lighter set at the same effort is still comparable; when the
-    amendment moved the prescribed effort outside the band, the per-set rules exclude that set
-    rather than the whole workout. Only a plan item that no longer carries the lift, rep count or
-    set group loses its target.
+    A session amended by a safety rule keeps its targets. A line or pooled target is evaluated
+    at the prescribed load, RIR and reps, so a lighter set at the same effort is still
+    comparable; the comparison uses the load actually used, and a set whose effort left the band
+    or whose load/rep count left the fitted range is excluded rather than the whole workout. Only
+    a plan item that no longer carries the lift, rep count or set group loses its target.
     """
     modified = bool(fallback_level != "full" or context.symptom_flare)
     if context.sets.empty:
