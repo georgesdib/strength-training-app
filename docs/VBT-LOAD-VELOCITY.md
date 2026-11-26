@@ -129,8 +129,10 @@ The **pooled model also implies an e1RM**: the same anchor, evaluated at **1 rep
 *extrapolated* when 1 rep is outside the rep range the pooled model was fitted on. Both values
 are shown, so the per-rep and pooled views can be compared directly.
 
-The e1RM is also shown as a point-in-time weekly series: each point is fitted on the trailing
-84 days only, so a later block can append points but never rewrites an earlier one. The series
+The e1RM is also shown as a point-in-time weekly series. The per-rep point is fitted on the
+trailing 84 days only; the pooled point refits on all history up to that date (an expanding
+window), because the rep term needs several rep counts and a trailing window is too thin on
+most lifts. A later block can append points but never rewrites an earlier one. The series
 chart **overlays the computed e1RM** already used elsewhere in the app — the Epley+RIR estimate
 from the enriched set history, best usable set per day, forward-filled to the weekly dates — so
 the velocity-implied and load/RIR-implied trajectories can be read against each other.

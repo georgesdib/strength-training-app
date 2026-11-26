@@ -540,9 +540,11 @@ def _pooled_e1rm_series(
 ) -> tuple[dict, ...]:
     """The pooled model's implied 1RM on the same weekly grid as the per-rep series.
 
-    Each date refits the pooled model on its trailing window only, so the pooled trajectory
-    is point-in-time too. A window with fewer than two rep counts is a null, not a gap filled
-    from a later fit.
+    Each date refits the pooled model on **all history up to that date** (an expanding
+    window): the rep term needs several rep counts, and a trailing 84-day window is too thin
+    to estimate it on most lifts. The expanding window is still point-in-time; the per-rep
+    series uses the trailing 84 days because it is a single-rep-count fit. A window without
+    two usable rep counts is a null, not a gap filled from a later fit.
     """
     if frame is None or frame.empty or not points:
         return ()
@@ -554,8 +556,7 @@ def _pooled_e1rm_series(
     out: list[dict] = []
     for point in points:
         cursor = pd.Timestamp(point["date"])
-        low = cursor - pd.Timedelta(days=SERIES_WINDOW_DAYS)
-        window = dated[(dated["date"] > low) & (dated["date"] <= cursor)]
+        window = dated[dated["date"] <= cursor]
         fit, _status, _reason = _pooled_fit(window)
         value = _pooled_e1rm(fit, mvt) if fit is not None else None
         out.append({
