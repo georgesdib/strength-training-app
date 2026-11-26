@@ -107,11 +107,38 @@ function performanceSvg(points, chartTitle) {
   });
 }
 
-function renderPerformanceE1rm(data) {
+function renderPerformanceE1rm(data, vbt) {
   var target = document.getElementById("performance-e1rm");
   if (!target) return;
   var summary = data.summary || {};
   var points = data.points || [];
+  var series = [
+    {id: "raw", label: "Raw e1RM observations", className: "chart-series-raw",
+      points: points.map(function (point) { return {date: point.date, value: point.kg}; })},
+    {id: "median", label: "Rolling median", className: "chart-series-median",
+      points: points.map(function (point) { return {date: point.date, value: point.rolling_median_kg}; })},
+  ];
+  if (vbt) {
+    var vbtPoints = (vbt.e1rm_series || []).filter(function (point) {
+      return point.e1rm_kg != null;
+    }).map(function (point) { return {date: point.date, value: point.e1rm_kg}; });
+    if (vbtPoints.length) {
+      series.push({id: "vbt", label: "VBT e1RM (per-rep line)",
+        className: "chart-series-vbt", points: vbtPoints});
+    }
+    var pooledPoints = (vbt.pooled_e1rm_series || []).filter(function (point) {
+      return point.e1rm_kg != null;
+    }).map(function (point) { return {date: point.date, value: point.e1rm_kg}; });
+    if (pooledPoints.length) {
+      series.push({id: "pooled", label: "VBT e1RM (pooled model)",
+        className: "chart-series-pooled", points: pooledPoints});
+    }
+  }
+  var chart = dateSeriesChart({
+    title: "e1RM over time", xTitle: "Training date", yTitle: "e1RM (kg)",
+    series: series,
+    note: "Raw and rolling median are Epley+RIR within the selected range. Green: VBT per-rep e1RM; orange dashed: VBT pooled e1RM; both use the lift's weekly history and are display only.",
+  });
   var rows = points.map(function (point) {
     return "<tr><td>" + esc(point.date) + "</td><td>" + fmt(point.kg) +
       "</td><td>" + fmt(point.rolling_median_kg) + "</td><td>" + point.n_window + "</td></tr>";
@@ -123,7 +150,7 @@ function renderPerformanceE1rm(data) {
     " · Observations: " + (summary.n == null ? "Unavailable" : summary.n) + "</p>" +
     "<p class='muted'>" + esc(summary.status || "unavailable") +
     " · Basis: raw_formula_epley_rir; decay and calibration not applied.</p>" +
-    performanceSvg(points) +
+    chart +
     (rows ? "<div class='table-scroll'><table><thead><tr><th>Date</th><th>e1RM kg</th><th>Rolling median</th><th>Window n</th></tr></thead><tbody>" + rows + "</tbody></table></div>" : "<p class='empty'>No eligible observations in this range.</p>") +
     ((data.breaks || []).length ? "<p class='muted'>Series breaks: " + data.breaks.map(function (item) { return esc(item.date + " — " + item.reason); }).join("; ") + "</p>" : "") +
     ((data.break_detection && data.break_detection.equipment === false)
@@ -517,9 +544,6 @@ async function loadPerformanceData() {
   if (!exercise || !exercise.value) return;
   var e1rmTarget = document.getElementById("performance-e1rm");
   if (e1rmTarget) e1rmTarget.innerHTML = "<p class='empty'>Loading performance…</p>";
-  loadPerformanceVbtE1rm(
-    exercise.value, from.value || "", to.value || today()
-  );
   performanceDoseShowAll = false;
   var sessionType = document.getElementById("performance-session-type");
   var includeDeloads = document.getElementById("performance-include-deloads");
@@ -537,38 +561,14 @@ async function loadPerformanceData() {
         "&to=" + encodeURIComponent(to.value || today()) + "&group_by=session"),
       api("/api/performance/ratios?from=" + encodeURIComponent(from.value || "") +
         "&to=" + encodeURIComponent(to.value || today())),
+      api("/api/exercises/" + encodeURIComponent(exercise.value) + "/vbt-profile")
+        .catch(function () { return null; }),
     ]);
-    renderPerformanceE1rm(results[0]);
+    renderPerformanceE1rm(results[0], results[3]);
     renderPerformanceDose(results[1]);
     renderPerformanceRatios(results[2]);
   } catch (error) {
     if (e1rmTarget) e1rmTarget.innerHTML = "<p class='warnbox'>" + esc(error.message) + "</p>";
-  }
-}
-
-async function loadPerformanceVbtE1rm(exerciseId, from, to) {
-  var target = document.getElementById("performance-vbt-e1rm");
-  if (!target) return;
-  target.innerHTML = "<p class='empty'>Loading VBT e1RM…</p>";
-  try {
-    var data = await api("/api/exercises/" + encodeURIComponent(exerciseId) + "/vbt-profile");
-    var series = data.e1rm_series || [];
-    var rir = data.rir_e1rm_series || [];
-    var pairs = series.map(function (point, index) {
-      return {vbt: point, rir: rir[index] || null};
-    }).filter(function (pair) {
-      return (!from || pair.vbt.date >= from) && (!to || pair.vbt.date <= to);
-    });
-    if (pairs.length < 2) {
-      target.innerHTML = "<p class='empty'>Not enough weekly VBT history in this date range for an e1RM series.</p>";
-      return;
-    }
-    target.innerHTML = renderE1rmSeries(
-      pairs.map(function (pair) { return pair.vbt; }),
-      pairs.map(function (pair) { return pair.rir; })
-    );
-  } catch (error) {
-    target.innerHTML = "<p class='warnbox'>VBT e1RM unavailable: " + esc(error.message) + "</p>";
   }
 }
 

@@ -604,6 +604,8 @@ body.menu-open { overflow: hidden; }
 .performance-chart polyline { stroke: var(--ink); }
 .performance-chart .chart-series-raw { stroke: var(--accent); }
 .performance-chart .chart-series-median { stroke: var(--accent-2); stroke-dasharray: 7 4; }
+.performance-chart .chart-series-vbt { stroke: #2f6f4f; }
+.performance-chart .chart-series-pooled { stroke: #b45309; stroke-dasharray: 5 4; }
 .performance-chart .chart-reference { stroke: var(--muted); stroke-dasharray: 4 4; stroke-width: 1.5; }
 .performance-chart circle { fill: var(--accent); }
 .chart-frame { border: 1px solid var(--line); border-radius: 8px; padding: 8px; cursor: zoom-in;

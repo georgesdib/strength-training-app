@@ -138,7 +138,7 @@ function renderExerciseVbt(data) {
     "<text x='14' y='" + ((mt + H - mb) / 2) + "' text-anchor='middle' transform='rotate(-90 14 " + ((mt + H - mb) / 2) + ")' class='vbt-tick'>mean velocity (m/s)</text>" +
     "</svg>";
   host.innerHTML = chart + renderPooledChart(data, refRir, data.rep_count) +
-    renderE1rmSeries(data.e1rm_series, data.rir_e1rm_series);
+    renderE1rmSeries(data.e1rm_series, data.rir_e1rm_series, data.pooled_e1rm_series);
 
   status.textContent = data.n_sets + " sets · " + data.n_sessions + " sessions · " +
     data.n_loads + " loads · R² " + (data.r2 == null ? "—" : data.r2.toFixed(2));
@@ -235,11 +235,13 @@ function renderPooledChart(data, refRir, highlightRep) {
     "</svg>";
 }
 
-function renderE1rmSeries(series, rirSeries) {
+function renderE1rmSeries(series, rirSeries, pooledSeries) {
   if (!series || series.length < 2) return "";
   var rir = (rirSeries && rirSeries.length === series.length) ? rirSeries : [];
+  var pooled = (pooledSeries && pooledSeries.length === series.length) ? pooledSeries : [];
   var values = series.map(function (p) { return p.e1rm_kg; });
   rir.forEach(function (p) { if (p && p.e1rm_kg != null) values.push(p.e1rm_kg); });
+  pooled.forEach(function (p) { if (p && p.e1rm_kg != null) values.push(p.e1rm_kg); });
   var W = 680, H = 180, ml = 58, mr = 24, mt = 16, mb = 34;
   var y0 = Math.min.apply(null, values);
   var y1 = Math.max.apply(null, values);
@@ -257,20 +259,25 @@ function renderE1rmSeries(series, rirSeries) {
       " kg · " + p.n_sets + " sets</title></circle>";
   }).join("");
 
-  var segments = [];
-  var current = [];
-  rir.forEach(function (p, i) {
-    if (p && p.e1rm_kg != null) {
-      current.push(sx(i).toFixed(1) + "," + sy(p.e1rm_kg).toFixed(1));
-    } else if (current.length) {
-      segments.push(current.join(" "));
-      current = [];
-    }
-  });
-  if (current.length) segments.push(current.join(" "));
-  var rirLines = segments.map(function (segment) {
-    return "<polyline points='" + segment + "' class='vbt-line' fill='none' style='stroke:#1d4ed8'/>";
-  }).join("");
+  function linesFor(list, colour) {
+    var segments = [];
+    var current = [];
+    list.forEach(function (p, i) {
+      if (p && p.e1rm_kg != null) {
+        current.push(sx(i).toFixed(1) + "," + sy(p.e1rm_kg).toFixed(1));
+      } else if (current.length) {
+        segments.push(current.join(" "));
+        current = [];
+      }
+    });
+    if (current.length) segments.push(current.join(" "));
+    return segments.map(function (segment) {
+      return "<polyline points='" + segment + "' class='vbt-line' fill='none' style='stroke:" +
+        colour + "'/>";
+    }).join("");
+  }
+  var rirLines = linesFor(rir, "#1d4ed8");
+  var pooledLines = linesFor(pooled, "#b45309");
 
   var grid = [y0, (y0 + y1) / 2, y1].map(function (v) {
     return "<line x1='" + ml + "' y1='" + sy(v).toFixed(1) + "' x2='" + (W - mr) + "' y2='" + sy(v).toFixed(1) + "' class='vbt-grid'/>" +
@@ -278,16 +285,16 @@ function renderE1rmSeries(series, rirSeries) {
   }).join("");
   var first = series[0];
   var last = series[series.length - 1];
-  var legend = "<p class='muted vbt-legend'>Green: VBT e1RM (velocity line)." +
-    (rirLines ? " Blue: e1RM from RIR (Epley, eligible session best)." : " No RIR e1RM in this window.") +
-    "</p>";
+  var legend = "<p class='muted vbt-legend'>Green: VBT e1RM (per-rep line)." +
+    (pooledLines ? " Orange: VBT e1RM (pooled model)." : "") +
+    (rirLines ? " Blue: e1RM from RIR (Epley, eligible session best)." : "") + "</p>";
   return "<h4 class='vbt-series-title'>VBT e1RM over time <span class='muted'>(" +
     esc(first.date) + " → " + esc(last.date) + ")</span></h4>" + legend +
     "<svg class='vbt-chart vbt-series' viewBox='0 0 " + W + " " + H + "' role='img' aria-label='VBT e1RM and RIR e1RM over time'>" +
     grid +
     "<line x1='" + ml + "' y1='" + (H - mb) + "' x2='" + (W - mr) + "' y2='" + (H - mb) + "' class='vbt-axis'/>" +
     "<polyline points='" + vbt + "' class='vbt-line' fill='none'/>" +
-    dots + rirLines +
+    dots + pooledLines + rirLines +
     "<text x='" + ml + "' y='" + (H - 12) + "' class='vbt-tick'>" + esc(first.date) + "</text>" +
     "<text x='" + (W - mr) + "' y='" + (H - 12) + "' text-anchor='end' class='vbt-tick'>" + esc(last.date) + "</text>" +
     "</svg>";

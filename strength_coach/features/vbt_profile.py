@@ -104,6 +104,7 @@ class VbtProfile:
     pooled_e1rm_basis: str | None = None
     e1rm_series: tuple[dict, ...] = ()
     rir_e1rm_series: tuple[dict, ...] = ()
+    pooled_e1rm_series: tuple[dict, ...] = ()
     # Pooled model across the lift's rep counts: velocity ~ load + reps + RIR.
     pooled_status: str = "no_data"
     pooled_reason: str | None = None
@@ -148,6 +149,7 @@ class VbtProfile:
             "pooled_e1rm_basis": self.pooled_e1rm_basis,
             "e1rm_series": list(self.e1rm_series),
             "rir_e1rm_series": list(self.rir_e1rm_series),
+            "pooled_e1rm_series": list(self.pooled_e1rm_series),
             "pooled_status": self.pooled_status,
             "pooled_reason": self.pooled_reason,
             "pooled_slope": self.pooled_slope,
@@ -228,6 +230,7 @@ def build(
 
     e1rm = _implied_e1rm(fit, mvt)
     series = _e1rm_series(frame, int(chosen), mvt)
+    pooled_series = _pooled_e1rm_series(frame, series, mvt)
     points = tuple(
         ProfilePoint(
             date=str(row.date)[:10],
@@ -261,6 +264,7 @@ def build(
         ),
         e1rm_series=series,
         rir_e1rm_series=_rir_series(sets, series),
+        pooled_e1rm_series=pooled_series,
         **pooled,
     )
 
@@ -529,6 +533,36 @@ def _history_revision(conn) -> tuple:
         " (SELECT COUNT(*) FROM session_void)"
     ).fetchone()
     return tuple(int(value) for value in row)
+
+
+def _pooled_e1rm_series(
+    frame: pd.DataFrame, points: tuple[dict, ...], mvt: float
+) -> tuple[dict, ...]:
+    """The pooled model's implied 1RM on the same weekly grid as the per-rep series.
+
+    Each date refits the pooled model on its trailing window only, so the pooled trajectory
+    is point-in-time too. A window with fewer than two rep counts is a null, not a gap filled
+    from a later fit.
+    """
+    if frame is None or frame.empty or not points:
+        return ()
+    dated = frame[frame["date"].notna()].copy()
+    dated["date"] = pd.to_datetime(dated["date"], errors="coerce")
+    dated = dated[dated["date"].notna()]
+    if dated.empty:
+        return ()
+    out: list[dict] = []
+    for point in points:
+        cursor = pd.Timestamp(point["date"])
+        low = cursor - pd.Timedelta(days=SERIES_WINDOW_DAYS)
+        window = dated[(dated["date"] > low) & (dated["date"] <= cursor)]
+        fit, _status, _reason = _pooled_fit(window)
+        value = _pooled_e1rm(fit, mvt) if fit is not None else None
+        out.append({
+            "date": point["date"],
+            "e1rm_kg": round(float(value), 1) if value is not None else None,
+        })
+    return tuple(out)
 
 
 def _rir_series(sets: pd.DataFrame, points: tuple[dict, ...]) -> tuple[dict, ...]:
