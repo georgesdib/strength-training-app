@@ -1659,13 +1659,13 @@ def _target_values(target, item) -> tuple[float, float | None, float | None, str
     provenance says `median`.
     """
     fallback = (target.velocity_median, target.velocity_low, target.velocity_high, "median")
-    if target.fit_method != "line" or target.velocity_slope is None or target.velocity_intercept is None:
+    method = str(target.fit_method or "median")
+    if method not in ("line", "pooled"):
         return fallback
-    if item.load_kg is None or target.load_min is None or target.load_max is None:
+    if target.velocity_slope is None or target.velocity_intercept is None or item.load_kg is None:
         return fallback
     load = float(item.load_kg)
-    if not (float(target.load_min) <= load <= float(target.load_max)):
-        return fallback
+    reps = int(target.rep_count)
     rir = item.rir_target if item.rir_target is not None else sum(target.rir_band) / 2
     if not 0 <= float(rir) <= 4:
         return fallback
@@ -1673,12 +1673,29 @@ def _target_values(target, item) -> tuple[float, float | None, float | None, str
         float(target.velocity_intercept)
         + float(target.velocity_slope) * load
         + float(target.velocity_rir_coef or 0.0) * float(rir)
+        + float(target.velocity_rep_coef or 0.0) * reps
     )
     if not np.isfinite(value) or value <= 0:
         return fallback
     half = 2.0 * float(target.velocity_residual_mad or 0.0)
     if half <= 0:
         half = max(0.02, value * 0.05)
+    if method == "pooled":
+        # The rep-count term makes any rep count printable; say when it is an extrapolation
+        # rather than quietly presenting it as measured. No bound is imposed on purpose.
+        extrapolated = False
+        if target.reps_min is not None and target.reps_max is not None:
+            extrapolated = not (int(target.reps_min) <= reps <= int(target.reps_max))
+        if target.load_min is not None and target.load_max is not None:
+            extrapolated = extrapolated or not (
+                float(target.load_min) <= load <= float(target.load_max)
+            )
+        basis = "pooled_extrapolated" if extrapolated else "pooled"
+        return (round(value, 4), round(value - half, 4), round(value + half, 4), basis)
+    if target.load_min is None or target.load_max is None:
+        return fallback
+    if not (float(target.load_min) <= load <= float(target.load_max)):
+        return fallback
     return (round(value, 4), round(value - half, 4), round(value + half, 4), "line")
 
 
@@ -1801,7 +1818,8 @@ def _persist_calibration(conn, target, for_date: str) -> str:
         f"{target.method_version}|{target.vbt_family}|{target.source}|"
         f"{target.velocity_slope}|{target.velocity_intercept}|{target.velocity_rir_coef}|"
         f"{target.velocity_residual_mad}|{target.load_min}|{target.load_max}|"
-        f"{target.fit_method}|{params_hash}|{for_date}"
+        f"{target.fit_method}|{target.velocity_rep_coef}|{target.reps_min}|{target.reps_max}|"
+        f"{params_hash}|{for_date}"
     )
     calibration_id = "vbt-" + hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
     existing = conn.execute(
@@ -1833,6 +1851,9 @@ def _persist_calibration(conn, target, for_date: str) -> str:
             load_min=target.load_min,
             load_max=target.load_max,
             fit_method=target.fit_method,
+            velocity_rep_coef=target.velocity_rep_coef,
+            reps_min=target.reps_min,
+            reps_max=target.reps_max,
         )
     return calibration_id
 

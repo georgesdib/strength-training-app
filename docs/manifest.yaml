@@ -605,6 +605,14 @@ documents:
   status: evidence
   audience: public
   nav: true
+- id: vbt-load-velocity
+  path: docs/VBT-LOAD-VELOCITY.md
+  title: VBT LOAD–VELOCITY METHODOLOGY
+  description: per-rep-count lines, pooled rep-count fallback, target issuance and the display-only e1RM
+  category: features
+  status: canonical
+  audience: public
+  nav: true
 - id: weakness-injury-selection
   path: docs/WEAKNESS-INJURY-SELECTION.md
   title: WEAKNESS / INJURY-TARGETED SELECTION — evidence and decision

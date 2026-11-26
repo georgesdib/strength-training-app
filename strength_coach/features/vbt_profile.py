@@ -99,6 +99,22 @@ class VbtProfile:
     e1rm_mvt_mps: float | None = None
     e1rm_basis: str | None = None
     e1rm_series: tuple[dict, ...] = ()
+    # Pooled model across the lift's rep counts: velocity ~ load + reps + RIR.
+    pooled_status: str = "no_data"
+    pooled_reason: str | None = None
+    pooled_slope: float | None = None
+    pooled_intercept: float | None = None
+    pooled_rep_coef: float | None = None
+    pooled_rir_coef: float | None = None
+    pooled_residual_mad: float | None = None
+    pooled_load_min: float | None = None
+    pooled_load_max: float | None = None
+    pooled_reps_min: int | None = None
+    pooled_reps_max: int | None = None
+    pooled_n_sets: int = 0
+    pooled_n_sessions: int = 0
+    pooled_r2: float | None = None
+    pooled_observed_reps: tuple[dict, ...] = ()
     method_version: str = METHOD_VERSION
 
     def as_dict(self) -> dict:
@@ -123,6 +139,21 @@ class VbtProfile:
             "e1rm_mvt_mps": self.e1rm_mvt_mps,
             "e1rm_basis": self.e1rm_basis,
             "e1rm_series": list(self.e1rm_series),
+            "pooled_status": self.pooled_status,
+            "pooled_reason": self.pooled_reason,
+            "pooled_slope": self.pooled_slope,
+            "pooled_intercept": self.pooled_intercept,
+            "pooled_rep_coef": self.pooled_rep_coef,
+            "pooled_rir_coef": self.pooled_rir_coef,
+            "pooled_residual_mad": self.pooled_residual_mad,
+            "pooled_load_min": self.pooled_load_min,
+            "pooled_load_max": self.pooled_load_max,
+            "pooled_reps_min": self.pooled_reps_min,
+            "pooled_reps_max": self.pooled_reps_max,
+            "pooled_n_sets": self.pooled_n_sets,
+            "pooled_n_sessions": self.pooled_n_sessions,
+            "pooled_r2": self.pooled_r2,
+            "pooled_observed_reps": list(self.pooled_observed_reps),
             "method_version": self.method_version,
         }
 
@@ -141,15 +172,30 @@ def build(
 ) -> VbtProfile:
     """Build the profile from an enriched clean-set frame (see `derived.enrich`)."""
     if sets is None or sets.empty:
-        return VbtProfile(exercise_id=exercise_id, status="no_data", reason="no stored sets")
+        return VbtProfile(
+            exercise_id=exercise_id, status="no_data", reason="no stored sets",
+            pooled_status="no_data", pooled_reason="no stored sets",
+        )
 
     frame = _filtered(sets, exercise_id)
     available = _available_reps(frame)
+    pooled_fit, pooled_status, pooled_reason = _pooled_fit(frame)
+    pooled = _pooled_payload(pooled_fit, pooled_status, pooled_reason, frame)
+    if pooled_status == "fitted":
+        # Let the selector reach a rep count with no sets of its own: the pooled line is
+        # then shown as an extrapolation instead of the panel going blank.
+        have = {item["reps"] for item in available}
+        extra = [
+            {"reps": rep, "n_sets": 0, "fitted": False, "pooled": True}
+            for rep in range(1, 9) if rep not in have
+        ]
+        if extra:
+            available = tuple(sorted(list(available) + extra, key=lambda item: item["reps"]))
     if frame.empty:
         return VbtProfile(
             exercise_id=exercise_id, status="no_data",
             reason="no working sets with a stored mean velocity in the fit band",
-            available_reps=available,
+            available_reps=available, **pooled,
         )
 
     chosen = rep_count if rep_count is not None else _default_rep(frame)
@@ -159,6 +205,7 @@ def build(
         return VbtProfile(
             exercise_id=exercise_id, status="insufficient", reason=reason,
             rep_count=int(chosen), available_reps=available, n_sets=int(len(group)),
+            **pooled,
         )
 
     fit = _fit(group)
@@ -166,6 +213,7 @@ def build(
         return VbtProfile(
             exercise_id=exercise_id, status="insufficient", reason="no usable slope",
             rep_count=int(chosen), available_reps=available, n_sets=int(len(group)),
+            **pooled,
         )
 
     mvt = float(mvt_mps) if mvt_mps is not None else mvt_for(family)
@@ -202,7 +250,107 @@ def build(
             if e1rm is not None else None
         ),
         e1rm_series=_e1rm_series(frame, int(chosen), mvt),
+        **pooled,
     )
+
+
+MIN_REPS = 2
+
+
+def _pooled_fit(frame: pd.DataFrame) -> tuple[dict | None, str, str | None]:
+    """Fit `velocity ~ load + reps + RIR` across the lift's rep counts.
+
+    Display view of the same fallback the calibration uses. The rep term is the fitted
+    version of "use the available rep counts to extrapolate"; a non-negative rep or load
+    coefficient is refused rather than drawn.
+    """
+    if frame.empty:
+        return None, "no_data", "no stored sets"
+    loads = frame["load_kg"].to_numpy(dtype="float64")
+    velocities = frame["velocity_mps"].to_numpy(dtype="float64")
+    reps = frame["reps"].to_numpy(dtype="float64")
+    rirs = frame["rir"].to_numpy(dtype="float64")
+    if loads.size < MIN_SETS:
+        return None, "insufficient", f"fewer than {MIN_SETS} clean sets across rep counts"
+    if np.unique(reps).size < MIN_REPS:
+        return None, "insufficient", "fewer than 2 rep counts in the fitted sets"
+    if np.unique(loads).size < MIN_LOADS:
+        return None, "insufficient", f"fewer than {MIN_LOADS} distinct loads"
+    top = float(loads.max())
+    if top <= 0 or (top - float(loads.min())) / top < MIN_LOAD_SPAN:
+        return None, "insufficient", "load range too narrow for a slope"
+    columns = [np.ones_like(loads), loads, reps]
+    if np.ptp(rirs) > 0:
+        columns.append(rirs)
+    design = np.column_stack(columns)
+    beta, *_ = np.linalg.lstsq(design, velocities, rcond=None)
+    slope = float(beta[1])
+    rep_coef = float(beta[2])
+    if not np.isfinite(slope) or slope >= 0 or not np.isfinite(rep_coef) or rep_coef >= 0:
+        return None, "insufficient", "no usable load/reps trend"
+    predicted = design @ beta
+    residual = velocities - predicted
+    spread = float(stats.mad(residual))
+    if not np.isfinite(spread):
+        return None, "insufficient", "no usable residual spread"
+    total = float(np.sum((velocities - velocities.mean()) ** 2))
+    return (
+        {
+            "slope": slope,
+            "intercept": float(beta[0]),
+            "rep_coef": rep_coef,
+            "rir_coef": float(beta[3]) if design.shape[1] == 4 else None,
+            "residual_mad": spread,
+            "r2": 1.0 - float(np.sum(residual ** 2)) / total if total > 0 else float("nan"),
+            "load_min": float(loads.min()),
+            "load_max": top,
+            "reps_min": int(reps.min()),
+            "reps_max": int(reps.max()),
+            "n_sets": int(loads.size),
+            "n_sessions": _session_count(frame),
+        },
+        "fitted",
+        None,
+    )
+
+
+def _pooled_payload(
+    fit: dict | None, status: str, reason: str | None, frame: pd.DataFrame
+) -> dict:
+    observed: tuple[dict, ...] = ()
+    if frame is not None and not frame.empty:
+        sizes = frame.groupby(frame["reps"].astype(int)).size()
+        observed = tuple(
+            {"reps": int(reps), "n_sets": int(count)}
+            for reps, count in sorted(sizes.items())
+        )
+    if fit is None:
+        return {
+            "pooled_status": status,
+            "pooled_reason": reason,
+            "pooled_observed_reps": observed,
+        }
+    return {
+        "pooled_status": "fitted",
+        "pooled_reason": None,
+        "pooled_slope": round(float(fit["slope"]), 6),
+        "pooled_intercept": round(float(fit["intercept"]), 4),
+        "pooled_rep_coef": round(float(fit["rep_coef"]), 6),
+        "pooled_rir_coef": (
+            round(float(fit["rir_coef"]), 4) if fit["rir_coef"] is not None else None
+        ),
+        "pooled_residual_mad": round(float(fit["residual_mad"]), 4),
+        "pooled_load_min": round(float(fit["load_min"]), 2),
+        "pooled_load_max": round(float(fit["load_max"]), 2),
+        "pooled_reps_min": int(fit["reps_min"]),
+        "pooled_reps_max": int(fit["reps_max"]),
+        "pooled_n_sets": int(fit["n_sets"]),
+        "pooled_n_sessions": int(fit["n_sessions"]),
+        "pooled_r2": (
+            round(float(fit["r2"]), 3) if np.isfinite(fit["r2"]) else None
+        ),
+        "pooled_observed_reps": observed,
+    }
 
 
 def _filtered(sets: pd.DataFrame, exercise_id: str) -> pd.DataFrame:

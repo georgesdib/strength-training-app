@@ -665,6 +665,7 @@ def test_vbt_profile_endpoint_is_display_only(server):
     assert data["method_version"]
     assert data["e1rm_basis"] is None
     assert data["e1rm_series"] == []
+    assert data["pooled_status"] in ("no_data", "insufficient", "fitted")
 
 
 def test_vbt_profile_rejects_an_out_of_range_rep_count(server):

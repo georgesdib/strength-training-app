@@ -47,7 +47,11 @@ function renderExerciseVbt(data) {
   }
   if (data.status === "insufficient") {
     status.textContent = "";
-    host.innerHTML = "<p class='empty'>" + esc(data.reason) + "</p>";
+    var note = "<p class='empty'>" + esc(data.reason) + "</p>";
+    if (data.pooled_status === "fitted") {
+      note += renderPooledChart(data, 2.5, data.rep_count);
+    }
+    host.innerHTML = note;
     return;
   }
 
@@ -67,6 +71,10 @@ function renderExerciseVbt(data) {
   var xPad = Math.max((x1 - x0) * 0.06, 1);
   x0 -= xPad; x1 += xPad;
   var yLine = [lineAt(x0), lineAt(x1)];
+  if (data.pooled_status === "fitted") {
+    yLine.push(pooledLineAt(data, data.rep_count, x0, refRir));
+    yLine.push(pooledLineAt(data, data.rep_count, x1, refRir));
+  }
   var y0 = Math.min.apply(null, ys.concat(yLine));
   var y1 = Math.max.apply(null, ys.concat(yLine));
   if (data.e1rm_mvt_mps) y0 = Math.min(y0, data.e1rm_mvt_mps);
@@ -90,6 +98,14 @@ function renderExerciseVbt(data) {
 
   var line = "<line x1='" + sx(x0).toFixed(1) + "' y1='" + sy(lineAt(x0)).toFixed(1) +
     "' x2='" + sx(x1).toFixed(1) + "' y2='" + sy(lineAt(x1)).toFixed(1) + "' class='vbt-line'/>";
+  var pooledOverlay = "";
+  if (data.pooled_status === "fitted") {
+    pooledOverlay = "<line x1='" + sx(x0).toFixed(1) + "' y1='" +
+      sy(pooledLineAt(data, data.rep_count, x0, refRir)).toFixed(1) +
+      "' x2='" + sx(x1).toFixed(1) + "' y2='" +
+      sy(pooledLineAt(data, data.rep_count, x1, refRir)).toFixed(1) +
+      "' style='stroke:#b45309' class='vbt-line vbt-line-pooled'/>";
+  }
   var dots = pts.map(function (p) {
     return "<circle cx='" + sx(p.load_kg).toFixed(1) + "' cy='" + sy(p.velocity_mps).toFixed(1) +
       "' r='2.6' class='vbt-dot'><title>" + esc(p.date) + " · " + fmt(p.load_kg) + " kg · " +
@@ -103,21 +119,94 @@ function renderExerciseVbt(data) {
       "' text-anchor='middle' class='vbt-e1rm-label'>VBT e1RM " + fmt(data.e1rm_kg) + " kg</text>";
   }
 
-  var chart = "<svg class='vbt-chart' viewBox='0 0 " + W + " " + H + "' role='img' aria-label='Load-velocity profile for " + esc(data.exercise_id) + "'>" +
+  var legend = data.pooled_status === "fitted"
+    ? "<p class='muted vbt-legend'>Solid: per-rep fit at " + data.rep_count +
+      " reps. Dashed: pooled model at the same reps.</p>"
+    : "";
+  var chart = legend + "<svg class='vbt-chart' viewBox='0 0 " + W + " " + H + "' role='img' aria-label='Load-velocity profile for " + esc(data.exercise_id) + "'>" +
     grid +
     "<line x1='" + ml + "' y1='" + (H - mb) + "' x2='" + (W - mr) + "' y2='" + (H - mb) + "' class='vbt-axis'/>" +
     "<line x1='" + ml + "' y1='" + mt + "' x2='" + ml + "' y2='" + (H - mb) + "' class='vbt-axis'/>" +
-    line + dots + marker +
+    line + pooledOverlay + dots + marker +
     "<text x='" + ((ml + W - mr) / 2) + "' y='" + (H - 8) + "' text-anchor='middle' class='vbt-tick'>load (kg)</text>" +
     "<text x='14' y='" + ((mt + H - mb) / 2) + "' text-anchor='middle' transform='rotate(-90 14 " + ((mt + H - mb) / 2) + ")' class='vbt-tick'>mean velocity (m/s)</text>" +
     "</svg>";
-  host.innerHTML = chart + renderE1rmSeries(data.e1rm_series);
+  host.innerHTML = chart + renderPooledChart(data, refRir, data.rep_count) +
+    renderE1rmSeries(data.e1rm_series);
 
   status.textContent = data.n_sets + " sets · " + data.n_sessions + " sessions · " +
     data.n_loads + " loads · R² " + (data.r2 == null ? "—" : data.r2.toFixed(2));
   e1rm.textContent = data.e1rm_kg
     ? "VBT e1RM " + fmt(data.e1rm_kg) + " kg at " + data.e1rm_mvt_mps + " m/s (display only; line at RIR " + refRir + ")"
     : "No implied e1RM (display only; line at RIR " + refRir + ")";
+}
+
+function pooledLineAt(data, rep, load, rir) {
+  return data.pooled_intercept + data.pooled_slope * load +
+    (data.pooled_rep_coef || 0) * rep + (data.pooled_rir_coef || 0) * rir;
+}
+
+function renderPooledChart(data, refRir, highlightRep) {
+  if (!data || data.pooled_status !== "fitted") return "";
+  var observed = (data.pooled_observed_reps || []).map(function (r) { return r.reps; });
+  var reps = observed.slice();
+  var highlighted = highlightRep != null;
+  var extrapolated = highlighted && (
+    data.pooled_reps_min == null || data.pooled_reps_max == null ||
+    highlightRep < data.pooled_reps_min || highlightRep > data.pooled_reps_max
+  );
+  if (highlighted && reps.indexOf(highlightRep) === -1) reps.push(highlightRep);
+  reps.sort(function (a, b) { return a - b; });
+  if (!reps.length) return "";
+
+  var W = 680, H = 280, ml = 58, mr = 58, mt = 18, mb = 46;
+  var x0 = data.pooled_load_min;
+  var x1 = data.pooled_load_max;
+  var pad = Math.max((x1 - x0) * 0.06, 1);
+  x0 -= pad; x1 += pad;
+  var values = [];
+  reps.forEach(function (rep) {
+    values.push(pooledLineAt(data, rep, x0, refRir));
+    values.push(pooledLineAt(data, rep, x1, refRir));
+  });
+  var y0 = Math.min.apply(null, values);
+  var y1 = Math.max.apply(null, values);
+  var yPad = Math.max((y1 - y0) * 0.12, 0.02);
+  y0 = Math.max(0, y0 - yPad); y1 += yPad;
+  function sx(v) { return ml + ((v - x0) / (x1 - x0)) * (W - ml - mr); }
+  function sy(v) { return H - mb - ((v - y0) / (y1 - y0)) * (H - mt - mb); }
+  var colours = ["#2f6f4f", "#1d4ed8", "#b45309", "#7c3aed", "#0f766e", "#be123c"];
+
+  var grid = [y0, (y0 + y1) / 2, y1].map(function (v) {
+    return "<line x1='" + ml + "' y1='" + sy(v).toFixed(1) + "' x2='" + (W - mr) + "' y2='" + sy(v).toFixed(1) + "' class='vbt-grid'/>" +
+      "<text x='" + (ml - 8) + "' y='" + (sy(v) + 3).toFixed(1) + "' text-anchor='end' class='vbt-tick'>" + v.toFixed(2) + "</text>";
+  }).join("") + [x0, (x0 + x1) / 2, x1].map(function (v) {
+    return "<text x='" + sx(v).toFixed(1) + "' y='" + (H - mb + 16) + "' text-anchor='middle' class='vbt-tick'>" + v.toFixed(0) + "</text>";
+  }).join("");
+
+  var lines = reps.map(function (rep, index) {
+    var isHighlight = highlighted && rep === highlightRep;
+    var colour = colours[index % colours.length];
+    var dashed = isHighlight && extrapolated;
+    var label = rep + " rep" + (rep === 1 ? "" : "s") + (dashed ? " (extrapolated)" : "");
+    var yStart = pooledLineAt(data, rep, x0, refRir);
+    var yEnd = pooledLineAt(data, rep, x1, refRir);
+    return "<line x1='" + sx(x0).toFixed(1) + "' y1='" + sy(yStart).toFixed(1) + "' x2='" +
+      sx(x1).toFixed(1) + "' y2='" + sy(yEnd).toFixed(1) + "' style='stroke:" + colour + "' class='vbt-line" +
+      (dashed ? " vbt-line-pooled" : "") + "'/>" +
+      "<text x='" + (W - mr + 4) + "' y='" + (sy(yEnd) + 3).toFixed(1) + "' class='vbt-tick'>" + label + "</text>";
+  }).join("");
+
+  return "<h4 class='vbt-series-title'>Pooled model <span class='muted'>(velocity ~ load + reps + RIR; " +
+    data.pooled_n_sets + " sets, reps " + data.pooled_reps_min + "–" + data.pooled_reps_max +
+    ")</span></h4>" +
+    "<svg class='vbt-chart vbt-pooled' viewBox='0 0 " + W + " " + H + "' role='img' aria-label='Pooled load-velocity model across rep counts'>" +
+    grid +
+    "<line x1='" + ml + "' y1='" + (H - mb) + "' x2='" + (W - mr) + "' y2='" + (H - mb) + "' class='vbt-axis'/>" +
+    "<line x1='" + ml + "' y1='" + mt + "' x2='" + ml + "' y2='" + (H - mb) + "' class='vbt-axis'/>" +
+    lines +
+    "<text x='" + ((ml + W - mr) / 2) + "' y='" + (H - 8) + "' text-anchor='middle' class='vbt-tick'>load (kg)</text>" +
+    "</svg>";
 }
 
 function renderE1rmSeries(series) {

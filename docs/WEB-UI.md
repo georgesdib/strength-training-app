@@ -163,7 +163,8 @@ ratio inherits its precision limits.
 
 - **Exercises** — full canonical catalogue with search/filter and one **Open** action per row for
   identity, local properties, demand profile, historical observations and a **display-only VBT
-  load–velocity profile** (fitted line, points and implied e1RM at a stated anchor) for
+  load–velocity profile** (per-rep chart with the pooled model overlaid, a pooled panel across
+  rep counts, a display-only implied e1RM at a stated anchor and its weekly series) for
   add/view/edit in the same dialog. Pattern, VBT family and primary muscles are constrained
   controls (VBT offers existing families plus an explicit new-family path); additional-properties
   JSON is under an advanced disclosure. Edits are written to `config/exercises/overrides.v1.yaml`;

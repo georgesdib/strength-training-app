@@ -1,6 +1,7 @@
 """Read-only VBT load-velocity profile: fit gates and the display-only e1RM."""
 
 import pandas as pd
+import pytest
 from conftest import make_readiness, make_training
 
 from strength_coach.features import derived
@@ -153,6 +154,27 @@ def test_e1rm_series_is_capped_and_chronological():
     assert [point["date"] for point in data.e1rm_series] == sorted(
         point["date"] for point in data.e1rm_series
     )
+
+
+def test_the_pooled_model_is_reported_across_rep_counts():
+    rows = []
+    for day in ("2024-01-01", "2024-01-08", "2024-01-15"):
+        for load in (80, 95, 110, 125):
+            for reps in (2, 3):
+                rows.append({
+                    "Date": day, "Exercise": "Competition Bench Press",
+                    "Weight_Used": str(load), "Reps_Done": str(reps), "RIR": "2",
+                    "Avg_velocity": f"{1.10 - 0.0045 * load - 0.03 * reps:.6f}",
+                })
+    data = profile.build(
+        enriched(rows), "bench_press", family="horizontal_push", rep_count=1,
+    )
+    assert data.status == "insufficient"        # no 1-rep sets, so no 1-rep line
+    assert data.pooled_status == "fitted"
+    assert data.pooled_rep_coef == pytest.approx(-0.03, abs=1e-3)
+    assert (data.pooled_reps_min, data.pooled_reps_max) == (2, 3)
+    observed = {item["reps"]: item["n_sets"] for item in data.pooled_observed_reps}
+    assert observed == {2: 12, 3: 12}
 
 
 def test_no_stored_sets_reports_why():

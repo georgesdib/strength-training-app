@@ -39,6 +39,7 @@ _REASON_TEXT = {
     "time_based": "Time-based movements are not scored against a velocity target.",
     "data_quality_flag": "The set is flagged for a data-quality problem.",
     "load_outside_fitted_range": "The actual load is outside the calibrated load range; the line would be an extrapolation.",
+    "rep_outside_fitted_range": "The actual rep count is outside the rep range the pooled model was fitted on; the target is an extrapolation.",
 }
 
 _HARD_REASONS = {
@@ -46,7 +47,7 @@ _HARD_REASONS = {
     "invalid_velocity", "warm_up", "rep_mismatch", "group_rep_mismatch",
     "ambiguous_group", "actual_rir_missing", "actual_rir_outside_band",
     "load_basis_unknown", "load_basis_mismatch", "time_based", "data_quality_flag",
-    "load_outside_fitted_range",
+    "load_outside_fitted_range", "rep_outside_fitted_range",
 }
 
 
@@ -128,6 +129,9 @@ def _target_for_item(item: Mapping[str, Any]) -> dict[str, Any] | None:
             "velocity_intercept": _number(vbt.get("velocity_intercept")),
             "velocity_rir_coef": _number(vbt.get("velocity_rir_coef")),
             "velocity_residual_mad": _number(vbt.get("velocity_residual_mad")),
+            "velocity_rep_coef": _number(vbt.get("velocity_rep_coef")),
+            "reps_min": _integer(vbt.get("reps_min")),
+            "reps_max": _integer(vbt.get("reps_max")),
             "load_min": _number(vbt.get("load_min")),
             "load_max": _number(vbt.get("load_max")),
             "metadata": "complete",
@@ -153,6 +157,9 @@ def _target_for_item(item: Mapping[str, Any]) -> dict[str, Any] | None:
             "velocity_intercept": None,
             "velocity_rir_coef": None,
             "velocity_residual_mad": None,
+            "velocity_rep_coef": None,
+            "reps_min": None,
+            "reps_max": None,
             "load_min": None,
             "load_max": None,
             "metadata": "legacy",
@@ -321,8 +328,9 @@ def _compare_item(
     basis = "planned"
     extrapolated = False
     low, high = target.get("low_mps"), target.get("high_mps")
+    method = target.get("fit_method")
     if (
-        target.get("fit_method") == "line"
+        method in ("line", "pooled")
         and target.get("velocity_slope") is not None
         and target.get("velocity_intercept") is not None
         and load is not None
@@ -334,21 +342,38 @@ def _compare_item(
                 int(target["rir_low"]) if high_rir is None
                 else (int(target["rir_low"]) + int(high_rir)) / 2
             )
-        if rir_for_line is not None and 0 <= float(rir_for_line) <= 4:
+        reps_for_line = _integer(row.get("reps"))
+        if reps_for_line is None:
+            reps_for_line = target.get("rep_count")
+        if (
+            rir_for_line is not None and 0 <= float(rir_for_line) <= 4
+            and reps_for_line is not None
+        ):
             candidate = (
                 float(target["velocity_intercept"])
                 + float(target["velocity_slope"]) * load
                 + float(target.get("velocity_rir_coef") or 0.0) * float(rir_for_line)
+                + float(target.get("velocity_rep_coef") or 0.0) * float(reps_for_line)
             )
             if candidate > 0:
                 expected = round(candidate, 3)
+                if method == "pooled":
+                    reps_min, reps_max = target.get("reps_min"), target.get("reps_max")
+                    if (
+                        reps_min is not None and reps_max is not None
+                        and not (int(reps_min) <= int(reps_for_line) <= int(reps_max))
+                    ):
+                        extrapolated = True
+                        reasons.append("rep_outside_fitted_range")
                 load_min, load_max = target.get("load_min"), target.get("load_max")
                 if load_min is not None and load_max is not None and not (
                     float(load_min) <= load <= float(load_max)
                 ):
                     extrapolated = True
                     reasons.append("load_outside_fitted_range")
-                basis = "line_extrapolated" if extrapolated else "line"
+                basis = ("pooled" if method == "pooled" else "line") + (
+                    "_extrapolated" if extrapolated else ""
+                )
                 spread = target.get("velocity_residual_mad")
                 half = 2.0 * float(spread) if spread and float(spread) > 0 else max(0.02, candidate * 0.05)
                 low, high = round(candidate - half, 3), round(candidate + half, 3)

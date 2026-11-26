@@ -61,7 +61,7 @@ for open work and next actions; completed history is in ROADMAP-DONE.md and reti
 - [UI-CLI-PARITY.md](UI-CLI-PARITY.md) — parity and intentional gaps
 - [OUTCOMES.md](OUTCOMES.md), [MONITORING-ANALYSIS.md](MONITORING-ANALYSIS.md)
 - [TRAINING-DAY-MODEL.md](TRAINING-DAY-MODEL.md)
-- [VBT-EVIDENCE.md](VBT-EVIDENCE.md), [VBT-CALIBRATION.md](VBT-CALIBRATION.md), [VBT-REP-LEVEL.md](VBT-REP-LEVEL.md), [REP-VELOCITY.md](REP-VELOCITY.md)
+- [VBT-EVIDENCE.md](VBT-EVIDENCE.md), [VBT-CALIBRATION.md](VBT-CALIBRATION.md), [VBT-LOAD-VELOCITY.md](VBT-LOAD-VELOCITY.md), [VBT-REP-LEVEL.md](VBT-REP-LEVEL.md), [REP-VELOCITY.md](REP-VELOCITY.md)
 
 ## Evidence, decisions, registers
 

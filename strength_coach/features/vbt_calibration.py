@@ -46,6 +46,8 @@ class CalibrationParams:
     # A load-velocity line needs load variation, not just enough sets.
     min_distinct_loads: int = 3
     min_load_span: float = 0.10
+    # A pooled fit needs at least two rep counts to estimate the rep term.
+    min_distinct_reps: int = 2
 
     def as_dict(self) -> dict:
         return {
@@ -59,6 +61,7 @@ class CalibrationParams:
             "min_load_fraction": self.min_load_fraction,
             "min_distinct_loads": self.min_distinct_loads,
             "min_load_span": self.min_load_span,
+            "min_distinct_reps": self.min_distinct_reps,
         }
 
 
@@ -87,6 +90,9 @@ class CalibrationTarget:
     load_min: float | None = None
     load_max: float | None = None
     fit_method: str = "median"
+    velocity_rep_coef: float | None = None
+    reps_min: int | None = None
+    reps_max: int | None = None
 
     @property
     def is_available(self) -> bool:
@@ -228,6 +234,26 @@ def _calibrate_uncached(
             if target:
                 targets.append(target)
 
+    # Pooled rep-count fallback: only for a rep count no line or family target covers.
+    covered = {(t.exercise_id, t.rep_count) for t in targets}
+    for exercise_id, group in frame.groupby("exercise_id"):
+        pooled = _pooled_fit(group, params)
+        if pooled is None:
+            continue
+        for rep in range(max(1, params.reps_min), params.reps_max + 1):
+            if (str(exercise_id), rep) in covered:
+                continue
+            target = _pooled_target(
+                exercise_id=str(exercise_id),
+                rep=rep,
+                pooled=pooled,
+                rir_band=rir_mod.target_for(str(exercise_id)),
+                vbt_family=family_of.get(str(exercise_id)),
+                params=params,
+            )
+            if target is not None:
+                targets.append(target)
+
     return CalibrationResult(targets=targets, excluded=excluded, params=params.as_dict())
 
 
@@ -337,6 +363,106 @@ def _drop_velocity_outliers(frame: pd.DataFrame, *, k: float) -> pd.DataFrame:
             break
         out = out[keep]
     return out
+
+
+def _pooled_fit(group: pd.DataFrame, params: CalibrationParams) -> dict | None:
+    """Fit `mean velocity ~ load + reps + RIR` across the lift's rep counts.
+
+    This is the fallback for a rep count with no line of its own. The rep term is the fitted
+    version of the "use the 3RM to extrapolate" idea: no hand multiplier, and the prediction
+    at an unobserved rep count is explicitly an extrapolation. A non-negative rep coefficient
+    is refused rather than issued.
+    """
+    loads = group["load_kg"].to_numpy(dtype="float64")
+    velocities = group["velocity_mps"].to_numpy(dtype="float64")
+    reps = group["reps"].to_numpy(dtype="float64")
+    rirs = group["rir"].to_numpy(dtype="float64")
+    if loads.size < params.min_sets_lift:
+        return None
+    if np.unique(reps).size < params.min_distinct_reps:
+        return None
+    if np.unique(loads).size < params.min_distinct_loads:
+        return None
+    top = float(loads.max())
+    if top <= 0 or (top - float(loads.min())) / top < params.min_load_span:
+        return None
+    columns = [np.ones_like(loads), loads, reps]
+    if np.ptp(rirs) > 0:
+        columns.append(rirs)
+    design = np.column_stack(columns)
+    beta, *_ = np.linalg.lstsq(design, velocities, rcond=None)
+    slope = float(beta[1])
+    rep_coef = float(beta[2])
+    if not np.isfinite(slope) or slope >= 0 or not np.isfinite(rep_coef) or rep_coef >= 0:
+        return None
+    predicted = design @ beta
+    residual = velocities - predicted
+    spread = float(stats.mad(residual))
+    if not np.isfinite(spread):
+        return None
+    total = float(np.sum((velocities - velocities.mean()) ** 2))
+    return {
+        "slope": slope,
+        "intercept": float(beta[0]),
+        "rep_coef": rep_coef,
+        "rir_coef": float(beta[3]) if design.shape[1] == 4 else None,
+        "residual_mad": spread,
+        "r2": 1.0 - float(np.sum(residual ** 2)) / total if total > 0 else float("nan"),
+        "load_min": float(loads.min()),
+        "load_max": top,
+        "reps_min": int(reps.min()),
+        "reps_max": int(reps.max()),
+        "reference_load": float(np.median(loads)),
+        "n_sets": int(loads.size),
+        "n_sessions": int(group["date"].nunique()),
+    }
+
+
+def _pooled_target(
+    *,
+    exercise_id: str,
+    rep: int,
+    pooled: dict,
+    rir_band: tuple[int, int],
+    vbt_family: str | None,
+    params: CalibrationParams,
+) -> CalibrationTarget | None:
+    rir_mid = (rir_band[0] + rir_band[1]) / 2
+    value = (
+        pooled["intercept"]
+        + pooled["slope"] * pooled["reference_load"]
+        + pooled["rep_coef"] * rep
+        + (pooled["rir_coef"] or 0.0) * rir_mid
+    )
+    if not np.isfinite(value) or value <= 0:
+        return None
+    half = 2.0 * pooled["residual_mad"] if pooled["residual_mad"] > 0 else max(0.02, value * 0.05)
+    return CalibrationTarget(
+        exercise_id=exercise_id,
+        scope="lift",
+        rep_count=rep,
+        rir_band=rir_band,
+        velocity_median=round(float(value), 4),
+        velocity_low=round(float(value - half), 4),
+        velocity_high=round(float(value + half), 4),
+        n_sets=pooled["n_sets"],
+        n_sessions=pooled["n_sessions"],
+        velocity_mad=round(float(pooled["residual_mad"]), 4),
+        vbt_family=vbt_family,
+        params=params.as_dict(),
+        velocity_slope=round(float(pooled["slope"]), 6),
+        velocity_intercept=round(float(pooled["intercept"]), 4),
+        velocity_rir_coef=(
+            round(float(pooled["rir_coef"]), 4) if pooled["rir_coef"] is not None else None
+        ),
+        velocity_residual_mad=round(float(pooled["residual_mad"]), 4),
+        load_min=round(float(pooled["load_min"]), 2),
+        load_max=round(float(pooled["load_max"]), 2),
+        fit_method="pooled",
+        velocity_rep_coef=round(float(pooled["rep_coef"]), 6),
+        reps_min=int(pooled["reps_min"]),
+        reps_max=int(pooled["reps_max"]),
+    )
 
 
 def summarize(result: CalibrationResult) -> pd.DataFrame:

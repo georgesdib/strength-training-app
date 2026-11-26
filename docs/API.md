@@ -292,16 +292,22 @@ An issued VBT target now carries an optional `vbt` object on each plan item:
   "velocity_intercept": 1.05,
   "velocity_rir_coef": 0.0,
   "velocity_residual_mad": 0.01,
+  "velocity_rep_coef": null,
+  "reps_min": null,
+  "reps_max": null,
   "load_min": 80,
   "load_max": 125
 }
 ```
 
 `fit_method` is `line` when the target was evaluated at the item's prescribed load and RIR,
-and `median` when the flat band was issued instead. The coefficients and load range are frozen
-with the target; a per-set comparison evaluates the line at the load actually used and reports
-`expected_mps`, `comparison_basis`, `load_conditional` and `extrapolated`, falling back to the
-planned target outside the fitted range.
+`pooled` when the per-lift `velocity ~ load + reps + RIR` fallback was used because no line
+existed at that rep count, and `median` when the flat band was issued. A pooled target carries
+`velocity_rep_coef` and the observed `reps_min`/`reps_max`; a prediction outside them is
+labelled `pooled_extrapolated` and is not counted as comparable. The coefficients and ranges
+are frozen with the target; a per-set comparison evaluates the model at the load, RIR and reps
+actually used and reports `expected_mps`, `comparison_basis`, `load_conditional` and
+`extrapolated`, falling back to the planned target only for a line outside its load range.
 
 The legacy `velocity_target` and `vbt_basis` fields remain. The structured object is frozen
 into `workout_session.plan_json` at workout start, so a later recalibration cannot rewrite the

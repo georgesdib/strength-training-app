@@ -111,7 +111,8 @@ def test_the_target_is_predicted_at_the_prescribed_load():
 
     target = SimpleNamespace(
         fit_method="line", velocity_slope=-0.0045, velocity_intercept=1.05,
-        velocity_rir_coef=0.0, velocity_residual_mad=0.01, load_min=80, load_max=125,
+        velocity_rir_coef=0.0, velocity_rep_coef=None, velocity_residual_mad=0.01,
+        load_min=80, load_max=125, rep_count=3, reps_min=None, reps_max=None,
         rir_band=(2, 3), velocity_median=0.6, velocity_low=0.55, velocity_high=0.65,
     )
     value, low, high, basis = _target_values(
@@ -142,6 +143,57 @@ def test_rir_zero_sets_enter_calibration():
     assert target is not None
     assert target.n_sets == 12
     assert target.fit_method == "line"
+
+
+def two_and_three_rep_days():
+    return [
+        {
+            "Date": day, "Exercise": "Competition Bench Press",
+            "Weight_Used": str(load), "Reps_Done": str(reps), "RIR": "2",
+            "Avg_velocity": f"{1.10 - 0.0045 * load - 0.03 * reps:.6f}",
+        }
+        for day in ("2024-01-01", "2024-01-08", "2024-01-15")
+        for load in (80, 95, 110, 125)
+        for reps in (2, 3)
+    ]
+
+
+def test_a_missing_rep_count_gets_a_labelled_pooled_target():
+    """The 1-rep prescription borrows from the 2- and 3-rep sets via the rep term."""
+    target = calibrate(two_and_three_rep_days()).lookup("bench_press", 1)
+    assert target is not None
+    assert target.fit_method == "pooled"
+    assert target.velocity_rep_coef == pytest.approx(-0.03, abs=1e-3)
+    assert (target.reps_min, target.reps_max) == (2, 3)
+    assert target.n_sets == 24
+
+
+def test_a_line_at_the_rep_count_wins_over_the_pooled_fallback():
+    target = calibrate(two_and_three_rep_days()).lookup("bench_press", 3)
+    assert target is not None
+    assert target.fit_method == "line"
+
+
+def test_the_pooled_target_is_predicted_at_the_prescribed_rep_count():
+    from types import SimpleNamespace
+
+    from strength_coach.prescribe.engine import _target_values
+
+    target = SimpleNamespace(
+        fit_method="pooled", velocity_slope=-0.0045, velocity_intercept=1.10,
+        velocity_rir_coef=0.0, velocity_rep_coef=-0.03, velocity_residual_mad=0.01,
+        load_min=80, load_max=125, reps_min=2, reps_max=3, rep_count=1,
+        rir_band=(2, 3), velocity_median=0.6, velocity_low=0.55, velocity_high=0.65,
+    )
+    item = SimpleNamespace(load_kg=100.0, rir_target=2)
+    value, low, high, basis = _target_values(target, item)
+    assert basis == "pooled_extrapolated"      # 1 rep is outside the fitted 2-3
+    assert value == pytest.approx(1.10 - 0.45 - 0.03)
+    assert low == pytest.approx(value - 0.02)
+    assert high == pytest.approx(value + 0.02)
+
+    target.rep_count = 2
+    assert _target_values(target, item)[3] == "pooled"
 
 
 def test_long_sets_are_excluded():

@@ -758,5 +758,8 @@ body.menu-open { overflow: hidden; }
 .vbt-e1rm-line { stroke: #b45309; stroke-width: 1.5; stroke-dasharray: 4 3; }
 .vbt-e1rm-label { fill: #b45309; font-size: 11px; }
 .vbt-series-title { margin: 12px 0 2px; font-size: 13px; }
+.vbt-line-pooled { stroke-dasharray: 5 4; }
+.vbt-pooled { max-width: 760px; }
+.vbt-legend { font-size: 11px; margin: 2px 0 4px; }
 .vbt-series { max-width: 760px; }
 

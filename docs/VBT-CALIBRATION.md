@@ -219,6 +219,10 @@ Until then, the app uses what the export provides and says when that is not enou
 
 ## 10. Load–velocity profile (display only)
 
+The full methodology — the per-rep-count lines, the pooled rep-count fallback, target
+issuance, the comparison and the display-only e1RM — is in
+[VBT-LOAD-VELOCITY.md](VBT-LOAD-VELOCITY.md). This section is the short version.
+
 The Exercises dialog shows a fitted load–velocity profile and a display-only implied 1RM.
 
 - **Input:** the stored set mean concentric velocity (`clean_set.velocity_mps`), not a per-rep

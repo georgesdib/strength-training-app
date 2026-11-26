@@ -151,6 +151,9 @@ class VbtTarget:
     velocity_intercept: float | None = None
     velocity_rir_coef: float | None = None
     velocity_residual_mad: float | None = None
+    velocity_rep_coef: float | None = None
+    reps_min: int | None = None
+    reps_max: int | None = None
     load_min: float | None = None
     load_max: float | None = None
 
@@ -174,6 +177,9 @@ class VbtTarget:
             "velocity_intercept": self.velocity_intercept,
             "velocity_rir_coef": self.velocity_rir_coef,
             "velocity_residual_mad": self.velocity_residual_mad,
+            "velocity_rep_coef": self.velocity_rep_coef,
+            "reps_min": self.reps_min,
+            "reps_max": self.reps_max,
             "load_min": self.load_min,
             "load_max": self.load_max,
         }

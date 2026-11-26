@@ -449,6 +449,9 @@ def append_calibration(
     load_min: float | None = None,
     load_max: float | None = None,
     fit_method: str | None = None,
+    velocity_rep_coef: float | None = None,
+    reps_min: int | None = None,
+    reps_max: int | None = None,
     window_start: str | None = None,
     window_end: str | None = None,
     source: str = "computed",
@@ -465,10 +468,11 @@ def append_calibration(
             calibration_id, exercise_id, vbt_family, scope, rep_count, rir_low, rir_high,
             velocity_median, velocity_mad, velocity_slope, velocity_intercept,
             velocity_rir_coef, velocity_residual_mad, load_min, load_max, fit_method,
+            velocity_rep_coef, reps_min, reps_max,
             velocity_low, velocity_high, n_sets, n_sessions,
             window_start, window_end, method_version, params_json, source, override_reason,
             valid_from, valid_until, supersedes_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             identifier,
@@ -487,6 +491,9 @@ def append_calibration(
             load_min,
             load_max,
             fit_method,
+            velocity_rep_coef,
+            reps_min,
+            reps_max,
             velocity_low,
             velocity_high,
             n_sets,
