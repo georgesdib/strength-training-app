@@ -122,7 +122,8 @@ stored set mean is missing, so a per-rep-only set is no longer dropped from cali
 velocity-loss series itself remains descriptive: it does not set a target, a stop rule or a
 load. Set-level capture is complete for the workout path.
 
-Two options, and the choice is Q4:
+Two options were considered; `DEC-VELOCITY-01` records the position (report within-set loss as
+not measurable, with a labelled decay proxy where a proxy is shown):
 
 1. **Report it as not measurable** and score no rubric line for it. Honest.
 2. **Set-to-set decay proxy**: within one session, at the same load and rep count, the
