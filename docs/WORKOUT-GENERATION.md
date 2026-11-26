@@ -142,7 +142,7 @@ This example is generated from a deterministic synthetic fixture, [`tests/fixtur
 The block below is rendered from the actual `build_prescription` output by [`tools/workout_generation_example.py`](../tools/workout_generation_example.py). Do not edit it by hand: after a template, threshold or engine change run `python tools/workout_generation_example.py --write`. [`tests/test_workout_generation_doc.py`](../tests/test_workout_generation_doc.py) fails when the committed block is stale.
 
 <!-- BEGIN GENERATED WORKOUT EXAMPLE -->
-<!-- source:sha256:9fe36e8cfa1d9fea -->
+<!-- source:sha256:dedbb3997de27166 -->
 
 ### 12.1 Inputs
 
@@ -161,6 +161,8 @@ The block below is rendered from the actual `build_prescription` output by [`too
 | Pull-ups (wide grip) | bodyweight | 8 | 2 | 2024-01-01 |
 | Dumbbell Row | 30 kg | 10 | 2 | 2024-01-01 |
 | Lying Leg Curls | 30 kg | 10 | 2 | 2024-01-01 |
+| Hip Thrust | 60 kg | 8 | 2 | 2024-01-01 |
+| Single Leg DB RDL | 20 kg | 8 | 2 | 2024-01-01 |
 
 The Lateral Raise row is part of the shared fixture but has no slot in the `hinge` template, so it does not enter this session. Its presence also shows that the engine selects by template rather than prescribing every recorded exercise.
 
@@ -174,14 +176,16 @@ The Lateral Raise row is part of the shared fixture but has no slot in the `hing
 | Order | Exercise selected | Sets | Reps | Target effort | Load | Load basis | Rest | Warm-up | Provenance |
 |---:|---|---:|---:|---|---:|---|---:|---|---|
 | 1 | Broad Jump | 3 | 3–5 | quality stop | bodyweight (0 kg external) | Bodyweight | 120 s | — | — |
-| 2 | Trap-Bar Deadlift | 5 | 3–5 | RIR 2 | 158.5 kg | e1RM | 180 s | 20 kg × 10; 79 kg × 5; 110.5 kg × 3; 134.5 kg × 2 | PRG-RIR-001, set:2024-01-01/1 |
+| 2 | Trap-Bar Deadlift | 4 | 3–5 | RIR 2 | 158.5 kg | e1RM | 180 s | 20 kg × 10; 79 kg × 5; 110.5 kg × 3; 134.5 kg × 2 | PRG-RIR-001, set:2024-01-01/1 |
 | 3 | Bench Press (narrow grip) | 4 | 3–5 | RIR 2 | 95 kg | e1RM | 180 s | 20 kg × 10; 47.5 kg × 5; 66.5 kg × 3; 80.5 kg × 2 | PRG-RIR-001, set:2024-01-01/2 |
 | 4 | Pull-up | 4 | 6–10 | RIR 2 | bodyweight (0 kg external) | Bodyweight | 90 s | — | PRG-DP-001, set:2024-01-01/5, MOD-VOL-002 |
 | 5 | Dumbbell Row | 4 | 8–12 | RIR 2 | 30 kg | Double progression | 90 s | — | PRG-DP-001, set:2024-01-01/6, MOD-VOL-002 |
-| 6 | Split Squat | 4 | 8–10 | RIR 2 | 30 kg | Double progression | 90 s | — | PRG-DP-001, set:2024-01-01/4, MOD-VOL-002 |
-| 7 | Lying Leg Curls | 4 | 8–12 | RIR 2 | 30 kg | Double progression | 90 s | — | PRG-DP-001, set:2024-01-01/7, MOD-VOL-002 |
+| 6 | Single Leg DB RDL | 3 | 8–10 | RIR 2 | 20 kg | Double progression | 90 s | — | PRG-DP-001, set:2024-01-01/9 |
+| 7 | Hip Thrust | 4 | 8–12 | RIR 2 | 60 kg | Double progression | 90 s | — | PRG-DP-001, set:2024-01-01/8, MOD-VOL-002 |
+| 8 | Split Squat | 4 | 8–10 | RIR 2 | 30 kg | Double progression | 90 s | — | PRG-DP-001, set:2024-01-01/4, MOD-VOL-002 |
+| 9 | Lying Leg Curls | 4 | 8–12 | RIR 2 | 30 kg | Double progression | 90 s | — | PRG-DP-001, set:2024-01-01/7, MOD-VOL-002 |
 
-Time cap: **5,400 s** (90 min). Engine estimate: **75.0 min**. The cap is a planning ceiling, not a measured duration.
+Time cap: **5,400 s** (90 min). Engine estimate: **85.5 min**. The cap is a planning ceiling, not a measured duration.
 Spinal cost: **2.3** against a cap of **6.0** (week 2024-W02).
 
 Executable: **True**. Issues: none.
@@ -197,7 +201,7 @@ Engine warnings:
 - accessory_split_squat: chose split_squat from ['split_squat', 'bulgarian_split_squat']
 - accessory_knee_flexion: chose lying_leg_curls from ['lying_leg_curls', 'nordic_curl']
 - readiness unknown for 2024-01-08; fatigue modifier not applied
-- MOD-VOL-002: under-MEV accessory progression: horizontal_pull:dumbbell_row+1, knee_flexion:lying_leg_curls+1, squat:split_squat+1, vertical_pull:pull_up+1
+- MOD-VOL-002: under-MEV accessory progression: hip_extension:hip_thrust+1, horizontal_pull:dumbbell_row+1, knee_flexion:lying_leg_curls+1, squat:split_squat+1, vertical_pull:pull_up+1
 - athlete state not recorded: constraints were not evaluated (they are unknown, not absent)
 - PRG-EREC-001 not assessable: missing symptom.flare, block.week_index
 
@@ -208,16 +212,18 @@ The same fixture with a readiness row for `2024-01-08` and `Sleep = 2` produces 
 | Exercise | Sets | Reps | Load | Target effort | Provenance |
 |---|---:|---:|---:|---|---|
 | Broad Jump | 2 | 3–5 | bodyweight (0 kg external) | quality stop | MOD-FAT-001, readiness:2024-01-08, readiness_score:0.720 |
-| Trap-Bar Deadlift | 5 | 3–5 | 146 kg | RIR 3 | PRG-RIR-001, set:2024-01-01/1, MOD-FAT-001, readiness:2024-01-08, readiness_score:0.720 |
+| Trap-Bar Deadlift | 4 | 3–5 | 146 kg | RIR 3 | PRG-RIR-001, set:2024-01-01/1, MOD-FAT-001, readiness:2024-01-08, readiness_score:0.720 |
 | Bench Press (narrow grip) | 4 | 3–5 | 87.5 kg | RIR 3 | PRG-RIR-001, set:2024-01-01/2, MOD-FAT-001, readiness:2024-01-08, readiness_score:0.720 |
 | Pull-up | 2 | 6–10 | bodyweight (0 kg external) | RIR 3 | PRG-DP-001, set:2024-01-01/5, MOD-FAT-001, readiness:2024-01-08, readiness_score:0.720 |
 | Dumbbell Row | 2 | 8–12 | 27.5 kg | RIR 3 | PRG-DP-001, set:2024-01-01/6, MOD-FAT-001, readiness:2024-01-08, readiness_score:0.720 |
+| Single Leg DB RDL | 2 | 8–10 | 18.5 kg | RIR 3 | PRG-DP-001, set:2024-01-01/9, MOD-FAT-001, readiness:2024-01-08, readiness_score:0.720 |
+| Hip Thrust | 2 | 8–12 | 55.5 kg | RIR 3 | PRG-DP-001, set:2024-01-01/8, MOD-FAT-001, readiness:2024-01-08, readiness_score:0.720 |
 | Split Squat | 2 | 8–10 | 27.5 kg | RIR 3 | PRG-DP-001, set:2024-01-01/4, MOD-FAT-001, readiness:2024-01-08, readiness_score:0.720 |
 | Lying Leg Curls | 2 | 8–12 | 27.5 kg | RIR 3 | PRG-DP-001, set:2024-01-01/7, MOD-FAT-001, readiness:2024-01-08, readiness_score:0.720 |
 
 Readiness warnings:
 
-- MOD-FAT-001: readiness score 0.72; floor sleep=2; sets reduced: broad_jump, pull_up, dumbbell_row, split_squat, lying_leg_curls; session reduced
+- MOD-FAT-001: readiness score 0.72; floor sleep=2; sets reduced: broad_jump, pull_up, dumbbell_row, single_leg_db_rdl, hip_thrust, split_squat, lying_leg_curls; session reduced
 <!-- END GENERATED WORKOUT EXAMPLE -->
 
 ### 12.5 What the example demonstrates—and what it does not

@@ -433,20 +433,6 @@ def _readiness_group() -> dict[str, Any]:
         "set_reduction.sets",
         "sets",
     )
-    add(
-        "readiness.score.baseline_days",
-        "Readiness baseline window",
-        cfg.baseline_days,
-        "score.baseline_days",
-        "days",
-    )
-    add(
-        "readiness.score.baseline_min_readings",
-        "Readiness baseline minimum readings",
-        cfg.baseline_min_readings,
-        "score.baseline_min_readings",
-        "readings",
-    )
     return {"key": "readiness", "label": "Readiness parameters", "parameters": rows}
 
 
@@ -487,20 +473,9 @@ def _budget_total_provenance(
     canonical: dict,
     local: dict,
     *,
-    explicit: str,
     map_key: str,
     fallback_map: str | None = None,
 ) -> tuple[str, str, bool]:
-    local_value, local_present = _mapping(local, explicit)
-    if local_present:
-        if local_value is not None:
-            return "local override: config/volume.local.yaml", "local_override", True
-        # An explicit local null suppresses the canonical total in the merged loader input.
-        # The effective total is therefore derived from the target map below.
-    else:
-        canonical_value, canonical_present = _mapping(canonical, explicit)
-        if canonical_present and canonical_value is not None:
-            return VOLUME_CANONICAL, "canonical_config", True
     source, kind, configured = _budget_map_provenance(canonical, local, map_key)
     if configured:
         return source, kind, True
@@ -690,7 +665,6 @@ def _prescription_group() -> dict[str, Any]:
     total_source, total_kind, total_configured = _budget_total_provenance(
         volume_raw,
         volume_local,
-        explicit="budget.weekly_total",
         map_key="budget.weekly_target",
     )
     rows.append(
@@ -710,7 +684,6 @@ def _prescription_group() -> dict[str, Any]:
     effective_source, effective_kind, effective_configured = _budget_total_provenance(
         volume_raw,
         volume_local,
-        explicit="budget.weekly_total_effective",
         map_key="budget.weekly_target_effective",
         fallback_map="budget.weekly_target",
     )

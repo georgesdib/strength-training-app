@@ -21,7 +21,7 @@ from conftest import make_readiness, make_training
 
 from strength_coach import ios_config
 from strength_coach.features.deload import DeloadDecision
-from strength_coach.store import db, importer, ios_devices
+from strength_coach.store import db, importer, ios_devices, ios_workflow
 from strength_coach.web import ios_plan_worker
 from strength_coach.web import server as web_server
 from strength_coach.web.server import create_server
@@ -866,7 +866,7 @@ def test_start_by_id_is_idempotent_and_adopts_active_workout(ios):
     assert row["workout_id"] == first["workout_id"]
 
 
-def test_start_rejects_other_device_and_client_plan_content(ios):
+def test_start_rejects_another_pairing_and_client_plan_content(ios):
     token, _ = _paired(ios)
     status, issued = _issue(ios, token)
     assert status == 200, issued
@@ -874,9 +874,10 @@ def test_start_rejects_other_device_and_client_plan_content(ios):
     status, second = _pair(ios["base"], code, label="Other iPhone")
     assert status == 200, second
 
+    # Another phone is another pairing; the plan is not visible to it.
     status, body = _start(ios, second["token"], issued["issued_plan_id"])
-    assert status == 409, body
-    assert body["code"] == "wrong_execution_target"
+    assert status == 404, body
+    assert body["code"] == "plan_not_found"
 
     status, body = _start(
         ios, token, issued["issued_plan_id"],
@@ -1351,18 +1352,41 @@ def test_active_workout_recovery_returns_logged_sets(ios):
     )) == 2
 
 
-def test_second_start_while_active_is_rejected(ios):
+def test_a_different_execution_may_start_beside_an_open_session(ios):
+    """WP5: identity and state decide a start, never elapsed time (D1)."""
     token, _ = _paired(ios)
     status, issued = _issue(ios, token)
     assert status == 200, issued
-    status, workout = _start(ios, token, issued["issued_plan_id"])
-    assert status == 200, workout
-    status, second = _issue(ios, token)
+    status, first = _start(
+        ios, token, issued["issued_plan_id"],
+        body={"issued_plan_id": issued["issued_plan_id"],
+              "execution_id": issued["execution_id"]},
+    )
+    assert status == 200, first
+
+    # The same execution is idempotent: one workout, not two.
+    status, again = _start(
+        ios, token, issued["issued_plan_id"],
+        body={"issued_plan_id": issued["issued_plan_id"],
+              "execution_id": issued["execution_id"]},
+    )
+    assert status == 200, again
+    assert again["workout_id"] == first["workout_id"]
+
+    # A different plan is a different execution, and may exist alongside the open one.
+    status, second_plan = _issue(ios, token)
+    assert status == 200, second_plan
+    status, second = _start(
+        ios, token, second_plan["issued_plan_id"],
+        body={"issued_plan_id": second_plan["issued_plan_id"],
+              "execution_id": second_plan["execution_id"]},
+    )
     assert status == 200, second
-    status, body = _start(ios, token, second["issued_plan_id"])
-    assert status == 409, body
-    assert body["code"] == "workout_active"
-    assert body["details"]["workout_id"] == workout["workout_id"]
+    assert second["workout_id"] != first["workout_id"]
+    assert int(_scalar(
+        ios["path"],
+        "SELECT COUNT(*) FROM workout_session WHERE status = 'in_progress'",
+    )) == 2
 
 
 def test_lost_form_and_abandon_responses_replay(ios):
@@ -1705,7 +1729,7 @@ def test_ios_execution_change_prefills_and_replays_idempotently(ios):
     assert status == 400, conflict
     assert "already used" in conflict["error"]
 
-    # An offline author records no prefill and is never retro-solved.
+    # A catalogue attempt with no value records the miss; it is never solved on arrival.
     status, body = _request(
         ios["base"], url, method="POST", token=token, key=uuid.uuid4().hex,
         payload={
@@ -1716,14 +1740,15 @@ def test_ios_execution_change_prefills_and_replays_idempotently(ios):
             "reps_low": 8,
             "reps_high": 10,
             "rir_target": 3,
-            "prefill_requested": False,
+            "prefill_catalogue_version": issued["load_catalogue"]["catalogue_version"],
         },
     )
     assert status == 200, body
     addition = body["execution"]["additions"][0]
     assert addition["after_item_index"] == 0
     assert addition["prefill_load_kg"] is None
-    assert addition["prefill_reason"] == "authored_offline"
+    assert addition["resolved_by"] == "catalogue"
+    assert addition["prefill_reason"] == "no_catalogue_prefill"
     assert body["execution"]["watermark"] > view["watermark"]
 
     # GET returns the same ordered view (the watch refresh path).
@@ -1988,6 +2013,48 @@ def test_top_set_setting_reaches_the_builder(ios, monkeypatch):
     assert calls, "the plan builder was not called"
     assert calls[-1]["top_set_intent"] == "off"
     assert state["settings"]["top_set_intent"] == "off"
+
+
+def test_technique_throttle_setting_is_validated_and_echoed(ios):
+    """MOD-TECH-001 is a per-session request, not stored state, so it is a request setting."""
+    token, _ = _paired(ios)
+    status, accepted = _issue(
+        ios, token, wait=False, body={"settings": {"technique_throttle": True}},
+    )
+    assert status == 202, accepted
+    assert accepted["settings"]["technique_throttle"] is True
+
+    status, rejected = _issue(
+        ios, token, wait=False, body={"settings": {"technique_throttle": "yes"}},
+    )
+    assert status == 400, rejected
+    assert rejected["code"] == "validation_failed"
+    assert rejected["fields"]["technique_throttle"] == "must be true or false"
+
+    # Omitted stays omitted: an older client's echoed settings are unchanged.
+    status, default = _issue(ios, token, wait=False, body={})
+    assert status == 202, default
+    assert "technique_throttle" not in default["settings"]
+
+
+def test_technique_throttle_setting_reaches_the_builder(ios, monkeypatch):
+    from strength_coach.web import ios_plan_worker
+
+    calls = []
+    original = ios_plan_worker.build_prescription
+
+    def spy(*args, **kwargs):
+        calls.append(kwargs)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(ios_plan_worker, "build_prescription", spy)
+    token, _ = _paired(ios)
+    status, state = _issue(
+        ios, token, body={"settings": {"technique_throttle": True}},
+    )
+    assert status == 200, state
+    assert calls, "the plan builder was not called"
+    assert calls[-1]["technique_throttle"] is True
 
 
 def test_queue_selection_is_fifo(tmp_path):
@@ -2394,3 +2461,579 @@ def test_unknown_metric_kind_is_still_rejected(ios):
     )
     assert status == 400
     assert "unsupported metric kind" in json.dumps(body)
+
+
+def test_the_issued_plan_names_its_execution(ios):
+    """D1: the execution is minted at issue, so a start made offline can be adopted later."""
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token, wait=False)
+    assert status == 202, issued
+    assert uuid.UUID(issued["execution_id"])
+
+    state = _wait_for_plan(ios, token)
+    assert state["status"] == "ready", state
+    assert state["execution_id"] == issued["execution_id"]
+
+
+def test_start_binds_the_named_execution(ios):
+    token, _ = _paired(ios)
+    status, state = _issue(ios, token)
+    assert status == 200, state
+    status, started = _start(
+        ios, token, state["issued_plan_id"],
+        body={
+            "issued_plan_id": state["issued_plan_id"],
+            "execution_id": state["execution_id"],
+        },
+    )
+    assert status == 200, started
+    assert started["workout_id"] == state["execution_id"]
+
+
+def test_start_refuses_a_foreign_execution_id(ios):
+    token, _ = _paired(ios)
+    status, state = _issue(ios, token)
+    assert status == 200, state
+    status, rejected = _start(
+        ios, token, state["issued_plan_id"],
+        body={
+            "issued_plan_id": state["issued_plan_id"],
+            "execution_id": str(uuid.uuid4()),
+        },
+    )
+    assert status == 409, rejected
+    assert rejected["code"] == "execution_id_mismatch"
+
+
+def test_start_binds_a_session_recorded_before_midnight(ios):
+    """D13: the bind is judged by the recorded start, not by the sync time."""
+    token, _ = _paired(ios)
+    status, state = _issue(ios, token)
+    assert status == 200, state
+    yesterday = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
+    today = datetime.date.today().isoformat()
+    conn = db.Store(ios["path"]).connection
+    try:
+        conn.execute(
+            "UPDATE ios_issued_plan SET for_date = ?, created_at = ?, plan_expires_at = ? "
+            "WHERE issued_plan_id = ?",
+            (
+                yesterday,
+                f"{yesterday}T23:50:00+00:00",
+                f"{today}T03:50:00+00:00",
+                state["issued_plan_id"],
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    status, started = _start(
+        ios, token, state["issued_plan_id"],
+        body={
+            "issued_plan_id": state["issued_plan_id"],
+            "execution_id": state["execution_id"],
+            "started_at": f"{yesterday}T23:55:00+00:00",
+        },
+    )
+    assert status == 200, started
+    assert started["started_at"].startswith(f"{yesterday}T23:55")
+
+
+def test_start_refuses_a_start_outside_the_plan_window(ios):
+    token, _ = _paired(ios)
+    status, state = _issue(ios, token)
+    assert status == 200, state
+    yesterday = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
+    conn = db.Store(ios["path"]).connection
+    try:
+        conn.execute(
+            "UPDATE ios_issued_plan SET created_at = ?, plan_expires_at = ? "
+            "WHERE issued_plan_id = ?",
+            (
+                f"{yesterday}T20:00:00+00:00",
+                f"{yesterday}T23:00:00+00:00",
+                state["issued_plan_id"],
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    status, rejected = _start(
+        ios, token, state["issued_plan_id"],
+        body={
+            "issued_plan_id": state["issued_plan_id"],
+            "execution_id": state["execution_id"],
+        },
+    )
+    assert status == 410, rejected
+    assert rejected["code"] == "plan_expired"
+
+
+def test_a_concurrent_session_does_not_block_the_bound_start(ios):
+    """D1: the athlete may already have performed the session that is now syncing."""
+    token, _ = _paired(ios)
+    status, state = _issue(ios, token)
+    assert status == 200, state
+    today = datetime.date.today().isoformat()
+    conn = db.Store(ios["path"]).connection
+    try:
+        conn.execute(
+            "INSERT INTO workout_session "
+            "(workout_id, for_date, session_type, status, plan_json, "
+            " readiness_json, started_at) "
+            "VALUES ('web-session', ?, 'squat', 'in_progress', '{}', '{}', ?)",
+            (today, f"{today}T08:00:00+00:00"),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    now = datetime.datetime.now(datetime.UTC)
+    recorded = now - datetime.timedelta(minutes=5)
+    issued_at = now - datetime.timedelta(minutes=10)
+    conn = db.Store(ios["path"]).connection
+    try:
+        conn.execute(
+            "UPDATE ios_issued_plan SET created_at = ? WHERE issued_plan_id = ?",
+            (issued_at.isoformat(), state["issued_plan_id"]),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    status, started = _start(
+        ios, token, state["issued_plan_id"],
+        body={
+            "issued_plan_id": state["issued_plan_id"],
+            "execution_id": state["execution_id"],
+            "started_at": recorded.isoformat(),
+        },
+    )
+    assert status == 200, started
+    assert int(_scalar(
+        ios["path"],
+        "SELECT COUNT(*) FROM workout_session WHERE status = 'in_progress'",
+    )) == 2
+
+
+def test_the_web_start_warns_when_a_phone_plan_is_pending(ios):
+    """D1: a pending phone plan is a confirmation, not a silent duplicate."""
+    token, _ = _paired(ios)
+    status, state = _issue(ios, token)
+    assert status == 200, state
+    status, rejected = _request(ios["base"], "/api/workout/start", method="POST", payload={})
+    assert status == 409, rejected
+    assert rejected["code"] == "plan_pending_for_phone"
+
+    # The confirmation overrides the warning and falls through to ordinary validation.
+    status, allowed = _request(
+        ios["base"], "/api/workout/start", method="POST",
+        payload={"start_anyway": True},
+    )
+    assert status == 400, allowed
+    assert allowed.get("code") != "plan_pending_for_phone"
+
+
+
+def test_the_plan_ships_the_offline_load_catalogue(ios):
+    """D9: the phone substitutes offline from a server-built catalogue, not its own maths."""
+    token, _ = _paired(ios)
+    status, state = _issue(ios, token)
+    assert status == 200, state
+    built = state["load_catalogue"]
+    assert built is not None
+    assert built["catalogue_version"] == "load-catalogue/v1"
+    assert built["as_of"] == state["for_date"]
+    assert len(built["exercises"]) >= 100
+    squat = built["exercises"]["competition_squat"]
+    assert squat["load_source"] == "e1rm"
+    assert squat["increment_kg"] > 0
+
+
+def test_an_offline_substitution_sends_the_shipped_catalogue_prefill(ios):
+    """D9: the phone applies the shipped catalogue and the server verifies the value it showed."""
+    token, _ = _paired(ios)
+    status, issued = _issue(ios, token)
+    assert status == 200, issued
+    status, workout = _start(
+        ios, token, issued["issued_plan_id"],
+        body={
+            "issued_plan_id": issued["issued_plan_id"],
+            "execution_id": issued["execution_id"],
+        },
+    )
+    assert status == 200, workout
+    items = workout["plan"]["items"]
+    first = items[0]
+    other = next(
+        item["exercise_id"] for item in items[1:]
+        if item["exercise_id"] != first["exercise_id"]
+    )
+    built = issued["load_catalogue"]
+    entry = built["exercises"][other]
+    if bool(first.get("essential")):
+        base = entry["base_load_kg"]
+        assert base is not None, entry
+        raw = base / (1 + (int(first["reps_low"]) + int(first.get("rir_target") or 0)) / 30)
+    else:
+        raw = entry["accessory_load_kg"]
+        assert raw is not None, entry
+    increment = entry["increment_kg"]
+    expected = int(raw / increment) * increment
+
+    status, body = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout['workout_id']}/execution",
+        method="POST",
+        payload={
+            "event_id": str(uuid.uuid4()),
+            "change": "substitution",
+            "plan_item_index": 0,
+            "exercise_id": other,
+            "prefill_load_kg": expected,
+            "prefill_catalogue_version": built["catalogue_version"],
+        },
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, body
+    substitution = body["execution"]["substitutions"][0]
+    assert substitution["prefill_reason"] == "client_applied"
+    assert substitution["prefill_verified"] is True
+    assert substitution["prefill_load_kg"] == pytest.approx(expected)
+    assert substitution["prefill_expected_load_kg"] == pytest.approx(expected)
+
+
+
+def test_a_late_set_is_applied_then_refused_once_the_window_closes(ios, monkeypatch):
+    """D8 end to end: a completed session accepts late work, then preserves a late arrival."""
+    from strength_coach import reconciliation
+
+    token, phone = _paired(ios)
+    status, state = _issue(ios, token)
+    assert status == 200, state
+    status, started = _start(
+        ios, token, state["issued_plan_id"],
+        body={"issued_plan_id": state["issued_plan_id"],
+              "execution_id": state["execution_id"]},
+    )
+    assert status == 200, started
+    workout_id = started["workout_id"]
+
+    monkeypatch.setattr(reconciliation, "window_days", lambda conn=None: 0)
+    status, done = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/complete", method="POST",
+        payload={"session_rpe": 7, "not_recorded": False, "pending_devices": ["watch-1"]},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, done
+    store = db.Store(ios["path"])
+    try:
+        assert reconciliation.state(store.connection, workout_id)["state"] == "closed"
+    finally:
+        store.close()
+
+    status, refused = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/sets", method="POST",
+        payload={"exercise_id": "bench_press", "load_kg": 90.0, "reps": 5, "rir": 2,
+                 "set_index": 4},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 409, refused
+    assert refused["code"] == "reconciliation_window_closed"
+    rejected = _scalar(
+        ios["path"],
+        "SELECT payload_json FROM workout_event WHERE workout_id = ? "
+        "AND event_type = 'late_rejected' ORDER BY event_id DESC LIMIT 1",
+        (workout_id,),
+    )
+    assert phone["device_id"] in rejected
+    assert int(_scalar(
+        ios["path"],
+        "SELECT COUNT(*) FROM workout_event WHERE workout_id = ? AND event_type = 'late_rejected'",
+        (workout_id,),
+    )) == 1
+
+
+
+def test_resolving_a_pending_device_settles_the_window(ios):
+    """D8: a synced watch must not leave the session pending for the rest of the week."""
+    token, _ = _paired(ios)
+    status, state = _issue(ios, token)
+    assert status == 200, state
+    status, started = _start(
+        ios, token, state["issued_plan_id"],
+        body={"issued_plan_id": state["issued_plan_id"],
+              "execution_id": state["execution_id"]},
+    )
+    assert status == 200, started
+    workout_id = started["workout_id"]
+
+    status, done = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/complete", method="POST",
+        payload={"session_rpe": 7, "not_recorded": False, "pending_devices": ["watch-1"]},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, done
+    status, summary = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/summary", token=token,
+    )
+    assert status == 200, summary
+    assert summary["summary"]["reconciliation"]["state"] == "open"
+    assert summary["summary"]["reconciliation"]["pending_devices"] == ["watch-1"]
+
+    status, settled = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/reconciliation", method="POST",
+        payload={"device_id": "watch-1"}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, settled
+    assert settled["reconciliation"]["state"] == "closed"
+
+    status, final = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/summary", token=token,
+    )
+    assert status == 200, final
+    assert final["summary"]["reconciliation"]["state"] == "closed"
+    assert final["summary"]["reconciliation"]["pending_devices"] == []
+
+
+
+def test_the_whole_offline_flow_reconciles_end_to_end(ios):
+    """S1-S4 in one conversation: adopt, log, finish with a pending watch, late work, settle."""
+    token, _ = _paired(ios)
+    status, state = _issue(ios, token)
+    assert status == 200, state
+    now = datetime.datetime.now(datetime.UTC)
+    issued_at = now - datetime.timedelta(minutes=15)
+    conn = db.Store(ios["path"]).connection
+    try:
+        conn.execute(
+            "UPDATE ios_issued_plan SET created_at = ? WHERE issued_plan_id = ?",
+            (issued_at.isoformat(), state["issued_plan_id"]),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    started_at = now - datetime.timedelta(minutes=10)
+    status, started = _start(
+        ios, token, state["issued_plan_id"],
+        body={"issued_plan_id": state["issued_plan_id"],
+              "execution_id": state["execution_id"],
+              "started_at": started_at.isoformat()},
+    )
+    assert status == 200, started
+    workout_id = started["workout_id"]
+    exercise = started["plan"]["items"][0]["exercise_id"]
+    sets_url = f"/api/ios/v1/workouts/{workout_id}/sets"
+
+    for index in (1, 2):
+        status, logged = _request(
+            ios["base"], sets_url, method="POST",
+            payload={"exercise_id": exercise, "load_kg": 140.0, "reps": 3, "rir": 2,
+                     "set_index": index,
+                     "performed_at": (started_at + datetime.timedelta(minutes=index)).isoformat()},
+            token=token, key=uuid.uuid4().hex,
+        )
+        assert status == 200, logged
+
+    status, done = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/complete", method="POST",
+        payload={"session_rpe": 8, "not_recorded": False, "pending_devices": ["watch-1"]},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, done
+
+    status, open_summary = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/summary", token=token,
+    )
+    assert status == 200, open_summary
+    assert open_summary["summary"]["reconciliation"]["state"] == "open"
+    assert int(_scalar(ios["path"],
+        "SELECT COUNT(*) FROM clean_set WHERE session_id = ?", (workout_id,))) == 2
+
+    late_at = started_at + datetime.timedelta(minutes=7)
+    status, late = _request(
+        ios["base"], sets_url, method="POST",
+        payload={"exercise_id": exercise, "load_kg": 145.0, "reps": 3, "rir": 1,
+                 "set_index": 3, "performed_at": late_at.isoformat()},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, late
+    assert int(_scalar(ios["path"],
+        "SELECT COUNT(*) FROM clean_set WHERE session_id = ?", (workout_id,))) == 3
+    assert int(_scalar(ios["path"],
+        "SELECT set_count FROM session WHERE session_id = ?", (workout_id,))) == 3
+    # The late set keeps the instant it was performed, not the moment it synced.
+    assert _scalar(ios["path"],
+        "SELECT created_at FROM workout_set WHERE workout_id = ? ORDER BY set_id DESC LIMIT 1",
+        (workout_id,)).startswith(late_at.isoformat(timespec="milliseconds"))
+
+    status, settled = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/reconciliation", method="POST",
+        payload={"device_id": "watch-1"}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, settled
+    status, final = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/summary", token=token,
+    )
+    assert status == 200, final
+    assert final["summary"]["reconciliation"]["state"] == "closed"
+    assert final["summary"]["reconciliation"]["pending_devices"] == []
+
+
+
+def test_a_set_on_a_completed_session_without_a_window_keeps_the_old_refusal(ios):
+    """Backwards compatibility: an unchanged client still sees 409 workout_not_active."""
+    token, _ = _paired(ios)
+    status, state = _issue(ios, token)
+    assert status == 200, state
+    status, started = _start(ios, token, state["issued_plan_id"])
+    assert status == 200, started
+    workout_id = started["workout_id"]
+    status, done = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/complete", method="POST",
+        payload={"session_rpe": 7, "not_recorded": False},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, done
+    status, refused = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/sets", method="POST",
+        payload={"exercise_id": "bench_press", "load_kg": 90.0, "reps": 5, "rir": 2},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 409, refused
+    assert refused["code"] == "workout_not_active"
+
+
+def test_late_form_and_telemetry_are_accepted_inside_the_window(ios):
+    """WP2a: a rating and telemetry captured on the watch survive a phone-first finish."""
+    token, _ = _paired(ios)
+    status, state = _issue(ios, token)
+    assert status == 200, state
+    status, started = _start(
+        ios, token, state["issued_plan_id"],
+        body={"issued_plan_id": state["issued_plan_id"],
+              "execution_id": state["execution_id"]},
+    )
+    assert status == 200, started
+    workout_id = started["workout_id"]
+    exercise = started["plan"]["items"][0]["exercise_id"]
+
+    status, done = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/complete", method="POST",
+        payload={"session_rpe": 7, "not_recorded": False, "pending_devices": ["watch-1"]},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, done
+
+    status, rated = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/form", method="POST",
+        payload={"exercise_id": exercise, "rating": 4, "note": "watch"},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, rated
+    assert int(_scalar(
+        ios["path"],
+        "SELECT COUNT(*) FROM session_form_rating WHERE session_id = ?", (workout_id,),
+    )) == 1
+
+    # Telemetry is observational: it is bounded by the session's timestamps, not by the window.
+    at = started["started_at"]
+    status, telemetry = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/execution-events", method="POST",
+        payload={"events": [{"event_id": str(uuid.uuid4()), "event_type": "set_completed",
+                             "occurred_at": at, "plan_item_index": 0}]},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, telemetry
+    assert len(telemetry["accepted"]) == 1
+
+
+
+def test_a_late_correction_keeps_the_set_identity(ios):
+    """A correction is one event on the same set, not a remove-and-re-add."""
+    token, _ = _paired(ios)
+    status, state = _issue(ios, token)
+    assert status == 200, state
+    status, started = _start(
+        ios, token, state["issued_plan_id"],
+        body={"issued_plan_id": state["issued_plan_id"],
+              "execution_id": state["execution_id"]},
+    )
+    assert status == 200, started
+    workout_id = started["workout_id"]
+    exercise = started["plan"]["items"][0]["exercise_id"]
+
+    status, logged = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/sets", method="POST",
+        payload={"exercise_id": exercise, "load_kg": 140.0, "reps": 3, "rir": 2,
+                 "set_index": 1},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, logged
+    set_id = logged["sets"][0]["set_id"]
+
+    status, done = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/complete", method="POST",
+        payload={"session_rpe": 7, "not_recorded": False, "pending_devices": ["watch-1"]},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, done
+
+    status, corrected = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/update-set", method="POST",
+        payload={"set_id": set_id, "load_kg": 145.0, "reps": 3, "rir": 1},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, corrected
+    assert corrected["sets"][0]["set_id"] == set_id
+    assert corrected["sets"][0]["load_kg"] == 145.0
+
+    live = _scalar(
+        ios["path"],
+        "SELECT load_kg FROM clean_set s WHERE s.session_id = ? AND s.voided = 0 "
+        "AND NOT EXISTS (SELECT 1 FROM clean_set child "
+        "WHERE child.supersedes_id = s.set_id)",
+        (workout_id,),
+    )
+    assert live == 145.0
+
+    status, removed = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/remove-set", method="POST",
+        payload={"set_id": set_id}, token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 200, removed
+    status, refused = _request(
+        ios["base"], f"/api/ios/v1/workouts/{workout_id}/update-set", method="POST",
+        payload={"set_id": set_id, "load_kg": 150.0, "reps": 3, "rir": 1},
+        token=token, key=uuid.uuid4().hex,
+    )
+    assert status == 409, refused
+    assert refused["code"] == "late_event_rejected"
+
+
+def test_minimum_target_accepts_only_configured_choices():
+    handler = object.__new__(web_server.Handler)
+    for target in (30, 45, 60):
+        settings = handler._ios_request_settings({
+            "settings": {"minimum_session": True, "minimum_target_minutes": target},
+        })
+        assert settings["minimum_target_minutes"] == target
+
+
+def test_minimum_target_rejects_intermediate_minutes():
+    handler = object.__new__(web_server.Handler)
+    with pytest.raises(ios_workflow.IOSWorkflowError) as exc:
+        handler._ios_request_settings({
+            "settings": {"minimum_session": True, "minimum_target_minutes": 35},
+        })
+    assert exc.value.status == 400
+    assert exc.value.code == "validation_failed"
+    assert "30, 45 or 60" in exc.value.message
+
+
+def test_minimum_target_is_ignored_when_the_session_is_not_minimum():
+    handler = object.__new__(web_server.Handler)
+    settings = handler._ios_request_settings({
+        "settings": {"minimum_session": False, "minimum_target_minutes": 35},
+    })
+    assert "minimum_target_minutes" not in settings
+

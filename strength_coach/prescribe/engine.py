@@ -2376,7 +2376,12 @@ def resolve_replacement(
         template,
         exercise_id=exercise_id,
     )
-    item = warmup.attach((item,), config=resolved.warmup)[0]
+    # A replacement is performed mid-session, so the live back-flare treatment must reach it too.
+    # The effort hold re-solves the load at the final RIR and the dose ceiling can change the
+    # sets, so both run before the ramps are attached (DEC-BACK-03); with no flare both are no-ops.
+    items, _ = _apply_back_flare_effort((item,), context, resolved.thresholds)
+    items, _ = _apply_back_flare_dose(items, context, resolved.thresholds)
+    item = warmup.attach(items, config=resolved.warmup)[0]
     items, _, vbt_note = _attach_vbt_targets(
         conn, context, (item,), for_date, "full"
     )

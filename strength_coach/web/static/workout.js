@@ -74,6 +74,23 @@ function openWorkoutStart() {
   });
 }
 
+// A plan may already be waiting on the phone for today. The server refuses a silent second
+// session with a confirmable 409, so the athlete decides and the retry says so explicitly (D1).
+function postWorkoutStart(body) {
+  return api("/api/workout/start", { method: "POST", body: JSON.stringify(body) })
+    .catch(function (error) {
+      if (!error || error.code !== "plan_pending_for_phone") throw error;
+      if (!window.confirm(
+        "A workout plan is already on your phone for today. " +
+        "Start a separate session here anyway?"
+      )) {
+        throw error;
+      }
+      body.start_anyway = true;
+      return api("/api/workout/start", { method: "POST", body: JSON.stringify(body) });
+    });
+}
+
 function cancelWorkoutStart() {
   $("#workout-start-panel").hidden = true;
   $("#workout-empty").hidden = false;
@@ -105,16 +122,13 @@ function submitWorkoutStart(event) {
     return;
   }
   $("#workout-start-msg").textContent = "Starting…";
-  api("/api/workout/start", {
-    method: "POST",
-    body: JSON.stringify({
-      date: plan.for_date,
-      plan: plan,
-      readiness: readiness,
-      readiness_ack: acknowledge,
-      readiness_note: $("#workout-readiness-note").value || null,
-      note: $("#workout-start-note").value || null
-    })
+  postWorkoutStart({
+    date: plan.for_date,
+    plan: plan,
+    readiness: readiness,
+    readiness_ack: acknowledge,
+    readiness_note: $("#workout-readiness-note").value || null,
+    note: $("#workout-start-note").value || null
   }).then(function (data) {
     $("#workout-start-panel").hidden = true;
     // The server now owns the frozen plan; a second Start must not reuse the browser cache.
@@ -860,7 +874,7 @@ function renderWorkoutEnded(w) {
       reuse_readiness: true
     };
     if (w.prescription_id) body.prescription_id = w.prescription_id;
-    api("/api/workout/start", { method: "POST", body: JSON.stringify(body) })
+    postWorkoutStart(body)
       .then(function (data) {
         notify("Another session started today.");
         renderWorkout(data.workout);
@@ -996,6 +1010,15 @@ function submitWorkoutSet(event) {
   var selectedOption = select.options[select.selectedIndex];
   var planItemIndex = selectedOption && selectedOption.dataset.planIndex != null
     ? Number(selectedOption.dataset.planIndex) : null;
+  var planItem = workoutPlanItem(exerciseId);
+  var enteredLoad = numericOrNull("#workout-set-load");
+  if (planItem && planItem.load_basis === "external" && enteredLoad == null) {
+    $("#workout-set-msg").textContent = "Enter the load you used for this exercise.";
+    $("#workout-set-load").setAttribute("aria-invalid", "true");
+    $("#workout-set-load").focus();
+    return;
+  }
+  $("#workout-set-load").removeAttribute("aria-invalid");
   var body = {
     exercise_id: exerciseId,
     plan_item_index: planItemIndex,

@@ -48,6 +48,11 @@ HISTORY = [
      "RIR": "2", "Reps_Done": "8"},
     {"Date": "2024-01-01", "Exercise": "Box Jumps", "Weight_Used": "0",
      "RIR": "4", "Reps_Done": "4"},
+    # DEC-PROGRAMME-12: the hinge accessories need a starting load.
+    {"Date": "2024-01-01", "Exercise": "Hip Thrust", "Weight_Used": "60",
+     "RIR": "2", "Reps_Done": "8"},
+    {"Date": "2024-01-01", "Exercise": "Single Leg DB RDL", "Weight_Used": "20",
+     "RIR": "2", "Reps_Done": "8"},
 ]
 
 SESSION_TYPES = ("squat", "hinge", "bench_squat", "bench_hinge")

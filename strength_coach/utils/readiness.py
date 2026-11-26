@@ -15,6 +15,8 @@ the evidence unit.
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
+from typing import Any
 
 # DEC-READINESS-20: nutrition and hydration are no longer readiness inputs. They never
 # entered the score or any modifier, so keeping them in the accepted set implied an input that
@@ -50,6 +52,38 @@ FIELD_LABELS = {
     "grip_strength_kg": "grip strength (kg, legacy readiness field)",
     "wearable_score": "wearable readiness (0-100)",
 }
+
+
+def validate_input(field: str, value: float, spec: Mapping[str, Any] | None) -> None:
+    """Validate one readiness input against its effective registry/measurement spec.
+
+    `spec=None` means the field is not an enabled input for that date (unknown, disabled, or
+    a legacy label); the caller rejects it rather than storing a value nothing reads.
+    """
+    if spec is None:
+        raise ValueError(
+            f"unknown readiness field {field!r} (not an enabled readiness input)"
+        )
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError(f"{field} must be finite")
+    role = spec.get("role")
+    if role == "wearable":
+        if not 0 <= number <= 100:
+            raise ValueError("wearable_score must be from 0 to 100")
+        return
+    if role == "measure":
+        if number <= 0:
+            raise ValueError(f"{field} must be positive")
+        return
+    if role == "core":
+        low = 1 if spec.get("scale_min") is None else float(spec["scale_min"])
+        high = 5 if spec.get("scale_max") is None else float(spec["scale_max"])
+        if not low <= number <= high or number != int(number):
+            raise ValueError(f"{field} must be an integer from {low:g} to {high:g}")
+        return
+    if number <= 0:
+        raise ValueError(f"{field} must be positive")
 
 
 def validate(field: str, value: float) -> None:

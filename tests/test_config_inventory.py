@@ -113,9 +113,8 @@ def test_readiness_defaults_match_loader(tmp_path, monkeypatch):
         for row in group["parameters"]
     }
     assert rows["readiness.merge.strategy"]["value"] == expected.merge_strategy
-    assert rows["readiness.score.baseline_days"]["value"] == expected.baseline_days
-    assert rows["readiness.score.baseline_days"]["configured"] is False
-    assert rows["readiness.score.baseline_days"]["source_kind"] == "python_default"
+    assert rows["readiness.merge.tie_break"]["value"] == expected.tie_break
+    assert not any(key.startswith("readiness.score.") for key in rows)
 
 
 def test_phase_boundaries_distinguish_before_active_and_post_review():
@@ -228,96 +227,67 @@ def _assert_budget(row, value, source, kind, configured):
     assert row["configured"] is configured
 
 
-def test_budget_total_derived_from_canonical_targets(tmp_path, monkeypatch):
-    def mutate(data):
-        del data["budget"]["weekly_total"]
-
-    rows = _budget_rows(tmp_path, monkeypatch, mutate)
+def test_budget_total_is_derived_from_canonical_targets(tmp_path, monkeypatch):
+    rows = _budget_rows(tmp_path, monkeypatch)
     _assert_budget(
         rows["volume.budget.weekly_total"],
-        69.0,
+        72.5,
         "config/volume.v1.yaml",
         "canonical_config",
         True,
     )
 
 
-def test_budget_total_derived_from_merged_local_targets(tmp_path, monkeypatch):
-    def mutate(data):
-        del data["budget"]["weekly_total"]
-
+def test_budget_total_is_derived_from_merged_local_targets(tmp_path, monkeypatch):
     rows = _budget_rows(
         tmp_path,
         monkeypatch,
-        mutate,
         local={"budget": {"weekly_target": {"squat": 11}}},
     )
     _assert_budget(
         rows["volume.budget.weekly_total"],
-        70.0,
+        75.0,
         "merged config: config/volume.v1.yaml + config/volume.local.yaml",
         "local_override",
         True,
     )
 
 
-def test_explicit_local_budget_total_takes_precedence(tmp_path, monkeypatch):
+def test_local_total_override_is_ignored(tmp_path, monkeypatch):
     rows = _budget_rows(
         tmp_path,
         monkeypatch,
-        local={"budget": {"weekly_total": 69}},
+        local={"budget": {"weekly_total": 999, "weekly_target": {"squat": 11}}},
     )
     _assert_budget(
         rows["volume.budget.weekly_total"],
-        69.0,
-        "local override: config/volume.local.yaml",
+        75.0,
+        "merged config: config/volume.v1.yaml + config/volume.local.yaml",
         "local_override",
         True,
     )
 
 
-def test_explicit_canonical_total_keeps_provenance_with_local_targets(tmp_path, monkeypatch):
-    rows = _budget_rows(
-        tmp_path,
-        monkeypatch,
-        local={"budget": {"weekly_target": {"squat": 11, "horizontal_push": 11}}},
-    )
-    _assert_budget(
-        rows["volume.budget.weekly_total"],
-        69.0,
-        "config/volume.v1.yaml",
-        "canonical_config",
-        True,
-    )
-
-
-def test_effective_total_derived_from_canonical_effective_targets(tmp_path, monkeypatch):
-    def mutate(data):
-        del data["budget"]["weekly_total_effective"]
-
-    rows = _budget_rows(tmp_path, monkeypatch, mutate)
+def test_effective_total_is_derived_from_canonical_targets(tmp_path, monkeypatch):
+    rows = _budget_rows(tmp_path, monkeypatch)
     _assert_budget(
         rows["volume.budget.weekly_total_effective"],
-        80.25,
+        83.875,
         "config/volume.v1.yaml",
         "canonical_config",
         True,
     )
 
 
-def test_effective_total_derived_from_merged_effective_targets(tmp_path, monkeypatch):
-    def mutate(data):
-        del data["budget"]["weekly_total_effective"]
-
+def test_effective_total_is_derived_from_merged_effective_targets(tmp_path, monkeypatch):
     rows = _budget_rows(
         tmp_path,
         monkeypatch,
-        mutate,
         local={"budget": {"weekly_target_effective": {"squat": 11}}},
     )
     _assert_budget(
         rows["volume.budget.weekly_total_effective"],
-        81.25,
+        86.375,
         "merged config: config/volume.v1.yaml + config/volume.local.yaml",
         "local_override",
         True,
@@ -327,8 +297,6 @@ def test_effective_total_derived_from_merged_effective_targets(tmp_path, monkeyp
 def test_effective_total_falls_back_to_merged_weekly_targets(tmp_path, monkeypatch):
     def mutate(data):
         del data["budget"]["weekly_target_effective"]
-        del data["budget"]["weekly_total_effective"]
-        del data["budget"]["weekly_total"]
 
     rows = _budget_rows(
         tmp_path,
@@ -338,7 +306,7 @@ def test_effective_total_falls_back_to_merged_weekly_targets(tmp_path, monkeypat
     )
     _assert_budget(
         rows["volume.budget.weekly_total_effective"],
-        70.0,
+        75.0,
         "merged config: config/volume.v1.yaml + config/volume.local.yaml",
         "local_override",
         True,
@@ -353,64 +321,15 @@ def test_budget_totals_use_python_defaults_when_targets_absent(tmp_path, monkeyp
     )
     _assert_budget(
         rows["volume.budget.weekly_total"],
-        69.0,
+        72.5,
         "python-default: strength_coach/prescribe/volume_budget.py",
         "python_default",
         False,
     )
     _assert_budget(
         rows["volume.budget.weekly_total_effective"],
-        69.0,
+        72.5,
         "python-default: strength_coach/prescribe/volume_budget.py",
         "python_default",
         False,
-    )
-
-
-def test_local_null_suppresses_canonical_weekly_total(tmp_path, monkeypatch):
-    rows = _budget_rows(
-        tmp_path,
-        monkeypatch,
-        local={"budget": {"weekly_total": None}},
-    )
-    _assert_budget(
-        rows["volume.budget.weekly_total"],
-        69.0,
-        "config/volume.v1.yaml",
-        "canonical_config",
-        True,
-    )
-
-
-def test_local_null_suppresses_canonical_effective_total(tmp_path, monkeypatch):
-    rows = _budget_rows(
-        tmp_path,
-        monkeypatch,
-        local={"budget": {"weekly_total_effective": None}},
-    )
-    _assert_budget(
-        rows["volume.budget.weekly_total_effective"],
-        80.25,
-        "config/volume.v1.yaml",
-        "canonical_config",
-        True,
-    )
-
-
-def test_local_null_effective_total_falls_back_to_weekly_targets(tmp_path, monkeypatch):
-    def mutate(data):
-        del data["budget"]["weekly_target_effective"]
-
-    rows = _budget_rows(
-        tmp_path,
-        monkeypatch,
-        mutate,
-        local={"budget": {"weekly_total_effective": None}},
-    )
-    _assert_budget(
-        rows["volume.budget.weekly_total_effective"],
-        69.0,
-        "config/volume.v1.yaml",
-        "canonical_config",
-        True,
     )

@@ -29,7 +29,7 @@ session_types:
           load_source: bodyweight
         - id: squat_main
           exercise: ssb_squat
-          sets: 5
+          sets: 4
           reps: {low: 3, high: 5}
           rir: {low: 2, high: 3}
           rest_s: 180
@@ -98,7 +98,7 @@ session_types:
           load_source: bodyweight
         - id: hinge_main
           exercise: trap_bar_deadlift
-          sets: 5
+          sets: 4
           reps: {low: 3, high: 5}
           rir: {low: 2, high: 3}
           rest_s: 180
@@ -122,6 +122,25 @@ session_types:
           load_source: double_progression
         - id: accessory_row
           exercise: dumbbell_row
+          sets: 3
+          reps: {low: 8, high: 12}
+          rir: {low: 2, high: 3}
+          rest_s: 90
+          essential: false
+          load_source: double_progression
+        # DEC-PROGRAMME-12: hinge-day accessories with no axial-spinal budget. The single-leg
+        # RDL is a low-axial unilateral hinge; the hip thrust is the loaded glute/hip-extension
+        # accessory. Both use their own load history and double progression.
+        - id: accessory_hinge_unilateral
+          exercise: single_leg_db_rdl
+          sets: 3
+          reps: {low: 8, high: 10}
+          rir: {low: 2, high: 3}
+          rest_s: 90
+          essential: false
+          load_source: double_progression
+        - id: accessory_hip_extension
+          exercise: hip_thrust
           sets: 3
           reps: {low: 8, high: 12}
           rir: {low: 2, high: 3}
@@ -177,10 +196,10 @@ session_types:
         - id: squat_support
           # DEC-PROGRAMME-08: a second SSB exposure here made bench+squat a repeat of the
           # squat session's main lift two days apart. The competition squat keeps the squat
-          # pattern and the 4-set volume while changing the bar, and it is the squat the
-          # athlete actually trains, so the load comes from real recent sets.
+          # pattern and a 3-set support volume while changing the bar, and it is the squat
+          # the athlete actually trains, so the load comes from real recent sets.
           exercise: competition_squat
-          sets: 4
+          sets: 3
           reps: {low: 3, high: 5}
           rir: {low: 2, high: 3}
           rest_s: 180

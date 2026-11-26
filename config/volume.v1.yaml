@@ -11,7 +11,7 @@ window_weeks: 4
 # sets is a real zero. Complete is an explicit athlete choice, never inferred from a blank frame.
 ledger:
   coverage: unknown    # unknown | complete
-  set_accounting: hard # hard | effective (direct 1, configured indirect 0.5)
+  set_accounting: hard # hard | effective (direct 1, configured indirect 0.25)
 apply_mrv_cap: true
 
 under_mev:
@@ -27,6 +27,9 @@ landmarks:
   squat: {mev: 6, mav: [8, 12], mrv: 14}
   hinge: {mev: 6, mav: [6, 9], mrv: 10}
   hinge_unilateral: {mev: 0, mav: [0, 6], mrv: 8}
+  # DEC-PROGRAMME-12: loaded glute accessory; 3 sets on the hinge day. Coaching estimates,
+  # not measurements.
+  hip_extension: {mev: 3, mav: [3, 8], mrv: 10}
   # DEC-KNEEFLEX-01 / ASSUMPTION-50: a hip-dominant hinge leaves the knee-flexion hamstrings
   # untrained, and the template supplies 6 sets/week across the squat and hinge sessions. The
   # landmark numbers are coaching estimates (MEV 3 is a maintenance floor), not measurements.
@@ -44,23 +47,21 @@ budget:
   # enabled is the fallback used only when no athlete profile flag is recorded; the profile
   # flag athlete_profile.volume_budget_enabled (default off) is authoritative.
   enabled: false
-  # Explicit total. It must equal the sum of weekly_target below; the check catches editing only
-  # one of the two numbers. Change both when changing the weekly dose.
-  weekly_total: 69
+  # Totals are derived from the per-group rows below; they are not independent settings.
   # Effective-set target used only when ledger.set_accounting=effective. Direct 1.0,
   # indirect 0.25; this preserves the current direct dose and is NOT applied while accounting
-  # remains hard. The total must equal the sum of weekly_target_effective.
-  weekly_total_effective: 80.25
+  # remains hard.
   weekly_target_effective:
-    squat: 10
-    hinge: 6.5
-    hinge_unilateral: 0
+    squat: 8.5
+    hinge: 6.25
+    hinge_unilateral: 3
+    hip_extension: 3
     knee_flexion: 6
     horizontal_push: 12.75
     horizontal_pull: 10.125
     vertical_push: 6
     vertical_pull: 6.75
-    core: 10.125
+    core: 9.5
     erector_extension: 3
     power_jump: 9
   # Opt-in reduce mode: keep at least this many sets of a filled group's main lift. A coaching
@@ -70,9 +71,10 @@ budget:
   trim_enabled: true
   top_up_enabled: true
   weekly_target:
-    squat: 10
-    hinge: 6.5
-    hinge_unilateral: 0
+    squat: 8.5
+    hinge: 5.5
+    hinge_unilateral: 3
+    hip_extension: 3
     knee_flexion: 6
     horizontal_push: 12
     horizontal_pull: 9
@@ -91,6 +93,7 @@ budget:
       squat: 8
       hinge: 6
       hinge_unilateral: 5
+      hip_extension: 4
       knee_flexion: 4
       horizontal_push: 8
       horizontal_pull: 8

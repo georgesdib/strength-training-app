@@ -122,7 +122,6 @@ not test code.
 - Keep the four session types and their core slots; removing essential work or a main lift is a
   programme decision, not a cosmetic edit.
 - Do not invent exercise ids; validation rejects unknown ids.
-- Do not use legacy A/B/C day names.
 - Preserve the power/quality-stop and flare rules.
 - A template edit is a config change. It should be reviewed like a programme change, not applied
   casually mid-block.

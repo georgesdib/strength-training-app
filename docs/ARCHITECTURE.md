@@ -94,7 +94,7 @@ e1RM, volume or safety verdict.
 
 The former **constrained proposer** was withdrawn on 2026-11-17: the CLI `run --propose` surface
 was removed for CLI/UI parity, and `DEC-LLM-09` is closed rather than deferred. No LLM may select
-an exercise or propose a plan change. Retrieval/RAG remains deferred (INT-12).
+an exercise or propose a plan change. Retrieval/RAG was withdrawn with INT-12 on 2026-11-24.
 
 ## 4. Run lifecycle and trace
 
@@ -114,15 +114,12 @@ place. DataFrames are for computation; SQLite is for memory.
 
 ## 6. Deliberate omissions and current surface
 
-- **No hosted UI, no multi-user, no cloud.** A home-network web UI exists in
-  `strength_coach/web/` and calls the same core; it is not a hosted product and has no
-authentication yet (`LIM-57`).
+- **No hosted UI, no multi-user, no cloud, no authentication.** A home-network web UI exists in
+  `strength_coach/web/` and calls the same core; it is not a hosted product and runs
+  unauthenticated on a trusted home LAN (`LIM-57`, `DEC-WEB-04`).
 - No vector database for v0: the rules document is small and cited by ID, so exact
-  retrieval by ID beats semantic search. RAG is planned only for the *programme prose*,
-  where chunk IDs must be stable.
-- No multi-user, no cloud, no authentication yet; the owner accepted temporary
-  unauthenticated HTTP on the home LAN (`LIM-57`). Authentication and per-user data are
-  planned in `ROADMAP.md` §4.19.
+  retrieval by ID beats semantic search. RAG was withdrawn with INT-12 (2026-11-24); the
+  programme prose needs no retrieval beyond cited rule IDs.
 
 
 ## Local web UI
@@ -130,7 +127,7 @@ authentication yet (`LIM-57`).
 `strength_coach/web/` is a thin HTTP layer above the same core. It serialises prescriptions,
 critiques, readiness score/overrides and calibration; it never computes a load or a score. The server binds to
 0.0.0.0 and has no authentication; it is intended for the home LAN only. The CLI remains
-the automation surface. Auth/per-user/TLS are planned in `ROADMAP.md` §4.19.
+the automation surface. Authentication, per-user data and TLS are not planned (`DEC-WEB-04`).
 
 ## Related
 

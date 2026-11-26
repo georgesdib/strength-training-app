@@ -34,4 +34,8 @@ def test_snapshot_matches_every_definition_and_validates():
     assert snap.get("deload.reactive.consecutive_flares") == 2
     assert snap.get("e1rm.source") in ("best_usable", "median", "most_recent")
     assert snap.get("volume.landmarks.squat.mev") == 6.0
+    assert "knee_flexion" in settings_registry.LANDMARK_GROUPS
+    assert "hip_extension" in settings_registry.LANDMARK_GROUPS
+    assert snap.get("volume.landmarks.knee_flexion.mev") == 3.0
+    assert snap.get("volume.landmarks.hip_extension.mev") == 3.0
     assert snap.get("cardio.max_hr_bpm") == 200

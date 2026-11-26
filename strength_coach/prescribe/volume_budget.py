@@ -29,24 +29,25 @@ from strength_coach.utils import exercises, paths, yaml_files
 # budget; erector and power work are fixed template doses, included in the weekly total and the
 # session cap but never trimmed or topped up.
 TARGET_KEYS = (
-    "squat", "hinge", "hinge_unilateral", "knee_flexion", "horizontal_push",
-    "horizontal_pull", "vertical_push", "vertical_pull", "core", "erector_extension",
-    "power_jump",
+    "squat", "hinge", "hinge_unilateral", "hip_extension", "knee_flexion",
+    "horizontal_push", "horizontal_pull", "vertical_push", "vertical_pull", "core",
+    "erector_extension", "power_jump",
 )
 MANAGED_KEYS = (
-    "squat", "hinge", "hinge_unilateral", "knee_flexion", "horizontal_push",
-    "horizontal_pull", "vertical_push", "vertical_pull", "core",
+    "squat", "hinge", "hinge_unilateral", "hip_extension", "knee_flexion",
+    "horizontal_push", "horizontal_pull", "vertical_push", "vertical_pull", "core",
 )
 
 DEFAULT_TARGET = {
-    "squat": 10.0, "hinge": 6.5, "hinge_unilateral": 0.0, "knee_flexion": 6.0,
-    "horizontal_push": 12.0, "horizontal_pull": 9.0, "vertical_push": 3.0,
-    "vertical_pull": 4.5, "core": 6.0, "erector_extension": 3.0, "power_jump": 9.0,
+    "squat": 8.5, "hinge": 5.5, "hinge_unilateral": 3.0, "hip_extension": 3.0,
+    "knee_flexion": 6.0, "horizontal_push": 12.0, "horizontal_pull": 9.0,
+    "vertical_push": 3.0, "vertical_pull": 4.5, "core": 6.0,
+    "erector_extension": 3.0, "power_jump": 9.0,
 }
 DEFAULT_CAPS = {
-    "squat": 8, "hinge": 6, "hinge_unilateral": 5, "knee_flexion": 4,
-    "horizontal_push": 8, "horizontal_pull": 8, "vertical_push": 5, "vertical_pull": 5,
-    "core": 6,
+    "squat": 8, "hinge": 6, "hinge_unilateral": 5, "hip_extension": 4,
+    "knee_flexion": 4, "horizontal_push": 8, "horizontal_pull": 8,
+    "vertical_push": 5, "vertical_pull": 5, "core": 6,
 }
 
 # Matches the minimum-session planner's set cost. It is a planning estimate, not the clock.
@@ -161,8 +162,7 @@ class BudgetConfig:
     source_path: Path = Path()
 
     def total_target(self) -> float:
-        if self.weekly_total is not None:
-            return float(self.weekly_total)
+        # A total is never an input: it is always the sum of the per-group targets.
         return sum(float(value) for value in self.weekly_target.values())
 
     def targets_for(self, accounting: str) -> Mapping[str, float]:
@@ -171,17 +171,17 @@ class BudgetConfig:
         return self.weekly_target
 
     def total_for(self, accounting: str) -> float:
-        if accounting == "effective" and self.weekly_total_effective is not None:
-            return float(self.weekly_total_effective)
-        return self.total_target()
+        return sum(float(value) for value in self.targets_for(accounting).values())
 
     def as_config_dict(self) -> dict[str, Any]:
         """The YAML-shaped budget block, for a validated settings panel."""
         return {
             "enabled": self.enabled,
-            "weekly_total": self.weekly_total,
+            "weekly_total": self.total_target(),
             "weekly_target": {str(k): float(v) for k, v in self.weekly_target.items()},
-            "weekly_total_effective": self.weekly_total_effective,
+            "weekly_total_effective": sum(
+                float(v) for v in self.weekly_target_effective.values()
+            ),
             "weekly_target_effective": {
                 str(k): float(v) for k, v in self.weekly_target_effective.items()
             },
@@ -266,30 +266,14 @@ class BudgetConfig:
             raise ValueError("volume budget effective targets must cover every target key")
         if any(value < 0 for value in effective_targets.values()):
             raise ValueError("volume budget effective targets must be non-negative")
-        raw_effective_total = body.get("weekly_total_effective")
-        effective_total = (
-            float(raw_effective_total) if raw_effective_total is not None
-            else sum(effective_targets.values())
-        )
-        if abs(effective_total - sum(effective_targets.values())) > 0.51:
-            raise ValueError(
-                "volume budget weekly_total_effective must equal the sum of "
-                "weekly_target_effective"
-            )
+        # A total is derived, never read from the file or the profile. Old profile versions
+        # may still contain weekly_total keys; they are ignored rather than validated.
+        effective_total = sum(effective_targets.values())
         indirect_path = paths.config_dir("volume-indirect.v1.yaml")
         indirect_raw = (
             yaml_files.load_yaml_file(indirect_path) if indirect_path.exists() else {}
         )
-        raw_total = body.get("weekly_total")
-        total = float(raw_total) if raw_total is not None else sum(targets.values())
-        if total < 0:
-            raise ValueError("volume budget weekly_total must be non-negative")
-        if abs(total - sum(targets.values())) > 0.51:
-            raise ValueError(
-                "volume budget weekly_total "
-                f"{total:g} must equal the sum of weekly_target "
-                f"{sum(targets.values()):g}; change both when changing the dose"
-            )
+        total = sum(targets.values())
         floor = int(body.get("main_lift_floor", 3))
         if floor < 1:
             raise ValueError("volume budget main_lift_floor must be at least 1")

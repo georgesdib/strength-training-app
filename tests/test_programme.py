@@ -227,7 +227,7 @@ def test_scheduled_deload_is_suggested_not_applied():
         item for entry in entries for item in entry.prescription.items
         if item.exercise_id == "ssb_squat"
     )
-    assert squat.sets == 5
+    assert squat.sets == 4
     assert squat.rir_target >= 2
 
 
@@ -260,7 +260,7 @@ def test_scheduled_deload_can_be_applied_after_confirmation():
     assert applied.notes["deload_suggestion"]["applied"] is False
     assert any("MOD-DELOAD-001" in warning for warning in applied.warnings)
     squat = next(item for item in applied.items if item.exercise_id == "ssb_squat")
-    assert squat.sets == 4
+    assert squat.sets == 3
 
 def test_four_and_five_day_programmes_use_spaced_weekdays():
     four = programme._dates(dt.date(2024, 1, 1), 1, 4)

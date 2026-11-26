@@ -1,7 +1,8 @@
 # Per-lift readiness — evidence and implementation
 
-**Status: implemented 2026-10-20 (`DEC-LIFT-READY-01`), advisory and downward-only.**
-The score is a bounded extension of the global readiness score, not a validated instrument.
+**Status: implemented 2026-10-20 (`DEC-LIFT-READY-01`), advisory and downward-only; accepted as an
+informational prior on 2026-11-25 (`LIM-62` closed).** The score is a bounded extension of the
+global readiness score, not a validated instrument, and is not a validation target.
 
 ---
 
@@ -79,15 +80,17 @@ Status bands: `ready ≥ 0.75`, `monitor ≥ 0.50`, `low < 0.50`.
 - **No prospective validation.** There is no trial showing that reducing a lift's load on this
   score improves outcomes. Downward-only is the safety compromise.
 
-## 6. What would make it stronger
+## 6. What a future validation would need (not planned)
+
+Recorded so the option is explicit; none of these is scheduled.
 
 1. A lift-specific pre-session soreness/readiness rating (1–5), logged before the session.
 2. A standardised velocity check at a fixed load, so VBT is comparable across sessions.
 3. More measured e1RM tests, enabling an e1RM calibration report and a better trend baseline.
 4. Prospective validation: does a low per-lift score predict a missed rep or a worse session?
 
-Until then, the global readiness score remains the primary signal and this score is a
-transparent second opinion.
+The global readiness score remains the primary signal; this score stays a transparent second
+opinion.
 
 ## References
 

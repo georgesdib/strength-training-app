@@ -542,12 +542,19 @@ def _build_resolved(
             "final_integrity", f"prescription fingerprint failed: {exc}", cause=exc,
             beam_result=result,
         ) from exc
-    pending_ratings = sorted({
-        exercise_id
-        for slot in pools.template.slots
-        if (exercise_id := dict(best.assignment).get(slot.id))
-        and exercise_id in pools.suggestions.get(slot.id, ())
-    })
+    # A suggestion only blocks the start when an explicit can_do is required. With the
+    # default auto_requires_can_do=false, unrated candidates are startable and the resolver
+    # must not resurrect a pending confirmation the generator deliberately cleared.
+    pending_ratings = (
+        sorted({
+            exercise_id
+            for slot in pools.template.slots
+            if (exercise_id := dict(best.assignment).get(slot.id))
+            and exercise_id in pools.suggestions.get(slot.id, ())
+        })
+        if settings.require_can_do
+        else []
+    )
     generated_session = {
         "for_date": for_date,
         "session_type": session_type,

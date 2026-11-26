@@ -183,13 +183,15 @@ app computes its own non-authoritative score.
 |---|---|
 | entry_id PK | opaque id |
 | on_date | the day the reading describes |
-| field | an accepted readiness field; historical rows may carry the legacy `nutrition`, `hydration`, `fat_pct` or `grip_strength_kg` values, which the code now rejects for new writes |
-| value | numeric; 1–5 for score fields, positive for device fields (including grip strength in kg), 0–100 for wearable_score |
-| source | `manual` (currently the only writer) |
+| field | any enabled metric in the effective readiness registry, plus `bodyweight_kg` and `wearable_score`; historical rows may carry the legacy `nutrition`, `hydration`, `fat_pct` or `grip_strength_kg` values, which the code rejects for new writes |
+| value | numeric; the registry metric's scale for core fields (1–5 by default), positive for device fields, 0–100 for wearable_score |
+| source | `manual` or `preset` (import rows stay in `readiness_day`) |
 | recorded_at | when it was entered |
 | note | optional |
 
-Manual readings are one row per field, never an update. `queries.readiness_day` overlays the
+The closed `field` CHECK was removed by migration 0082 so a registry-added metric needs no
+schema change; validation now lives in the request/registry layer and rejects unknown, disabled
+or legacy fields. Manual readings are one row per field, never an update. `queries.readiness_day` overlays the
 latest entry per (date, field) over the imported `readiness_day` row, so a manual value wins
 **per field** and the imported fields around it survive (`DEC-READINESS-03`). The returned
 dict includes `sources` and `manual_merge_note` (imported value, manual value, winner) so the
@@ -242,22 +244,31 @@ The full derivation — sentinels, merge, storage, and what actually moves a loa
 [`docs/READINESS.md`](READINESS.md). Which fields drive MOD-FAT-001, the threshold and the merge
 tie-break are config (`config/readiness.v1.yaml`, `DEC-READINESS-04`).
 
-### 5.3 `readiness_setting` (append-only, per athlete)
+### 5.3 `readiness_registry` (append-only, date-effective)
 
 | column | notes |
 |---|---|
-| setting_id PK | opaque id |
-| effective_from | date the setting takes effect |
-| baseline_days / baseline_min_readings | HRV/RHR baseline window and minimum |
-| hrv_slope / rhr_slope | ratio half-width for normalisation |
-| hrv_weight / rhr_weight / wearable_weight | weights/blend |
-| note | optional |
-| source | user |
-| created_at | when entered |
+| registry_id PK | opaque id |
+| effective_from | date the version takes effect |
+| schema_version | payload schema (currently 1) |
+| payload_json | metrics, weights, baselines, minimum-field rule and wearable blend |
+| note | optional, why the version exists |
+| created_at | when appended |
 
-The latest row with `effective_from <= date` wins. It overrides `config/readiness.v1.yaml`;
-no row means config/defaults. Append-only, because changing a baseline changes a prescribed
-load.
+The latest row with `effective_from <= date` wins. The seed (version 1, 1970-01-01) reproduces
+the pre-registry score; every edit appends a version effective today and history is never
+updated. The payload is validated in code: keys must exist in `metric_definition`, role bounds
+are core 0.05-2.0 and device 0.05-1.0, a device metric needs its own baseline/readings/slope,
+and `require_any_of` must name enabled core metrics. `metric_definition` supplies label, scale
+and direction; the registry supplies only the operational fields. See
+[`READINESS-SCORE.md`](READINESS-SCORE.md) section 2.1b1.
+
+### 5.3a `readiness_setting` (historical, no longer written)
+
+The former per-athlete overlay is retained for history only; nothing reads or writes it after
+2026-11-25 (`DEC-READINESS-21`). Its columns were `setting_id`, `effective_from`,
+`baseline_days`, `baseline_min_readings`, `hrv_slope`, `rhr_slope`, `hrv_weight`, `rhr_weight`,
+`wearable_weight`, `note`, `source` and `created_at`.
 
 ## 6. `vbt_calibration` — append-only, versioned
 
@@ -452,6 +463,11 @@ Deliberate distinction: `feels_bad` is a preference the prescription may work ar
 `constraint.severity = hard_exclude` is a safety rule that vetoes. Conflating them would let
 a preference masquerade as a medical restriction, or the reverse.
 
+Stored rows always carry all three columns. At the API and state-import boundary, an absent
+field **inside an existing rating** is normalized to `can_do = 1`, `will_do = 1` (won't-do
+false) and `feels_bad = 0`. An absent rating is not a rating and does not receive those
+defaults: it still follows the resolver's unrated mode (`DEC-RESOLVER-34`).
+
 `rated_on` is a `YYYY-MM-DD` day and part of the primary key, so the table keeps at most one
 rating per exercise per day. The web write path makes an identical repeated write a no-op;
 a *different* rating for a day that already has one is refused with a field error and must be
@@ -500,10 +516,10 @@ It is consumed by the periodic **measurement** path (`features/measurements.py`,
 `DEC-MEASURE-01`): a measurement whose key has no row, or whose direction changes, is
 refused rather than reinterpreted.
 
-**It is not a live readiness-score driver.** The current readiness score uses hardcoded core
-fields plus weights/slopes from `config/readiness.v1.yaml`; there is no imported composite
-column or config flag any more. Adding a new readiness metric therefore still needs code/config
-work. The table has no weight/role, baseline or slope columns.
+**It is not the live readiness-score driver.** The score reads the `readiness_registry`
+(documented above); `metric_definition` supplies only the metric's label, scale and direction.
+The table has no weight/role, baseline or slope columns. Adding a metric still needs its
+definition row plus a registry version; `readiness registry define` and **Settings → Readiness inputs → Add a new input** create both atomically.
 
 A future dynamic composite would need at least:
 
@@ -671,6 +687,13 @@ it is append-only. Actual-set corrections and imports replay these events rather
 `workout_set`. A retried set is recognised only by the complete immutable payload, and both the
 automatic `set_index` allocation and the attribution check run inside the same write transaction
 as the insert.
+
+Late reconciliation adds four event types to the same stream: `late_reconciliation` (opens the
+window with `pending_devices` and `closes_at`), `late_set` (a set applied after completion),
+`reconciliation_closed` and `late_rejected` (an arrival after the window, preserved with its
+payload and excluded from totals). The window length is `ios.v1.yaml: reconciliation_window_days`
+(default 7). A late set is written into `clean_set` and the `session` totals are recomputed, so
+reports and analytics see it; plan-completeness flags are deliberately left unchanged.
 
 Execution changes add `substitution` and `addition` rows to the same append-only stream. Their
 `payload_json` carries `client_event_id`, the slot (`plan_item_index` or `after_item_index`),
@@ -874,8 +897,13 @@ ios_issued_plan:
 | consumed_at | set atomically with workout creation |
 | superseded_at | set when a newer issue replaces this live plan |
 | workout_id | references workout_session after start |
+| execution_id | uuid4; the workout the plan will become, minted at issue (migration 0076) so an offline start can name it before it reaches the server |
+| load_catalogue_json | the resolver's own load output for every taxonomy exercise (migration 0077), shipped so an offline substitution applies a server decision; null on older rows |
 
-A partial unique index permits one live, unstarted plan per device. Issuing supersedes the old
+A partial unique index permits one live, unstarted plan per device, and a unique index on
+`execution_id` permits one plan per execution. `for_date` may now be today or yesterday at start,
+and the bind is judged by the client's recorded `started_at` against the plan's own window, so a
+session started at 23:50 and synced at 00:10 keeps its real start and date. Issuing supersedes the old
 live plan before inserting the new one. A consumed plan returns its in-progress workout on a
 same-key replay; a completed/abandoned or superseded plan is a 410.
 

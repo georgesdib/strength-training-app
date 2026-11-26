@@ -17,6 +17,7 @@ from typing import Any
 import pandas as pd
 import yaml
 
+from strength_coach.domain.athlete_state import suitability_values
 from strength_coach.features import injury_signal, readiness_score, recent_stress
 from strength_coach.prescribe import constraints as constraints_mod
 from strength_coach.prescribe import selection_tax, templates
@@ -213,14 +214,12 @@ def _current(slot: templates.Slot, context) -> str:
 
 
 def _preference(exercise_id: str, suitability: Mapping[str, Mapping[str, Any]]) -> float:
-    rating = suitability.get(exercise_id) or {}
-    if not rating:
+    if exercise_id not in suitability:
         return 0.5
-    if rating.get("can_do") in (0, False):
+    flags = suitability_values(suitability.get(exercise_id))
+    if not flags["can_do"] or flags["feels_bad"]:
         return 0.0
-    if rating.get("feels_bad") in (1, True):
-        return 0.0
-    return 1.0 if rating.get("will_do") in (1, True) else 0.5
+    return 1.0 if flags["will_do"] else 0.5
 
 
 def _history_context(context, exercise_id: str, window_days: int = 84) -> HistoryContext:

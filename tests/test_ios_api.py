@@ -686,3 +686,17 @@ def test_cli_pair_end_to_end_with_the_running_server(ios, capsys):
     assert status == 200, body
     assert body["device"]["label"] == "iPhone"
     assert _device_count(ios["path"]) == 1
+
+
+def test_readiness_schema_is_served_to_the_phone(ios):
+    token, _ = _paired(ios)
+    status, schema = _request(
+        ios["base"], "/api/ios/v1/readiness/schema?date=2024-01-01", token=token,
+    )
+    assert status == 200, schema
+    assert schema["registry_id"] == 1
+    assert [metric["key"] for metric in schema["metrics"]][0] == "sleep"
+
+    status, today = _request(ios["base"], "/api/ios/v1/today", token=token)
+    assert status == 200, today
+    assert today["readiness"]["registry_version"] == 1

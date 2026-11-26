@@ -311,7 +311,7 @@ validated verbatim. The MCP unit needs `ReadWritePaths` on the database director
 - The timeout cannot cancel CPU-bound work; it bounds the response only.
 - No metrics endpoint; use the journal audit lines.
 - No package for a distribution's package manager; install from the virtual environment.
-- A stored IANA profile timezone is still ROADMAP §4.19 work; set `TZ` on the host.
+- A stored IANA profile timezone is not planned (`DEC-WEB-04`); set `TZ` on the host.
 - The MCP unit is installed and running on the ODROID as a host-specific variant. The synthetic
   baseline there
   measured **p50 3,101.9 ms / p95 3,169.4 ms at 377 sessions** (2026-11-14), above the one-second

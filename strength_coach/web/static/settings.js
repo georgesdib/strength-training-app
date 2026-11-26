@@ -241,9 +241,9 @@ function renderVolumeSettings(data) {
   const comp = budget.compensation || {};
   const targetRows = Object.keys(targets).map((key) => `
     <tr><td><code>${esc(key)}</code></td>
-      <td><input type="number" step="0.5" min="0" data-volume-target="${esc(key)}"
+      <td><input type="number" step="any" min="0" data-volume-target="${esc(key)}"
         aria-label="${esc(key)} weekly target" value="${esc(targets[key])}"></td>
-      <td><input type="number" step="0.5" min="0" data-volume-effective="${esc(key)}"
+      <td><input type="number" step="any" min="0" data-volume-effective="${esc(key)}"
         aria-label="${esc(key)} effective weekly target" value="${esc(effectiveTargets[key] ?? targets[key])}"></td>
     </tr>`).join("");
   const capRows = Object.keys(caps).map((key) => `
@@ -328,7 +328,7 @@ function renderVolumeSettings(data) {
         ${policyInput("volume.under_mev.add_sets", "Under-MEV add sets", "int", "1", "1")}
         ${policyInput("volume.under_mev.max_sets_per_item", "Under-MEV per-item max", "int", "1", "1")}
       </div>
-      <details class="advanced"><summary>MEV / MAV / MRV landmarks</summary>
+      <details class="advanced" id="settings-volume-landmarks"><summary>MEV / MAV / MRV landmarks</summary>
         <div class="table-scroll"><table><thead><tr><th>group</th><th>MEV</th><th>MAV low</th>
           <th>MAV high</th><th>MRV</th></tr></thead><tbody>${landmarkRows}</tbody></table></div>
       </details>
@@ -387,9 +387,6 @@ function volumeDraft() {
     .map((node) => [node.dataset.volumeTarget, Number(node.value)]));
   budget.weekly_target_effective = Object.fromEntries([...document.querySelectorAll("[data-volume-effective]")]
     .map((node) => [node.dataset.volumeEffective, Number(node.value)]));
-  budget.weekly_total = Object.values(budget.weekly_target).reduce((sum, value) => sum + value, 0);
-  budget.weekly_total_effective = Object.values(budget.weekly_target_effective)
-    .reduce((sum, value) => sum + value, 0);
   budget.session_cap = {
     total: Number(document.querySelector('[data-volume-budget="session_cap.total"]').value),
     per_pattern: Object.fromEntries([...document.querySelectorAll("[data-volume-cap]")]
@@ -416,10 +413,6 @@ function volumeDraft() {
     $("#settings-volume-comp-slots").value, "Compensation slots"
   );
   const budgetPatch = volumeDiff(current, budget) || {};
-  if (budgetPatch.weekly_target) budgetPatch.weekly_total = budget.weekly_total;
-  if (budgetPatch.weekly_target_effective) {
-    budgetPatch.weekly_total_effective = budget.weekly_total_effective;
-  }
   const policy = {};
   document.querySelectorAll("[data-volume-policy]").forEach((node) => {
     policy[node.dataset.volumePolicy] = volumePolicyValue(node);

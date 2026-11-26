@@ -18,6 +18,8 @@ The authoritative list of every documentation file, its category and its status 
 | [IMPLEMENTATION-PLAN-2026-10](IMPLEMENTATION-PLAN-2026-10.md) | Outcomes/longevity/readiness implementation plan | A0–F implemented | [ROADMAP](../../ROADMAP.md) |
 | [MODULE-LAYOUT](MODULE-LAYOUT.md) | Original module layout and test strategy | superseded | [ARCHITECTURE](../ARCHITECTURE.md), [AGENTS](../../AGENTS.md) |
 | [NEXT-PHASE-FATIGUE-PLAN](NEXT-PHASE-FATIGUE-PLAN.md) | Lean non-cardio fatigue plan | closed 2026-10-20 | [FATIGUE-SIGNALS](../FATIGUE-SIGNALS.md) |
+| [PERFORMANCE-CARRYOVER-PHASE0](PERFORMANCE-CARRYOVER-PHASE0.md) | Pre-registered mechanism analysis for performance-informed volume, with its result | closed 2026-11-24 — verdict `stop` | [VOLUME-MANAGEMENT](../VOLUME-MANAGEMENT.md) |
+| [PERFORMANCE-PERSISTENCE-PLAN](PERFORMANCE-PERSISTENCE-PLAN.md) | Continuous next-exposure persistence follow-up, pre-registered and run | closed 2026-11-24 — label `carry-over`; descriptive use only | [SANITY-CHECKS](../SANITY-CHECKS.md) |
 | [PROGRAMME-BUILDER-PLAN](PROGRAMME-BUILDER-PLAN.md) | Deterministic template-resolver design and steps 0–6 | closed 2026-11-03 | [ROADMAP](../../ROADMAP.md) §4.25 |
 | [READINESS-AUDIT](READINESS-AUDIT.md) | W6 readiness audit | closed | [READINESS](../READINESS.md), [READINESS-SCORE](../READINESS-SCORE.md) |
 | [RESOLVER-ACCEPTANCE-AUDIT](RESOLVER-ACCEPTANCE-AUDIT.md) | Resolver acceptance audit | closed 2026-11-03 | [ROADMAP](../../ROADMAP.md) §4.25 |

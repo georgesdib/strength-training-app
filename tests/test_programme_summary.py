@@ -17,23 +17,26 @@ ROOT = Path(__file__).resolve().parents[1]
 REVIEW = ROOT / "docs" / "STRENGTH-PROGRAM-REVIEW.md"
 
 
-def test_the_review_names_the_sumo_and_not_the_replaced_lift():
+def test_the_review_names_the_sumo_and_the_hinge_accessories():
     block = summary.render()
     assert "Sumo Deadlift" in block
-    assert "single-leg RDL" not in block
+    assert "single-leg RDL" in block
+    assert "Hip Thrust" in block
     assert "single_leg_db_rdl" not in block
 
 
 def test_the_weekly_totals_are_the_documented_cycle():
     totals = summary.weekly_sets()
-    assert totals["squat (SSB main + competition support)"] == 7
+    assert totals["squat (SSB main + competition support)"] == 5.5
     assert totals["bench (main + support)"] == 12
-    assert totals["trap-bar deadlift"] == 5
+    assert totals["trap-bar deadlift"] == 4
     assert totals["sumo deadlift"] == 1.5
     assert totals["vertical pull"] == 4.5
+    assert totals["single-leg RDL"] == 3
+    assert totals["hip extension"] == 3
     assert totals["knee-flexion hamstrings"] == 6
-    assert sum(totals.values()) == 69
-    assert summary.render().count("**69 working sets/week**") == 1
+    assert sum(totals.values()) == 72.5
+    assert summary.render().count("**72.5 working sets/week**") == 1
 
 
 def test_the_spinal_costs_match_the_cycle():
@@ -60,13 +63,6 @@ def test_every_template_exercise_has_exactly_one_display_group():
 def test_the_committed_review_block_is_current():
     text = REVIEW.read_text(encoding="utf-8")
     assert summary.extract(text) == summary.render()
-
-
-def test_the_current_state_documents_do_not_use_the_old_movement():
-    for relative in ("ROADMAP.md", "docs/CORE-TRAINING.md"):
-        text = (ROOT / relative).read_text(encoding="utf-8")
-        assert "single-leg RDL" not in text, relative
-        assert "single_leg_db_rdl" not in text, relative
 
 
 def test_the_block_round_trips():

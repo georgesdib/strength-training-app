@@ -25,7 +25,7 @@ disagreement in the literature).
 | Ab wheel is core, not erector dose | CONFIRMED | Anti-extension isometric; erectors stabilise but are not the trained target. |
 | Planks log **seconds** in a reps column | CONFIRMED by the data | Values in the tens-to-hundreds for a hold are durations, not repetitions. Modelled as `rep_semantics: seconds`. |
 | Pause-bench variants are programme lifts | CORRECTED | They had been left as generic accessories; the brief's hinge day allows "close-grip **or pause** bench", so `bench_press_pause` is a first-class main lift with `vbt_family: bench`. |
-| A non-main-lift squat may still be a primary compound | CORRECTED | Kept `main_lift: false` for programme role, but added `primary_compound: true` and `programme_slot_of`. Rationale: an effort rule scoped only to `main_lift` would leave most heavy squatting unregulated. |
+| A non-main-lift squat may still be a primary compound | CORRECTED | Front squat, high-bar squat and the other variants keep `main_lift: false` while carrying `primary_compound: true` and `programme_slot_of`, so an effort rule scoped only to `main_lift` would still leave most heavy squatting unregulated. The competition squat was promoted to `main_lift: true` later (`DEC-PROGRAMME-10`, 2026-11-24) because the athlete trains it as a main lift; it keeps `primary_compound: true` and `programme_slot_of`. |
 
 ### Ordering bugs these checks surfaced
 Regex order is the fragile part of a taxonomy, and two real misclassifications were caught by
@@ -197,6 +197,10 @@ without conditioning on provenance penalises the athlete for following the presc
 - **ASSUMPTION-56** — the Part B sufficiency gates (≥ 5 comparable observations for a signal; ≥ 20 per lift over ≥ 8 weeks on two lifts, with an estimated residual spread, for evaluation) and the 84-day comparison window are precision guards, not validated thresholds. Nothing may use a residual until the evaluation gate is met (`DEC-RESIDUAL-01`).
 
 - **ASSUMPTION-55** — the Part D advisory thresholds (low exposure below 0.7 for two weeks; a positive residual above its own spread) are display heuristics and never change a prescription.
+
+- **ASSUMPTION-59** — the persistence follow-up gates (β ≥ 0.3 with a 95 % interval lower bound > 0; ≥ 50 pairs; ≥ 20 distinct current sessions; ≥ 4 exercises with ≥ 3 pairs; P2 estimated only at ≥ 20 triplets) are usefulness and precision bars fixed before the run, not measured cut-points. One look; a positive authorises a descriptive sentence only. Pre-registered in `docs/PERFORMANCE-PERSISTENCE-PLAN.md`.
+
+- **ASSUMPTION-58** — the Phase 0 decision thresholds (10-percentage-point risk difference, OR > 1 with a CI excluding 1, 0.5-MAD next-session shift, 40 % channel agreement with kappa ≥ 0.10, a 5–40 % trigger rate, and 20 session-lifts with 15 trigger sets) are usefulness bars fixed before the analysis, not measured cut-points; the 8-pair H2 floor is an implementation guard. They are pre-registered in `docs/PERFORMANCE-CARRYOVER-PHASE0.md`, and the result may not be re-read against a different rule.
 
 - **ASSUMPTION-50** — the knee-flexion landmarks (MEV 3 / MAV 4–8 / MRV 10), the 6-set weekly target, the 4-set session cap and the 63-set weekly total are coaching estimates chosen to fit the two-exposure template, not measurements; MEV 3 is a maintenance floor, not a validated minimum (`docs/archive/VOLUME-MODULATION-PLAN.md` §13, `DEC-KNEEFLEX-01`).
 

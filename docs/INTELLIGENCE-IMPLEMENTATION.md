@@ -5,7 +5,7 @@ weekly review (closed 2026-11-15), INT-4 native model surface, INT-5 server narr
 server/web chat (closed 2026-11-15) are implemented. Read-only, provider-neutral, independently
 runnable. Evidence producers for the aggregate capabilities remain deferred; INT-6 model tool calling
 and streaming are deferred by owner decision. INT-11 (local docs/code Explain) is implemented and
-closed with documented limitations; INT-12 (web search/RAG) is deferred. Programme-block archive
+closed with documented limitations; INT-12 (web search/RAG) was withdrawn on 2026-11-24. Programme-block archive
 context, missing outcome evidence for reactive trigger counts and iOS physical acceptance remain.
 **Scope owner:** the canonical plan is the portfolio
 [Training Intelligence plan](https://github.com/georgesdib/strength-app/blob/main/docs/plans/TRAINING-INTELLIGENCE.md);
@@ -244,8 +244,8 @@ Commands:
 - **No baseline context package.** `provenance.context_hash` covers the request context (capability,
   arguments, database and config revisions) under builder version `context.v1`. INT-2 replaces the
   argument component with the baseline package without changing the field.
-- **Timezone** is the platform's local zone name, not an IANA profile timezone (that is
-  ROADMAP §4.19). The authoritative date remains the server's local calendar date.
+- **Timezone** is the platform's local zone name, not an IANA profile timezone (not planned;
+  `DEC-WEB-04`). The authoritative date remains the server's local calendar date.
 - **No cache.** Every call reads; caching is deferred until the target host measurement exists.
 - **The timeout does not cancel work.** It bounds the response; a blocked SQLite read finishes in
   its worker thread and its result is discarded. Leftover work is a bounded read on a connection
@@ -536,7 +536,7 @@ context was therefore left unimplemented.
 
 - Set the host timezone. The authoritative training date is the server-local calendar date; an
   unset TZ on a headless machine makes it UTC and can shift the window by a day. A stored IANA
-  profile timezone remains ROADMAP §4.19 work; the envelope reports the platform zone name.
+  profile timezone is not planned (`DEC-WEB-04`); the envelope reports the platform zone name.
 - The service user must be able to read the database. The transport opens it `mode=ro` and never
   runs migrations; point `--db` at the existing database rather than copying it into a second
   writable store.
@@ -569,7 +569,7 @@ Ranked hypotheses (not implemented):
    the flare rule (must preserve the "last two training days" semantics).
 2. **`workout.summary`** repeatedly builds a rule context and load-base map for a single session;
    reuse one context per summary or restrict to the session window.
-3. **Readiness settings YAML is parsed per computed score**; cache/load it once per request.
+3. **The readiness registry payload is parsed per computed score**; cache/load it once per request.
 
 These were hypotheses; the first remediation pass is now implemented.
 
@@ -990,8 +990,8 @@ with a fake client; normal tests make no model call. MCP parity is covered by th
 cross-transport test comparing MCP structured content with the in-process envelope.
 
 **Scope.** Multi-tool orchestration is deferred to INT-6; INT-5 stays one capability per call. Web
-access and RAG are deferred for both the web UI and iOS: there is no browsing, URL fetch, web tool
-or vector retrieval; the model sees structured capability facts only. The server also
+access and RAG were withdrawn (INT-12, 2026-11-24) for both the web UI and iOS: there is no
+browsing, URL fetch, web tool or vector retrieval; the model sees structured capability facts only. The server also
 needs `config/llm.local.toml` with a provider key before `narrate` can call a model.
 
 ## 30. INT-6 — server/web chat (closed 2026-11-15)
@@ -1030,12 +1030,12 @@ local incremental FTS5 index, retrieval, citation check, explain/status endpoint
 refresh and web/iOS Explain tabs exist. The owner closed the device-acceptance and release-tag items
 on 2026-11-17 by decision: no separate device run was made and no dedicated tag was cut, so Explain
 ships with the next tagged release. Known gaps: programme-block archive/contract context and no
-outcome evidence cited for reactive trigger counts. INT-12 web search/RAG is deferred.
+outcome evidence cited for reactive trigger counts. INT-12 web search/RAG was withdrawn on 2026-11-24.
 
-**INT-12 — Web search and RAG.** Deferred: opt-in fixed-provider web search with URL citations and
-SSRF/privacy controls; embeddings only if the INT-11 keyword baseline is measured insufficient. The
-existing MCP server is transport and facts-only; it is not a search engine and does not provide web
-access. Exposing either capability over MCP needs a new ADR and contract revision.
+**INT-12 — Web search and RAG (withdrawn).** Withdrawn by the owner on 2026-11-24: no web search,
+page fetch, URL citation or retrieval-augmented generation is planned. Nothing was built. The MCP
+server stays transport and facts-only; exposing external content would need a new ADR and contract
+revision.
 
 ## 32. INT-11 first slice — local knowledge index and CLI (2026-11-16)
 
@@ -1116,9 +1116,10 @@ file that becomes secret-bearing, oversized, unreadable or invalid UTF-8 has its
 metadata removed in the same build. Tests cover secret, invalid UTF-8 and oversized transitions.
 
 **Citations and sources.** Source blocks and citations carry the `backend`, `portfolio` or `ios`
-namespace. Resolution uses `(source, path, line range)`; source-less ambiguous paths are unverified.
-Only backend docs use the local docs viewer; portfolio/iOS docs use GitHub at the indexed commit;
-private files remain copy-only.
+namespace. Resolution uses `(source, path, line range)`; a repository name written as the first
+path segment is accepted as the namespace (`backend/docs/x.md` becomes `backend:docs/x.md`), and
+source-less ambiguous paths are unverified. Only backend docs use the local docs viewer;
+portfolio/iOS docs use GitHub at the indexed commit; private files remain copy-only.
 
 **Prompt and index.** The system prompt marks project sources as untrusted and forbids following
 instructions inside them. Python classes are split into a header and method chunks with the chunk

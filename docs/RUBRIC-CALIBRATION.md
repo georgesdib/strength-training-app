@@ -125,7 +125,7 @@ monthly marking habit described in earlier revisions of this page no longer appl
 ## 7. References
 
 - `DEC-EVAL-03`, `DEC-EVAL-04`, `DEC-EVAL-05`, `DEC-EVAL-06`, `DEC-EVAL-07`; `LIM-64`
-- [ROADMAP.md](../ROADMAP.md) §4.13a and §4.14
+- [ROADMAP-RETIRED.md](../ROADMAP-RETIRED.md) §4.13a and §4.14
 - `strength_coach/critique/rubric.py`, `strength_coach/eval/harness.py`, `strength_coach/eval/store.py`
 - [STRENGTH-PROGRAM-REVIEW.md](STRENGTH-PROGRAM-REVIEW.md) for the programme evidence, not the
   calibration loop

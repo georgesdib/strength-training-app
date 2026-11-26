@@ -572,6 +572,21 @@ def test_e1rm_override_withdrawal_appends_a_tombstone(server):
     assert "reason" in json.loads(body)["fields"]
 
 
+def test_suitability_absent_flags_use_can_do_true_will_do_true_feels_bad_false(server):
+    first = post(server, "/api/state/suitability", {
+        "exercise_id": "ssb_squat", "rated_on": "2024-01-01",
+    })
+    rating = first["suitability"]["ssb_squat"]
+    assert (rating["can_do"], rating["will_do"], rating["feels_bad"]) == (1, 1, 0)
+
+    second = post(server, "/api/state/suitability", {
+        "exercise_id": "bench_press", "rated_on": "2024-01-01",
+        "feels_bad": True,
+    })
+    rating = second["suitability"]["bench_press"]
+    assert (rating["can_do"], rating["will_do"], rating["feels_bad"]) == (1, 1, 1)
+
+
 def test_same_day_suitability_repeat_is_idempotent(server, tmp_path):
     payload = {
         "exercise_id": "ssb_squat", "rated_on": "2024-01-01",
@@ -860,19 +875,73 @@ def test_the_fatigue_review_can_be_acknowledged_over_the_api(server):
     assert task["status"] == "not_due"
 
 
-def test_readiness_settings_and_shadow_endpoints(server):
-    data = post(server, "/api/readiness/settings", {
-        "date": "2024-01-01",
-        "baseline_days": 14,
-        "baseline_min_readings": 4,
-        "hrv_slope": 0.4,
-        "rhr_slope": 0.4,
-        "hrv_weight": 0.4,
-        "rhr_weight": 0.4,
-        "wearable_weight": 0.1,
+def _registry_payload(schema: dict) -> dict:
+    metrics = []
+    for metric in schema["metrics"]:
+        entry = {key: metric[key] for key in (
+            "key", "role", "enabled", "weight", "baseline_days", "counts_as_core", "order",
+        )}
+        if metric["role"] == "device":
+            entry["min_readings"] = metric["min_readings"]
+            entry["slope"] = metric["slope"]
+        metrics.append(entry)
+    return {
+        "schema_version": schema["schema_version"],
+        "min_core_fields": schema["min_core_fields"],
+        "require_any_of": schema["require_any_of"],
+        "wearable_weight": schema["wearable_weight"],
+        "metrics": metrics,
+    }
+
+
+def test_readiness_registry_endpoints_replace_the_old_settings_surface(server):
+    status, body = get(server, "/api/readiness/registry/history")
+    assert status == 200
+    assert len(json.loads(body)["versions"]) == 1
+
+    status, body = get(server, "/api/readiness/schema?date=2024-01-01")
+    schema = json.loads(body)
+    payload = _registry_payload(schema)
+    payload["metrics"][0]["weight"] = 1.5
+
+    preview = post(server, "/api/readiness/registry/preview", {
+        "payload": payload, "date": "2024-01-01",
     })
-    assert data["settings"]["setting_source"] == "athlete"
-    assert data["settings"]["baseline_days"] == 14
+    assert any("sleep.weight: 1.0 -> 1.5" in line for line in preview["changes"])
+
+    saved = post(server, "/api/readiness/registry", {"payload": payload, "note": "test"})
+    assert saved["registry_id"] == 2
+
+    status, body = get(server, "/api/readiness/registry/history")
+    assert len(json.loads(body)["versions"]) == 2
+
+    status, body = get(server, "/api/readiness/" + date.today().isoformat())
+    assert status == 200
+    assert json.loads(body)["registry_version"] == 2
+
+    status, _ = post_status(server, "/api/readiness/settings", {"date": "2024-01-01"})
+    assert status == 404
+
+
+def test_readiness_registry_can_define_a_new_metric(server):
+    today = date.today().isoformat()
+    created = post(server, "/api/readiness/registry/metrics", {
+        "key": "sleep_quality", "label": "Sleep quality", "role": "core",
+        "scale_min": 1, "scale_max": 5, "weight": 1.0, "required": True,
+        "note": "test input",
+    })
+    assert created["metric"]["key"] == "sleep_quality"
+    assert created["registry"]["registry_id"] == 2
+
+    status, body = get(server, f"/api/readiness/schema?date={today}")
+    schema = json.loads(body)
+    assert "sleep_quality" in {metric["key"] for metric in schema["metrics"]}
+    assert "sleep_quality" in schema["require_any_of"]
+
+    saved = post(server, "/api/readiness", {
+        "date": today, "values": {"sleep_quality": 4},
+    })
+    assert saved["registry_version"] == 2
 
     status, body = get(server, "/api/readiness/shadow")
     assert status == 200
@@ -1223,7 +1292,7 @@ def test_volume_settings_endpoint_reads_effective_budget_and_policy(server):
     assert status == 200
     data = json.loads(body)
     assert data["date"] == "2024-01-01"
-    assert data["budget"]["weekly_target"]["squat"] == 10
+    assert data["budget"]["weekly_target"]["squat"] == 8.5
     assert data["budget"]["session_cap"]["total"] == 30
     assert data["policy"]["volume.ledger.coverage"] == "unknown"
     assert data["athlete"]["main_lift_policy"] == "preserve"
@@ -1247,14 +1316,14 @@ def test_volume_settings_requires_reason_and_high_impact_confirmation(server):
     assert "reason" in body
 
     status, body = post_status(server, "/api/settings/volume", {
-        "budget": {"weekly_target": {"squat": 11}, "weekly_total": 70},
+        "budget": {"weekly_target": {"squat": 11}},
         "reason": "increase squat target",
     })
     assert status == 400
     assert "VOLUME" in body
 
     saved = post(server, "/api/settings/volume", {
-        "budget": {"weekly_target": {"squat": 11}, "weekly_total": 70},
+        "budget": {"weekly_target": {"squat": 11}},
         "reason": "increase squat target",
         "confirm_text": "VOLUME",
     })
@@ -1425,7 +1494,7 @@ def test_prescribe_suggests_a_scheduled_deload_and_applies_only_when_confirmed(s
     suggested_squat = next(
         item for item in suggested["items"] if item["exercise_id"] == "ssb_squat"
     )
-    assert suggested_squat["sets"] == 5
+    assert suggested_squat["sets"] == 4
 
     applied = post(server, "/api/prescribe", {
         "date": "2024-02-05", "session_type": "squat", "deload_confirmed": True,
@@ -1433,7 +1502,7 @@ def test_prescribe_suggests_a_scheduled_deload_and_applies_only_when_confirmed(s
     assert applied["notes"]["deload"]["trigger"] == "scheduled"
     assert applied["fallback_level"] == "fatigue_reduced"
     squat = next(item for item in applied["items"] if item["exercise_id"] == "ssb_squat")
-    assert squat["sets"] == 4
+    assert squat["sets"] == 3
 
 
 def test_progress_dashboard_endpoint(server):
@@ -1882,6 +1951,15 @@ def test_minimum_session_prescription_is_explicit_and_volume_only(server):
     assert note["requested"] is True
     assert note["target_minutes"] == 30
     assert "MOD-MIN-001" in " ".join(data["warnings"])
+
+
+def test_prescribe_rejects_an_unsupported_minimum_target(server):
+    status, body = post_status(server, "/api/prescribe", {
+        "date": "2024-01-01", "session_type": "hinge",
+        "minimum_session": True, "target_minutes": 35,
+    })
+    assert status == 400
+    assert "30, 45 or 60" in body
 
 
 def test_prospective_endpoint_is_read_only(server):
@@ -3742,3 +3820,33 @@ def test_overview_includes_the_programme_header(server):
     assert header is not None
     assert set(header) >= {"trained_week", "deload"}
     assert "calendar_week" in header["deload"]
+
+
+def test_readiness_schema_endpoint_and_registry_version(server):
+    status, body = get(server, "/api/readiness/schema?date=2024-01-01")
+    assert status == 200
+    schema = json.loads(body)
+    assert schema["registry_id"] == 1
+    assert schema["min_core_fields"] == 3
+    assert schema["require_any_of"] == ["sleep", "energy"]
+    keys = [metric["key"] for metric in schema["metrics"]]
+    assert keys == ["sleep", "energy", "mood", "stress", "soreness", "hrv_ms", "rhr_bpm"]
+    assert schema["metrics"][0]["scale_max"] == 5
+
+    status, body = get(server, "/api/readiness/2024-01-01")
+    assert status == 200
+    assert json.loads(body)["registry_version"] == 1
+
+
+def test_readiness_form_is_rendered_from_the_registry_schema(server):
+    js = client_js(server)
+    assert "/api/readiness/schema" in js
+    assert "renderReadinessForm" in js
+    assert "SCORE_FIELDS" not in js
+    status, body = get(server, "/")
+    assert status == 200
+    assert 'id="readiness-required-note"' in body
+    assert 'id="readiness-registry-form"' in body
+    assert 'id="registry-metrics"' in body
+    assert "registryPayloadFromForm" in js
+    assert "/api/readiness/settings" not in js

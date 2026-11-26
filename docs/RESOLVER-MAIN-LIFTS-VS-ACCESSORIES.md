@@ -165,7 +165,8 @@ The suitability rules are:
 |---|---|
 | No rating, `require_can_do=true`, `unrated_mode=confirm` | Suggestion only |
 | No rating, `require_can_do=true`, `unrated_mode=exclude` | Excluded |
-| No rating, `require_can_do=false` | Auto |
+| No rating, `require_can_do=false` | Auto; start allowed, not pending |
+| Rating exists, field absent | `can_do` yes, `will_do` yes (won't-do false), `feels_bad` no |
 | `can_do=false` | Excluded |
 | `will_do=false` | Suggestion if `will_do_blocks`; otherwise excluded |
 | `feels_bad=true` | Suggestion if `feels_bad_blocks`; otherwise excluded |

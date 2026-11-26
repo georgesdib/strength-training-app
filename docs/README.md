@@ -6,7 +6,7 @@ audience, and the Docs viewer is generated from it. This page is a curated entry
 manifest is authoritative for metadata and navigation.
 
 Start with [`USER-GUIDE.md`](../USER-GUIDE.md) to use the app, and [`ROADMAP.md`](../ROADMAP.md)
-for current status and next actions. [`AGENTS.md`](../AGENTS.md) holds the engineering rules.
+for open work and next actions; completed history is in ROADMAP-DONE.md and retired work in ROADMAP-RETIRED.md. [`AGENTS.md`](../AGENTS.md) holds the engineering rules.
 
 ## Status legend
 

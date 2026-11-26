@@ -30,10 +30,9 @@ from strength_coach.prescribe import warmup as warmup_feature
 from strength_coach.prescribe.config import Thresholds
 from strength_coach.utils import paths
 
-LANDMARK_GROUPS = (
-    "squat", "hinge", "hinge_unilateral", "horizontal_push", "horizontal_pull",
-    "vertical_push", "vertical_pull", "core",
-)
+# Derived from the canonical landmark table so a new managed group (for example
+# hip_extension) appears in the Settings/API without a second hard-coded list.
+LANDMARK_GROUPS = tuple((VolumeConfig.load().landmarks or {}).keys())
 CLASSES = ("prescription_policy", "guarded_safety", "display")
 
 
@@ -155,7 +154,7 @@ def _definitions() -> tuple[SettingDefinition, ...]:
            choices=("unknown", "complete")),
         _d("volume.ledger.set_accounting", "Volume", "Set accounting", "str", "hard",
            "volume.v1.yaml", "prescription_policy",
-           "hard = raw working sets; effective = direct 1 plus configured indirect 0.5.",
+           "hard = raw working sets; effective = direct 1 plus configured indirect 0.25.",
            choices=("hard", "effective")),
         _d("volume.under_mev.enabled", "Volume", "Under-MEV progression", "bool", True,
            "volume.v1.yaml", "prescription_policy", "Add a set after persistent under-MEV."),
@@ -328,9 +327,10 @@ def _definitions() -> tuple[SettingDefinition, ...]:
            "Chance that a slot explores its best alternative instead of keeping its last "
            "choice. See docs/DWELL-AND-ROTATION.md.",
            minimum=0.0, maximum=1.0),
-        _d("resolver.eligibility.auto_requires_can_do", "Resolver", "Require can_do", "bool", True,
+        _d("resolver.eligibility.auto_requires_can_do", "Resolver", "Require can_do", "bool", False,
            "settings profile (registry defaults)", "prescription_policy",
-           "Only an explicit can_do=1 is auto-selectable."),
+           "true requires an explicit can_do=1 (unrated follows Unrated exercises); false "
+           "(default) allows an unrated selection and start."),
         _d("resolver.eligibility.unrated_mode", "Resolver", "Unrated exercises", "str",
            "confirm", "settings profile (registry defaults)", "prescription_policy",
            "confirm suggests an unrated exercise and asks for a rating; exclude hides it.",

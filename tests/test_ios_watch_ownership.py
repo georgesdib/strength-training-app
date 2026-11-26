@@ -1,4 +1,4 @@
-"""Phase 6.1: ownership, takeover, revision and plan-item mismatch."""
+"""S5: the pairing shares a plan; only the phone writes execution (D3, D12)."""
 
 # The shared HTTP fixture and helpers are intentionally imported from test_ios_workflow.
 # ruff: noqa: F401, F811
@@ -41,20 +41,20 @@ def _mint_watch(ios, phone_token):
     return body["token"], body["device"]["device_id"]
 
 
-def _watch_workout(ios, monkeypatch):
+def _pairing_workout(ios, monkeypatch):
     _enabled(monkeypatch)
-    phone, _ = _paired(ios)
+    phone, phone_device = _paired(ios)
     watch, _ = _mint_watch(ios, phone)
-    status, plan = _issue(ios, phone, body={"execution_target": "watch"})
+    status, plan = _issue(ios, phone)
     assert status == 200, plan
-    status, started = _start(ios, watch, plan["issued_plan_id"])
+    status, started = _start(ios, phone, plan["issued_plan_id"])
     assert status == 200, started
-    return phone, watch, started
+    return phone, phone_device, watch, started
 
 
-def test_start_records_owner_and_revision(ios, monkeypatch):
-    phone, watch, started = _watch_workout(ios, monkeypatch)
-    assert started["owner_device_id"] != phone
+def test_start_records_owner_as_provenance(ios, monkeypatch):
+    phone, phone_device, watch, started = _pairing_workout(ios, monkeypatch)
+    assert started["owner_device_id"] == phone_device["device_id"]
     assert started["plan_revision"] == 0
     assert started["last_activity_at"] == started["started_at"]
 
@@ -68,32 +68,47 @@ def test_start_records_owner_and_revision(ios, monkeypatch):
     assert execution["stale"] is False
 
 
-def test_takeover_transfers_writes_to_the_phone(ios, monkeypatch):
-    phone, watch, started = _watch_workout(ios, monkeypatch)
+def test_only_the_phone_writes_execution(ios, monkeypatch):
+    phone, _device, watch, started = _pairing_workout(ios, monkeypatch)
     item = _first_item(started["plan"])
-    status, body = _request(
-        ios["base"], f"/api/ios/v1/workouts/{started['workout_id']}/takeover",
-        method="POST", payload={"confirm": True}, token=watch,
-        key=uuid.uuid4().hex,
-    )
-    assert status == 403, body
 
+    status, body = _add_set(ios, phone, started["workout_id"], item)
+    assert status == 200, body
+    # The watch token is read-only: execution commits through the phone (D3, D12).
+    status, refused = _add_set(ios, watch, started["workout_id"], item, set_index=2)
+    assert status == 403, refused
+    assert refused["code"] == "watch_read_only"
+
+
+def test_the_watch_reads_but_cannot_write(ios, monkeypatch):
+    _enabled(monkeypatch)
+    phone, _ = _paired(ios)
+    watch, _ = _mint_watch(ios, phone)
+    status, plan = _issue(ios, phone)
+    assert status == 200, plan
+    status, seen = _request(ios["base"], "/api/ios/v1/plans/current", token=watch)
+    assert status == 200, seen
+    assert seen["issued_plan_id"] == plan["issued_plan_id"]
+    status, started = _start(ios, phone, plan["issued_plan_id"])
+    assert status == 200, started
+    item = _first_item(started["plan"])
+    status, refused = _add_set(ios, watch, started["workout_id"], item)
+    assert status == 403, refused
+    assert refused["code"] == "watch_read_only"
+
+
+def test_takeover_route_is_gone(ios, monkeypatch):
+    phone, phone_device, watch, started = _pairing_workout(ios, monkeypatch)
     status, body = _request(
         ios["base"], f"/api/ios/v1/workouts/{started['workout_id']}/takeover",
         method="POST", payload={"confirm": True}, token=phone,
         key=uuid.uuid4().hex,
     )
-    assert status == 200, body
-    assert body["owner_device_id"] != started["owner_device_id"]
-
-    status, body = _add_set(ios, watch, started["workout_id"], item)
-    assert status == 409, body
-    status, body = _add_set(ios, phone, started["workout_id"], item)
-    assert status == 200, body
+    assert status == 404, body
 
 
 def test_a_stale_plan_item_index_is_kept_as_extra_work(ios, monkeypatch):
-    _phone, watch, started = _watch_workout(ios, monkeypatch)
+    phone, phone_device, watch, started = _pairing_workout(ios, monkeypatch)
     items = started["plan"]["items"]
     assert len(items) >= 2
     first = items[0]
@@ -104,7 +119,7 @@ def test_a_stale_plan_item_index_is_kept_as_extra_work(ios, monkeypatch):
     # The plan is frozen, so this is a stale index: the set is preserved as extra work and
     # never attributed to another exercise's slot. The 409 plan_item_mismatch is retired.
     status, body = _add_set(
-        ios, watch, started["workout_id"], first,
+        ios, phone, started["workout_id"], first,
         plan_item_index=0, exercise_id=other,
     )
     assert status == 200, body
@@ -114,7 +129,7 @@ def test_a_stale_plan_item_index_is_kept_as_extra_work(ios, monkeypatch):
 
     # An annotated substitution keeps the slot on both columns.
     status, body = _add_set(
-        ios, watch, started["workout_id"], first,
+        ios, phone, started["workout_id"], first,
         exercise_id=other, substitutes_plan_item_index=0, set_index=2,
     )
     assert status == 200, body
@@ -123,8 +138,35 @@ def test_a_stale_plan_item_index_is_kept_as_extra_work(ios, monkeypatch):
     assert annotated["substitutes_plan_item_index"] == 0
 
 
+def test_origin_device_is_persisted_and_must_share_the_pairing(ios, monkeypatch):
+    _enabled(monkeypatch)
+    phone, _ = _paired(ios)
+    _watch, watch_id = _mint_watch(ios, phone)
+    status, plan = _issue(ios, phone)
+    assert status == 200, plan
+    status, started = _start(ios, phone, plan["issued_plan_id"])
+    assert status == 200, started
+    item = _first_item(started["plan"])
+
+    status, body = _add_set(
+        ios, phone, started["workout_id"], item, origin_device_id=watch_id,
+    )
+    assert status == 200, body
+    assert body["sets"][-1]["origin_device_id"] == watch_id
+
+    # A device from another pairing cannot be claimed as the origin.
+    other_phone, _ = _paired(ios)
+    _other_watch, other_watch_id = _mint_watch(ios, other_phone)
+    status, body = _add_set(
+        ios, phone, started["workout_id"], item, set_index=2,
+        origin_device_id=other_watch_id,
+    )
+    assert status == 403, body
+    assert body["code"] == "origin_not_in_pairing"
+
+
 def test_watch_cannot_author_an_execution_change(ios, monkeypatch):
-    phone, watch, started = _watch_workout(ios, monkeypatch)
+    _phone, phone_device, watch, started = _pairing_workout(ios, monkeypatch)
     payload = {
         "event_id": str(uuid.uuid4()),
         "change": "substitution",
@@ -136,4 +178,4 @@ def test_watch_cannot_author_an_execution_change(ios, monkeypatch):
         method="POST", payload=payload, token=watch, key=uuid.uuid4().hex,
     )
     assert status == 403, body
-    assert body["code"] == "not_phone"
+    assert body["code"] == "watch_read_only"

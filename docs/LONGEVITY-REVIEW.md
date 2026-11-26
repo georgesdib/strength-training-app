@@ -52,7 +52,7 @@ Two conclusions follow immediately:
 | Power / explosiveness | **yes: `box_jump` on Day A** | modest function benefit; declines with age | **covered (2026-10-20)** |
 | Pulling (vertical/horizontal) | **yes: `pull_up`/`lat_pulldown` on Day B** | structural balance, shoulder/upper-back; no mortality claim | **covered (2026-10-20)** |
 | Grip / loaded carry | **no** | grip is prognostic; carries load the trunk | **optional — priority 3** |
-| Balance | **no** | falls prevention in 60+ | **age-dependent — priority 3** |
+| Balance | **no** | falls prevention in 60+ | **conditional priority (strongest 60+) — priority 3** |
 | Mobility / stretching | no | no injury-prevention evidence as a standalone | **not needed** |
 | Assessment (VO2max, grip, body fat, sit-to-stand, steps) | **no** | you cannot track what you do not measure | **missing — priority 2** (body fat has been captured as a periodic measurement since 2026-11-06; the others are captured when tested) |
 
@@ -80,7 +80,7 @@ fitness floor, not endurance sport. The interference literature supports this do
 lifting ([Ferraro-Farro 2026](https://doi.org/10.1055/a-2820-4527)).
 
 **What the app needs first:** cardio capture (modality, duration, HR, sRPE), then a
-prescription and a fatigue model. That is ROADMAP §4.13. **Capture is done** (2026-10-20):
+prescription and a fatigue model. That is ROADMAP-RETIRED.md §4.13. **Capture is done** (2026-10-20):
 `cardio_log`, `strength-coach cardio`, the Cardio page and `GET/POST /api/cardio`. The
 prescription and fatigue model are still open, and the injury signal still cannot see
 running/cycling load.
@@ -156,10 +156,11 @@ Add optional, low-burden measures so the programme can be judged against its own
 None of these changes a load. They answer "is the longevity programme working?" in a way an
 e1RM cannot.
 
-### 3.5 Balance and loaded carries — optional, age-dependent
+### 3.5 Balance and loaded carries — optional, evidence strongest in older adults
 
 Balance training has good falls evidence in adults 60+, and almost none in younger lifters.
-Include it if the athlete is over ~60 or reports unsteadiness; otherwise treat it as optional.
+Include it if falls prevention is a priority or the athlete reports unsteadiness; otherwise treat it
+as optional.
 Carries are already performed and load the trunk; one carry slot (3×30-40 s) is a reasonable
 optional addition, but grip strength is a **marker**, not a proven target — do not sell it as
 mortality reduction.
@@ -172,7 +173,7 @@ mortality reduction.
 - **Stretching as injury prevention**: no standalone evidence; keep mobility specific to the
   lifts if needed.
 - **A single "fatigue score"** for cardio plus lifting: the two exposures have different
-  fatigue signatures (ROADMAP §4.13).
+  fatigue signatures (ROADMAP-RETIRED.md §4.13).
 
 ## 4. What is outside the app's scope
 
@@ -183,7 +184,7 @@ different product with its own data-quality problems.
 
 ## 5. Sequence (1 and 3 applied)
 
-1. **Cardio capture** (ROADMAP §4.13): table, CLI/web entry, display; no prescription change.
+1. **Cardio capture** (ROADMAP-RETIRED.md §4.13): table, CLI/web entry, display; no prescription change.
    **Done 2026-10-20.**
 2. **Cardio prescription** after capture exists: a weekly target and one interval session,
    config-driven, with injury links for running/cycling.
@@ -200,14 +201,15 @@ different product with its own data-quality problems.
   **Applied:** pulling variants and power.
 - Q18: which longevity assessment metrics should the app record, and how often?
 
-Cardio scope is Q14 and ROADMAP §4.13. This review only ranks the priorities.
+Cardio scope is Q14 and ROADMAP-RETIRED.md §4.13. This review only ranks the priorities.
 
 ## 7. Limitations
 
 - Most mortality evidence is observational; effect sizes are associations, not proof that
   adding the modality causes the benefit.
-- The power and balance trials are in older adults; the athlete's age is not recorded, so the
-  recommendation is age-conditional.
+- The power and balance trials are in older adults. Age is not stored and will not be added
+  (`LIM-35`), so the recommendation is a generic optional priority rather than a personal one, and
+  no "at this age" claim is made.
 - The cardio dose is a guideline synthesis, not an individual prescription; it needs the
   athlete's current fitness and preferences, neither of which is in the app yet.
 - Time-in-zone is an elapsed-time integration of heart-rate samples inside the workout interval,

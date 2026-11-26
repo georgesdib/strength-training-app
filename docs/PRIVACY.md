@@ -1,8 +1,8 @@
 # PRIVACY AND PUBLIC DOCS
 
 This repository is public. The app is local-first and uses a single local data store. The web
-UI is exposed on the owner's home LAN with no authentication and no TLS for now; this is an
-explicitly accepted temporary risk (`LIM-57`) and must not be exposed to the public internet.
+UI is exposed on the owner's home LAN with no authentication and no TLS; this is an explicitly
+accepted, permanent risk (`LIM-57`, `DEC-WEB-04`) and must not be exposed to the public internet.
 
 ## 1. Rule
 
@@ -12,8 +12,8 @@ Public docs must not contain:
 - exact personal performance values or body measurements;
 - exact single-athlete sample sizes or dates that identify a training history;
 - raw exports, database rows or workout logs;
-- real usernames, passwords, birth dates, gender values or other account/profile values.
-  Design and roadmap examples must use placeholders; credentials and birth dates belong only in
+- real usernames, passwords, gender values or other account/profile values.
+  Design and roadmap examples must use placeholders; credentials and profile values belong only in
   the private setup record or the local CLI, never in the public repository.
 
 Use a general description, a synthetic example, or move the exact detail to `private/`.

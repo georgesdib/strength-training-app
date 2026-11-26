@@ -60,31 +60,49 @@ def test_weekly_target_matches_the_six_session_template_sum():
     assert {key: totals[key] / 2 for key in totals} == pytest.approx(
         dict(config.weekly_target)
     )
-    # 69 = 57 + 6 knee-flexion sets + 3 broad-jump sets + 3 throw sets
-    # (DEC-KNEEFLEX-01, DEC-POWER-04/05). The template sum and the explicit total
-    # must move together.
-    assert config.total_target() == 69
+    # 72.5 = 51.5 targeted + 6 knee-flexion + 9 power + 3 hip-extension + 3 unilateral
+    # hinge sets (DEC-KNEEFLEX-01, DEC-POWER-04/05, DEC-PROGRAMME-12).
+    assert config.total_target() == 72.5
 
 
-def test_weekly_total_is_explicit_and_must_match_the_category_sum(tmp_path):
+def test_explicit_totals_are_ignored_and_always_derived(tmp_path):
     source = volume_budget.BudgetConfig.load().source_path
     text = source.read_text(encoding="utf-8")
-    mismatch = tmp_path / "mismatch.yaml"
-    mismatch.write_text(
-        text.replace("  weekly_total: 69", "  weekly_total: 66"), encoding="utf-8"
-    )
-    with pytest.raises(ValueError, match="weekly_total"):
-        volume_budget.BudgetConfig.load(mismatch)
-    consistent = tmp_path / "consistent.yaml"
-    consistent.write_text(
-        text.replace("  weekly_total: 69", "  weekly_total: 72").replace(
-            "  weekly_target:\n    squat: 10", "  weekly_target:\n    squat: 13"
+    path = tmp_path / "explicit-totals.yaml"
+    path.write_text(
+        text.replace(
+            "  weekly_target_effective:",
+            "  weekly_total: 999\n  weekly_total_effective: 999\n"
+            "  weekly_target_effective:",
         ),
         encoding="utf-8",
     )
-    config = volume_budget.BudgetConfig.load(consistent)
-    assert config.total_target() == 72
-    assert config.weekly_target["squat"] == 13
+    config = volume_budget.BudgetConfig.load(path)
+    assert config.total_target() == pytest.approx(sum(config.weekly_target.values()))
+    assert config.total_for("effective") == pytest.approx(
+        sum(config.weekly_target_effective.values())
+    )
+
+
+def test_profile_totals_are_ignored_and_derived_from_the_targets():
+    cfg = volume_budget.BudgetConfig.load(profile_budget={
+        "weekly_total": 999,
+        "weekly_total_effective": 999,
+    })
+    assert cfg.total_target() == pytest.approx(sum(cfg.weekly_target.values()))
+    assert cfg.total_for("effective") == pytest.approx(
+        sum(cfg.weekly_target_effective.values())
+    )
+
+
+def test_profile_target_override_is_preserved_and_the_total_is_derived():
+    cfg = volume_budget.BudgetConfig.load(profile_budget={
+        "weekly_target_effective": {"squat": 10},
+    })
+    assert cfg.weekly_target_effective["squat"] == 10
+    assert cfg.total_for("effective") == pytest.approx(
+        sum(cfg.weekly_target_effective.values())
+    )
 
 
 def test_reduce_floor_is_configurable_and_validated(tmp_path):
@@ -116,7 +134,7 @@ def test_all_budget_parameters_are_config_backed(tmp_path):
         .replace("  top_up_max_sets_per_item: 8", "  top_up_max_sets_per_item: 6")
         .replace("  set_seconds: 30", "  set_seconds: 45")
         .replace("    total: 30", "    total: 24")
-        .replace("    squat: 8", "    squat: 7")
+        .replace("    per_pattern:\n      squat: 8", "    per_pattern:\n      squat: 7")
         .replace("  tolerance: 0.10", "  tolerance: 0.20")
         .replace("  warmup_estimate_minutes: 5", "  warmup_estimate_minutes: 4")
         .replace("  session_time_cap_minutes: 90", "  session_time_cap_minutes: 70")
@@ -202,13 +220,12 @@ def test_feasibility_flags_a_frequency_below_the_minimum():
     effective = dict(config.weekly_target)
     reachable = volume_budget.feasibility(effective, config, current_frequency=3)
     unreachable = volume_budget.feasibility(effective, config, current_frequency=1)
-    # 63 sets against the 30-set session cap needs three sessions; adding knee flexion moved
-    # this from two, so a two-session week is now correctly flagged instead of silently
-    # overloaded.
+    # 72.5 sets against the 30-set session cap needs three sessions, so a two-session week
+    # is correctly flagged instead of silently overloaded.
     assert reachable["min_sessions"] == 3
     assert reachable["reachable"] is True
     assert unreachable["reachable"] is False
-    assert unreachable["unreachable_sets"] == 39.0
+    assert unreachable["unreachable_sets"] == 42.5
 
 
 def _rows():
@@ -340,7 +357,7 @@ def test_report_includes_the_per_pattern_diagnosis():
         store.close()
     assert set(report["per_pattern"]) == set(volume_budget.MANAGED_KEYS)
     hinge = report["per_pattern"]["hinge"]
-    assert hinge["target"] == 6.5
+    assert hinge["target"] == 5.5
     assert "top_up_capacity" in hinge
     assert "persistent" in hinge
 
@@ -415,7 +432,7 @@ def test_record_exemptions_writes_the_safety_cut():
         volume_budget.record_exemptions(
             conn, prescription_id="p1", effective_on=TODAY, session_type="squat",
             items=[
-                {"exercise_id": "ssb_squat", "sets": 4,
+                {"exercise_id": "ssb_squat", "sets": 3,
                  "rationale_refs": ["MOD-FAT-001"]},
                 {"exercise_id": "bench_press", "sets": 4,
                  "rationale_refs": ["MOD-VOL-003"]},
@@ -550,7 +567,7 @@ def test_reduce_engine_slice_honours_the_profile():
     preserved_ssb = next(i for i in preserved.items if i.exercise_id == "ssb_squat")
     assert reduced_ssb.sets == 3
     assert "MOD-VOL-003" in reduced_ssb.rationale_refs
-    assert preserved_ssb.sets == 5
+    assert preserved_ssb.sets == 4
     assert reduced.notes["volume_budget"]["main_lift_reduce"]
 
 

@@ -11,7 +11,7 @@ prescription. The server is authoritative for readiness, prescriptions, loads, s
 progression and scoring.
 
 Read only what the task needs:
-- `ROADMAP.md` — live phase status and next actions. Completed history is in ROADMAP-DONE.md; read that only for an audit or a past-deliverable question.
+- `ROADMAP.md` — open work and next actions only. Completed history is in ROADMAP-DONE.md and retired/decided-against work is in ROADMAP-RETIRED.md; read the archives only for an audit or a past-deliverable question.
 - `docs/DECISIONS.md` — expensive-to-reverse decisions.
 - `docs/DATA-MODEL.md` — canonical schema.
 - `docs/API.md` — HTTP contracts.
@@ -206,7 +206,7 @@ Config-only edits do not need a restart; any change under strength_coach/ does.
 - Adding a hard rule.
 - Changing a threshold that affects a prescription.
 - Interpreting an ambiguous rule; add it to `OPEN-QUESTIONS.md`.
-- Phase status changes; update `ROADMAP.md` in the same commit.
+- Phase status changes; update `ROADMAP.md` in the same commit, and move completed or retired items to `ROADMAP-DONE.md` or `ROADMAP-RETIRED.md`.
 - Fixing data that looks wrong: flag/quarantine, never silently delete.
 
 State the ambiguity, options and recommendation, then wait.

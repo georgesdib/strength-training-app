@@ -27,8 +27,9 @@ from typing import Any
 
 import pandas as pd
 
+from strength_coach.domain.athlete_state import suitability_values
 from strength_coach.ingest.sessions import Session
-from strength_coach.store import symptom_attribution
+from strength_coach.store import queries, symptom_attribution
 from strength_coach.utils import measurements as measurement_utils
 from strength_coach.utils import numeric
 from strength_coach.utils import readiness as readiness_utils
@@ -662,12 +663,15 @@ def append_exercise_suitability(
     *,
     exercise_id: str,
     rated_on: str,
-    can_do: bool,
-    will_do: bool,
-    feels_bad: bool,
+    can_do: bool | None = True,
+    will_do: bool | None = True,
+    feels_bad: bool | None = False,
     note: str | None = None,
     source: str = "user",
 ) -> None:
+    flags = suitability_values({
+        "can_do": can_do, "will_do": will_do, "feels_bad": feels_bad,
+    })
     conn.execute(
         """
         INSERT INTO exercise_suitability (exercise_id, rated_on, can_do, will_do, feels_bad,
@@ -677,9 +681,9 @@ def append_exercise_suitability(
         (
             exercise_id,
             rated_on,
-            1 if can_do else 0,
-            1 if will_do else 0,
-            1 if feels_bad else 0,
+            1 if flags["can_do"] else 0,
+            1 if flags["will_do"] else 0,
+            1 if flags["feels_bad"] else 0,
             note,
             source,
         ),
@@ -719,6 +723,25 @@ def append_metric_definition(
     )
 
 
+def append_readiness_registry(
+    conn: sqlite3.Connection,
+    *,
+    effective_from: str,
+    payload_json: str,
+    schema_version: int = 1,
+    note: str | None = None,
+) -> int:
+    """Append a readiness registry version. Validation belongs to the model; this is storage."""
+    cursor = conn.execute(
+        """
+        INSERT INTO readiness_registry (effective_from, schema_version, payload_json, note)
+        VALUES (?, ?, ?, ?)
+        """,
+        (effective_from, schema_version, payload_json, note),
+    )
+    return int(cursor.lastrowid)
+
+
 def append_readiness_entry(
     conn: sqlite3.Connection,
     *,
@@ -735,7 +758,8 @@ def append_readiness_entry(
     """
     if source not in {"manual", "import", "preset"}:
         raise ValueError(f"unknown readiness source {source!r}")
-    readiness_utils.validate(field, value)
+    specs = queries.readiness_input_specs(conn, on_date)
+    readiness_utils.validate_input(field, value, specs.get(field))
     entry_id = uuid.uuid4().hex
     recorded_at = datetime.datetime.now(datetime.UTC).strftime(
         "%Y-%m-%dT%H:%M:%S.%fZ"
@@ -748,50 +772,6 @@ def append_readiness_entry(
         (entry_id, on_date, field, float(value), source, recorded_at, note),
     )
     return entry_id
-
-
-def append_readiness_setting(
-    conn: sqlite3.Connection,
-    *,
-    effective_from: str,
-    baseline_days: int,
-    baseline_min_readings: int,
-    hrv_slope: float,
-    rhr_slope: float,
-    hrv_weight: float,
-    rhr_weight: float,
-    wearable_weight: float,
-    note: str | None = None,
-    source: str = "user",
-) -> None:
-    """Append a per-athlete score setting. Latest effective row wins; nothing is edited."""
-    datetime.date.fromisoformat(str(effective_from))
-    if not 1 <= int(baseline_days) <= 365:
-        raise ValueError("baseline_days must be 1-365")
-    if not 1 <= int(baseline_min_readings) <= int(baseline_days):
-        raise ValueError("baseline_min_readings must be 1..baseline_days")
-    for name, value in (("hrv_slope", hrv_slope), ("rhr_slope", rhr_slope)):
-        if not 0 < float(value) <= 1:
-            raise ValueError(f"{name} must be in (0, 1]")
-    for name, value in (("hrv_weight", hrv_weight), ("rhr_weight", rhr_weight),
-                        ("wearable_weight", wearable_weight)):
-        if not 0 <= float(value) <= 1:
-            raise ValueError(f"{name} must be from 0 to 1")
-    uuid_value = uuid.uuid4().hex
-    conn.execute(
-        """
-        INSERT INTO readiness_setting (
-            setting_id, effective_from, baseline_days, baseline_min_readings,
-            hrv_slope, rhr_slope, hrv_weight, rhr_weight, wearable_weight,
-            note, source
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            uuid_value, str(effective_from), int(baseline_days), int(baseline_min_readings),
-            float(hrv_slope), float(rhr_slope), float(hrv_weight), float(rhr_weight),
-            float(wearable_weight), note, source,
-        ),
-    )
 
 
 def append_readiness_override(

@@ -28,8 +28,8 @@ strength-coach web --port 8001
 `--host` through. It is convenience only: it ends in the same `strength-coach web`.
 
 **Home network only, no authentication.** The default bind is `0.0.0.0`; use it only behind a
-trusted home router and never forward the port. The accepted temporary risk is `LIM-57`;
-authentication/per-user/TLS are planned in `ROADMAP.md` §4.19.
+trusted home router and never forward the port. The accepted risk is `LIM-57`; authentication,
+per-user data and TLS are not planned (`DEC-WEB-04`).
 
 ### Autostart (systemd)
 
@@ -70,8 +70,10 @@ The page uses a **collapsible left menu**: the ☰ button opens it, and ×, the 
   retired (`DEC-EVAL-09`): there is no marks column, no mark form, no calibration button and no
   report. Sessions completed after the retirement show no items.
 - **Workflow** — guided readiness → preview → start → active workout → post-workout comparison; owns the daily readiness form, the computed global/category score and the **Override the score** panel beside it. The panel names the date it writes (the readiness date above it), offers global or per-pattern scopes, and states that a category override wins over global and that both expire with the date. The prescription preview is also here.
-- **Readiness** — baseline and policy settings; the daily log and score overrides live in Workflow;
-  per-athlete baseline settings and the shadow baseline report are available; quick presets show
+- **Readiness** — the versioned **Readiness inputs** registry editor (per-metric enabled/weight/
+  baseline, minimum core fields, wearable blend, preview and history) plus **Add a new input**,
+  which creates the catalogue definition and registry version together, and the shadow baseline
+  report; the daily log and score overrides live in Workflow; quick presets show
   their sleep/energy/soreness/stress values and an **Edit preset YAML** action edits
   `config/readiness-presets.v1.yaml` with validation before saving; the **Volume valve** sets the
   poor-readiness accessory set reduction; the volume ledger and MRV cap are on Prescribe. A
@@ -203,8 +205,8 @@ ratio inherits its precision limits.
   or unavailable) with an explanatory reason. **Record a strength test** scrolls to and focuses
   the existing dynamically rendered `#test-form`; it does not create a second form or submission
   path.
-- **Prescribe → Regime change** — read-only 8-week check for a main lift disappearing while a
-  same-category substitute rises; a review question, never an action.
+- **Prescribe → Regime change** — informational-only, read-only 8-week check for a main lift
+  disappearing while a same-category substitute rises; a review question, never an action.
 - **Explain** — project docs/code/private retrieval with grounded citations and a form for top chunks, context budget and answer word limit.
 - **Chat** — read-only multi-turn conversation over the same capability catalogue, with a 20-turn cap, only the recent ten messages sent, session-only browser memory, a separate “Suggestion — not applied” block, source capabilities and unverified-number warnings. It never writes or applies a suggestion. A collapsed **Show raw data** disclosure at the end of each answer shows the exact request sent to the model and the provider's raw response; it lives only in the browser session and is never stored.
 - **Narrate** — under Programme Intelligence: choose any registered read-only capability, edit its JSON payload, and ask the configured model for a validated narrative. The model and token count are shown; numbers absent from the envelope appear as an **Unverified numbers** warning rather than a failure. Selecting a capability shows its description, required/optional payload fields and a working example; **Show raw output** exposes the exact facts passed to the model. Health-class capabilities (weekly review, readiness history, longevity) require an explicit disclosure and checkbox that names the configured provider/model before the request is sent, and the server rejects a health envelope without `health_consent`. The deterministic envelope is available without narration. The envelope is unchanged and the prompt/narrative are not stored. A missing model is a clear error, not a fallback.

@@ -24,11 +24,12 @@ SESSION_TYPES = ("squat", "hinge", "bench_squat", "bench_hinge")
 # json.dumps(p.as_rows(), sort_keys=True, separators=(",", ":")). They are not regenerated
 # from the extracted implementation. Regenerated 2026-11-11 for the approved empty-bar warm-up
 # rung (first warm-up = min(20 kg, 50% ramp), 10 reps), a deliberate prescription change.
+# Regenerated 2026-11-24 for the owner's template volume reduction (DEC-PROGRAMME-11).
 GOLDEN_ROWS_SHA256 = {
-    "squat": "f49c0065e4baebbd06bf4747bf6215a3b6174a748b739e628b75e057510255d4",
-    "hinge": "d94f49565d7e5e3a64b01f07d4ac933a3ec7d414ca95acc2e90c03fdc6887f69",
-    "bench_squat": "e48cd98e3e708519e79620d243710c5daa95bf2749c7ebcc09cc8f6ca0d7407a",
-    "bench_hinge": "8f015bdf99df4b8a43de823f789d80ccfe006a35260ad864054fdf7e83b5b1ef",
+    "squat": "481143ab17b0eb4bcbb0f0201b0b3bea7427c0406a02af727a8cdb57207aa575",
+    "hinge": "980130c7672d071d362b18ae858a467d91bdefec449d03a8fe78fd88dfc37386",
+    "bench_squat": "147975f6930fd13d9ecc25378154a15a3cf9ba64bc2d51bd4d8700f56175c61e",
+    "bench_hinge": "06a683240e5737a2e4905e8b17f65fa49965374cf2955132ecbff24f0d05a0c1",
 }
 
 
@@ -66,6 +67,11 @@ def history_rows_all_days() -> list[dict]:
              "RIR": "2", "Reps_Done": "8"},
             {"Date": day, "Exercise": "Trap Bar Deadlift", "Weight_Used": "150",
              "RIR": "2", "Reps_Done": "5"},
+            # DEC-PROGRAMME-12: hinge-day accessories need a starting load in the fixture.
+            {"Date": day, "Exercise": "Hip Thrust", "Weight_Used": "60",
+             "RIR": "2", "Reps_Done": "8"},
+            {"Date": day, "Exercise": "Single Leg DB RDL", "Weight_Used": "20",
+             "RIR": "2", "Reps_Done": "8"},
             {"Date": day, "Exercise": "Sumo Deadlift", "Weight_Used": "120",
              "RIR": "2", "Reps_Done": "5"},
             {"Date": day, "Exercise": "Bench Press (narrow grip)", "Weight_Used": "90",

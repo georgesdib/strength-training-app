@@ -23,6 +23,13 @@ def _settings(**overrides) -> ResolverSettings:
     return ResolverSettings.from_values(values)
 
 
+def _strict(**overrides) -> ResolverSettings:
+    """Settings that require an explicit can_do, for tests of rated selection."""
+    values = {"resolver.eligibility.auto_requires_can_do": True}
+    values.update(overrides)
+    return _settings(**values)
+
+
 def _rate(
     conn,
     exercise_id: str,
@@ -154,7 +161,8 @@ def test_require_can_do_false_allows_unrated_selection() -> None:
             ),
         )
         assert session.exercise_ids
-        assert session.pending_ratings
+        # With can_do not required, an unrated selection is startable, not pending.
+        assert session.pending_ratings == ()
     finally:
         store.close()
 
@@ -164,7 +172,8 @@ def test_generates_the_blueprint_defaults_when_defaults_are_rated() -> None:
     try:
         _rate_defaults(store.connection, "squat")
         session = generator.generate(
-            store.connection, for_date="2026-11-01", session_type="squat"
+            store.connection, for_date="2026-11-01", session_type="squat",
+            settings=_strict(),
         )
         template = templates.SessionTemplate.load("squat")
         assert session.exercise_ids == tuple(
@@ -184,7 +193,8 @@ def test_every_session_type_generates(session_type: str) -> None:
     try:
         _rate_defaults(store.connection, session_type)
         session = generator.generate(
-            store.connection, for_date="2026-11-01", session_type=session_type
+            store.connection, for_date="2026-11-01", session_type=session_type,
+            settings=_strict(),
         )
         assert session.session_type == session_type
         assert session.template.primary_exercise == templates.SessionTemplate.load(
@@ -195,11 +205,12 @@ def test_every_session_type_generates(session_type: str) -> None:
         store.close()
 
 
-def test_unrated_power_slot_is_suggested_for_rating() -> None:
+def test_unrated_power_slot_is_suggested_when_can_do_is_required() -> None:
     store = db.Store(":memory:")
     try:
         session = generator.generate(
-            store.connection, for_date="2026-11-01", session_type="squat"
+            store.connection, for_date="2026-11-01", session_type="squat",
+            settings=_settings(**{"resolver.eligibility.auto_requires_can_do": True}),
         )
         assert "box_jump" in session.exercise_ids
         assert "box_jump" in session.pending_ratings
@@ -233,7 +244,8 @@ def test_can_do_replaces_a_vetoed_default() -> None:
         _rate(store.connection, "ssb_squat", can_do=False, rated_on="2026-10-31")
         _rate(store.connection, "competition_squat")
         session = generator.generate(
-            store.connection, for_date="2026-11-01", session_type="squat"
+            store.connection, for_date="2026-11-01", session_type="squat",
+            settings=_strict(),
         )
         assert session.template.primary_exercise == "competition_squat"
         main = next(slot for slot in session.slots if slot.slot_id == "squat_main")
@@ -248,7 +260,8 @@ def test_unrated_main_alternative_is_suggested_for_rating() -> None:
         _rate_defaults(store.connection, "squat")
         _rate(store.connection, "ssb_squat", can_do=False, rated_on="2026-10-31")
         session = generator.generate(
-            store.connection, for_date="2026-11-01", session_type="squat"
+            store.connection, for_date="2026-11-01", session_type="squat",
+            settings=_settings(**{"resolver.eligibility.auto_requires_can_do": True}),
         )
         assert session.template.primary_exercise != "ssb_squat"
         assert session.template.primary_exercise in session.pending_ratings
@@ -267,13 +280,13 @@ def test_dwell_factor_keeps_the_lift_and_rotation_changes_it() -> None:
             store.connection,
             for_date="2026-11-01",
             session_type="squat",
-            settings=_settings(**{"resolver.dwell.probability": 0.0}),
+            settings=_strict(**{"resolver.dwell.probability": 0.0}),
         )
         rotated = generator.generate(
             store.connection,
             for_date="2026-11-01",
             session_type="squat",
-            settings=_settings(**{"resolver.dwell.probability": 1.0}),
+            settings=_strict(**{"resolver.dwell.probability": 1.0}),
         )
         assert kept.template.primary_exercise == "ssb_squat"
         assert rotated.template.primary_exercise == "competition_squat"
@@ -354,7 +367,8 @@ def test_candidate_pools_keep_the_pool_when_every_candidate_is_at_the_cap() -> N
         for exercise_id in ("ssb_squat", "competition_squat"):
             dwell.set_count(store.connection, exercise_id, 7)
         pools = generator.candidate_pools(
-            store.connection, for_date="2026-11-01", session_type="squat"
+            store.connection, for_date="2026-11-01", session_type="squat",
+            settings=_strict(),
         )
         assert "ssb_squat" in pools.pools["squat_main"]
         assert "competition_squat" in pools.pools["squat_main"]
@@ -372,7 +386,7 @@ def test_rotation_draw_is_reported_in_the_reasons() -> None:
             store.connection,
             for_date="2026-11-01",
             session_type="squat",
-            settings=_settings(**{"resolver.dwell.probability": 1.0}),
+            settings=_strict(**{"resolver.dwell.probability": 1.0}),
         )
         assert session.template.primary_exercise == "competition_squat"
         main = next(slot for slot in session.slots if slot.slot_id == "squat_main")
@@ -391,7 +405,7 @@ def test_hinge_main_pool_includes_sumo() -> None:
             store.connection,
             for_date="2026-11-01",
             session_type="hinge",
-            settings=_settings(**{"resolver.dwell.probability": 1.0}),
+            settings=_strict(**{"resolver.dwell.probability": 1.0}),
         )
         assert session.template.primary_exercise == "sumo_deadlift"
     finally:
@@ -446,6 +460,7 @@ def test_pattern_flexibility_can_change_a_core_slot() -> None:
             for_date="2026-11-01",
             session_type="squat",
             policy=policy,
+            settings=_strict(),
         )
         core = next(
             slot for slot in session.slots if slot.slot_id == "core_anti_extension"
@@ -491,7 +506,8 @@ def test_will_do_and_feels_bad_are_suggestion_only() -> None:
         _rate_defaults(store.connection, "squat")
         _rate(store.connection, "front_squat", will_do=False)
         session = generator.generate(
-            store.connection, for_date="2026-11-01", session_type="squat"
+            store.connection, for_date="2026-11-01", session_type="squat",
+            settings=_strict(),
         )
         assert session.template.primary_exercise == "ssb_squat"
         assert "front_squat" in session.suggestions
@@ -504,7 +520,8 @@ def test_unrated_confirm_surfaces_suggestions_but_does_not_select_them() -> None
     try:
         _rate_defaults(store.connection, "squat")
         session = generator.generate(
-            store.connection, for_date="2026-11-01", session_type="squat"
+            store.connection, for_date="2026-11-01", session_type="squat",
+            settings=_strict(),
         )
         assert "front_squat" in session.suggestions
         assert "front_squat" not in session.exercise_ids

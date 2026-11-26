@@ -1,6 +1,8 @@
 # Parent-variant e1RM ratios and weakness — evidence review
 
-**Status:** research note, 2026-10-25. No code, no selection rule, no prescription change.
+**Status:** research note 2026-10-25; **closed 2026-11-25.** The descriptive display shipped in
+2026-11 (three configured relationships in Performance, no target and no load conversion); the
+repeated-pair profile is not pursued. No selection rule, no prescription change.
 
 ## Question
 
@@ -177,7 +179,8 @@ test. Parent-variant ratios alone do not meet those gates.
    never as a load conversion or targeting rule.
 3. The app’s first weakness assessment remains **own-lift repeated performance**; the next
    credible upgrade is a standardised same-lift test, not a cross-variant ratio.
-4. No implementation now. Parent-variant ratios remain unscheduled in ROADMAP §4.20.2.
+4. **Closed 2026-11-25:** the descriptive display is delivered; the repeated-pair profile is not
+   pursued. ROADMAP-RETIRED.md §4.20.2 records the closure and the only reopen condition.
 
 ## Related
 

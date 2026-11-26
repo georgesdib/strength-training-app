@@ -27,33 +27,35 @@ after a template change. A stale block fails `tests/test_programme_summary.py`.
 not the single-leg RDL.
 
 <!-- BEGIN GENERATED PROGRAMME SUMMARY -->
-<!-- source:sha256:fbbbc1ed40b4c3ae -->
+<!-- source:sha256:57b3f64c4c8ff347 -->
 
 | session type | work | sets | spinal cost |
 |---|---|---|---:|
-| **squat** | Box Jump 3×3–5 @ quality stop; SSB Squat 5×3–5 @ RIR 2–3; Bench Press 4×3–5 @ RIR 2–3; Back Extension 3×10–12 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Lying Leg Curls / Nordic Curl 3×8–12 @ RIR 2–3; Ab Wheel 3×6–10 @ RIR 2–3 | 24 | 1 |
-| **hinge** | Broad Jump 3×3–5 @ quality stop; Trap-Bar Deadlift 5×3–5 @ RIR 2–3; Bench Press (narrow grip) / Bench Press (pause) 4×3–5 @ RIR 2–3; Pull-up / Lat Pulldown 3×6–10 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Split Squat / Bulgarian Split Squat 3×8–10 @ RIR 2–3; Lying Leg Curls / Nordic Curl 3×8–12 @ RIR 2–3 | 24 | 2 |
-| **bench_squat** | Medicine-Ball Chest Pass 3×3–5 @ quality stop; Bench Press 4×3–5 @ RIR 2–3; Competition Squat 4×3–5 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Overhead Press (seated) 3×6–10 @ RIR 2–3; Ab Wheel 3×6–10 @ RIR 2–3 | 20 | 1 |
+| **squat** | Box Jump 3×3–5 @ quality stop; SSB Squat 4×3–5 @ RIR 2–3; Bench Press 4×3–5 @ RIR 2–3; Back Extension 3×10–12 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Lying Leg Curls / Nordic Curl 3×8–12 @ RIR 2–3; Ab Wheel 3×6–10 @ RIR 2–3 | 23 | 1 |
+| **hinge** | Broad Jump 3×3–5 @ quality stop; Trap-Bar Deadlift 4×3–5 @ RIR 2–3; Bench Press (narrow grip) / Bench Press (pause) 4×3–5 @ RIR 2–3; Pull-up / Lat Pulldown 3×6–10 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Single Leg DB RDL 3×8–10 @ RIR 2–3; Hip Thrust 3×8–12 @ RIR 2–3; Split Squat / Bulgarian Split Squat 3×8–10 @ RIR 2–3; Lying Leg Curls / Nordic Curl 3×8–12 @ RIR 2–3 | 29 | 2 |
+| **bench_squat** | Medicine-Ball Chest Pass 3×3–5 @ quality stop; Bench Press 4×3–5 @ RIR 2–3; Competition Squat 3×3–5 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Overhead Press (seated) 3×6–10 @ RIR 2–3; Ab Wheel 3×6–10 @ RIR 2–3 | 19 | 1 |
 | **bench_hinge** | Medicine-Ball Chest Pass 3×3–5 @ quality stop; Bench Press 4×3–5 @ RIR 2–3; Sumo Deadlift 3×3–5 @ RIR 2–3; Pull-up / Lat Pulldown 3×6–10 @ RIR 2–3; Dumbbell Row 3×8–12 @ RIR 2–3; Overhead Press (seated) 3×6–10 @ RIR 2–3; Hanging Leg Raise 3×8–12 @ RIR 2–3 | 22 | 2.5 |
 
 Over six sessions (two weeks): squat, hinge, bench+squat, squat, hinge, bench+hinge.
-Planned average is **69 working sets/week** across three sessions.
+Planned average is **72.5 working sets/week** across three sessions.
 
 | lift group | sets/week |
 |---|---:|
-| squat (SSB main + competition support) | 7 |
+| squat (SSB main + competition support) | 5.5 |
 | bench (main + support) | 12 |
-| trap-bar deadlift | 5 |
+| trap-bar deadlift | 4 |
 | sumo deadlift | 1.5 |
 | back extension | 3 |
 | horizontal row | 9 |
 | vertical pull | 4.5 |
 | overhead press | 3 |
 | split squat | 3 |
+| single-leg RDL | 3 |
+| hip extension | 3 |
 | knee-flexion hamstrings | 6 |
 | core | 6 |
 | power | 9 |
-| **total** | **69** |
+| **total** | **72.5** |
 
 Counted spinal cost: **4** for the first week (squat, hinge, bench+squat) and **5.5** for the second (squat, hinge, bench+hinge), against a cap of **6**.
 <!-- END GENERATED PROGRAMME SUMMARY -->
@@ -252,8 +254,8 @@ Status reflects the implementation, not only the original recommendation.
 - [x] MRV question closed — not estimable without independent volume variation; no experiment.
 - [x] 3RM/5RM calibration cadence (`test --status`).
 - [x] Explicit warm-up prescription (50/70/85 ramp).
-- [x] Review closed: prospective validation is moved to ROADMAP §4.20 as a gate for a future candidate. The retrospective check rejected the current continuity/fatigue models; no prospective period is active.
-- [x] Parent-variant e1RM ratios moved to ROADMAP §4.20. Weakness/injury targeting is deferred there (`DEC-SELECT-04/05`); only the display-only own-history context is implemented.
+- [x] Review closed: prospective validation is moved to ROADMAP-RETIRED.md §4.20 as a gate for a future candidate. The retrospective check rejected the current continuity/fatigue models; no prospective period is active.
+- [x] Parent-variant e1RM ratios moved to ROADMAP-RETIRED.md §4.20. Weakness/injury targeting is deferred there (`DEC-SELECT-04/05`); only the display-only own-history context is implemented.
 
 | priority | change | reason | effort | status |
 |---|---|---|---|---|
@@ -265,8 +267,8 @@ Status reflects the implementation, not only the original recommendation.
 | P1 | Define a rolling next-session policy that preserves A/B/C balance across missed weeks | Current fixed sequence is brittle | Medium | **Done** (session types) |
 | P2 | Schedule a 3RM/5RM calibration every 8–12 weeks; no routine 1RM | Keeps e1RM honest without adding maximal testing | Small | **Done** — 10-week reminder |
 | P2 | Add warm-up/ramp sets to the prescription or document the assumption explicitly | The template only describes working sets | Small | **Done** — 50/70/85 ramp |
-| P2 | Validate the calibrated continuity and selection models prospectively before letting them drive loads automatically | Avoid overfitting to a small, noisy log | Large | **Moved** to ROADMAP §4.20 — no candidate; current models failed the retrospective baseline |
-| P3 | Parent-variant e1RM ratios and weakness/injury selection | Useful later, but not needed to fix the current programme | Large | **Moved** to ROADMAP §4.20; targeting deferred (`DEC-SELECT-04/05`) |
+| P2 | Validate the calibrated continuity and selection models prospectively before letting them drive loads automatically | Avoid overfitting to a small, noisy log | Large | **Moved** to ROADMAP-RETIRED.md §4.20 — no candidate; current models failed the retrospective baseline |
+| P3 | Parent-variant e1RM ratios and weakness/injury selection | Useful later, but not needed to fix the current programme | Large | **Moved** to ROADMAP-RETIRED.md §4.20; targeting deferred (`DEC-SELECT-04/05`) |
 
 ## 5. Bottom line
 
@@ -277,7 +279,7 @@ Status reflects the implementation, not only the original recommendation.
 - **Weakest links now:** data depth and future model validation; neither is a programme-design
   defect in the current template.
 - **Verdict:** a good, safer and more balanced default for a back-sensitive lifter. The review
-  is **closed**; future model/ratio/targeting work is in ROADMAP §4.20.
+  is **closed**; future model/ratio/targeting work is in ROADMAP-RETIRED.md §4.20.
 
 ---
 

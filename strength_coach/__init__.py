@@ -14,4 +14,4 @@ Layering, enforced by import direction (nothing lower imports anything higher):
     eval       backtest harness
 """
 
-__version__ = "1.7.1"
+__version__ = "2.0.0"

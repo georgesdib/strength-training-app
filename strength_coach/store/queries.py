@@ -594,6 +594,34 @@ def _effective_readiness_rows(conn, start: str, end: str) -> dict[str, dict]:
     return merged_by_day
 
 
+def readiness_metric_keys(conn, before: str) -> set[str]:
+    """Registry metric keys declared by any version effective on or before `before`.
+
+    The union is deliberate: a date may predate a metric being disabled, and a historical row
+    is still readiness data even when the current version no longer scores it.
+    """
+    keys: set[str] = set()
+    rows = conn.execute(
+        "SELECT payload_json FROM readiness_registry WHERE effective_from <= ?",
+        (str(before),),
+    )
+    for row in rows:
+        try:
+            payload = json.loads(row["payload_json"])
+        except (TypeError, ValueError):
+            continue
+        for metric in payload.get("metrics") or []:
+            key = metric.get("key")
+            if isinstance(key, str) and key:
+                keys.add(key)
+    return keys
+
+
+def readiness_field_names(conn, before: str) -> set[str]:
+    """Every field that can make a date readiness data: legacy fields plus registry metrics."""
+    return set(readiness_utils.READINESS_FIELDS) | readiness_metric_keys(conn, before)
+
+
 def readiness_day(conn, on_date: str) -> dict | None:
     """One canonical effective readiness row, or None when the date has no usable data.
 
@@ -603,9 +631,8 @@ def readiness_day(conn, on_date: str) -> dict | None:
     """
     day = str(on_date)
     merged = _effective_readiness_rows(conn, day, day).get(day)
-    if merged is None or not any(
-        merged.get(field) is not None for field in readiness_utils.READINESS_FIELDS
-    ):
+    fields = readiness_field_names(conn, day)
+    if merged is None or not any(merged.get(field) is not None for field in fields):
         return None
     return merged
 
@@ -655,24 +682,11 @@ def readiness_history(conn, before: str, days: int = 28) -> list[dict]:
 def readiness_dates(conn, start: str, end: str) -> list[str]:
     """Dates with at least one effective readiness value in the inclusive window."""
     rows = _effective_readiness_rows(conn, str(start), str(end))
+    fields = readiness_field_names(conn, str(end))
     return [
         day for day in sorted(rows)
-        if any(rows[day].get(field) is not None for field in readiness_utils.READINESS_FIELDS)
+        if any(rows[day].get(field) is not None for field in fields)
     ]
-
-
-def readiness_setting(conn, on_date: str) -> dict | None:
-    """Latest per-athlete score setting effective on or before the date."""
-    row = conn.execute(
-        """
-        SELECT * FROM readiness_setting
-         WHERE effective_from <= ?
-         ORDER BY effective_from DESC, created_at DESC, rowid DESC
-         LIMIT 1
-        """,
-        (str(on_date),),
-    ).fetchone()
-    return dict(row) if row is not None else None
 
 
 def readiness_overrides(conn, on_date: str) -> dict[str, dict]:
@@ -732,6 +746,60 @@ def _flags_to_ingest_form(raw: str) -> str:
 def metric_definitions(conn) -> dict[str, dict]:
     rows = conn.execute("SELECT * FROM metric_definition ORDER BY metric_key")
     return {str(row["metric_key"]): dict(row) for row in rows}
+
+
+def readiness_registry_row(conn, on_date: str) -> dict | None:
+    """Effective readiness registry for a date: latest effective_from <= date.
+
+    The payload is validated by the readiness registry model, not here; this is the read path
+    and mirrors the settings_profile semantic so a dated prescription sees the version that
+    was effective for it.
+    """
+    row = conn.execute(
+        "SELECT * FROM readiness_registry WHERE effective_from <= ? "
+        "ORDER BY effective_from DESC, registry_id DESC LIMIT 1",
+        (on_date,),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def readiness_input_specs(conn, on_date: str) -> dict[str, dict]:
+    """Accepted readiness inputs for a date.
+
+    Enabled registry metrics plus the two non-score inputs that are still stored here:
+    bodyweight (a measurement) and the wearable score (a blend input). A disabled or unknown
+    metric is absent, so callers reject it rather than storing a value nothing reads.
+    """
+    specs: dict[str, dict] = {
+        "bodyweight_kg": {"role": "measure"},
+        "wearable_score": {"role": "wearable"},
+    }
+    row = readiness_registry_row(conn, on_date)
+    if row is None:
+        return specs
+    payload = json.loads(row["payload_json"])
+    definitions = metric_definitions(conn)
+    for metric in payload.get("metrics") or []:
+        if not metric.get("enabled"):
+            continue
+        definition = definitions.get(metric["key"]) or {}
+        specs[str(metric["key"])] = {
+            "role": metric.get("role"),
+            "scale_min": definition.get("scale_min"),
+            "scale_max": definition.get("scale_max"),
+            "label": definition.get("label"),
+        }
+    return specs
+
+
+def readiness_registry_history(conn, limit: int = 50) -> list[dict]:
+    """Registry versions, newest first; history is read-only and append-only."""
+    rows = conn.execute(
+        "SELECT * FROM readiness_registry "
+        "ORDER BY effective_from DESC, registry_id DESC LIMIT ?",
+        (int(limit),),
+    )
+    return [dict(row) for row in rows]
 
 
 def measurements(

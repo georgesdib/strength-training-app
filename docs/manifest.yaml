@@ -789,6 +789,22 @@ documents:
   status: archived
   audience: public
   nav: true
+- id: performance-carryover-phase0
+  path: docs/archive/PERFORMANCE-CARRYOVER-PHASE0.md
+  title: PERFORMANCE CARRY-OVER — PHASE 0 PRE-REGISTERED ANALYSIS
+  description: pre-registered mechanism analysis for performance-informed volume, its approved thresholds and the closed result (verdict stop)
+  category: archive
+  status: archived
+  audience: public
+  nav: true
+- id: performance-persistence-plan
+  path: docs/archive/PERFORMANCE-PERSISTENCE-PLAN.md
+  title: PERFORMANCE PERSISTENCE — CONTINUOUS FOLLOW-UP PRE-REGISTRATION
+  description: pre-registered continuous test of next-exposure persistence; run 2026-11-24, label carry-over, descriptive use only
+  category: archive
+  status: archived
+  audience: public
+  nav: true
 - id: archive-readiness-audit
   path: docs/archive/READINESS-AUDIT.md
   title: READINESS AUDIT — can the current readiness policy be validated?
@@ -811,6 +827,14 @@ documents:
   path: ROADMAP-DONE.md
   title: ROADMAP — completed work
   description: 'completed v0.1-v1.x roadmap sections split out of ROADMAP.md for audits and past-deliverable questions; not a default read'
+  category: archive
+  status: archived
+  audience: maintainer
+  nav: false
+- id: roadmap-retired
+  path: ROADMAP-RETIRED.md
+  title: ROADMAP — retired work
+  description: 'retired, withdrawn and decided-against roadmap items, with their decisions; audit only, not a default read or a to-do list'
   category: archive
   status: archived
   audience: maintainer
@@ -998,7 +1022,7 @@ documents:
 - id: design-ios-watch-contract
   path: docs/design/IOS-WATCH-CONTRACT.md
   title: iOS Phase 6 watchOS companion contract (6.0-6.7 complete; pointer)
-  description: 'Compatibility pointer to the canonical portfolio watch contract. Phases 6.0-6.7 complete; physical Apple Watch acceptance 2026-11-14; WP8 phone relay implemented and owner-accepted 2026-11-21; offline start/pending-session shell deferred; tests, acceptance and rollback'
+  description: 'Compatibility pointer to the canonical portfolio watch contract. Phases 6.0-6.7 complete; physical Apple Watch acceptance 2026-11-14; unified offline execution closed 2026-11-23 (pairing-scoped plan, offline start, execution writes phone-committed, watch token read-only); tests, acceptance and rollback live in the canonical contract'
   category: design
   status: design
   audience: maintainer

@@ -526,6 +526,21 @@ if (next == null || next.group_index !== 1) throw new Error("later sets stay on 
     assert result.returncode == 0, result.stderr
 
 
+def test_search_expands_details_and_start_allows_unresolved_loads() -> None:
+    search = (STATIC / "search.js").read_text(encoding="utf-8")
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    workout = (STATIC / "workout.js").read_text(encoding="utf-8")
+    settings = (STATIC / "settings.js").read_text(encoding="utf-8")
+
+    # A search hit inside a collapsed advanced panel must open the panel before scrolling.
+    assert 'node.tagName === "DETAILS"' in search
+    assert 'heading.closest("details")' in search
+    assert 'id="settings-volume-landmarks"' in settings
+    # Starting is blocked only by pending ratings, not by an unresolved load.
+    assert "startCanOpen" in app and "needs input" in app
+    assert "Enter the load you used for this exercise." in workout
+
+
 def test_remaining_ui_controls_are_present() -> None:
     page = INDEX.read_text(encoding="utf-8")
     app = (STATIC / "app.js").read_text(encoding="utf-8")
@@ -580,6 +595,10 @@ def test_volume_panel_is_consolidated_and_linked_to_its_guide() -> None:
     assert "/api/settings/volume" in settings
     assert "budgetValue(key)" in settings
     assert "settings-volume-cap-sum" in settings
+    # Weekly and effective targets are floats, and the configured effective values include
+    # 12.75 and 10.125; a half-step input marks those existing values invalid in the browser.
+    assert 'type="number" step="any" min="0" data-volume-target=' in settings
+    assert 'type="number" step="any" min="0" data-volume-effective=' in settings
 
     node = shutil.which("node")
     if node:
@@ -2507,3 +2526,11 @@ def test_a_started_preview_never_carries_its_build_time() -> None:
     )
     result = _run_node(script)
     assert result.returncode == 0, result.stderr
+
+
+def test_the_web_start_confirms_a_pending_phone_plan() -> None:
+    """D1: the web UI asks before opening a second session beside a phone plan."""
+    source = (STATIC / "workout.js").read_text(encoding="utf-8")
+    assert "plan_pending_for_phone" in source
+    assert "start_anyway" in source
+    assert source.count("postWorkoutStart(") == 3  # the definition plus both start paths
