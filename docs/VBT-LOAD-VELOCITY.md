@@ -57,6 +57,15 @@ fitted across its rep counts:
 mean_velocity = intercept + slope · load + rep_coef · reps + rir_coef · RIR
 ```
 
+It is estimated in **two stages**. First a shared load/RIR slope is fitted with a categorical
+intercept per rep count; that keeps the load slope identified *within* rep counts. Then a
+weighted straight line is fitted through those per-rep intercepts against rep number, and that
+line's slope is the rep term. A single raw regression of velocity on load + reps was rejected:
+load and reps are negatively correlated by programme design, and on the reference data that
+regression returned a *positive* rep coefficient (heavier sets have fewer reps, so the raw
+model can attribute their lower velocity to the rep term). The two-stage form reads the rep
+effect from where the rep counts actually differ instead.
+
 - Gates: 12 sets, 3 sessions, 3 distinct loads, at least 2 distinct rep counts and a 10 %
   load span; `slope < 0` and `rep_coef < 0`.
 - The rep term is the fitted version of "use the available rep counts to extrapolate". There

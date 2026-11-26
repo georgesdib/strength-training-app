@@ -254,64 +254,12 @@ def build(
     )
 
 
-MIN_REPS = 2
-
-
 def _pooled_fit(frame: pd.DataFrame) -> tuple[dict | None, str, str | None]:
-    """Fit `velocity ~ load + reps + RIR` across the lift's rep counts.
+    """Delegate to the calibration's pooled estimator: the display view of the same fit."""
+    from strength_coach.features import vbt_calibration
 
-    Display view of the same fallback the calibration uses. The rep term is the fitted
-    version of "use the available rep counts to extrapolate"; a non-negative rep or load
-    coefficient is refused rather than drawn.
-    """
-    if frame.empty:
-        return None, "no_data", "no stored sets"
-    loads = frame["load_kg"].to_numpy(dtype="float64")
-    velocities = frame["velocity_mps"].to_numpy(dtype="float64")
-    reps = frame["reps"].to_numpy(dtype="float64")
-    rirs = frame["rir"].to_numpy(dtype="float64")
-    if loads.size < MIN_SETS:
-        return None, "insufficient", f"fewer than {MIN_SETS} clean sets across rep counts"
-    if np.unique(reps).size < MIN_REPS:
-        return None, "insufficient", "fewer than 2 rep counts in the fitted sets"
-    if np.unique(loads).size < MIN_LOADS:
-        return None, "insufficient", f"fewer than {MIN_LOADS} distinct loads"
-    top = float(loads.max())
-    if top <= 0 or (top - float(loads.min())) / top < MIN_LOAD_SPAN:
-        return None, "insufficient", "load range too narrow for a slope"
-    columns = [np.ones_like(loads), loads, reps]
-    if np.ptp(rirs) > 0:
-        columns.append(rirs)
-    design = np.column_stack(columns)
-    beta, *_ = np.linalg.lstsq(design, velocities, rcond=None)
-    slope = float(beta[1])
-    rep_coef = float(beta[2])
-    if not np.isfinite(slope) or slope >= 0 or not np.isfinite(rep_coef) or rep_coef >= 0:
-        return None, "insufficient", "no usable load/reps trend"
-    predicted = design @ beta
-    residual = velocities - predicted
-    spread = float(stats.mad(residual))
-    if not np.isfinite(spread):
-        return None, "insufficient", "no usable residual spread"
-    total = float(np.sum((velocities - velocities.mean()) ** 2))
-    return (
-        {
-            "slope": slope,
-            "intercept": float(beta[0]),
-            "rep_coef": rep_coef,
-            "rir_coef": float(beta[3]) if design.shape[1] == 4 else None,
-            "residual_mad": spread,
-            "r2": 1.0 - float(np.sum(residual ** 2)) / total if total > 0 else float("nan"),
-            "load_min": float(loads.min()),
-            "load_max": top,
-            "reps_min": int(reps.min()),
-            "reps_max": int(reps.max()),
-            "n_sets": int(loads.size),
-            "n_sessions": _session_count(frame),
-        },
-        "fitted",
-        None,
-    )
+    return vbt_calibration.pooled_fit(frame, vbt_calibration.default_params())
+
 
 
 def _pooled_payload(

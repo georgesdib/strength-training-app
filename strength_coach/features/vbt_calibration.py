@@ -237,7 +237,7 @@ def _calibrate_uncached(
     # Pooled rep-count fallback: only for a rep count no line or family target covers.
     covered = {(t.exercise_id, t.rep_count) for t in targets}
     for exercise_id, group in frame.groupby("exercise_id"):
-        pooled = _pooled_fit(group, params)
+        pooled, _status, _reason = pooled_fit(group, params)
         if pooled is None:
             continue
         for rep in range(max(1, params.reps_min), params.reps_max + 1):
@@ -365,57 +365,106 @@ def _drop_velocity_outliers(frame: pd.DataFrame, *, k: float) -> pd.DataFrame:
     return out
 
 
-def _pooled_fit(group: pd.DataFrame, params: CalibrationParams) -> dict | None:
-    """Fit `mean velocity ~ load + reps + RIR` across the lift's rep counts.
+def pooled_fit(
+    group: pd.DataFrame, params: CalibrationParams
+) -> tuple[dict | None, str, str | None]:
+    """Two-stage pooled fit across the lift's rep counts.
 
-    This is the fallback for a rep count with no line of its own. The rep term is the fitted
-    version of the "use the 3RM to extrapolate" idea: no hand multiplier, and the prediction
-    at an unobserved rep count is explicitly an extrapolation. A non-negative rep coefficient
-    is refused rather than issued.
+    Stage 1 estimates a shared load/RIR slope with a categorical intercept per rep count.
+    Stage 2 fits a weighted straight line through those intercepts against rep number: that
+    is the rep effect used to reach a rep count with no set of its own.
+
+    Estimating the rep trend from the between-rep intercepts matters. A single raw regression
+    of velocity on load + reps lets the load/reps correlation (heavy sets have few reps) flip
+    the sign of the rep term; on the reference data it comes out positive and the fit would be
+    refused. The two-stage form keeps the load slope identified within rep counts and reads
+    the rep effect from where the rep counts actually differ.
+
+    A non-negative rep coefficient, a non-negative load slope or fewer than two rep counts
+    with at least three sets is refused rather than issued.
     """
-    loads = group["load_kg"].to_numpy(dtype="float64")
-    velocities = group["velocity_mps"].to_numpy(dtype="float64")
-    reps = group["reps"].to_numpy(dtype="float64")
-    rirs = group["rir"].to_numpy(dtype="float64")
+    if group.empty:
+        return None, "no_data", "no stored sets"
+    counts = group["reps"].astype(int).value_counts()
+    kept_reps = counts[counts >= 3].index
+    frame = group[group["reps"].astype(int).isin(kept_reps)]
+    rep_values = (
+        np.unique(frame["reps"].to_numpy(dtype=float))
+        if not frame.empty else np.array([], dtype=float)
+    )
+    if rep_values.size < max(2, params.min_distinct_reps):
+        return None, "insufficient", "fewer than 2 rep counts with at least 3 sets"
+    loads = frame["load_kg"].to_numpy(dtype="float64")
+    velocities = frame["velocity_mps"].to_numpy(dtype="float64")
+    reps = frame["reps"].to_numpy(dtype="float64")
+    rirs = frame["rir"].to_numpy(dtype="float64")
     if loads.size < params.min_sets_lift:
-        return None
-    if np.unique(reps).size < params.min_distinct_reps:
-        return None
+        return None, "insufficient", f"fewer than {params.min_sets_lift} clean sets"
     if np.unique(loads).size < params.min_distinct_loads:
-        return None
+        return None, "insufficient", "fewer than 3 distinct loads"
     top = float(loads.max())
     if top <= 0 or (top - float(loads.min())) / top < params.min_load_span:
-        return None
-    columns = [np.ones_like(loads), loads, reps]
-    if np.ptp(rirs) > 0:
+        return None, "insufficient", "load range too narrow for a slope"
+
+    base = float(rep_values[0])
+    columns = [np.ones_like(loads), loads]
+    has_rir = np.ptp(rirs) > 0
+    if has_rir:
         columns.append(rirs)
+    columns.extend([(reps == rep).astype(float) for rep in rep_values[1:]])
     design = np.column_stack(columns)
     beta, *_ = np.linalg.lstsq(design, velocities, rcond=None)
     slope = float(beta[1])
-    rep_coef = float(beta[2])
-    if not np.isfinite(slope) or slope >= 0 or not np.isfinite(rep_coef) or rep_coef >= 0:
-        return None
-    predicted = design @ beta
+    if not np.isfinite(slope) or slope >= 0:
+        return None, "insufficient", "no usable load trend"
+    index = 2
+    rir_coef: float | None = None
+    if has_rir:
+        rir_coef = float(beta[index])
+        index += 1
+    per_rep = {base: float(beta[0])}
+    for offset, rep in enumerate(rep_values[1:]):
+        per_rep[float(rep)] = float(beta[0] + beta[index + offset])
+
+    weights = np.array([float(counts[int(rep)]) for rep in rep_values])
+    xs = rep_values.astype(float)
+    ys = np.array([per_rep[float(rep)] for rep in rep_values])
+    total_weight = float(weights.sum())
+    x_bar = float((weights * xs).sum() / total_weight)
+    y_bar = float((weights * ys).sum() / total_weight)
+    denominator = float((weights * (xs - x_bar) ** 2).sum())
+    if denominator <= 0:
+        return None, "insufficient", "rep counts do not vary"
+    rep_coef = float((weights * (xs - x_bar) * (ys - y_bar)).sum() / denominator)
+    if not np.isfinite(rep_coef) or rep_coef >= 0:
+        return None, "insufficient", "no usable reps trend"
+    intercept = y_bar - rep_coef * x_bar
+
+    predicted = intercept + rep_coef * reps + slope * loads + (rir_coef or 0.0) * rirs
     residual = velocities - predicted
     spread = float(stats.mad(residual))
     if not np.isfinite(spread):
-        return None
+        return None, "insufficient", "no usable residual spread"
     total = float(np.sum((velocities - velocities.mean()) ** 2))
-    return {
-        "slope": slope,
-        "intercept": float(beta[0]),
-        "rep_coef": rep_coef,
-        "rir_coef": float(beta[3]) if design.shape[1] == 4 else None,
-        "residual_mad": spread,
-        "r2": 1.0 - float(np.sum(residual ** 2)) / total if total > 0 else float("nan"),
-        "load_min": float(loads.min()),
-        "load_max": top,
-        "reps_min": int(reps.min()),
-        "reps_max": int(reps.max()),
-        "reference_load": float(np.median(loads)),
-        "n_sets": int(loads.size),
-        "n_sessions": int(group["date"].nunique()),
-    }
+    return (
+        {
+            "slope": slope,
+            "intercept": intercept,
+            "rep_coef": rep_coef,
+            "rir_coef": rir_coef,
+            "residual_mad": spread,
+            "r2": 1.0 - float(np.sum(residual ** 2)) / total if total > 0 else float("nan"),
+            "load_min": float(loads.min()),
+            "load_max": top,
+            "reps_min": int(xs.min()),
+            "reps_max": int(xs.max()),
+            "reference_load": float(np.median(loads)),
+            "n_sets": int(loads.size),
+            "n_sessions": int(frame["date"].nunique()),
+        },
+        "fitted",
+        None,
+    )
 
 
 def _pooled_target(
