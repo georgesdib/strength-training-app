@@ -1786,6 +1786,23 @@ measurement is planned).
 
 **Non-negotiables.** No composite score, no per-muscle volume targets, no named phases, no stored set role on the wire, no client-computed loads. The top-set default is `off`; the evidence review's opt-in conclusion is retained. Migration `0073` is additive and nullable on `workout_set` and `clean_set`, plus one unique replay index; no historical rewrite.
 
+### 4.38 VBT calibration v2, per-rep mean and the exercise profile  (2026-11-26)
+
+**Delivered.** Per-rep-count load-velocity lines with RIR as a covariate; a load- and
+RIR-conditioned target frozen into the plan; a two-stage pooled rep-count fallback for a rep
+count with no line (`DEC-VBT-10`); an actual-load/RIR/residual comparison with cohorts split by
+comparison basis; a display-only load-velocity profile with per-rep and pooled implied 1RMs,
+weekly series, the computed Epley+RIR overlay and zoomable charts (`DEC-VBT-08/09`); a missing
+set mean derived from the per-rep rows (`DEC-VBT-09`); the RIR window widened to 0–4
+(`DEC-RIR-06`); and main-lift readiness set reduction on by default (`DEC-READINESS-22`).
+Migrations `0083` and `0084` are additive.
+
+**Evidence.** `tests/test_vbt_calibration.py`, `tests/test_vbt_profile.py`,
+`tests/test_vbt_analysis.py`, `tests/test_vbt_performance.py`, `tests/test_vbt_mean.py`,
+`tests/test_web.py`; full lane 2582 passed, 1 skipped. Docs: `VBT-LOAD-VELOCITY.md` (new),
+`VBT-CALIBRATION.md`, `VBT-EVIDENCE.md`, `API.md`, `WEB-UI.md`, `DATA-MODEL.md`,
+`LIMITATIONS-REGISTER.md` LIM-74–LIM-77.
+
 ### 6.1 delivered backlog items
 
 - Set-based weekly volume auditing — delivered by movement pattern (`features/volume.py`);
