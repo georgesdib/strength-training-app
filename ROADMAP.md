@@ -7,7 +7,7 @@ this file first, then [`AGENTS.md`](AGENTS.md) for the rules of the codebase.
 [`ROADMAP-DONE.md`](ROADMAP-DONE.md); work that was retired or decided against lives in
 [`ROADMAP-RETIRED.md`](ROADMAP-RETIRED.md). Do not add completed or retired material here.
 
-Last updated: 2026-11-25 · forward work only. The v1.x releases, the resolver structure
+Last updated: 2026-11-26 · forward work only. The v1.x releases, the resolver structure
 WP0–WP9, the read-only Training Intelligence layer and AFC-2–AFC-4 are recorded in
 [`ROADMAP-DONE.md`](ROADMAP-DONE.md); withdrawn or retired work is in
 [`ROADMAP-RETIRED.md`](ROADMAP-RETIRED.md).
@@ -46,7 +46,6 @@ Only open and future work is listed. Released versions and completed phases are 
 |---|---|---|---|---|
 | Phase 5A | Prospective validation | **active; 2026-10-30 to 2027-01-22** | review gate 2027-01-22; monitored instruments stay frozen | §2A |
 | Phase 5B | Evidence-driven implementation | **gated; not approved** | starts only after the Phase 5A gate and explicit approval | §2A |
-| — | Per-lift readiness validation | **open, unscheduled** | validate before any load-policy change | §4.9.6 |
 | — | Weakness/injury-targeted selection | **gated; earliest after v1.3 / ~April 2027** | `DEC-SELECT-05`; no implementation now | §4.20.3 |
 | — | Exercise-level symptom research (Phase 3) | **planned; unscheduled** | pre-registration and a separate owner decision | §4.28 |
 | — | AFC-5 evidence-gated prescription adaptation | **scoped, docs only; gated** | separate decision and evidence | §4.33a |
@@ -139,27 +138,6 @@ or explicitly decided against is recorded with its reason in
 [`ROADMAP-RETIRED.md`](ROADMAP-RETIRED.md). Both are audit records, not a default read.
 
 ## 4. Forward work (open items)
-
-### 4.9 Readiness score — open follow-up
-
-The readiness score, its closed follow-ups and the 2026-11-25 metric registry are in
-ROADMAP-DONE.md §4.9. The only open item is the validation below.
-
-#### 4.9.6 Per-lift readiness validation — open, unscheduled
-
-The per-lift score is implemented and downward-only (`DEC-LIFT-READY-01`): global base plus the
-previous session's e1RM trend, mean RIR and VBT, with weights 0.20/0.15/0.15 (`ASSUMPTION-25`).
-It is not a validated instrument: it is retrospective, RIR is imprecise, VBT is sparse and
-load-dependent, there is no lift-specific pre-session soreness/pain input, and no prospective
-test shows that lowering a lift's load on this score improves outcomes. It can only lower a
-load and never replaces the global readiness score; see [`docs/LIFT-READINESS.md`](docs/LIFT-READINESS.md)
-§5 and `LIM-62`.
-
-**Follow-up, when prioritized:** add a lift-specific pre-session 1–5 soreness/readiness rating,
-define a standardised velocity check at a fixed load, collect measured e1RM tests for a better
-trend, then test prospectively whether a low per-lift score predicts a missed rep or a worse
-session. Do not change the load policy from this score until that validation exists. Not
-scheduled; it is not part of any current release.
 
 ### 4.19 Open next actions
 

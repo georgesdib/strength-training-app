@@ -33,6 +33,9 @@ Section numbers are preserved so older references still resolve.
   measurement. See §6.1.
 - **Learned readiness weights** — evaluated and closed; the fixed weights remain. See
   `ROADMAP-DONE.md` §4.9.
+- **Per-lift readiness validation** — closed 2026-11-25 as a design choice (`LIM-62`,
+  `DEC-LIFT-READY-01`): the downward-only score is accepted as a second opinion behind the global
+  score, not a validation target. See §4.9.6.
 - **Continuity calibrated factor** — rejected; the fixed fallback remains. See
   `ROADMAP-DONE.md` §4.12.
 - **Strength fitness-fatigue model adoption** — retrospective validation rejected; the model
@@ -71,6 +74,19 @@ Video capture and vision-model commentary are not planned. The post-lift form as
 CSV is imported in-workout. No additional adapter registry is needed. Unknown exercise names are
 still reported/quarantined, and extra raw columns remain in `raw_row`; neither justifies a second
 mapping layer.
+
+### 4.9.6 Per-lift readiness validation  (closed 2026-11-25 — accepted as a design choice; moved 2026-11-26)
+
+**Status: closed, not planned.** The per-lift score is implemented and downward-only
+(`DEC-LIFT-READY-01`). On 2026-11-25 it was accepted as a transparent second opinion behind the
+global score and the category overrides, not a validated instrument, and `LIM-62` closed as a
+design choice. Validation is therefore **not planned**: a lift-specific pre-session rating, a
+fixed-load velocity check, more measured e1RM tests and a prospective outcome test would all be
+needed, and [`docs/LIFT-READINESS.md`](docs/LIFT-READINESS.md) §6 records them as an explicit option
+rather than a schedule. Reopening needs a new owner decision, not a revived roadmap item.
+
+The policy is unchanged: the score can only lower a lift's load, never raise it, and never replaces
+the global readiness score or a category override.
 
 ### 4.14 Labelled calibration set  (retired 2026-11-13; `DEC-EVAL-09`)
 
