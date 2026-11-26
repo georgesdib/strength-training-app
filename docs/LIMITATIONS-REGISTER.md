@@ -1,6 +1,6 @@
 # LIMITATIONS REGISTER
 
-**Status:** living register, updated 2026-11-24. It is the only public place accepted
+**Status:** living register, updated 2026-11-25. It is the only public place accepted
 limitations are listed; the roadmap keeps no second table. Private historical-data limitations
 are kept in the git-ignored private record only.
 **Purpose:** keep every known limitation from the audits in one place so later work can revisit
@@ -12,11 +12,11 @@ This register does not override the detailed audit reports. It indexes them.
 |---|---|---|---|---|
 | LIM-01 | The no-readiness counterfactual is not identifiable retrospectively; the mandatory readiness policy is not validated against no readiness | accepted (policy choice) | W6 / READINESS-AUDIT | keep the mandatory gate; revisit only with prospective data or a different evaluation design |
 | LIM-02 | Readiness weights and cut-points are fixed design choices; no symptom outcome data supported them | open | W6, READINESS-WEIGHT-EVIDENCE | prospective outcomes and symptom coverage |
-| LIM-03 | Main-lift readiness set reduction is opt-in because it was the least validated part of the policy | mitigated | W6 / DEC-READINESS-12 | evidence for/against main-lift volume reduction |
+| LIM-03 | Main-lift readiness set reduction is opt-in because it was the least validated part of the policy | closed 2026-11-25 (design choice) | W6 / DEC-READINESS-12 | never — the reduction stays opt-in and never applies automatically; a validated main-lift volume-reduction proposal would be a new decision |
 | LIM-04 | A permanently unavailable session family could stall the rolling selector; one-off misses did not | closed 2026-10-27 | W1 | closed: availability is derived from the primary lift's constraints; unavailable families rebalance the six-session target and the selector falls back. Secondary-lift vetoes omit that lift, not the session. Tests in `tests/test_session_types.py` and `tests/test_prescribe.py` |
 | LIM-05 | There is no stored planned-session calendar; attendance is target-based | accepted (design choice); reaffirmed 2026-11-13 | W7 / DEC-W7-01 | revisit if a persisted plan is introduced. Revisited during the AFC readiness audit and declined: AFC composes target-based attendance only and adds no planned-session compliance (`DEC-AFC-01`) |
 | LIM-06 | Injury-free weeks are only reported when every week has symptom coverage | closed 2026-10-27 | W7 | closed: a symptom log is now a persistent state until another log changes it; weeks before the first log remain unknown. Test in `tests/test_progress.py` |
-| LIM-07 | `SESSION_DURATION` remains unmeasurable for imported sessions | mitigated | W0-C2, W11/B7 | imported timestamps become available |
+| LIM-07 | `SESSION_DURATION` remains unmeasurable for imported sessions | closed 2026-11-25 (accepted limitation: imported sessions carry no measured duration; live sessions are measured) | W0-C2, W11/B7 | never — the historical export will not gain measured timestamps |
 | LIM-08 | Session duration outside live workouts is an estimate, not measured | accepted (design choice) | W0-C4, W1 | intentional: imported sessions have no measured duration; revisit only if measured duration becomes a product requirement |
 | LIM-09 | UI prescription preview and committed workout artifact are different states | documented | W0-C5, UI-CLI-PARITY | never; it is intentional |
 | LIM-10 | Imported logs lack reliable timestamps and include late/backfilled rows; this is accepted as a fact of life for the historical export | accepted (fact of life) | W0-C7 | no action; new live sessions carry measured timestamps |
