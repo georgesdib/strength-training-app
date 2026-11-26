@@ -135,11 +135,11 @@ function renderExerciseVbt(data) {
       "' text-anchor='middle' class='vbt-e1rm-label'>VBT e1RM " + fmt(data.e1rm_kg) + " kg</text>";
   }
 
-  var legend = data.pooled_status === "fitted"
-    ? "<p class='muted vbt-legend'>Solid: per-rep fit at " + data.rep_count +
-      " reps. Dashed: pooled model at the same reps.</p>"
-    : "";
-  var chart = legend + "<svg class='vbt-chart' viewBox='0 0 " + W + " " + H + "' role='img' aria-label='Load-velocity profile for " + esc(data.exercise_id) + "'>" +
+  var legendText = "Solid: per-rep fit at " + data.rep_count + " reps." +
+    (data.pooled_status === "fitted" ? " Dashed: pooled model at the same reps." : "") +
+    (data.e1rm_kg ? " · e1RM marker " + fmt(data.e1rm_kg) + " kg" +
+      (data.e1rm_note ? " (flagged)" : "") : "");
+  var svg = "<svg class='vbt-chart' viewBox='0 0 " + W + " " + H + "' role='img' aria-label='Load-velocity profile for " + esc(data.exercise_id) + "'>" +
     grid +
     "<line x1='" + ml + "' y1='" + (H - mb) + "' x2='" + (W - mr) + "' y2='" + (H - mb) + "' class='vbt-axis'/>" +
     "<line x1='" + ml + "' y1='" + mt + "' x2='" + ml + "' y2='" + (H - mb) + "' class='vbt-axis'/>" +
@@ -147,6 +147,9 @@ function renderExerciseVbt(data) {
     "<text x='" + ((ml + W - mr) / 2) + "' y='" + (H - 8) + "' text-anchor='middle' class='vbt-tick'>load (kg)</text>" +
     "<text x='14' y='" + ((mt + H - mb) / 2) + "' text-anchor='middle' transform='rotate(-90 14 " + ((mt + H - mb) / 2) + ")' class='vbt-tick'>mean velocity (m/s)</text>" +
     "</svg>";
+  var chart = (typeof chartFrame === "function")
+    ? chartFrame("Load–velocity profile at " + data.rep_count + " reps", svg, legendText)
+    : "<p class='muted vbt-legend'>" + esc(legendText) + "</p>" + svg;
   host.innerHTML = chart + renderPooledChart(data, refRir, data.rep_count) +
     renderE1rmSeries(data.e1rm_series, data.rir_e1rm_series, data.pooled_e1rm_series);
 
@@ -235,16 +238,23 @@ function renderPooledChart(data, refRir, highlightRep) {
       fmt(data.pooled_e1rm_kg) + " kg" +
       (data.pooled_e1rm_extrapolated ? " (extrapolated)" : "") + "</text>";
   }
-  return "<h4 class='vbt-series-title'>Pooled model <span class='muted'>(velocity ~ load + reps + RIR; " +
-    data.pooled_n_sets + " sets, reps " + data.pooled_reps_min + "–" + data.pooled_reps_max +
-    ")</span></h4>" +
-    "<svg class='vbt-chart vbt-pooled' viewBox='0 0 " + W + " " + H + "' role='img' aria-label='Pooled load-velocity model across rep counts'>" +
+  var svg = "<svg class='vbt-chart vbt-pooled' viewBox='0 0 " + W + " " + H + "' role='img' aria-label='Pooled load-velocity model across rep counts'>" +
     grid +
     "<line x1='" + ml + "' y1='" + (H - mb) + "' x2='" + (W - mr) + "' y2='" + (H - mb) + "' class='vbt-axis'/>" +
     "<line x1='" + ml + "' y1='" + mt + "' x2='" + ml + "' y2='" + (H - mb) + "' class='vbt-axis'/>" +
     lines + marker +
     "<text x='" + ((ml + W - mr) / 2) + "' y='" + (H - 8) + "' text-anchor='middle' class='vbt-tick'>load (kg)</text>" +
     "</svg>";
+  var selectedRep = highlightRep == null ? "none" : highlightRep;
+  var legendText = "One line per observed rep count (" + data.pooled_n_sets + " sets, reps " +
+    data.pooled_reps_min + "–" + data.pooled_reps_max + "). Selected rep " + selectedRep +
+    (extrapolated ? " is an extrapolation." : " is observed.") +
+    (data.pooled_e1rm_kg ? " Pooled e1RM " + fmt(data.pooled_e1rm_kg) + " kg" +
+      (data.pooled_e1rm_note ? " (flagged)" : "") : "");
+  if (typeof chartFrame === "function") {
+    return chartFrame("Pooled load–velocity model", svg, legendText);
+  }
+  return "<h4 class='vbt-series-title'>Pooled model</h4>" + svg;
 }
 
 function renderE1rmSeries(series, rirSeries, pooledSeries) {
