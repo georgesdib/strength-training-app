@@ -656,6 +656,13 @@ def test_exercise_catalogue_is_served(server):
     assert rows["plank"]["time_based"] is True
     assert rows["bench_press"]["time_based"] is False
 
+def test_performance_vbt_e1rm_panel_is_served(server):
+    status, page = get(server, "/")
+    assert status == 200
+    assert 'id="performance-vbt-e1rm"' in page
+    assert "loadPerformanceVbtE1rm" in client_js(server)
+
+
 def test_vbt_profile_endpoint_is_display_only(server):
     status, body = get(server, "/api/exercises/bench_press/vbt-profile")
     assert status == 200
@@ -666,6 +673,8 @@ def test_vbt_profile_endpoint_is_display_only(server):
     assert data["e1rm_basis"] is None
     assert data["e1rm_series"] == []
     assert data["pooled_status"] in ("no_data", "insufficient", "fitted")
+    assert "rir_e1rm_series" in data
+    assert "pooled_e1rm_kg" in data
 
 
 def test_vbt_profile_rejects_an_out_of_range_rep_count(server):

@@ -14,6 +14,7 @@ history. Per-rep data is used only where it already exists as detail.
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
 
 import numpy as np
@@ -98,7 +99,11 @@ class VbtProfile:
     e1rm_kg: float | None = None
     e1rm_mvt_mps: float | None = None
     e1rm_basis: str | None = None
+    pooled_e1rm_kg: float | None = None
+    pooled_e1rm_extrapolated: bool = False
+    pooled_e1rm_basis: str | None = None
     e1rm_series: tuple[dict, ...] = ()
+    rir_e1rm_series: tuple[dict, ...] = ()
     # Pooled model across the lift's rep counts: velocity ~ load + reps + RIR.
     pooled_status: str = "no_data"
     pooled_reason: str | None = None
@@ -138,7 +143,11 @@ class VbtProfile:
             "e1rm_kg": self.e1rm_kg,
             "e1rm_mvt_mps": self.e1rm_mvt_mps,
             "e1rm_basis": self.e1rm_basis,
+            "pooled_e1rm_kg": self.pooled_e1rm_kg,
+            "pooled_e1rm_extrapolated": self.pooled_e1rm_extrapolated,
+            "pooled_e1rm_basis": self.pooled_e1rm_basis,
             "e1rm_series": list(self.e1rm_series),
+            "rir_e1rm_series": list(self.rir_e1rm_series),
             "pooled_status": self.pooled_status,
             "pooled_reason": self.pooled_reason,
             "pooled_slope": self.pooled_slope,
@@ -179,8 +188,9 @@ def build(
 
     frame = _filtered(sets, exercise_id)
     available = _available_reps(frame)
+    mvt = float(mvt_mps) if mvt_mps is not None else mvt_for(family)
     pooled_fit, pooled_status, pooled_reason = _pooled_fit(frame)
-    pooled = _pooled_payload(pooled_fit, pooled_status, pooled_reason, frame)
+    pooled = _pooled_payload(pooled_fit, pooled_status, pooled_reason, frame, mvt)
     if pooled_status == "fitted":
         # Let the selector reach a rep count with no sets of its own: the pooled line is
         # then shown as an extrapolation instead of the panel going blank.
@@ -216,8 +226,8 @@ def build(
             **pooled,
         )
 
-    mvt = float(mvt_mps) if mvt_mps is not None else mvt_for(family)
     e1rm = _implied_e1rm(fit, mvt)
+    series = _e1rm_series(frame, int(chosen), mvt)
     points = tuple(
         ProfilePoint(
             date=str(row.date)[:10],
@@ -249,7 +259,8 @@ def build(
             "line evaluated at a minimal-velocity anchor; display only"
             if e1rm is not None else None
         ),
-        e1rm_series=_e1rm_series(frame, int(chosen), mvt),
+        e1rm_series=series,
+        rir_e1rm_series=_rir_series(sets, series),
         **pooled,
     )
 
@@ -263,7 +274,7 @@ def _pooled_fit(frame: pd.DataFrame) -> tuple[dict | None, str, str | None]:
 
 
 def _pooled_payload(
-    fit: dict | None, status: str, reason: str | None, frame: pd.DataFrame
+    fit: dict | None, status: str, reason: str | None, frame: pd.DataFrame, mvt: float
 ) -> dict:
     observed: tuple[dict, ...] = ()
     if frame is not None and not frame.empty:
@@ -277,7 +288,12 @@ def _pooled_payload(
             "pooled_status": status,
             "pooled_reason": reason,
             "pooled_observed_reps": observed,
+            "pooled_e1rm_kg": None,
+            "pooled_e1rm_extrapolated": False,
+            "pooled_e1rm_basis": None,
         }
+    e1rm = _pooled_e1rm(fit, mvt)
+    extrapolated = bool(e1rm is not None and int(fit["reps_min"]) > 1)
     return {
         "pooled_status": "fitted",
         "pooled_reason": None,
@@ -298,7 +314,24 @@ def _pooled_payload(
             round(float(fit["r2"]), 3) if np.isfinite(fit["r2"]) else None
         ),
         "pooled_observed_reps": observed,
+        "pooled_e1rm_kg": round(e1rm, 1) if e1rm is not None else None,
+        "pooled_e1rm_extrapolated": extrapolated,
+        "pooled_e1rm_basis": (
+            "pooled line at 1 rep, RIR 0; display only" if e1rm is not None else None
+        ),
     }
+
+
+def _pooled_e1rm(fit: dict, mvt: float) -> float | None:
+    """Implied 1RM from the pooled model: 1 rep at RIR 0, solved at the MVT anchor."""
+    value = (
+        float(mvt) - float(fit["intercept"]) - float(fit["rep_coef"])
+    ) / float(fit["slope"])
+    if not np.isfinite(value) or value <= 0:
+        return None
+    if value < float(fit["load_max"]) or value > float(fit["load_max"]) * EXTRAPOLATION_LIMIT:
+        return None
+    return float(value)
 
 
 def _filtered(sets: pd.DataFrame, exercise_id: str) -> pd.DataFrame:
@@ -452,7 +485,9 @@ def _e1rm_series(frame: pd.DataFrame, rep_count: int, mvt: float) -> tuple[dict,
         return ()
     points: list[dict] = []
     # Forward from the first observation on a fixed weekly grid: a later row can only
-    # append points, it can never move an earlier one.
+    # append points, it can never move an earlier one. The grid must start at the first
+    # observation, not at the last 52 weeks, or an older dense period is skipped and the
+    # series goes empty; the profile cache pays this cost once per history edit instead.
     cursor = start
     while cursor <= end:
         low = cursor - pd.Timedelta(days=SERIES_WINDOW_DAYS)
@@ -471,12 +506,93 @@ def _e1rm_series(frame: pd.DataFrame, rep_count: int, mvt: float) -> tuple[dict,
     return tuple(points[-SERIES_MAX_POINTS:])
 
 
-def build_for(conn, exercise_id: str, *, rep_count: int | None = None) -> VbtProfile:
-    """Convenience wrapper: load, enrich and build for one exercise."""
-    from strength_coach.features import derived
-    from strength_coach.store import queries
+_PROFILE_CACHE: dict[tuple, VbtProfile] = {}
+_FRAME_CACHE: dict[tuple, pd.DataFrame] = {}
+_PROFILE_CACHE_LOCK = threading.Lock()
+_PROFILE_CACHE_MAX = 32
+_FRAME_CACHE_MAX = 8
 
-    raw = queries.clean_sets(conn, exercise_ids=(str(exercise_id),))
-    sets = derived.enrich(raw) if not raw.empty else raw
+
+def _history_revision(conn) -> tuple:
+    """Cheap token that changes on any append-only history edit.
+
+    A new set, a supersession or tombstone, a VBT override, a per-rep correction, a session
+    edit or a void all move one of these counters. The profile cache is keyed on it, so a
+    cached profile is reused until history actually changes.
+    """
+    row = conn.execute(
+        "SELECT (SELECT COALESCE(MAX(set_id), 0) FROM clean_set),"
+        " (SELECT COUNT(*) FROM clean_set),"
+        " (SELECT COALESCE(MAX(override_id), 0) FROM vbt_override),"
+        " (SELECT COALESCE(MAX(rep_id), 0) FROM clean_rep),"
+        " (SELECT COUNT(*) FROM session_edit),"
+        " (SELECT COUNT(*) FROM session_void)"
+    ).fetchone()
+    return tuple(int(value) for value in row)
+
+
+def _rir_series(sets: pd.DataFrame, points: tuple[dict, ...]) -> tuple[dict, ...]:
+    """The computed e1RM from load/reps/RIR, sampled on the VBT dates.
+
+    Uses the enriched frame's per-set Epley+RIR e1RM (the same formula the app already
+    applies), takes the best usable set per day, and forward-fills it onto the weekly VBT
+    dates so both lines share an x position. No second query: enrich has already run.
+    """
+    if sets is None or sets.empty or not points:
+        return ()
+    frame = sets[
+        sets["e1rm_kg"].notna()
+        & sets["is_working_set"].fillna(False).astype(bool)
+        & ~sets["flags"].fillna("").astype(str).str.contains("REPS_TYPO", regex=False)
+    ].copy()
+    if frame.empty:
+        return ()
+    frame["date"] = pd.to_datetime(frame["date"], errors="coerce")
+    frame = frame.dropna(subset=["date"])
+    if frame.empty:
+        return ()
+    best = frame.groupby(frame["date"].dt.date)["e1rm_kg"].max()
+    dated = sorted((str(day), float(value)) for day, value in best.items())
+    out: list[dict] = []
+    index = -1
+    for point in points:
+        when = point["date"]
+        while index + 1 < len(dated) and dated[index + 1][0] <= when:
+            index += 1
+        value = dated[index][1] if index >= 0 else None
+        out.append({
+            "date": when,
+            "e1rm_kg": round(value, 1) if value is not None else None,
+        })
+    return tuple(out)
+
+
+def build_for(conn, exercise_id: str, *, rep_count: int | None = None) -> VbtProfile:
+    """Load, enrich and build for one exercise, cached until history changes."""
+    revision = _history_revision(conn)
+    key = (str(exercise_id), rep_count, revision, METHOD_VERSION)
+    with _PROFILE_CACHE_LOCK:
+        cached = _PROFILE_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    frame_key = (str(exercise_id), revision, METHOD_VERSION)
+    with _PROFILE_CACHE_LOCK:
+        sets = _FRAME_CACHE.get(frame_key)
+    if sets is None:
+        from strength_coach.features import derived
+        from strength_coach.store import queries
+
+        raw = queries.clean_sets(conn, exercise_ids=(str(exercise_id),))
+        sets = derived.enrich(raw) if not raw.empty else raw
+        with _PROFILE_CACHE_LOCK:
+            if len(_FRAME_CACHE) >= _FRAME_CACHE_MAX:
+                _FRAME_CACHE.pop(next(iter(_FRAME_CACHE)))
+            _FRAME_CACHE[frame_key] = sets
     family = (exercises.taxonomy().entities.get(str(exercise_id)) or {}).get("vbt_family")
-    return build(sets, str(exercise_id), rep_count=rep_count, family=family)
+    profile = build(sets, str(exercise_id), rep_count=rep_count, family=family)
+    with _PROFILE_CACHE_LOCK:
+        if len(_PROFILE_CACHE) >= _PROFILE_CACHE_MAX:
+            _PROFILE_CACHE.pop(next(iter(_PROFILE_CACHE)))
+        _PROFILE_CACHE[key] = profile
+    return profile

@@ -122,9 +122,18 @@ The per-rep line is evaluated at a minimal-velocity anchor for the lift's family
 (`ASSUMPTION-58`): the load where the line reaches that velocity. It is refused when the
 implied load is below the heaviest fitted load or beyond 2.5× it. The value is display-only;
 no load, target or rule reads it, and the anchor is a literature value, not an estimate from
-this athlete. The e1RM is also shown as a point-in-time weekly series: each point is fitted on
-the trailing 84 days only, so a later block can append points but never rewrites an earlier
-one.
+this athlete.
+
+The **pooled model also implies an e1RM**: the same anchor, evaluated at **1 rep and RIR 0**,
+`(mvt − intercept − rep_coef) / slope`. It carries the same guards, and is labelled
+*extrapolated* when 1 rep is outside the rep range the pooled model was fitted on. Both values
+are shown, so the per-rep and pooled views can be compared directly.
+
+The e1RM is also shown as a point-in-time weekly series: each point is fitted on the trailing
+84 days only, so a later block can append points but never rewrites an earlier one. The series
+chart **overlays the computed e1RM** already used elsewhere in the app — the Epley+RIR estimate
+from the enriched set history, best usable set per day, forward-filled to the weekly dates — so
+the velocity-implied and load/RIR-implied trajectories can be read against each other.
 
 ## 7. Where it is shown
 
@@ -134,7 +143,17 @@ Exercises → Open → **VBT load–velocity profile**:
   line at the same rep count as a dashed overlay, and the display-only e1RM marker.
 - **Pooled panel**: one line per observed rep count from the pooled model. The selected rep
   count is highlighted; if it has no sets, it is drawn dashed and labelled *extrapolated*.
-- **e1RM series**: the weekly display-only series described in §6.
+- **e1RM series**: the weekly display-only series described in §6, with the computed
+  Epley+RIR e1RM overlaid.
+
+The same e1RM series is also at the bottom of **Performance**, using that view's lift selector
+and date range, so the velocity-implied and computed trajectories can be inspected without
+opening the exercise dialog.
+
+The profile is computed on read and cached in process, keyed on a cheap history revision
+(max set id, row count, latest override, latest rep row, session edits and voids). A repeat
+open is immediate; any append-only history edit changes the key and the profile is rebuilt on
+the next open. Nothing is written to the database for this view.
 
 Selecting a rep count with no sets is allowed when the pooled model exists, so the
 extrapolation can be inspected rather than hidden.

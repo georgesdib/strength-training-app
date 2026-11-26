@@ -45,6 +45,35 @@ def test_a_missing_mean_is_derived_from_the_rep_series(store):
     assert bool(row["velocity_present"]) is True
 
 
+def test_history_revision_changes_when_a_rep_is_inserted(store):
+    from strength_coach.features import vbt_profile
+
+    before = vbt_profile._history_revision(store.connection)
+    set_id, _ = _set(store)
+    store.connection.execute(
+        "INSERT INTO clean_rep (clean_set_id, rep_index, velocity_mps, source) "
+        "VALUES (?, 1, 0.5, 'device')",
+        (int(set_id),),
+    )
+    assert vbt_profile._history_revision(store.connection) != before
+
+
+def test_the_profile_is_cached_until_history_changes(store):
+    from strength_coach.features import vbt_profile
+
+    first = vbt_profile.build_for(store.connection, "bench_press")
+    second = vbt_profile.build_for(store.connection, "bench_press")
+    assert first is second
+    set_id, _ = _set(store)
+    store.connection.execute(
+        "INSERT INTO clean_rep (clean_set_id, rep_index, velocity_mps, source) "
+        "VALUES (?, 1, 0.5, 'device')",
+        (int(set_id),),
+    )
+    third = vbt_profile.build_for(store.connection, "bench_press")
+    assert third is not first
+
+
 def test_a_set_mean_override_wins_over_the_rep_mean(store):
     set_id, session_id = _set(store)
     for index, velocity in enumerate((0.60, 0.55, 0.50), start=1):

@@ -61,7 +61,7 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/state` | profile, constraints, suitability, e1RM overrides, the combined `e1rm_override_ledger` (overrides and dated withdrawals with status), symptoms, attributed symptoms, injury signal |
 | `GET /api/symptoms/attribution-options?onset=&timing=` | completed sessions and performed lifts available for an attributed symptom |
 | `GET /api/exercises` | canonical exercise catalogue for the pickers: `id`, `display`, `pattern` and `time_based` (the client labels a time-based movement in seconds rather than reps) |
-| `GET /api/exercises/<id>/vbt-profile` | display-only load–velocity profile for one exercise: fitted coefficients, residual spread, points, a display-only implied 1RM and its point-in-time weekly series; optional `?rep=N` (1–8). No prescription reads it |
+| `GET /api/exercises/<id>/vbt-profile` | display-only load–velocity profile for one exercise: fitted coefficients, residual spread, points, per-rep and pooled implied 1RMs (`e1rm_kg`, `pooled_e1rm_kg`), the point-in-time weekly series (`e1rm_series`) and the computed Epley+RIR overlay (`rir_e1rm_series`); optional `?rep=N` (1–8). No prescription reads it |
 | `POST /api/programme/key` | request body -> `{cache_key}` covering version, request, resolved profile, database revision and relevant config hashes |
 | `POST /api/programme/jobs` | starts a background build; returns `202` with `job_id` and status |
 | `GET /api/programme/jobs/<id>` | `running` / `done` with entries / `error`; has a one-hour in-memory TTL and is capped at 20 jobs |

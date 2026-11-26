@@ -177,6 +177,24 @@ def test_the_pooled_model_is_reported_across_rep_counts():
     assert observed == {2: 12, 3: 12}
 
 
+def test_the_pooled_model_also_implies_an_e1rm():
+    rows = []
+    for day in ("2024-01-01", "2024-01-08", "2024-01-15"):
+        for load in (80, 95, 110, 125):
+            for reps in (2, 3):
+                rows.append({
+                    "Date": day, "Exercise": "Competition Bench Press",
+                    "Weight_Used": str(load), "Reps_Done": str(reps), "RIR": "2",
+                    "Avg_velocity": f"{1.10 - 0.0045 * load - 0.03 * reps:.6f}",
+                })
+    data = profile.build(
+        enriched(rows), "bench_press", family="horizontal_push", rep_count=1,
+    )
+    assert data.pooled_status == "fitted"
+    assert data.pooled_e1rm_kg == pytest.approx(200, abs=5)
+    assert data.pooled_e1rm_extrapolated is True
+
+
 def test_no_stored_sets_reports_why():
     empty = enriched(bench_rows([80], lambda load: 1.0)).iloc[0:0]
     data = profile.build(empty, "bench_press", family="horizontal_push")

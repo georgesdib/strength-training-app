@@ -50,6 +50,12 @@ function renderExerciseVbt(data) {
     var note = "<p class='empty'>" + esc(data.reason) + "</p>";
     if (data.pooled_status === "fitted") {
       note += renderPooledChart(data, 2.5, data.rep_count);
+      e1rm.textContent = data.pooled_e1rm_kg
+        ? "Pooled e1RM " + fmt(data.pooled_e1rm_kg) + " kg at 1 rep" +
+          (data.pooled_e1rm_extrapolated ? " (extrapolated)" : "") + " — display only"
+        : "No implied e1RM from the pooled model";
+    } else {
+      e1rm.textContent = "";
     }
     host.innerHTML = note;
     return;
@@ -132,12 +138,21 @@ function renderExerciseVbt(data) {
     "<text x='14' y='" + ((mt + H - mb) / 2) + "' text-anchor='middle' transform='rotate(-90 14 " + ((mt + H - mb) / 2) + ")' class='vbt-tick'>mean velocity (m/s)</text>" +
     "</svg>";
   host.innerHTML = chart + renderPooledChart(data, refRir, data.rep_count) +
-    renderE1rmSeries(data.e1rm_series);
+    renderE1rmSeries(data.e1rm_series, data.rir_e1rm_series);
 
   status.textContent = data.n_sets + " sets · " + data.n_sessions + " sessions · " +
     data.n_loads + " loads · R² " + (data.r2 == null ? "—" : data.r2.toFixed(2));
-  e1rm.textContent = data.e1rm_kg
-    ? "VBT e1RM " + fmt(data.e1rm_kg) + " kg at " + data.e1rm_mvt_mps + " m/s (display only; line at RIR " + refRir + ")"
+  var e1rmBits = [];
+  if (data.e1rm_kg) {
+    e1rmBits.push("Per-rep e1RM " + fmt(data.e1rm_kg) + " kg at " + data.e1rm_mvt_mps +
+      " m/s (display only; line at RIR " + refRir + ")");
+  }
+  if (data.pooled_e1rm_kg) {
+    e1rmBits.push("pooled " + fmt(data.pooled_e1rm_kg) + " kg at 1 rep" +
+      (data.pooled_e1rm_extrapolated ? " (extrapolated)" : ""));
+  }
+  e1rm.textContent = e1rmBits.length
+    ? e1rmBits.join(" · ")
     : "No implied e1RM (display only; line at RIR " + refRir + ")";
 }
 
@@ -162,6 +177,7 @@ function renderPooledChart(data, refRir, highlightRep) {
   var W = 680, H = 280, ml = 58, mr = 58, mt = 18, mb = 46;
   var x0 = data.pooled_load_min;
   var x1 = data.pooled_load_max;
+  if (data.pooled_e1rm_kg) x1 = Math.max(x1, data.pooled_e1rm_kg);
   var pad = Math.max((x1 - x0) * 0.06, 1);
   x0 -= pad; x1 += pad;
   var values = [];
@@ -197,6 +213,16 @@ function renderPooledChart(data, refRir, highlightRep) {
       "<text x='" + (W - mr + 4) + "' y='" + (sy(yEnd) + 3).toFixed(1) + "' class='vbt-tick'>" + label + "</text>";
   }).join("");
 
+  var marker = "";
+  if (data.pooled_e1rm_kg) {
+    marker = "<line x1='" + sx(data.pooled_e1rm_kg).toFixed(1) + "' y1='" + mt +
+      "' x2='" + sx(data.pooled_e1rm_kg).toFixed(1) + "' y2='" + (H - mb) +
+      "' class='vbt-e1rm-line'/>" +
+      "<text x='" + sx(data.pooled_e1rm_kg).toFixed(1) + "' y='" + (mt + 10) +
+      "' text-anchor='middle' class='vbt-e1rm-label'>pooled e1RM " +
+      fmt(data.pooled_e1rm_kg) + " kg" +
+      (data.pooled_e1rm_extrapolated ? " (extrapolated)" : "") + "</text>";
+  }
   return "<h4 class='vbt-series-title'>Pooled model <span class='muted'>(velocity ~ load + reps + RIR; " +
     data.pooled_n_sets + " sets, reps " + data.pooled_reps_min + "–" + data.pooled_reps_max +
     ")</span></h4>" +
@@ -204,42 +230,64 @@ function renderPooledChart(data, refRir, highlightRep) {
     grid +
     "<line x1='" + ml + "' y1='" + (H - mb) + "' x2='" + (W - mr) + "' y2='" + (H - mb) + "' class='vbt-axis'/>" +
     "<line x1='" + ml + "' y1='" + mt + "' x2='" + ml + "' y2='" + (H - mb) + "' class='vbt-axis'/>" +
-    lines +
+    lines + marker +
     "<text x='" + ((ml + W - mr) / 2) + "' y='" + (H - 8) + "' text-anchor='middle' class='vbt-tick'>load (kg)</text>" +
     "</svg>";
 }
 
-function renderE1rmSeries(series) {
+function renderE1rmSeries(series, rirSeries) {
   if (!series || series.length < 2) return "";
-  var W = 680, H = 170, ml = 58, mr = 24, mt = 16, mb = 34;
-  var vals = series.map(function (p) { return p.e1rm_kg; });
-  var y0 = Math.min.apply(null, vals);
-  var y1 = Math.max.apply(null, vals);
+  var rir = (rirSeries && rirSeries.length === series.length) ? rirSeries : [];
+  var values = series.map(function (p) { return p.e1rm_kg; });
+  rir.forEach(function (p) { if (p && p.e1rm_kg != null) values.push(p.e1rm_kg); });
+  var W = 680, H = 180, ml = 58, mr = 24, mt = 16, mb = 34;
+  var y0 = Math.min.apply(null, values);
+  var y1 = Math.max.apply(null, values);
   var pad = Math.max((y1 - y0) * 0.15, 1);
   y0 -= pad; y1 += pad;
   function sx(i) { return ml + (i / (series.length - 1)) * (W - ml - mr); }
   function sy(v) { return H - mb - ((v - y0) / (y1 - y0)) * (H - mt - mb); }
-  var line = series.map(function (p, i) {
+
+  var vbt = series.map(function (p, i) {
     return sx(i).toFixed(1) + "," + sy(p.e1rm_kg).toFixed(1);
   }).join(" ");
   var dots = series.map(function (p, i) {
     return "<circle cx='" + sx(i).toFixed(1) + "' cy='" + sy(p.e1rm_kg).toFixed(1) +
-      "' r='2.4' class='vbt-dot'><title>" + esc(p.date) + " · " + fmt(p.e1rm_kg) +
+      "' r='2.4' class='vbt-dot'><title>" + esc(p.date) + " · VBT " + fmt(p.e1rm_kg) +
       " kg · " + p.n_sets + " sets</title></circle>";
   }).join("");
+
+  var segments = [];
+  var current = [];
+  rir.forEach(function (p, i) {
+    if (p && p.e1rm_kg != null) {
+      current.push(sx(i).toFixed(1) + "," + sy(p.e1rm_kg).toFixed(1));
+    } else if (current.length) {
+      segments.push(current.join(" "));
+      current = [];
+    }
+  });
+  if (current.length) segments.push(current.join(" "));
+  var rirLines = segments.map(function (segment) {
+    return "<polyline points='" + segment + "' class='vbt-line' fill='none' style='stroke:#1d4ed8'/>";
+  }).join("");
+
   var grid = [y0, (y0 + y1) / 2, y1].map(function (v) {
     return "<line x1='" + ml + "' y1='" + sy(v).toFixed(1) + "' x2='" + (W - mr) + "' y2='" + sy(v).toFixed(1) + "' class='vbt-grid'/>" +
       "<text x='" + (ml - 8) + "' y='" + (sy(v) + 3).toFixed(1) + "' text-anchor='end' class='vbt-tick'>" + v.toFixed(0) + "</text>";
   }).join("");
   var first = series[0];
   var last = series[series.length - 1];
+  var legend = "<p class='muted vbt-legend'>Green: VBT e1RM (velocity line)." +
+    (rirLines ? " Blue: e1RM from RIR (Epley, eligible session best)." : " No RIR e1RM in this window.") +
+    "</p>";
   return "<h4 class='vbt-series-title'>VBT e1RM over time <span class='muted'>(" +
-    esc(first.date) + " → " + esc(last.date) + ")</span></h4>" +
-    "<svg class='vbt-chart vbt-series' viewBox='0 0 " + W + " " + H + "' role='img' aria-label='Display-only VBT e1RM time series'>" +
+    esc(first.date) + " → " + esc(last.date) + ")</span></h4>" + legend +
+    "<svg class='vbt-chart vbt-series' viewBox='0 0 " + W + " " + H + "' role='img' aria-label='VBT e1RM and RIR e1RM over time'>" +
     grid +
     "<line x1='" + ml + "' y1='" + (H - mb) + "' x2='" + (W - mr) + "' y2='" + (H - mb) + "' class='vbt-axis'/>" +
-    "<polyline points='" + line + "' class='vbt-line' fill='none'/>" +
-    dots +
+    "<polyline points='" + vbt + "' class='vbt-line' fill='none'/>" +
+    dots + rirLines +
     "<text x='" + ml + "' y='" + (H - 12) + "' class='vbt-tick'>" + esc(first.date) + "</text>" +
     "<text x='" + (W - mr) + "' y='" + (H - 12) + "' text-anchor='end' class='vbt-tick'>" + esc(last.date) + "</text>" +
     "</svg>";
