@@ -2,7 +2,13 @@
 
 ## [Unreleased]
 
-Shipped to production on 2026-11-25; no version tag was created.
+## [2.0.0] — 2026-11-25
+
+Version 2.0.0 aligns the portfolio, backend and iOS repositories on one release line. This
+changelog and the shared plan/contract documents now name 2.0.0; the earlier 1.7.x tags remain
+the historical record for those releases.
+
+Production, 2026-11-25:
 
 - **Readiness metric registry.** The readiness score now reads an append-only, date-effective
   `readiness_registry` (migration 0081) rather than a mutable settings row. The seeded version
@@ -12,7 +18,7 @@ Shipped to production on 2026-11-25; no version tag was created.
   creates a brand-new input (definition + version atomically). The obsolete `score.*` config was
   removed, and the old `/api/readiness/settings` surface is gone.
 
-Shipped to production on 2026-11-22 (display-only); no version tag was created.
+Production, 2026-11-22 (display-only):
 
 - Session detail shows Apple's average and peak heart rate from the linked workout, on the web and
   on the phone, plus a per-set heart-rate recovery value (`hrr60_bpm`) labelled with its caveat:

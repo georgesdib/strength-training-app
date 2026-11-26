@@ -21,7 +21,7 @@ LLM call fails entirely.
 
 ## Status
 
-**v1.5.0 is released; v1.6 is planned.** The full slice runs:
+**v2.0.0 is released.** The full slice runs:
 import → readiness → prescribe a day → run it → read the session report. Days
 are prescribable through rolling session types (squat, hinge, bench+squat, bench+hinge); athlete
 state, constraints, suitability, e1RM overrides, symptoms and the exercise catalogue are editable
@@ -38,7 +38,7 @@ workable app and guided Workflow UI for user testing. **v1.1 beta** adds the raw
 view, configured relative-strength ratios, read-only monitoring analysis and the Phase 5A
 review follow-up. **v1.2.0** removed the beta label and shipped the deterministic template resolver as an
 opt-in feature behind `resolver.enabled` (default false). **v1.3.0** closed the UI redesign,
-measurement/readiness cleanup and documentation infrastructure. **v1.5.0 is the current stable
+measurement/readiness cleanup and documentation infrastructure. **v2.0.0 is the current stable
 release**: the read-only training intelligence workstream — capability layer, MCP server, REST
 facade, deterministic weekly review, server narration, web/CLI narrate and chat with the
 deterministic dossier — plus the selector retirement and the evaluation harness. It changes no
