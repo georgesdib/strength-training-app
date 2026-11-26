@@ -61,6 +61,7 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/state` | profile, constraints, suitability, e1RM overrides, the combined `e1rm_override_ledger` (overrides and dated withdrawals with status), symptoms, attributed symptoms, injury signal |
 | `GET /api/symptoms/attribution-options?onset=&timing=` | completed sessions and performed lifts available for an attributed symptom |
 | `GET /api/exercises` | canonical exercise catalogue for the pickers: `id`, `display`, `pattern` and `time_based` (the client labels a time-based movement in seconds rather than reps) |
+| `GET /api/exercises/<id>/vbt-profile` | display-only load–velocity profile for one exercise: fitted coefficients, residual spread, points, a display-only implied 1RM and its point-in-time weekly series; optional `?rep=N` (1–8). No prescription reads it |
 | `POST /api/programme/key` | request body -> `{cache_key}` covering version, request, resolved profile, database revision and relevant config hashes |
 | `POST /api/programme/jobs` | starts a background build; returns `202` with `job_id` and status |
 | `GET /api/programme/jobs/<id>` | `running` / `done` with entries / `error`; has a one-hour in-memory TTL and is capped at 20 jobs |
@@ -283,11 +284,24 @@ An issued VBT target now carries an optional `vbt` object on each plan item:
   "family": "squat",
   "n_sets": 18,
   "n_sessions": 3,
-  "method_version": "1.0.0",
+  "method_version": "2.0.0",
   "calibration_id": "vbt-...",
-  "source": "computed"
+  "source": "computed",
+  "fit_method": "line",
+  "velocity_slope": -0.0045,
+  "velocity_intercept": 1.05,
+  "velocity_rir_coef": 0.0,
+  "velocity_residual_mad": 0.01,
+  "load_min": 80,
+  "load_max": 125
 }
 ```
+
+`fit_method` is `line` when the target was evaluated at the item's prescribed load and RIR,
+and `median` when the flat band was issued instead. The coefficients and load range are frozen
+with the target; a per-set comparison evaluates the line at the load actually used and reports
+`expected_mps`, `comparison_basis`, `load_conditional` and `extrapolated`, falling back to the
+planned target outside the fitted range.
 
 The legacy `velocity_target` and `vbt_basis` fields remain. The structured object is frozen
 into `workout_session.plan_json` at workout start, so a later recalibration cannot rewrite the

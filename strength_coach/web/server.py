@@ -104,6 +104,7 @@ from strength_coach.features import shadow_report as shadow_report_feature
 from strength_coach.features import strength_trend as strength_trend_feature
 from strength_coach.features import test_cadence as test_cadence_feature
 from strength_coach.features import vbt_performance as vbt_performance_feature
+from strength_coach.features import vbt_profile as vbt_profile_feature
 from strength_coach.features import volume as volume_feature
 from strength_coach.features import weekly as weekly_feature
 from strength_coach.features.readiness_score import ReadinessRequired
@@ -4011,6 +4012,25 @@ class Handler(BaseHTTPRequestHandler):
                     ],
                 }
                 self._json(200, payload)
+            elif path.startswith("/api/exercises/") and path.endswith("/vbt-profile"):
+                exercise_id = path[len("/api/exercises/"):-len("/vbt-profile")].strip("/")
+                if not exercise_id:
+                    raise ValueError("exercise id is required")
+                query = parse_qs(urlparse(self.path).query)
+                rep_raw = (query.get("rep", [""])[0] or "").strip()
+                rep_count = None
+                if rep_raw:
+                    try:
+                        rep_count = int(rep_raw)
+                    except ValueError as exc:
+                        raise ValueError("rep must be an integer") from exc
+                    if not 1 <= rep_count <= 8:
+                        raise ValueError("rep must be between 1 and 8")
+                self._json(200, self._with_conn(
+                    lambda c: vbt_profile_feature.build_for(
+                        c, exercise_id, rep_count=rep_count
+                    ).as_dict()
+                ))
             elif path == "/api/exercises":
                 self._json(200, [
                     {"id": key, "display": str(value.get("display") or key),

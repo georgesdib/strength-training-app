@@ -177,7 +177,23 @@ def _clean_sets_query(
     sql = (
         "SELECT s.set_id, s.session_id, s.occurred_on, s.exercise_id, s.raw_exercise,"
         " s.load_kg, s.load_basis, s.external_load_kg, s.reps, s.reps_unit, s.rir,"
-        " s.rir_source, s.velocity_mps, s.velocity_present, s.rom_mm, s.tut_s,"
+        " s.rir_source, s.velocity_mps AS stored_velocity, s.velocity_present, s.rom_mm, s.tut_s,"
+        " (SELECT o.velocity_mps FROM vbt_override o"
+        "   WHERE o.set_id = s.set_id AND o.rep_index IS NULL"
+        "   AND NOT EXISTS (SELECT 1 FROM vbt_override c WHERE c.supersedes_id = o.override_id)"
+        "   ORDER BY o.override_id DESC LIMIT 1) AS override_velocity,"
+        " (SELECT AVG(v) FROM ("
+        "   SELECT v FROM ("
+        "     SELECT r.rep_index AS idx, r.velocity_mps AS v, 0 AS pri"
+        "       FROM clean_rep r WHERE r.clean_set_id = s.set_id"
+        "     UNION ALL"
+        "     SELECT o.rep_index AS idx, o.velocity_mps AS v, 1 AS pri"
+        "       FROM vbt_override o"
+        "       WHERE o.set_id = s.set_id AND o.rep_index IS NOT NULL"
+        "         AND NOT EXISTS (SELECT 1 FROM vbt_override c"
+        "                         WHERE c.supersedes_id = o.override_id)"
+        "   ) GROUP BY idx HAVING pri = MAX(pri)"
+        " )) AS rep_velocity,"
         " s.form_score, s.tonnage_kg, s.is_working_set, s.flags, r.source_row"
         " FROM clean_set s JOIN raw_row r ON r.raw_id = s.raw_id"
         " JOIN session sess ON sess.session_id = s.session_id"
@@ -209,11 +225,39 @@ def _clean_sets_query(
     frame["date"] = pd.to_datetime(frame["date"])
     frame["set_id"] = frame["set_id"].astype(int)
     frame["is_working_set"] = frame["is_working_set"].astype(bool)
-    frame["velocity_present"] = frame["velocity_present"].astype(bool)
+    frame = _effective_velocity(frame)
     frame["rir_class"] = frame["rir"].map(lambda value: rir_mod.classify(value).klass)
     frame["total_load_kg"] = frame["load_kg"]
     frame["flags"] = frame["flags"].map(_flags_to_ingest_form)
     frame["source_row"] = frame["source_row"].astype(int)
+    return frame
+
+
+def _effective_velocity(frame: pd.DataFrame) -> pd.DataFrame:
+    """One velocity truth per set: override > stored mean > mean of the per-rep rows.
+
+    A set whose only velocity is a per-rep series used to read as "no velocity" because
+    `velocity_present` was derived from the set mean alone. The per-rep mean is the same
+    quantity the device exports, so deriving it here keeps those sets in calibration and in
+    the descriptive features without mutating `clean_set` (which is append-only).
+    """
+    stored = pd.to_numeric(frame.get("stored_velocity"), errors="coerce")
+    override = pd.to_numeric(frame.get("override_velocity"), errors="coerce")
+    rep_mean = pd.to_numeric(frame.get("rep_velocity"), errors="coerce")
+    stored = stored.where(stored > 0)
+    velocity = override.where(override.notna(), stored)
+    source = pd.Series(
+        ["override" if pd.notna(value) else None for value in override], index=frame.index
+    )
+    source = source.where(source.notna(),
+                          pd.Series(["stored" if pd.notna(v) else None for v in stored],
+                                    index=frame.index))
+    derived = velocity.isna() & rep_mean.notna()
+    velocity = velocity.where(velocity.notna(), rep_mean)
+    source = source.where(~derived, "rep_mean")
+    frame["velocity_mps"] = velocity
+    frame["velocity_source"] = source
+    frame["velocity_present"] = velocity.notna() & (velocity > 0)
     return frame
 
 

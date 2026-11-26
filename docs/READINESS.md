@@ -133,10 +133,12 @@ fatigue factor (0.95), rounded down, and every touched item cites `MOD-FAT-001` 
 
 There is also a conservative **set-reduction valve**: when the global score is below
 `set_reduction.score_below`, or the sleep/energy floor fires, each item loses
-`set_reduction.sets` (minimum one set). `include_essential` is **false** by default after the 2026-10-23 audit; accessory
-sets lose one set, while main-lift set reduction is an explicit opt-in in the volume-valve settings. The
+`set_reduction.sets` (minimum one set). `include_essential` is **true** by default since
+`DEC-READINESS-22`, which reversed the 2026-10-23 opt-in: accessories and main lifts each lose
+one set, and the athlete can disable main-lift reduction in the volume-valve settings. The
 warning names the affected sets, and the prescription notes record the setting. This is fatigue
-management, not a proven strength optimisation.
+management, not a proven strength optimisation — the audit behind `DEC-READINESS-12` found no
+no-readiness counterfactual, so the default is a coaching choice, not new evidence.
 
 A separate **readiness feedback** report compares a readiness-reduced session with the prior one. It reads completed workout snapshots whose frozen plan cites `MOD-FAT-001`, so the UI start-workout path is included, and compares planned versus actual sets. CLI-stored prescription modifiers fill in when no workout snapshot exists. It is association-only and never tunes the weights or valve.
 

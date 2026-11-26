@@ -656,6 +656,23 @@ def test_exercise_catalogue_is_served(server):
     assert rows["plank"]["time_based"] is True
     assert rows["bench_press"]["time_based"] is False
 
+def test_vbt_profile_endpoint_is_display_only(server):
+    status, body = get(server, "/api/exercises/bench_press/vbt-profile")
+    assert status == 200
+    data = json.loads(body)
+    assert data["exercise_id"] == "bench_press"
+    assert data["status"] in ("no_data", "insufficient", "fitted")
+    assert data["method_version"]
+    assert data["e1rm_basis"] is None
+    assert data["e1rm_series"] == []
+
+
+def test_vbt_profile_rejects_an_out_of_range_rep_count(server):
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        get(server, "/api/exercises/bench_press/vbt-profile?rep=99")
+    assert excinfo.value.code in (400, 422)
+
+
 def test_rubric_calibration_endpoint_is_gone(server):
     with pytest.raises(urllib.error.HTTPError) as excinfo:
         get(server, "/api/calibrate")

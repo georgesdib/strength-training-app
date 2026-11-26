@@ -56,7 +56,7 @@ class ReadinessConfig:
     set_reduction_enabled: bool = True
     set_reduction_score_below: float = 0.50
     set_reduction_sets: int = 1
-    set_reduction_include_essential: bool = False
+    set_reduction_include_essential: bool = True
     source_path: Path = Path()
 
     def trigger(self, readiness: Mapping[str, Any] | None) -> str | None:
@@ -124,7 +124,7 @@ class ReadinessConfig:
             set_reduction_score_below=float(set_reduction.get("score_below", 0.50)),
             set_reduction_sets=max(0, int(set_reduction.get("sets", 1))),
             set_reduction_include_essential=bool(
-                set_reduction.get("include_essential", False)
+                set_reduction.get("include_essential", True)
             ),
             source_path=source,
         )

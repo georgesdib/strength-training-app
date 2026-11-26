@@ -64,7 +64,7 @@ def test_the_example_pins_the_current_hinge_result():
     assert any("one eligible set" in warning for warning in normal.warnings)
 
     assert poor.fallback_level == "fatigue_reduced"
-    assert [item.sets for item in poor.items] == [2, 4, 4, 2, 2, 2, 2, 2, 2]
+    assert [item.sets for item in poor.items] == [2, 3, 3, 2, 2, 2, 2, 2, 2]
     assert [item.load_kg for item in poor.items] == [
         0.0, 146.0, 87.5, 0.0, 27.5, 18.5, 55.5, 27.5, 27.5,
     ]

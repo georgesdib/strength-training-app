@@ -146,6 +146,13 @@ class VbtTarget:
     method_version: str
     calibration_id: str | None = None
     source: str = "computed"
+    fit_method: str = "median"
+    velocity_slope: float | None = None
+    velocity_intercept: float | None = None
+    velocity_rir_coef: float | None = None
+    velocity_residual_mad: float | None = None
+    load_min: float | None = None
+    load_max: float | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -162,6 +169,13 @@ class VbtTarget:
             "method_version": self.method_version,
             "calibration_id": self.calibration_id,
             "source": self.source,
+            "fit_method": self.fit_method,
+            "velocity_slope": self.velocity_slope,
+            "velocity_intercept": self.velocity_intercept,
+            "velocity_rir_coef": self.velocity_rir_coef,
+            "velocity_residual_mad": self.velocity_residual_mad,
+            "load_min": self.load_min,
+            "load_max": self.load_max,
         }
 
 

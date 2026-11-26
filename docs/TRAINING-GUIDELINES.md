@@ -61,7 +61,7 @@ A 2024 series of meta-regressions on estimated proximity to failure finds hypert
 from training closer to failure, while strength effects are less clear-cut
 ([Sports Medicine 2024](https://link.springer.com/article/10.1007/s40279-024-02069-2)).
 
-**Implication:** the window is now RIR 1-4 with a 2-3 target (`DEC-RIR-02`,
+**Implication:** the window is now RIR 0-4 with a 2-3 target; RIR 0 is legal for logging, calibration and tests but discouraged and never targeted (`DEC-RIR-06`, `DEC-RIR-02`,
 [evidence](RIR-EVIDENCE.md)). It remains a conservative choice — failure is not required, and
 RIR estimation is imprecise — but RIR 1 is a legitimate strength exposure, so the rule no longer
 forbids it. The consequence worth stating plainly:

@@ -61,17 +61,16 @@ def trap_bar(date: str, sets: int = 3) -> list[dict]:
 # --- PRG-RIR-001 -----------------------------------------------------------
 
 
-def test_rir_floor_fails_with_resolvable_evidence(document):
-    # RIR 0 is the forbidden grinding set; RIR 1 is inside the widened window (DEC-RIR-02).
-    ctx = context([squat("0")])
-    result = evaluate(document, ctx, rule_ids=["PRG-RIR-001"])
-    verdict = result.verdict("PRG-RIR-001")
+def test_rir_zero_is_legal_and_above_the_ceiling_is_reported_not_vetoed(document):
+    # DEC-RIR-06: RIR 0 is inside the 0-4 window (and stays suspect).
+    zero = evaluate(document, context([squat("0")]), rule_ids=["PRG-RIR-001"])
+    assert zero.verdict("PRG-RIR-001").verdict == "pass"
 
-    assert verdict.verdict == "fail"
-    assert verdict.code == "RIR_FLOOR"
-    assert verdict.details["below_floor"] == 1
-    assert verdict.evidence
-    assert all(resolve_reference(ctx, item.ref) for item in verdict.evidence)
+    # Above the window is easier than prescribed, so it is counted and reported, not vetoed.
+    ctx = context([squat("5")])
+    verdict = evaluate(document, ctx, rule_ids=["PRG-RIR-001"]).verdict("PRG-RIR-001")
+    assert verdict.verdict == "pass"
+    assert verdict.details["above_ceiling"] == 1
 
 
 def test_warmup_sets_are_excluded_from_effort_scoring(document):
@@ -262,7 +261,11 @@ def test_unknown_outranks_pass(document):
 
 
 def test_veto_outranks_unknown(document):
-    ctx = context([squat("0")])
+    # RIR 0 no longer vetoes, so the remaining hard exposure is a near-max single.
+    ctx = context([
+        bench("2", reps="5"),
+        bench("2", date="2024-01-02", reps="1", weight="150"),
+    ])
     result = evaluate(document, ctx)
     assert result.outcome == "veto"
     assert result.vetoes and result.vetoes[0].rule_id == "PRG-RIR-001"

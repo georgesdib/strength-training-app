@@ -802,6 +802,8 @@ function vbtPerformanceSetTable(rows) {
       (row.target_rir_low == null ? "" :
         " (band " + row.target_rir_low + "–" + row.target_rir_high + ")");
     var target = row.target_mps == null ? "—" : fmt(row.target_mps, 2) +
+      (row.expected_mps == null ? "" :
+        " → " + fmt(row.expected_mps, 2) + " at " + fmt(row.load_kg, 1) + " kg") +
       (row.low_mps == null || row.high_mps == null ? "" :
         " (" + fmt(row.low_mps, 2) + "–" + fmt(row.high_mps, 2) + ")");
     return "<tr><td>" + esc(row.workout_date || "—") + "</td><td>" +
@@ -833,13 +835,17 @@ function vbtPerformanceCohortDetails(cohort, rows) {
       String(row.target_rir_low == null ? "" : row.target_rir_low) ===
         String(cohort.target_rir_low == null ? "" : cohort.target_rir_low) &&
       String(row.target_rir_high == null ? "" : row.target_rir_high) ===
-        String(cohort.target_rir_high == null ? "" : cohort.target_rir_high);
+        String(cohort.target_rir_high == null ? "" : cohort.target_rir_high) &&
+      (cohort.fit_method === "line"
+        ? String(row.comparison_basis || "").indexOf("line") === 0
+        : String(row.comparison_basis || "").indexOf("line") !== 0);
   });
   return "<details class='vbt-performance-cohort'><summary><strong>" +
     esc(cohort.exercise_name || cohort.exercise_id) + "</strong> · " +
     esc(vbtPerformanceCohortLabel(cohort)) + " · " + cohort.n + " comparable</summary>" +
     "<p class='muted'>Target " + (cohort.target && cohort.target.target_mps != null
       ? esc(vbtTargetInline(cohort.target)) : "—") +
+    " · comparison " + esc(cohort.fit_method === "line" ? "line at actual load" : "median target") +
     " · method " + esc((cohort.method_versions || []).join(", ") || "—") +
     " · calibration id " + esc((cohort.calibration_ids || []).join(", ") || "—") +
     " · sources " + esc((cohort.target_sources || []).join(", ") || "—") + "</p>" +

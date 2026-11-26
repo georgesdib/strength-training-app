@@ -163,6 +163,27 @@ def _rir_evidence(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _basis_for(row: Mapping[str, Any]) -> str:
+    """Which quantity the residual is measured against: the fitted line or the flat median.
+
+    Pooling the two would average a load-adjusted residual with a delta against a fixed
+    number, so the comparison basis is part of the cohort identity.
+    """
+    return "line" if str(row.get("comparison_basis") or "").startswith("line") else "median"
+
+
+def _cohort_key(row: Mapping[str, Any]) -> tuple[Any, ...]:
+    return (
+        str(row.get("exercise_id")),
+        row.get("scope") or "legacy",
+        row.get("family"),
+        row.get("target_rep_count"),
+        row.get("target_rir_low"),
+        row.get("target_rir_high"),
+        _basis_for(row),
+    )
+
+
 def _cohort(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     comparable = [row for row in rows if row["comparable"]]
     residuals = [float(row["delta_mps"]) for row in comparable if row.get("delta_mps") is not None]
@@ -195,6 +216,9 @@ def _cohort(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     return {
         "exercise_id": first.get("exercise_id"),
         "exercise_name": first.get("exercise_name"),
+        "fit_method": _basis_for(first),
+        "comparison_basis": first.get("comparison_basis"),
+        "load_conditional": bool(first.get("load_conditional")),
         "scope": first.get("scope") or "legacy",
         "family": first.get("family"),
         "target_rep_count": first.get("target_rep_count"),
@@ -451,15 +475,7 @@ def analyse(
 
     cohorts_map: dict[tuple[Any, ...], list[Mapping[str, Any]]] = defaultdict(list)
     for row in target_rows:
-        key = (
-            str(row.get("exercise_id")),
-            row.get("scope") or "legacy",
-            row.get("family"),
-            row.get("target_rep_count"),
-            row.get("target_rir_low"),
-            row.get("target_rir_high"),
-        )
-        cohorts_map[key].append(row)
+        cohorts_map[_cohort_key(row)].append(row)
     cohorts = [
         _cohort(group)
         for _, group in sorted(

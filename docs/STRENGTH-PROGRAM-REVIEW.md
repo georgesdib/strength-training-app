@@ -27,7 +27,7 @@ after a template change. A stale block fails `tests/test_programme_summary.py`.
 not the single-leg RDL.
 
 <!-- BEGIN GENERATED PROGRAMME SUMMARY -->
-<!-- source:sha256:57b3f64c4c8ff347 -->
+<!-- source:sha256:1b65615c8263e561 -->
 
 | session type | work | sets | spinal cost |
 |---|---|---|---:|
@@ -62,7 +62,7 @@ Counted spinal cost: **4** for the first week (squat, hinge, bench+squat) and **
 
 ### Effort and progression
 
-- Main lifts: **RIR 2** target, allowed window **RIR 1–4**; RIR 0, max singles and 1RM testing
+- Main lifts: **RIR 2** target, allowed window **RIR 0–4**; RIR 0 is legal but discouraged, max singles and 1RM testing
   inside a block are forbidden.
 - Accessories: double progression, hold load until the top of the range on all sets at RIR ≥ 2,
   then add one increment. The prescription rule (`PRG-DP-001`) considers the last four sessions
@@ -92,7 +92,7 @@ settled by trials.
 | 1 | 3×/week full-body is a good strength frequency | Moderate | When weekly volume is equated, higher frequency appears to help strength somewhat; 3× full-body is within the supported range. Frequency is not a free extra dose. ([frequency meta-analysis](https://pubmed.ncbi.nlm.nih.gov/30076500/); [2025 dose-response](https://link.springer.com/article/10.1007/s40279-025-02344-w)) | Supported |
 | 2 | Weekly volume around the current plan is enough | Moderate | Hypertrophy rises with weekly volume to roughly 10+ sets per muscle with diminishing returns; strength is less volume-dependent. The current plan has ~7 squat, 12 bench and ~6.5 hinge sets/week (5 trap-bar + 1.5 sumo), plus accessory volume. ([Schoenfeld 2017](https://www.tandfonline.com/doi/abs/10.1080/02640414.2016.1210197); [2025 dose-response](https://link.springer.com/article/10.1007/s40279-025-02344-w)) | Supported after Plan A; hinge still below bench volume |
 | 3 | Main lifts at 3–5 reps | Strong for strength | Heavy, lower-rep training is more specific for 1RM strength when effort is matched. ([Hammert 2026](https://doi.org/10.1007/s40279-025-02370-8)) | Supported |
-| 4 | RIR 2 target, RIR 1–4 allowed, RIR 0 forbidden | Moderate | Strength gains are similar across a wide RIR range; non-failure is at least as good for dynamic strength; hypertrophy improves closer to failure; RIR self-estimation carries meaningful error. ([Robinson 2024](https://doi.org/10.1007/s40279-024-02069-2); [Wu 2026](https://doi.org/10.1186/s13102-026-01861-z); [RIR-EVIDENCE](RIR-EVIDENCE.md)) | Supported and conservative |
+| 4 | RIR 2 target, RIR 0–4 allowed, RIR 0 discouraged and never targeted | Moderate | Strength gains are similar across a wide RIR range; non-failure is at least as good for dynamic strength; hypertrophy improves closer to failure; RIR self-estimation carries meaningful error. ([Robinson 2024](https://doi.org/10.1007/s40279-024-02069-2); [Wu 2026](https://doi.org/10.1186/s13102-026-01861-z); [RIR-EVIDENCE](RIR-EVIDENCE.md)) | Supported and conservative |
 | 5 | Accessories at RIR 2 with double progression | Moderate | The effort is defensible for a back-sensitive athlete, but hypertrophy-oriented accessory work may progress more slowly than a failure-inclusive programme. This is a deliberate trade-off, not an evidence claim that RIR 2 is optimal. | Coherent trade-off |
 | 6 | Power work: box jump on squat, broad jump on hinge, medicine-ball throw on both bench days, 3×3–5, quality stop | Moderate for function, weak for this exact dose | Power training improves physical function in older adults, with low certainty; the exact 3–5 set prescription is practice, not a validated protocol. Horizontal plyometric training has a direction-specific advantage without a significant vertical penalty. Throw-specific bench evidence is sparse. ([power meta-analysis](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9096601/); [jump evidence](JUMP-VARIANTS.md); [throw evidence](THROW-VARIANTS.md)) | Kept as practice; broad jump and medicine-ball throw added as complements (`DEC-POWER-04/05`) |
 | 7 | 4-week undulating cycle | Moderate | Linear and undulating periodization produce comparable strength and body-composition outcomes. DUP is variety/fatigue management, not a superiority claim. ([Zhang 2026](https://doi.org/10.3389/fpubh.2026.1707627)) | Supported as structure, not advantage |
@@ -121,7 +121,7 @@ settled by trials.
 
 1. **The core strength dose is evidence-aligned.** Three full-body sessions, 3–5 reps on the
    main lifts, RIR 2 with a 1–4 window, and no failure is a coherent strength programme.
-2. **It is safety-conscious without being fear-driven.** RIR 0 and max singles are excluded;
+2. **It is safety-conscious without being fear-driven.** RIR 0 is not targeted (and is surfaced as suspect) and max singles are excluded;
    direct erector work is separated from the hinge; trap bar is used; readiness can only reduce
    load. This fits a lifter with a back history.
 3. **The deterministic layer is strong.** Loads are solved from lift-specific e1RM, every item

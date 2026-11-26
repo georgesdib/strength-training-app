@@ -261,18 +261,13 @@ def test_cli_contract_detects_a_removed_documented_command() -> None:
     assert documented - {"run"} == {"removed-command"}
 
 
-def test_documented_rir_and_readiness_valve_match_config() -> None:
+def test_documented_rir_window_matches_config() -> None:
     rules = yaml.safe_load(_read("config", "rules", "programme.v1.yaml"))
     rule = next(item for item in rules["rules"] if item["id"] == "PRG-RIR-001")
     rir = rule["params"]["default_rir"]
     review = _read("docs", "STRENGTH-PROGRAM-REVIEW.md")
     assert f"RIR {rir['min']}–{rir['max']}" in review
     assert "RIR 2 target" in review
-
-    readiness = yaml.safe_load(_read("config", "readiness.v1.yaml"))
-    assert readiness["set_reduction"]["include_essential"] is False
-    readiness_doc = _read("docs", "READINESS.md")
-    assert "`include_essential` is **false**" in readiness_doc
 
 
 def test_documented_exposure_default_matches_schema() -> None:

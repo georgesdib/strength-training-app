@@ -22,6 +22,7 @@ from collections.abc import Collection, Mapping
 from dataclasses import replace
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from strength_coach import settings_profile
@@ -1650,6 +1651,37 @@ def _apply_continuity(
             factors_out)
 
 
+def _target_values(target, item) -> tuple[float, float | None, float | None, str]:
+    """The target at the item's prescribed load and RIR, or the median band as fallback.
+
+    A load-conditioned target is only issued inside the fitted load range. Outside it the
+    line would be an extrapolation, so the historical median band is used instead and the
+    provenance says `median`.
+    """
+    fallback = (target.velocity_median, target.velocity_low, target.velocity_high, "median")
+    if target.fit_method != "line" or target.velocity_slope is None or target.velocity_intercept is None:
+        return fallback
+    if item.load_kg is None or target.load_min is None or target.load_max is None:
+        return fallback
+    load = float(item.load_kg)
+    if not (float(target.load_min) <= load <= float(target.load_max)):
+        return fallback
+    rir = item.rir_target if item.rir_target is not None else sum(target.rir_band) / 2
+    if not 0 <= float(rir) <= 4:
+        return fallback
+    value = (
+        float(target.velocity_intercept)
+        + float(target.velocity_slope) * load
+        + float(target.velocity_rir_coef or 0.0) * float(rir)
+    )
+    if not np.isfinite(value) or value <= 0:
+        return fallback
+    half = 2.0 * float(target.velocity_residual_mad or 0.0)
+    if half <= 0:
+        half = max(0.02, value * 0.05)
+    return (round(value, 4), round(value - half, 4), round(value + half, 4), "line")
+
+
 def _attach_vbt_targets(
     conn,
     context: RuleContext,
@@ -1703,17 +1735,20 @@ def _attach_vbt_targets(
         if target is None:
             out.append(item)
             continue
+        value, low, high, basis = _target_values(target, item)
         calibration_id = _persist_calibration(conn, target, for_date)
         ids.append(calibration_id)
         out.append(
             replace(
                 item,
-                velocity_target=target.velocity_median,
-                vbt_basis=f"{target.scope} · {target.n_sets} sets/{target.n_sessions} sessions",
+                velocity_target=value,
+                vbt_basis=(
+                    f"{target.scope} · {target.n_sets} sets/{target.n_sessions} sessions · {basis}"
+                ),
                 vbt=VbtTarget(
-                    target_mps=float(target.velocity_median),
-                    low_mps=target.velocity_low,
-                    high_mps=target.velocity_high,
+                    target_mps=float(value),
+                    low_mps=low,
+                    high_mps=high,
                     rep_count=int(target.rep_count),
                     rir_low=int(target.rir_band[0]),
                     rir_high=int(target.rir_band[1]),
@@ -1724,6 +1759,13 @@ def _attach_vbt_targets(
                     method_version=str(target.method_version),
                     calibration_id=calibration_id,
                     source=str(target.source),
+                    fit_method=basis,
+                    velocity_slope=target.velocity_slope,
+                    velocity_intercept=target.velocity_intercept,
+                    velocity_rir_coef=target.velocity_rir_coef,
+                    velocity_residual_mad=target.velocity_residual_mad,
+                    load_min=target.load_min,
+                    load_max=target.load_max,
                 ),
             )
         )
@@ -1757,7 +1799,9 @@ def _persist_calibration(conn, target, for_date: str) -> str:
         f"{target.velocity_median}|{target.velocity_low}|{target.velocity_high}|"
         f"{target.n_sets}|{target.n_sessions}|{target.velocity_mad}|"
         f"{target.method_version}|{target.vbt_family}|{target.source}|"
-        f"{params_hash}|{for_date}"
+        f"{target.velocity_slope}|{target.velocity_intercept}|{target.velocity_rir_coef}|"
+        f"{target.velocity_residual_mad}|{target.load_min}|{target.load_max}|"
+        f"{target.fit_method}|{params_hash}|{for_date}"
     )
     calibration_id = "vbt-" + hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
     existing = conn.execute(
@@ -1782,6 +1826,13 @@ def _persist_calibration(conn, target, for_date: str) -> str:
             params=target.params,
             window_end=for_date,
             source=str(target.source),
+            velocity_slope=target.velocity_slope,
+            velocity_intercept=target.velocity_intercept,
+            velocity_rir_coef=target.velocity_rir_coef,
+            velocity_residual_mad=target.velocity_residual_mad,
+            load_min=target.load_min,
+            load_max=target.load_max,
+            fit_method=target.fit_method,
         )
     return calibration_id
 

@@ -279,8 +279,11 @@ The former per-athlete overlay is retained for history only; nothing reads or wr
 | scope | `lift` \| `family` \| `global_prior` |
 | rep_count | target applies at this rep count |
 | rir_low / rir_high | the window bounds, e.g. 2 and 3 (stored as two columns so SQL can compare) |
-| velocity_median, velocity_mad | m/s |
+| velocity_median, velocity_mad | m/s; the median fallback |
 | velocity_low, velocity_high | robust band with relative floor |
+| velocity_slope, velocity_intercept, velocity_rir_coef | fitted line of mean velocity on load and RIR; null on a median-only row |
+| velocity_residual_mad, load_min, load_max | fitted spread and the range a load-conditioned target may use |
+| fit_method | `line` or `median` (null on pre-0083 rows) |
 | n_sets, n_sessions, window_start, window_end | provenance |
 | method_version | calibration algorithm version |
 | params_json | k, floor, exclusions — hashed |

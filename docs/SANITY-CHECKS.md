@@ -198,6 +198,8 @@ without conditioning on provenance penalises the athlete for following the presc
 
 - **ASSUMPTION-55** — the Part D advisory thresholds (low exposure below 0.7 for two weeks; a positive residual above its own spread) are display heuristics and never change a prescription.
 
+- **ASSUMPTION-58** — the VBT load–velocity profile's minimal-velocity anchors (family table, default 0.20 m/s) are literature-typical display values, not estimates from this athlete's data. They place the display-only "VBT e1RM" marker; no load, target or rule reads them (`DEC-VBT-08`).
+
 - **ASSUMPTION-59** — the persistence follow-up gates (β ≥ 0.3 with a 95 % interval lower bound > 0; ≥ 50 pairs; ≥ 20 distinct current sessions; ≥ 4 exercises with ≥ 3 pairs; P2 estimated only at ≥ 20 triplets) are usefulness and precision bars fixed before the run, not measured cut-points. One look; a positive authorises a descriptive sentence only. Pre-registered in `docs/PERFORMANCE-PERSISTENCE-PLAN.md`.
 
 - **ASSUMPTION-58** — the Phase 0 decision thresholds (10-percentage-point risk difference, OR > 1 with a CI excluding 1, 0.5-MAD next-session shift, 40 % channel agreement with kappa ≥ 0.10, a 5–40 % trigger rate, and 20 session-lifts with 15 trigger sets) are usefulness bars fixed before the analysis, not measured cut-points; the 8-pair H2 floor is an implementation guard. They are pre-registered in `docs/PERFORMANCE-CARRYOVER-PHASE0.md`, and the result may not be re-read against a different rule.

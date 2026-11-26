@@ -71,6 +71,62 @@ def test_a_comparable_set_reports_signed_and_relative_delta():
     assert result["target"]["calibration_id"] == "vbt-test"
 
 
+def line_vbt(**overrides):
+    value = dict(
+        item()["vbt"],
+        fit_method="line",
+        velocity_slope=-0.0045,
+        velocity_intercept=1.05,
+        velocity_rir_coef=0.0,
+        velocity_residual_mad=0.01,
+        load_min=80,
+        load_max=125,
+    )
+    value.update(overrides)
+    return value
+
+
+def test_a_line_target_is_evaluated_at_the_actual_load():
+    result = vbt_analysis.compare_set(
+        [item(load_kg=105, vbt=line_vbt())], row(load_kg=105, velocity=0.55)
+    )
+    assert result["comparison_basis"] == "line"
+    assert result["load_conditional"] is True
+    assert result["expected_mps"] == pytest.approx(1.05 - 0.0045 * 105, abs=1e-3)
+    # The planned target stays visible; the delta is against the line at the used load.
+    assert result["target_mps"] == pytest.approx(0.42)
+    assert result["delta_mps"] == pytest.approx(0.55 - (1.05 - 0.0045 * 105), abs=2e-3)
+    assert result["comparable"] is True
+
+
+def test_a_lighter_set_is_judged_against_the_line_not_the_planned_number():
+    result = vbt_analysis.compare_set(
+        [item(load_kg=105, vbt=line_vbt())], row(load_kg=95, velocity=0.635)
+    )
+    assert result["comparison_basis"] == "line"
+    assert result["delta_mps"] == pytest.approx(0.635 - (1.05 - 0.0045 * 95), abs=2e-3)
+    assert result["delta_mps"] < 0.02      # not the +0.215 a frozen 0.42 would give
+    assert result["comparable"] is True
+
+
+def test_a_load_outside_the_fitted_range_is_reported_but_not_comparable():
+    result = vbt_analysis.compare_set(
+        [item(load_kg=140, vbt=line_vbt())], row(load_kg=140, velocity=0.45)
+    )
+    assert result["comparison_basis"] == "line_extrapolated"
+    assert result["extrapolated"] is True
+    assert "load_outside_fitted_range" in result["reasons"]
+    assert result["comparable"] is False
+
+
+def test_a_median_target_keeps_the_planned_comparison():
+    result = vbt_analysis.compare_set([item()], row(velocity=0.44))
+    assert result["comparison_basis"] == "planned"
+    assert result["expected_mps"] is None
+    assert result["load_conditional"] is False
+    assert result["delta_mps"] == pytest.approx(0.02)
+
+
 def test_rep_count_mismatch_is_never_comparable():
     result = vbt_analysis.compare_set([item()], row(reps=5))
 

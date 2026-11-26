@@ -77,6 +77,12 @@ def test_override_mechanism_still_works(monkeypatch):
     assert rir.target_for("bench_press") == (2, 3)
 
 
+def test_zero_is_legal_but_still_suspect():
+    """DEC-RIR-06: RIR 0 is inside the window, so it is not a violation; it stays suspect."""
+    assert rir.within_window(0, *rir.ALLOWED_RIR_WINDOW)
+    assert rir.classify(0).suspect is True
+
+
 def test_window_membership():
     assert rir.within_window(2, 2, 3)
     assert rir.within_window(3, 2, 3)

@@ -49,7 +49,9 @@ warning rather than an overwrite.
 
 - `workout_rep_event` stores append-only per-set snapshots while the workout is in progress.
 - `clean_rep` stores individual rep velocities after completion, linked to `clean_set.set_id`.
-- `clean_set.velocity_mps` remains the set mean.
+- `clean_set.velocity_mps` remains the stored set mean. A set with no stored mean derives
+  one from its per-rep rows (override first) when the history frame is built, so per-rep-only
+  sets are no longer dropped from calibration or the descriptive features (`DEC-VBT-09`).
 - Import undo restores the previous rep snapshot.
 
 ## 3. Status

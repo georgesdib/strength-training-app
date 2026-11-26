@@ -22,7 +22,11 @@ import pandas as pd
 from strength_coach.domain import rir as rir_mod
 from strength_coach.utils import exercises, stats
 
-METHOD_VERSION = "1.0.0"
+METHOD_VERSION = "2.0.0"
+
+# The fit accepts RIR 0-4 (DEC-RIR-06). The *target* band stays the per-lift 2-3 band; the
+# wider fit band exists because load and RIR move together and the regression carries RIR.
+FIT_RIR_BAND: tuple[int, int] = (0, 4)
 
 
 @dataclass(frozen=True)
@@ -39,6 +43,9 @@ class CalibrationParams:
     # A warm-up-range load has no informative velocity target, so a set must be at least this
     # fraction of the lift's estimated maximum to calibrate from.
     min_load_fraction: float = 0.60
+    # A load-velocity line needs load variation, not just enough sets.
+    min_distinct_loads: int = 3
+    min_load_span: float = 0.10
 
     def as_dict(self) -> dict:
         return {
@@ -50,6 +57,8 @@ class CalibrationParams:
             "min_sessions_lift": self.min_sessions_lift,
             "min_sets_family": self.min_sets_family,
             "min_load_fraction": self.min_load_fraction,
+            "min_distinct_loads": self.min_distinct_loads,
+            "min_load_span": self.min_load_span,
         }
 
 
@@ -71,6 +80,13 @@ class CalibrationTarget:
     source: str = "computed"
     method_version: str = METHOD_VERSION
     params: dict = field(default_factory=dict)
+    velocity_slope: float | None = None
+    velocity_intercept: float | None = None
+    velocity_rir_coef: float | None = None
+    velocity_residual_mad: float | None = None
+    load_min: float | None = None
+    load_max: float | None = None
+    fit_method: str = "median"
 
     @property
     def is_available(self) -> bool:
@@ -163,12 +179,12 @@ def _calibrate_uncached(
     drop(~frame["is_working_set"], "warmup")                     # DEC-RIR-01
     drop(~frame["rir_class"].eq("effort"), "no_effort_rating")
 
-    # Each lift has its own effort window, so window membership is computed per row.
-    in_window = [
-        rir_mod.within_window(rir, *rir_mod.target_for(str(eid)))
-        for rir, eid in zip(frame["rir"], frame["exercise_id"], strict=True)
+    # The fit band is wider than the target band: RIR is a covariate, not a filter, so the
+    # line can use the full legal range while the issued target stays at the 2-3 band.
+    in_band = [
+        rir_mod.within_window(rir, *FIT_RIR_BAND) for rir in frame["rir"]
     ]
-    frame = frame[pd.Series(in_window, index=frame.index, dtype=bool)].copy()
+    frame = frame[pd.Series(in_band, index=frame.index, dtype=bool)].copy()
 
     drop(~frame["reps"].between(params.reps_min, params.reps_max), "reps_out_of_range")
     drop(frame["load_basis"].eq("unknown"), "load_basis_unknown")
@@ -234,6 +250,7 @@ def _target_from_group(
     )
     if not np.isfinite(median):
         return None
+    line = _line_fit(group, params)
     return CalibrationTarget(
         exercise_id=exercise_id,
         scope=scope,
@@ -247,7 +264,56 @@ def _target_from_group(
         velocity_mad=round(float(spread), 4) if np.isfinite(spread) else None,
         vbt_family=vbt_family,
         params=params.as_dict(),
+        velocity_slope=round(float(line["slope"]), 6) if line else None,
+        velocity_intercept=round(float(line["intercept"]), 4) if line else None,
+        velocity_rir_coef=(
+            round(float(line["rir_coef"]), 4) if line and line["rir_coef"] is not None else None
+        ),
+        velocity_residual_mad=(
+            round(float(line["residual_mad"]), 4) if line else None
+        ),
+        load_min=round(float(line["load_min"]), 2) if line else None,
+        load_max=round(float(line["load_max"]), 2) if line else None,
+        fit_method="line" if line else "median",
     )
+
+
+def _line_fit(group: pd.DataFrame, params: CalibrationParams) -> dict | None:
+    """Fit `mean velocity ~ load + RIR` when the group has enough load variation.
+
+    The line is only worth issuing where load actually varies; a single-load block would
+    produce a slope of zero and a confident-looking target that is just the median again.
+    """
+    loads = group["load_kg"].to_numpy(dtype="float64")
+    velocities = group["velocity_mps"].to_numpy(dtype="float64")
+    rirs = group["rir"].to_numpy(dtype="float64")
+    if loads.size < params.min_sets_lift:
+        return None
+    if np.unique(loads).size < params.min_distinct_loads:
+        return None
+    top = float(loads.max())
+    if top <= 0 or (top - float(loads.min())) / top < params.min_load_span:
+        return None
+    if np.ptp(rirs) > 0:
+        design = np.column_stack([np.ones_like(loads), loads, rirs])
+    else:
+        design = np.column_stack([np.ones_like(loads), loads])
+    beta, *_ = np.linalg.lstsq(design, velocities, rcond=None)
+    slope = float(beta[1])
+    if not np.isfinite(slope) or slope >= 0:
+        return None
+    predicted = design @ beta
+    residual = velocities - predicted
+    total = float(np.sum((velocities - velocities.mean()) ** 2))
+    return {
+        "slope": slope,
+        "intercept": float(beta[0]),
+        "rir_coef": float(beta[2]) if design.shape[1] == 3 else None,
+        "residual_mad": stats.mad(residual),
+        "r2": 1.0 - float(np.sum(residual ** 2)) / total if total > 0 else float("nan"),
+        "load_min": float(loads.min()),
+        "load_max": top,
+    }
 
 
 def _drop_velocity_outliers(frame: pd.DataFrame, *, k: float) -> pd.DataFrame:

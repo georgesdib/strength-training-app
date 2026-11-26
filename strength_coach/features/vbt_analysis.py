@@ -38,6 +38,7 @@ _REASON_TEXT = {
     "load_basis_mismatch": "The actual and prescribed load bases are not comparable.",
     "time_based": "Time-based movements are not scored against a velocity target.",
     "data_quality_flag": "The set is flagged for a data-quality problem.",
+    "load_outside_fitted_range": "The actual load is outside the calibrated load range; the line would be an extrapolation.",
 }
 
 _HARD_REASONS = {
@@ -45,6 +46,7 @@ _HARD_REASONS = {
     "invalid_velocity", "warm_up", "rep_mismatch", "group_rep_mismatch",
     "ambiguous_group", "actual_rir_missing", "actual_rir_outside_band",
     "load_basis_unknown", "load_basis_mismatch", "time_based", "data_quality_flag",
+    "load_outside_fitted_range",
 }
 
 
@@ -121,6 +123,13 @@ def _target_for_item(item: Mapping[str, Any]) -> dict[str, Any] | None:
             "method_version": vbt.get("method_version"),
             "calibration_id": vbt.get("calibration_id"),
             "source": vbt.get("source"),
+            "fit_method": vbt.get("fit_method") or "median",
+            "velocity_slope": _number(vbt.get("velocity_slope")),
+            "velocity_intercept": _number(vbt.get("velocity_intercept")),
+            "velocity_rir_coef": _number(vbt.get("velocity_rir_coef")),
+            "velocity_residual_mad": _number(vbt.get("velocity_residual_mad")),
+            "load_min": _number(vbt.get("load_min")),
+            "load_max": _number(vbt.get("load_max")),
             "metadata": "complete",
         }
     legacy = _number(item.get("velocity_target"))
@@ -139,6 +148,13 @@ def _target_for_item(item: Mapping[str, Any]) -> dict[str, Any] | None:
             "method_version": None,
             "calibration_id": None,
             "source": "legacy",
+            "fit_method": "median",
+            "velocity_slope": None,
+            "velocity_intercept": None,
+            "velocity_rir_coef": None,
+            "velocity_residual_mad": None,
+            "load_min": None,
+            "load_max": None,
             "metadata": "legacy",
         }
     return None
@@ -169,6 +185,9 @@ def _base_result(
     extra_set: bool = False,
     flags: Sequence[str] = (),
     prescribed_rir: int | None = None,
+    expected: float | None = None,
+    basis: str = "planned",
+    extrapolated: bool = False,
 ) -> dict[str, Any]:
     target = target or {}
     return {
@@ -185,6 +204,10 @@ def _base_result(
         "target_mps": target.get("target_mps"),
         "low_mps": target.get("low_mps"),
         "high_mps": target.get("high_mps"),
+        "expected_mps": expected,
+        "comparison_basis": basis,
+        "load_conditional": expected is not None,
+        "extrapolated": extrapolated,
         "delta_mps": delta,
         "delta_pct": delta_pct,
         "abs_error_mps": None if delta is None else round(abs(delta), 3),
@@ -290,12 +313,51 @@ def _compare_item(
         and not int(target["rir_low"]) <= actual_rir <= int(target["rir_high"])
     ):
         reasons.append("actual_rir_outside_band")
-    delta = None if actual is None else round(actual - target["target_mps"], 3)
-    delta_pct = (
-        round((actual - target["target_mps"]) / target["target_mps"] * 100, 2)
-        if actual is not None and target["target_mps"] > 0 else None
-    )
+    # A line target is evaluated at the load and RIR actually used; the frozen planned
+    # target stays visible as target_mps. Outside the fitted range it is an extrapolation,
+    # so the set is reported but not comparable.
+    load = _number(row.get("load_kg"))
+    expected: float | None = None
+    basis = "planned"
+    extrapolated = False
     low, high = target.get("low_mps"), target.get("high_mps")
+    if (
+        target.get("fit_method") == "line"
+        and target.get("velocity_slope") is not None
+        and target.get("velocity_intercept") is not None
+        and load is not None
+    ):
+        rir_for_line = actual_rir if actual_rir is not None else prescribed_rir
+        if rir_for_line is None and target.get("rir_low") is not None:
+            high_rir = target.get("rir_high")
+            rir_for_line = (
+                int(target["rir_low"]) if high_rir is None
+                else (int(target["rir_low"]) + int(high_rir)) / 2
+            )
+        if rir_for_line is not None and 0 <= float(rir_for_line) <= 4:
+            candidate = (
+                float(target["velocity_intercept"])
+                + float(target["velocity_slope"]) * load
+                + float(target.get("velocity_rir_coef") or 0.0) * float(rir_for_line)
+            )
+            if candidate > 0:
+                expected = round(candidate, 3)
+                load_min, load_max = target.get("load_min"), target.get("load_max")
+                if load_min is not None and load_max is not None and not (
+                    float(load_min) <= load <= float(load_max)
+                ):
+                    extrapolated = True
+                    reasons.append("load_outside_fitted_range")
+                basis = "line_extrapolated" if extrapolated else "line"
+                spread = target.get("velocity_residual_mad")
+                half = 2.0 * float(spread) if spread and float(spread) > 0 else max(0.02, candidate * 0.05)
+                low, high = round(candidate - half, 3), round(candidate + half, 3)
+    reference = expected if expected is not None else target["target_mps"]
+    delta = None if actual is None else round(actual - reference, 3)
+    delta_pct = (
+        round((actual - reference) / reference * 100, 2)
+        if actual is not None and reference > 0 else None
+    )
     within = bool(low <= actual <= high) if actual is not None and low is not None and high is not None else None
     extra_set = bool(
         _integer(row.get("set_index")) is not None
@@ -303,13 +365,18 @@ def _compare_item(
         and int(row["set_index"]) > int(item["sets"])
     )
     comparable = not any(reason in _HARD_REASONS for reason in reasons)
+    shown = dict(target)
+    if expected is not None:
+        shown["low_mps"], shown["high_mps"] = low, high
+        shown["expected_mps"] = expected
     return _base_result(
-        row, reasons=reasons, target=target, target_source=target_source,
+        row, reasons=reasons, target=shown, target_source=target_source,
         actual_velocity=actual, velocity_source=velocity_source,
         actual_load_basis=actual_basis, prescribed_load_basis=prescribed_basis,
         actual_rir=actual_rir, delta=delta, delta_pct=delta_pct, within=within,
         comparable=comparable, extra_set=extra_set, flags=flags,
-        prescribed_rir=prescribed_rir,
+        prescribed_rir=prescribed_rir, expected=expected, basis=basis,
+        extrapolated=extrapolated,
     )
 
 

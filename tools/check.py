@@ -39,8 +39,8 @@ AREA_TESTS: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
     (
         ("config/templates/", "config/rules/"),
         ("tests/test_generator.py", "tests/test_prescribe.py", "tests/test_resolver_policy.py",
-         "tests/test_rules_policy.py", "tests/test_programme_summary.py",
-         "tests/test_workout_generation_doc.py"),
+         "tests/test_rules_loader.py", "tests/test_rules_policy.py",
+         "tests/test_programme_summary.py", "tests/test_workout_generation_doc.py"),
     ),
     (("docs/",), ("tests/test_docs_consistency.py", "tests/test_ui_docs.py",
                   "tests/test_docs_manifest.py")),

@@ -5,6 +5,7 @@ ladder must either widen its scope (and say so) or return nothing.
 """
 
 
+import pytest
 from conftest import make_readiness, make_training
 
 from strength_coach.features import derived
@@ -71,13 +72,76 @@ def test_trap_bar_shares_the_default_window():
     assert calibrate(trap_bar_days("3")).lookup("trap_bar_deadlift", 3) is not None
 
 
-def test_calibration_honours_a_per_lift_window_override(monkeypatch):
-    """The mechanism survives the amendment: a configured window is respected."""
+def test_a_per_lift_window_is_a_target_band_not_a_fit_filter(monkeypatch):
+    """DEC-RIR-06: the fit band is 0-4; the per-lift window only shapes the stored target."""
     from strength_coach.domain import rir as rir_mod
 
     monkeypatch.setitem(rir_mod.PER_EXERCISE_RIR_TARGET, "trap_bar_deadlift", (3, 4))
-    assert calibrate(trap_bar_days("2")).lookup("trap_bar_deadlift", 3) is None
-    assert calibrate(trap_bar_days("3")).lookup("trap_bar_deadlift", 3) is not None
+    target = calibrate(trap_bar_days("2")).lookup("trap_bar_deadlift", 3)
+    assert target is not None
+    assert target.rir_band == (3, 4)
+
+
+def line_days():
+    rows = []
+    for day in ("2024-01-01", "2024-01-08", "2024-01-15"):
+        for load in (80, 95, 110, 125):
+            rows.append({
+                "Date": day, "Exercise": "Competition Bench Press",
+                "Weight_Used": str(load), "Reps_Done": "3", "RIR": "2",
+                "Avg_velocity": f"{1.05 - 0.0045 * load:.6f}",
+            })
+    return rows
+
+
+def test_a_load_velocity_line_is_fitted_when_load_varies():
+    target = calibrate(line_days()).lookup("bench_press", 3)
+    assert target is not None
+    assert target.fit_method == "line"
+    assert target.velocity_slope == pytest.approx(-0.0045, abs=1e-5)
+    assert target.load_min == 80
+    assert target.load_max == 125
+    assert target.velocity_residual_mad is not None
+
+
+def test_the_target_is_predicted_at_the_prescribed_load():
+    from types import SimpleNamespace
+
+    from strength_coach.prescribe.engine import _target_values
+
+    target = SimpleNamespace(
+        fit_method="line", velocity_slope=-0.0045, velocity_intercept=1.05,
+        velocity_rir_coef=0.0, velocity_residual_mad=0.01, load_min=80, load_max=125,
+        rir_band=(2, 3), velocity_median=0.6, velocity_low=0.55, velocity_high=0.65,
+    )
+    value, low, high, basis = _target_values(
+        target, SimpleNamespace(load_kg=100.0, rir_target=2)
+    )
+    assert basis == "line"
+    assert value == pytest.approx(1.05 - 0.45)
+    assert low == pytest.approx(value - 0.02)
+    assert high == pytest.approx(value + 0.02)
+
+    # Outside the fitted load range the line would be an extrapolation.
+    fallback = _target_values(target, SimpleNamespace(load_kg=200.0, rir_target=2))
+    assert fallback == (0.6, 0.55, 0.65, "median")
+
+
+def test_rir_zero_sets_enter_calibration():
+    """DEC-RIR-06 / option (a): a test logged as a normal RIR-0 set is calibratable."""
+    rows = [
+        {
+            "Date": day, "Exercise": "Competition Bench Press",
+            "Weight_Used": str(load), "Reps_Done": "3", "RIR": "0",
+            "Avg_velocity": f"{1.05 - 0.0045 * load:.6f}",
+        }
+        for day in ("2024-01-01", "2024-01-08", "2024-01-15")
+        for load in (80, 95, 110, 125)
+    ]
+    target = calibrate(rows).lookup("bench_press", 3)
+    assert target is not None
+    assert target.n_sets == 12
+    assert target.fit_method == "line"
 
 
 def test_long_sets_are_excluded():

@@ -142,7 +142,7 @@ This example is generated from a deterministic synthetic fixture, [`tests/fixtur
 The block below is rendered from the actual `build_prescription` output by [`tools/workout_generation_example.py`](../tools/workout_generation_example.py). Do not edit it by hand: after a template, threshold or engine change run `python tools/workout_generation_example.py --write`. [`tests/test_workout_generation_doc.py`](../tests/test_workout_generation_doc.py) fails when the committed block is stale.
 
 <!-- BEGIN GENERATED WORKOUT EXAMPLE -->
-<!-- source:sha256:dedbb3997de27166 -->
+<!-- source:sha256:6520354ea15a0959 -->
 
 ### 12.1 Inputs
 
@@ -212,8 +212,8 @@ The same fixture with a readiness row for `2024-01-08` and `Sleep = 2` produces 
 | Exercise | Sets | Reps | Load | Target effort | Provenance |
 |---|---:|---:|---:|---|---|
 | Broad Jump | 2 | 3–5 | bodyweight (0 kg external) | quality stop | MOD-FAT-001, readiness:2024-01-08, readiness_score:0.720 |
-| Trap-Bar Deadlift | 4 | 3–5 | 146 kg | RIR 3 | PRG-RIR-001, set:2024-01-01/1, MOD-FAT-001, readiness:2024-01-08, readiness_score:0.720 |
-| Bench Press (narrow grip) | 4 | 3–5 | 87.5 kg | RIR 3 | PRG-RIR-001, set:2024-01-01/2, MOD-FAT-001, readiness:2024-01-08, readiness_score:0.720 |
+| Trap-Bar Deadlift | 3 | 3–5 | 146 kg | RIR 3 | PRG-RIR-001, set:2024-01-01/1, MOD-FAT-001, readiness:2024-01-08, readiness_score:0.720 |
+| Bench Press (narrow grip) | 3 | 3–5 | 87.5 kg | RIR 3 | PRG-RIR-001, set:2024-01-01/2, MOD-FAT-001, readiness:2024-01-08, readiness_score:0.720 |
 | Pull-up | 2 | 6–10 | bodyweight (0 kg external) | RIR 3 | PRG-DP-001, set:2024-01-01/5, MOD-FAT-001, readiness:2024-01-08, readiness_score:0.720 |
 | Dumbbell Row | 2 | 8–12 | 27.5 kg | RIR 3 | PRG-DP-001, set:2024-01-01/6, MOD-FAT-001, readiness:2024-01-08, readiness_score:0.720 |
 | Single Leg DB RDL | 2 | 8–10 | 18.5 kg | RIR 3 | PRG-DP-001, set:2024-01-01/9, MOD-FAT-001, readiness:2024-01-08, readiness_score:0.720 |
@@ -223,7 +223,7 @@ The same fixture with a readiness row for `2024-01-08` and `Sleep = 2` produces 
 
 Readiness warnings:
 
-- MOD-FAT-001: readiness score 0.72; floor sleep=2; sets reduced: broad_jump, pull_up, dumbbell_row, single_leg_db_rdl, hip_thrust, split_squat, lying_leg_curls; session reduced
+- MOD-FAT-001: readiness score 0.72; floor sleep=2; sets reduced: broad_jump, trap_bar_deadlift, bench_press_narrow, pull_up, dumbbell_row, single_leg_db_rdl, hip_thrust, split_squat, lying_leg_curls; session reduced
 <!-- END GENERATED WORKOUT EXAMPLE -->
 
 ### 12.5 What the example demonstrates—and what it does not

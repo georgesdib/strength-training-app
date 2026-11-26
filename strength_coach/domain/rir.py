@@ -15,10 +15,10 @@ allowed to influence:
 So `RIR 6` is reclassified from "suspect default" to a first-class `warmup` class, not
 deleted.
 
-**The remaining ambiguity is RIR 0.** It stays `effort` class and is flagged as suspect,
-because the hard "no RIR 0 on main lifts" rule needs to see it. It is reported separately from
-clean effort rather than discarded. RIR 1 is inside the allowed window (DEC-RIR-02), so it is
-not suspect.
+**RIR 0 (DEC-RIR-06).** It stays `effort` class and is still flagged `suspect`, but it is no
+longer a rule violation: it is legal to log, enters VBT calibration, and is the effort a
+declared 3RM/5RM test carries. PRG-RIR-001 still discourages it and never targets it. The
+suspect flag is the discouragement signal now, not a veto.
 
 `RIR 5` is treated as a genuine effort rating (an easy working set), because nothing
 indicates otherwise. That is an assumption, and it is the least consequential one here.
@@ -41,10 +41,11 @@ SUSPECT_EFFORT_RIR: frozenset[int] = frozenset({0})
 
 RIR_CLASSES = ("missing", "warmup", "effort")
 
-# The allowed window on primary compounds is RIR 1-4 (PRG-RIR-001, DEC-RIR-02). It is
-# deliberately wider than the target: strength gains are similar across a wide RIR range, and
-# self-reported RIR is imprecise enough that a tight veto would punish estimation error.
-ALLOWED_RIR_WINDOW: tuple[int, int] = (1, 4)
+# The allowed window on primary compounds is RIR 0-4 (PRG-RIR-001, DEC-RIR-06). RIR 0 is
+# legal for logging, VBT calibration and declared tests, but is discouraged and never a
+# prescription target; the target band stays 2-3. The window remains wider than the target
+# because self-reported RIR is imprecise enough that a tight veto would punish estimation error.
+ALLOWED_RIR_WINDOW: tuple[int, int] = (0, 4)
 
 # Default *target* band: what the prescription aims for, and what VBT calibration accepts as a
 # clean set. Kept narrower than the allowed window so the athlete is not aiming at the edge.

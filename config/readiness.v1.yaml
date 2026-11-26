@@ -34,11 +34,10 @@ modifier:
   at_or_below: 2
 
 set_reduction:
-  # Poor readiness first reduces load/RIR (MOD-FAT-001). This second, conservative valve
-  # removes one accessory set. Main-lift set reduction is opt-in: the athlete must enable it
-  # explicitly in the readiness volume-valve settings. The 2026-10-23 readiness audit found no
-  # evidence validating a main-lift volume cut; keep the default off.
+  # Poor readiness reduces load/RIR; this second valve removes one accessory set and, since
+  # DEC-READINESS-22, one main-lift set as well. DEC-READINESS-12 made main lifts opt-in after
+  # the 2026-10-23 audit; the owner reversed that default on 2026-11-26.
   enabled: true
   score_below: 0.50
   sets: 1
-  include_essential: false
+  include_essential: true

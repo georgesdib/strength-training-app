@@ -15,7 +15,7 @@ reported per lift, so a target with `n = 4` is visibly weak rather than silently
 | # | Criterion | Reason |
 |---|---|---|
 | 1 | `Avg_velocity > 0` | `0.000000` is "device not used" (DQ-SENT-01), not slow |
-| 2 | `RIR` inside the **2-3 target band** (`rir_mod.target_for`) | calibration deliberately uses the narrower target band, not the 1-4 allowed window (`DEC-RIR-02`); RIR 6 excluded as suspect (DQ-SENT-03) |
+| 2 | `RIR` inside the **0-4 fit band** | RIR is a covariate, not a filter (`DEC-RIR-06`): the line fits across the legal range while the issued target keeps the per-lift 2-3 band. RIR 6 stays excluded as a warm-up (DQ-SENT-03) |
 | 3 | `1 ≤ reps ≤ 8` | velocity is rep-count dependent; long sets are not VBT sets |
 | 4 | `load_basis ≠ unknown` | DQ-BW-01 could not classify the load |
 | 5 | not quarantined, no `REPS_TYPO` flag | corrupt rows cannot set a target |
@@ -36,7 +36,8 @@ Expected magnitudes in a real export (reproduce with `tools/profile_data.py`):
 A target is **conditional on rep count**, not a single number per lift:
 
 ```
-target(lift, reps, rir_band) = (median_velocity, low, high)
+target(lift, reps, rir_band) = (median_velocity, low, high)          # fallback
+target(lift, reps, rir_band) = velocity_slope/load + intercept + rir_coef  # fitted line
 ```
 
 where `low/high = median ∓ k·MAD`, with `k = 2.0` and a **relative floor** so a
@@ -107,10 +108,11 @@ See [`VBT-REP-LEVEL.md`](VBT-REP-LEVEL.md) for the post-hoc cost/benefit and the
 to add manual rep-level entry.
 
 Within-set velocity loss requires a **per-rep velocity series**. The standard export has one
-`Avg_velocity` per set, so set-level calibration still uses the mean only. An optional per-rep
-CSV can now supply the series (`DEC-VBT-04`); it is stored as descriptive detail and does **not**
-enter the VBT calibration, targets or prescription. Set-level capture is complete for the
-workout path.
+`Avg_velocity` per set, so the target is still calibrated on a set mean. An optional per-rep
+CSV supplies the series (`DEC-VBT-04`); since `DEC-VBT-09` it also supplies the **mean** when the
+stored set mean is missing, so a per-rep-only set is no longer dropped from calibration. The
+velocity-loss series itself remains descriptive: it does not set a target, a stop rule or a
+load. Set-level capture is complete for the workout path.
 
 Two options, and the choice is Q4:
 
@@ -139,7 +141,14 @@ feature record so the critique cannot accidentally print a real-looking velocity
 `build_prescription` calibrates from the stored clean sets on every run and attaches a target
 only where the ladder produces one:
 
-- the target is the calibrated **median mean velocity** for that lift, rep count and RIR band;
+- the target is the calibrated **median mean velocity** for that lift, rep count and RIR band,
+  or — when the group has at least 12 sets across 3 sessions, 3 distinct loads and a 10 % load
+  span — the **fitted line evaluated at the item's prescribed load and RIR**. Outside the fitted
+  load range the median band is used and the provenance says `median`; the plan records
+  `fit_method` plus the coefficients, so a target is never extrapolated silently. The per-set
+  comparison evaluates the line at the load **actually used** and reports the expected velocity
+  and its residual; a load outside the fitted range is reported as an extrapolation and excluded
+  from comparability;
 - the item records the legacy `velocity_target` and `vbt_basis` fields and a structured
   `vbt` object with target/lower/upper, rep count, RIR band, scope/family, sample size,
   method version, calibration id and source;
@@ -191,14 +200,15 @@ gate and no fitted trend. Set-level band counts are evidence, not success thresh
 ## 9. What is captured now, and what a live controller would still need
 
 Set-mean velocity is the calibration input. Optional per-rep detail is already captured in
-`clean_rep` and reported descriptively; it does **not** enter the calibration. Supplying the
-per-rep CSV is an action available today, not a missing upgrade.
+`clean_rep` and, where the stored mean is missing, contributes that mean (`DEC-VBT-09`); the
+loss series stays descriptive. Supplying the per-rep CSV is an action available today, not a
+missing upgrade.
 
 A real live velocity-loss controller would still need:
 
 - a live/streamed per-rep feed, not an archived file, for within-set stop rules;
-- a progressive loading test per lift, for an individual load-velocity line and a minimal
-  velocity threshold;
+- near-maximal sets (or a progressive loading test) per lift, for a minimal velocity
+  threshold — the load-velocity line itself now comes from historical sets;
 - device/belt/setup metadata, so curves are compared like-for-like;
 - a validated control rule and a method-version bump, with old calibration rows kept and
   superseded, never edited.
@@ -206,6 +216,32 @@ A real live velocity-loss controller would still need:
 The calibration already carries `METHOD_VERSION` and a typed `CalibrationParams`, so a future
 v2 method could be written beside the current one and selected by config.
 Until then, the app uses what the export provides and says when that is not enough.
+
+## 10. Load–velocity profile (display only)
+
+The Exercises dialog shows a fitted load–velocity profile and a display-only implied 1RM.
+
+- **Input:** the stored set mean concentric velocity (`clean_set.velocity_mps`), not a per-rep
+  best. It exists for the whole history and is the quantity the prescription compares.
+- **Form:** `mean velocity ~ load + RIR`, fitted per (exercise, rep count). RIR is a covariate
+  because load and RIR move together; the fit band is RIR 0–4, wider than the prescription
+  target band. Warm-up loads below 60 % e1RM, `REPS_TYPO` rows, non-working sets and sets
+  without a mean are excluded, matching the calibration filters.
+- **Gates:** at least 12 sets, 3 sessions, 3 distinct loads and a load span of at least 10 % of
+  the heaviest load. Below any gate the panel says why and draws no line.
+- **Implied 1RM:** the load at a minimal-velocity anchor, with the anchor taken from a
+  per-family table (`ASSUMPTION-58`). It is refused when the implied load is below the heaviest
+  fitted load or beyond 2.5× it. The panel labels it display only.
+- **Effect:** none. No load, RIR, set, target or rule reads this module; the prescription
+  calibration in §1–§8 remains the authority and is unchanged.
+
+The implied 1RM is also returned as a **point-in-time series**: a fixed weekly grid from the
+first observation, each point fitted only on the trailing 84 days, capped at the most recent
+52 points. A later heavy block can append points but never moves an earlier one.
+
+Endpoint: `GET /api/exercises/<id>/vbt-profile?rep=N`. The response carries the points, the
+coefficients, the residual spread, the gates' outcome, the display-only e1RM with its anchor
+and the e1RM series. Missing data stays missing; nothing is interpolated.
 
 ## Related
 

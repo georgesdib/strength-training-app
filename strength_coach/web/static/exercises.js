@@ -371,6 +371,7 @@ async function loadExerciseTrends(row) {
   exerciseHistoryState = {exerciseId: id, display: row.display || id, start: start, end: end,
     offset: 0, total: null, sessions: [], hasMore: false, complete: false, analytics: null};
   $("#exercise-trend-e1rm").innerHTML = "<p class='empty'>Loading eligible strength observations…</p>";
+  $("#exercise-vbt-chart").innerHTML = "<p class='empty'>Loading load–velocity profile…</p>";
   $("#exercise-detail-dose").innerHTML = "<p class='empty'>Loading complete-range Python analytics…</p>";
   $("#exercise-detail-records").innerHTML = "<p class='empty'>Loading session records…</p>";
   $("#exercise-history-status").textContent = "Loading selected date range…";
@@ -385,7 +386,10 @@ async function loadExerciseTrends(row) {
   } catch (error) {
     if (generation === exerciseTrendsGeneration) $("#exercise-trend-e1rm").innerHTML = `<p class='warnbox'>Strength history unavailable: ${esc(error.message)}</p>`;
   }
-  if (generation === exerciseTrendsGeneration) await loadExerciseHistoryPage(generation);
+  if (generation === exerciseTrendsGeneration) {
+    await loadExerciseVbt(row, $("#exercise-vbt-reps").value || null);
+    await loadExerciseHistoryPage(generation);
+  }
 }
 
 function saveExerciseDetails(event) {

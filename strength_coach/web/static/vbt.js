@@ -22,6 +22,7 @@ var VBT_REASON_TEXT = {
   actual_rir_outside_band: "Actual RIR is outside the target's calibration band.",
   load_basis_unknown: "The prescribed load basis is unknown or not comparable.",
   time_based: "Time-based movements are not scored against a velocity target.",
+  load_outside_fitted_range: "The load used is outside the calibrated load range, so the comparison would be an extrapolation.",
 };
 
 function vbtReason(code) {
@@ -59,7 +60,10 @@ function vbtTargetInline(target) {
   var band = target.low_mps != null && target.high_mps != null
     ? " (" + fmt(target.low_mps, 2) + "–" + fmt(target.high_mps, 2) + " m/s)"
     : "";
-  return fmt(target.target_mps, 2) + " m/s" + band + " @ " + target.rep_count + " reps";
+  var fitted = target.fit_method === "line" && target.load_min != null && target.load_max != null
+    ? " · load-conditioned " + fmt(target.load_min, 0) + "–" + fmt(target.load_max, 0) + " kg"
+    : "";
+  return fmt(target.target_mps, 2) + " m/s" + band + " @ " + target.rep_count + " reps" + fitted;
 }
 
 function vbtTargetDetails(item) {
@@ -170,7 +174,11 @@ function vbtFeedbackHtml(comparison) {
     return "<span class='muted'>Actual velocity " + fmt(actual, 2) +
       " m/s stored without a target comparison.</span>";
   }
-  var text = "Target " + fmt(target, 2) + " m/s · actual " + fmt(actual, 2) +
+  var text = (comparison.expected_mps != null
+      ? "Planned " + fmt(target, 2) + " m/s · expected " + fmt(comparison.expected_mps, 2) +
+        " at " + fmt(comparison.load_kg, 1) + " kg"
+      : "Target " + fmt(target, 2) + " m/s") +
+    " · actual " + fmt(actual, 2) +
     " m/s · Δ " + (comparison.delta_mps > 0 ? "+" : "") + fmt(comparison.delta_mps, 2) +
     " m/s" + (comparison.delta_pct == null ? "" :
       " (" + (comparison.delta_pct > 0 ? "+" : "") + fmt(comparison.delta_pct, 1) + "%)");
@@ -269,6 +277,9 @@ function vbtSectionHtml(vbt) {
         (row.load_kg == null ? "—" : fmt(row.load_kg, 1) + " kg") + "<br><span class='muted'>" +
         esc(row.load_basis || "—") + "</span></td><td>" + esc(rir) + "</td><td>" +
         (row.target_mps == null ? "—" : fmt(row.target_mps, 2) +
+          (row.expected_mps == null ? "" :
+            " <span class='muted'>→ " + fmt(row.expected_mps, 2) + " at " +
+            fmt(row.load_kg, 1) + " kg</span>") +
           (row.low_mps == null || row.high_mps == null ? "" :
             " <span class='muted'>(" + fmt(row.low_mps, 2) + "–" +
             fmt(row.high_mps, 2) + ")</span>")) + "</td><td>" +

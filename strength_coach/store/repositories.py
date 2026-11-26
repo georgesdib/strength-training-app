@@ -442,6 +442,13 @@ def append_calibration(
     params: Mapping[str, Any],
     calibration_id: str | None = None,
     velocity_mad: float | None = None,
+    velocity_slope: float | None = None,
+    velocity_intercept: float | None = None,
+    velocity_rir_coef: float | None = None,
+    velocity_residual_mad: float | None = None,
+    load_min: float | None = None,
+    load_max: float | None = None,
+    fit_method: str | None = None,
     window_start: str | None = None,
     window_end: str | None = None,
     source: str = "computed",
@@ -456,10 +463,12 @@ def append_calibration(
         """
         INSERT INTO vbt_calibration (
             calibration_id, exercise_id, vbt_family, scope, rep_count, rir_low, rir_high,
-            velocity_median, velocity_mad, velocity_low, velocity_high, n_sets, n_sessions,
+            velocity_median, velocity_mad, velocity_slope, velocity_intercept,
+            velocity_rir_coef, velocity_residual_mad, load_min, load_max, fit_method,
+            velocity_low, velocity_high, n_sets, n_sessions,
             window_start, window_end, method_version, params_json, source, override_reason,
             valid_from, valid_until, supersedes_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             identifier,
@@ -471,6 +480,13 @@ def append_calibration(
             rir_band[1],
             velocity_median,
             velocity_mad,
+            velocity_slope,
+            velocity_intercept,
+            velocity_rir_coef,
+            velocity_residual_mad,
+            load_min,
+            load_max,
+            fit_method,
             velocity_low,
             velocity_high,
             n_sets,

@@ -51,14 +51,14 @@ RIR 1-4. The fatigue and technique-degradation argument is plausible but is reas
 
 `PRG-RIR-001` now:
 
-- **allows RIR 1-4** on primary compounds;
-- keeps **RIR 0 forbidden** (a grinding set is the failure mode the rule exists to prevent);
+- **allows RIR 0-4** on primary compounds;
+- **permits RIR 0 but discourages it**: it is legal to log, enters VBT calibration and carries a declared 3RM/5RM test, is still surfaced as suspect, and is never a prescription target (DEC-RIR-06);
 - keeps **max singles and 1RM testing inside a block forbidden**, except a declared test
   session (see `docs/TRAINING-DYNAMICS.md`);
 - keeps **2-3 as the default target** — the prescription aims there, and the menu's
   "harder"/"easier" options move within 1-4.
 
-Why not 0-5: RIR 0 is the fatigue/injury-adjacent case the athlete wants excluded, and RIR 5 is
+Why not 5: RIR 5 is
 far enough from failure that it is hard to call a working set. Why not keep 2-3: the evidence
 does not support that floor, and RIR 1 is a legitimate strength exposure.
 
