@@ -137,7 +137,7 @@ function renderPerformanceE1rm(data, vbt) {
   var chart = dateSeriesChart({
     title: "e1RM over time", xTitle: "Training date", yTitle: "e1RM (kg)",
     series: series,
-    note: "Raw and rolling median are Epley+RIR within the selected range. Green: VBT per-rep e1RM; orange dashed: VBT pooled e1RM; both use the lift's weekly history and are display only.",
+    note: "Raw and rolling median are Epley+RIR within the selected range. Green: VBT per-rep e1RM; orange dashed: VBT pooled e1RM; both use the lift's weekly history and are display only. A VBT point whose implied load is below the heaviest fitted load is still shown and is flagged in the exercise panel.",
   });
   var rows = points.map(function (point) {
     return "<tr><td>" + esc(point.date) + "</td><td>" + fmt(point.kg) +

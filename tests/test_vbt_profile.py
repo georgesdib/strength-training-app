@@ -83,10 +83,11 @@ def test_a_narrow_load_range_is_refused():
     assert "narrow" in data.reason
 
 
-def test_an_implausible_extrapolation_yields_no_e1rm():
+def test_an_implausible_extrapolation_is_flagged():
     data = build(bench_rows([80, 95, 110, 125], lambda load: 0.55 - 0.0005 * load))
     assert data.status == "fitted"
-    assert data.e1rm_kg is None
+    assert data.e1rm_kg is not None
+    assert data.e1rm_note == "beyond_extrapolation_limit"
 
 
 def test_a_rising_line_is_not_a_load_velocity_profile():
@@ -209,6 +210,13 @@ def test_the_pooled_series_is_aligned_with_the_per_rep_series():
     assert len(data.pooled_e1rm_series) == len(data.e1rm_series)
     assert [p["date"] for p in data.pooled_e1rm_series] == [p["date"] for p in data.e1rm_series]
     assert any(p["e1rm_kg"] is not None for p in data.pooled_e1rm_series)
+
+
+def test_an_inconsistent_e1rm_is_shown_with_a_note():
+    data = build(bench_rows([80, 95, 110, 125], lambda load: 0.90 - 0.006 * load))
+    assert data.e1rm_kg is not None
+    assert data.e1rm_note == "below_heaviest_load"
+    assert any(point.get("flag") == "below_heaviest_load" for point in data.e1rm_series)
 
 
 def test_no_stored_sets_reports_why():

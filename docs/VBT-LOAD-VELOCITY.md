@@ -119,10 +119,14 @@ comparison.
 ## 6. Display-only implied 1RM
 
 The per-rep line is evaluated at a minimal-velocity anchor for the lift's family
-(`ASSUMPTION-58`): the load where the line reaches that velocity. It is refused when the
-implied load is below the heaviest fitted load or beyond 2.5× it. The value is display-only;
-no load, target or rule reads it, and the anchor is a literature value, not an estimate from
-this athlete.
+(`ASSUMPTION-58`): the load where the line reaches that velocity. The value is **always
+shown**, including when it looks inconsistent with the data: if the implied load is below the
+heaviest fitted load, or beyond 2.5× it, the panel keeps the number and adds a flag
+(`below_heaviest_load` / `beyond_extrapolation_limit`). A 1RM estimate below a weight the
+athlete actually lifted means the line and the anchor disagree with the heavy sets; hiding
+the number was less useful than showing it with that caveat. The value is display-only; no
+load, target or rule reads it, and the anchor is a literature value, not an estimate from this
+athlete.
 
 The **pooled model also implies an e1RM**: the same anchor, evaluated at **1 rep and RIR 0**,
 `(mvt − intercept − rep_coef) / slope`. It carries the same guards, and is labelled

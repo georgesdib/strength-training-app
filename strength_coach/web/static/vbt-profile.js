@@ -20,6 +20,16 @@ async function loadExerciseVbt(row, rep) {
   }
 }
 
+function e1rmFlagText(flag) {
+  if (flag === "below_heaviest_load") {
+    return "flagged: the implied load is below the heaviest fitted load, so the line is inconsistent with the heavy sets";
+  }
+  if (flag === "beyond_extrapolation_limit") {
+    return "flagged: beyond 2.5× the heaviest fitted load";
+  }
+  return "";
+}
+
 function renderExerciseVbt(data) {
   var host = document.getElementById("exercise-vbt-chart");
   var select = document.getElementById("exercise-vbt-reps");
@@ -145,11 +155,13 @@ function renderExerciseVbt(data) {
   var e1rmBits = [];
   if (data.e1rm_kg) {
     e1rmBits.push("Per-rep e1RM " + fmt(data.e1rm_kg) + " kg at " + data.e1rm_mvt_mps +
-      " m/s (display only; line at RIR " + refRir + ")");
+      " m/s (display only; line at RIR " + refRir + ")" +
+      (data.e1rm_note ? " — " + e1rmFlagText(data.e1rm_note) : ""));
   }
   if (data.pooled_e1rm_kg) {
     e1rmBits.push("pooled " + fmt(data.pooled_e1rm_kg) + " kg at 1 rep" +
-      (data.pooled_e1rm_extrapolated ? " (extrapolated)" : ""));
+      (data.pooled_e1rm_extrapolated ? " (extrapolated)" : "") +
+      (data.pooled_e1rm_note ? " — " + e1rmFlagText(data.pooled_e1rm_note) : ""));
   }
   e1rm.textContent = e1rmBits.length
     ? e1rmBits.join(" · ")
@@ -285,9 +297,11 @@ function renderE1rmSeries(series, rirSeries, pooledSeries) {
   }).join("");
   var first = series[0];
   var last = series[series.length - 1];
+  var flagged = series.concat(pooled).some(function (p) { return p && p.flag; });
   var legend = "<p class='muted vbt-legend'>Green: VBT e1RM (per-rep line)." +
     (pooledLines ? " Orange: VBT e1RM (pooled model)." : "") +
-    (rirLines ? " Blue: e1RM from RIR (Epley, eligible session best)." : "") + "</p>";
+    (rirLines ? " Blue: e1RM from RIR (Epley, eligible session best)." : "") +
+    (flagged ? " Flagged points fall outside the fitted load range." : "") + "</p>";
   return "<h4 class='vbt-series-title'>VBT e1RM over time <span class='muted'>(" +
     esc(first.date) + " → " + esc(last.date) + ")</span></h4>" + legend +
     "<svg class='vbt-chart vbt-series' viewBox='0 0 " + W + " " + H + "' role='img' aria-label='VBT e1RM and RIR e1RM over time'>" +

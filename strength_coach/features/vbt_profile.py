@@ -99,9 +99,11 @@ class VbtProfile:
     e1rm_kg: float | None = None
     e1rm_mvt_mps: float | None = None
     e1rm_basis: str | None = None
+    e1rm_note: str | None = None
     pooled_e1rm_kg: float | None = None
     pooled_e1rm_extrapolated: bool = False
     pooled_e1rm_basis: str | None = None
+    pooled_e1rm_note: str | None = None
     e1rm_series: tuple[dict, ...] = ()
     rir_e1rm_series: tuple[dict, ...] = ()
     pooled_e1rm_series: tuple[dict, ...] = ()
@@ -144,9 +146,11 @@ class VbtProfile:
             "e1rm_kg": self.e1rm_kg,
             "e1rm_mvt_mps": self.e1rm_mvt_mps,
             "e1rm_basis": self.e1rm_basis,
+            "e1rm_note": self.e1rm_note,
             "pooled_e1rm_kg": self.pooled_e1rm_kg,
             "pooled_e1rm_extrapolated": self.pooled_e1rm_extrapolated,
             "pooled_e1rm_basis": self.pooled_e1rm_basis,
+            "pooled_e1rm_note": self.pooled_e1rm_note,
             "e1rm_series": list(self.e1rm_series),
             "rir_e1rm_series": list(self.rir_e1rm_series),
             "pooled_e1rm_series": list(self.pooled_e1rm_series),
@@ -229,6 +233,7 @@ def build(
         )
 
     e1rm = _implied_e1rm(fit, mvt)
+    e1rm_note = _e1rm_flag(e1rm, float(fit["load_max"]))
     series = _e1rm_series(frame, int(chosen), mvt)
     pooled_series = _pooled_e1rm_series(frame, series, mvt)
     points = tuple(
@@ -262,6 +267,7 @@ def build(
             "line evaluated at a minimal-velocity anchor; display only"
             if e1rm is not None else None
         ),
+        e1rm_note=e1rm_note,
         e1rm_series=series,
         rir_e1rm_series=_rir_series(sets, series),
         pooled_e1rm_series=pooled_series,
@@ -323,6 +329,7 @@ def _pooled_payload(
         "pooled_e1rm_basis": (
             "pooled line at 1 rep, RIR 0; display only" if e1rm is not None else None
         ),
+        "pooled_e1rm_note": _e1rm_flag(e1rm, float(fit["load_max"])),
     }
 
 
@@ -332,8 +339,6 @@ def _pooled_e1rm(fit: dict, mvt: float) -> float | None:
         float(mvt) - float(fit["intercept"]) - float(fit["rep_coef"])
     ) / float(fit["slope"])
     if not np.isfinite(value) or value <= 0:
-        return None
-    if value < float(fit["load_max"]) or value > float(fit["load_max"]) * EXTRAPOLATION_LIMIT:
         return None
     return float(value)
 
@@ -464,13 +469,24 @@ def _ols(frame: pd.DataFrame) -> dict | None:
 
 
 def _implied_e1rm(fit: dict, mvt: float) -> float | None:
-    # RIR 0 is the 1RM effort the anchor describes.
+    # RIR 0 is the 1RM effort the anchor describes. The value is always returned; whether it
+    # is consistent with the fitted data is a separate note, so the number can be shown with
+    # its caveat instead of disappearing.
     value = (mvt - fit["intercept"]) / fit["slope"]
     if not np.isfinite(value) or value <= 0:
         return None
-    if value < fit["load_max"] or value > fit["load_max"] * EXTRAPOLATION_LIMIT:
-        return None
     return float(value)
+
+
+def _e1rm_flag(value: float | None, load_max: float | None) -> str | None:
+    """Why an implied 1RM looks inconsistent with the fitted load range, if it does."""
+    if value is None or load_max is None:
+        return None
+    if value < float(load_max):
+        return "below_heaviest_load"
+    if value > float(load_max) * EXTRAPOLATION_LIMIT:
+        return "beyond_extrapolation_limit"
+    return None
 
 
 def _e1rm_series(frame: pd.DataFrame, rep_count: int, mvt: float) -> tuple[dict, ...]:
@@ -505,6 +521,7 @@ def _e1rm_series(frame: pd.DataFrame, rep_count: int, mvt: float) -> tuple[dict,
                         "date": cursor.date().isoformat(),
                         "e1rm_kg": round(float(value), 1),
                         "n_sets": int(len(window)),
+                        "flag": _e1rm_flag(value, float(fit["load_max"])),
                     })
         cursor = cursor + pd.Timedelta(days=SERIES_STEP_DAYS)
     return tuple(points[-SERIES_MAX_POINTS:])
@@ -562,6 +579,7 @@ def _pooled_e1rm_series(
         out.append({
             "date": point["date"],
             "e1rm_kg": round(float(value), 1) if value is not None else None,
+            "flag": _e1rm_flag(value, fit["load_max"]) if fit is not None else None,
         })
     return tuple(out)
 
