@@ -3701,6 +3701,16 @@ class Handler(BaseHTTPRequestHandler):
                 ))
             elif path == "/api/state":
                 self._json(200, self._with_conn(self._state))
+            elif path == "/api/state/e1rm":
+                # One lift's override ledger only; the Exercises dialog does not need the
+                # calibration report that makes /api/state slow.
+                query = parse_qs(urlparse(self.path).query)
+                exercise_id = validation.exercise_id(
+                    (query.get("exercise_id") or [""])[0]
+                )
+                self._json(200, self._with_conn(
+                    lambda c: self._e1rm_overrides(c, exercise_id)
+                ))
             elif path == "/api/cardio":
                 self._error(410, "manual cardio logging was retired; use /api/cardio/summary")
             elif path == "/api/cardio/workouts":
@@ -6179,6 +6189,22 @@ class Handler(BaseHTTPRequestHandler):
         )
         return self._readiness(conn, day)
 
+    def _e1rm_overrides(self, conn, exercise_id: str) -> dict:
+        """One lift's override ledger with status; the full state build is not needed here.
+
+        Withdrawals are tombstone rows, so the dialog needs the ledger status rather than the
+        raw override rows: a withdrawn override must not read as the override in force.
+        """
+        today = datetime.date.today().isoformat()
+        return {
+            "exercise_id": exercise_id,
+            "e1rm_overrides": [
+                row.as_dict()
+                for row in e1rm_override_ledger_feature.build(conn, on_date=today)
+                if row.exercise_id == exercise_id
+            ],
+        }
+
     def _state(self, conn) -> dict:
         # One calibration build feeds both tables: the report and the tests-needed coverage.
         calibration = e1rm_calibration_feature.build(conn)
@@ -6729,7 +6755,9 @@ class Handler(BaseHTTPRequestHandler):
             expires_on=body.get("expires_on") or None,
             reason=body.get("reason") or None,
         )
-        return self._state(conn)
+        # The append response only needs the lift's refreshed rows: building the whole
+        # state here made "Append e1RM" wait seconds for data the dialog never reads.
+        return self._e1rm_overrides(conn, exercise_id)
 
     def _withdraw_e1rm(self, conn, body: dict) -> dict:
         """Append a dated tombstone; the override row itself is never deleted."""

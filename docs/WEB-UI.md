@@ -190,7 +190,7 @@ ratio inherits its precision limits.
   matter what is ticked. The form opens on the selected dimension's saved claim — level,
   confidence, reason and cited ids are preselected and a live `N selected` count follows the
   choice — so saving cannot silently look empty or drop an existing citation.
-  A row's **e1RM** button opens an override panel for that lift: it shows the override currently
+  A row's **e1RM** button opens an override dialog for that lift: it shows the override currently
   in force and appends a new one (kg, effective-from, reason) through the same endpoint the
   Athlete page and `e1rm set` use, so the next prescription cites it.
 - **Athlete** — append-only editing of profile (including the **Exposure trim** switch, off by

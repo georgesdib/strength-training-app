@@ -538,36 +538,37 @@ function renderExerciseCatalog() {
   });
 }
 
-function renderExerciseE1rmCurrent(exerciseId, overrides) {
-  const onDate = today();
-  const forLift = (overrides || []).filter((row) => row.exercise_id === exerciseId);
-  const inForce = forLift
-    .filter((row) => String(row.effective_from) <= onDate
-      && (!row.expires_on || String(row.expires_on) >= onDate))
-    .sort((a, b) => String(b.effective_from).localeCompare(String(a.effective_from)));
-  $("#exercise-e1rm-current").textContent = inForce.length
-    ? `active override ${inForce[0].e1rm_kg} kg from ${inForce[0].effective_from} (${forLift.length} recorded)`
-    : forLift.length
-      ? `${forLift.length} recorded, none in force today`
+function exerciseE1rmOverrideUrl(exerciseId) {
+  return "/api/state/e1rm?exercise_id=" + encodeURIComponent(exerciseId);
+}
+
+function renderExerciseE1rmCurrent(exerciseId, ledger) {
+  const forLift = (ledger || []).filter((row) => row.exercise_id === exerciseId);
+  const entered = forLift.filter((row) => row.kind === "override");
+  const active = forLift.find((row) => row.kind === "override" && row.status === "active");
+  $("#exercise-e1rm-current").textContent = active
+    ? `active override ${active.e1rm_kg} kg from ${active.effective_from} (${entered.length} recorded)`
+    : entered.length
+      ? `${entered.length} recorded, none in force today`
       : "no override — the load uses the formula estimate";
 }
 
 async function openExerciseE1rm(exerciseId) {
-  const panel = $("#exercise-e1rm-panel");
-  panel.hidden = false;
+  const dialog = $("#exercise-e1rm-dialog");
   $("#exercise-e1rm-id").value = exerciseId;
   $("#exercise-e1rm-kg").value = "";
   $("#exercise-e1rm-date").value = today();
   $("#exercise-e1rm-reason").value = "";
   $("#exercise-e1rm-msg").textContent = "";
   $("#exercise-e1rm-current").textContent = "Loading…";
-  // Reveal the panel before the state read. It sits below the whole catalogue, and
-  // /api/state builds the calibration report, so waiting for it made the row button
-  // look inert: nothing moved on screen until the request came back seconds later.
-  panel.scrollIntoView({ block: "start", behavior: "smooth" });
+  if (!dialog.open) {
+    if (typeof dialog.showModal === "function") dialog.showModal();
+    else dialog.setAttribute("open", "");
+  }
   try {
-    const state = await api("/api/state");
-    renderExerciseE1rmCurrent(exerciseId, state.e1rm_overrides);
+    // Only this lift's override rows, not the full state (which builds the calibration).
+    const data = await api(exerciseE1rmOverrideUrl(exerciseId));
+    renderExerciseE1rmCurrent(exerciseId, data.e1rm_overrides);
   } catch (error) {
     $("#exercise-e1rm-current").textContent = error.message;
   }
@@ -643,7 +644,9 @@ $("#exercise-demand-dimension").addEventListener("change", syncDemandForm);
 $("#exercise-demand-evidence").addEventListener("change", syncDemandEvidenceCount);
 
 $("#exercise-e1rm-close").addEventListener("click", () => {
-  $("#exercise-e1rm-panel").hidden = true;
+  const dialog = $("#exercise-e1rm-dialog");
+  if (typeof dialog.close === "function") dialog.close();
+  else dialog.removeAttribute("open");
 });
 
 $("#exercise-e1rm-form").addEventListener("submit", async (event) => {
@@ -652,7 +655,7 @@ $("#exercise-e1rm-form").addEventListener("submit", async (event) => {
   const kg = $("#exercise-e1rm-kg").value;
   $("#exercise-e1rm-msg").textContent = "Saving…";
   try {
-    const state = await api("/api/state/e1rm", {
+    const data = await api("/api/state/e1rm", {
       method: "POST",
       body: JSON.stringify({
         exercise_id: exerciseId,
@@ -661,7 +664,7 @@ $("#exercise-e1rm-form").addEventListener("submit", async (event) => {
         reason: $("#exercise-e1rm-reason").value || null,
       }),
     });
-    renderExerciseE1rmCurrent(exerciseId, state.e1rm_overrides);
+    renderExerciseE1rmCurrent(exerciseId, data.e1rm_overrides);
     $("#exercise-e1rm-msg").textContent = `Saved ${kg} kg for ${exerciseId}.`;
     $("#exercise-e1rm-kg").value = "";
     notify("e1RM override appended.");

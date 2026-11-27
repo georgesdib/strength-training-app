@@ -2122,7 +2122,7 @@ def test_history_void_and_vbt_endpoints(server):
 def test_the_exercise_tab_offers_an_e1rm_override(server):
     status, page = get(server, "/")
     assert status == 200
-    assert 'id="exercise-e1rm-panel"' in page
+    assert 'id="exercise-e1rm-dialog"' in page
     assert 'id="exercise-e1rm-form"' in page
     assert 'id="exercise-e1rm-id"' in page
     # The catalogue row action lives in the client bundle, not necessarily app.js.
@@ -2131,15 +2131,48 @@ def test_the_exercise_tab_offers_an_e1rm_override(server):
     assert "/api/state/e1rm" in js
 
 
-def test_the_exercise_e1rm_button_responds_before_the_state_read(server):
-    # The panel sits below the whole catalogue and /api/state builds the calibration
-    # report, so revealing it must not wait for that request: the row button used to
-    # look inert for seconds.
+def test_the_exercise_e1rm_dialog_reads_only_one_lifts_overrides(server):
+    # The dialog opens as a modal before the read, and the read must not build the full
+    # athlete state: that report is what made the row button look inert for seconds.
     _status, js = get(server, "/static/exercises.js")
     start = js.index("async function openExerciseE1rm(")
     body = js[start:js.index("\n}", start)]
-    assert body.index("panel.hidden = false") < body.index("panel.scrollIntoView")
-    assert body.index("panel.scrollIntoView") < body.index('await api("/api/state")')
+    assert "showModal" in body
+    assert 'await api("/api/state")' not in body
+    assert "/api/state/e1rm?exercise_id=" in js
+
+
+def test_the_light_e1rm_read_returns_only_the_requested_lift(server):
+    post(server, "/api/state/e1rm", {
+        "exercise_id": "ssb_squat", "e1rm_kg": 155, "reason": "test",
+    })
+    post(server, "/api/state/e1rm", {
+        "exercise_id": "trap_bar_deadlift", "e1rm_kg": 180, "reason": "test",
+    })
+    status, body = get(server, "/api/state/e1rm?exercise_id=ssb_squat")
+    data = json.loads(body)
+    assert status == 200
+    assert data["exercise_id"] == "ssb_squat"
+    assert data["e1rm_overrides"]
+    assert {row["exercise_id"] for row in data["e1rm_overrides"]} == {"ssb_squat"}
+    # Not the full state payload.
+    assert "e1rm_calibration" not in data
+    assert "profile" not in data
+    # A withdrawal is a tombstone: the read carries the status so the dialog cannot show
+    # the withdrawn override as the override in force.
+    post(server, "/api/state/e1rm/withdraw", {
+        "exercise_id": "ssb_squat", "reason": "test withdrawal",
+    })
+    _status, body = get(server, "/api/state/e1rm?exercise_id=ssb_squat")
+    ledger = json.loads(body)["e1rm_overrides"]
+    assert any(row["kind"] == "withdrawal" for row in ledger)
+    assert not any(
+        row["kind"] == "override" and row["status"] == "active" for row in ledger
+    )
+    # The lift is required and validated against the canonical taxonomy.
+    with pytest.raises(urllib.error.HTTPError) as excinfo:
+        get(server, "/api/state/e1rm")
+    assert excinfo.value.code == 400
 
 
 def test_resolver_preview_uses_the_direct_prescription_response(server):
