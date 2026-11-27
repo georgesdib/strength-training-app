@@ -301,13 +301,19 @@ def _set_metrics(
                 if actual_limitation not in limitations:
                     limitations.append(actual_limitation)
             elif prescribed_load is not None and actual_external is not None:
+                # A captured total mass cannot reveal the plate that was added, so it is
+                # not comparable with an added-load prescription. An explicit 0 kg log is
+                # different: it is the unweighted bodyweight movement, so the added plate
+                # is known to be 0 kg and the set is comparable.
+                ambiguous_total_mass = (
+                    actual_basis == "bodyweight_total"
+                    and _number(row.get("load_kg")) != 0
+                )
                 if (
                     is_bodyweight
                     and prescribed_basis == "external"
-                    and actual_basis == "bodyweight_total"
+                    and ambiguous_total_mass
                 ):
-                    # A captured total mass cannot reveal the plate that was added, so it is
-                    # not comparable with an added-load prescription.
                     limitations.append("actual_load_includes_bodyweight")
                 else:
                     load_tolerance = _load_tolerance(target_item, prescribed_load)

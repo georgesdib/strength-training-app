@@ -300,6 +300,33 @@ def test_added_load_target_and_captured_total_mass_are_not_comparable(conn):
     assert "actual_load_includes_bodyweight" in rows[1]["limitations"]
 
 
+def test_unweighted_bodyweight_set_is_comparable_with_an_added_load_target(conn):
+    started = start(
+        conn,
+        item("back_extension", sets=3, reps_low=8, reps_high=12, load_kg=10,
+             load_basis="external", rir_target=2),
+        bodyweight=102,
+    )
+    log(conn, started, exercise_id="back_extension", load=0, reps=10, rir=2)
+    log(conn, started, exercise_id="back_extension", load=10, reps=10, rir=2)
+    log(conn, started, exercise_id="back_extension", load=20, reps=10, rir=2)
+    result = adherence.analyse(finish(conn, started))["original"]
+
+    rows = result["exercises"][0]["sets"]
+    assert rows[0]["load_actual_external_kg"] == 0.0
+    assert rows[0]["load_target_kg"] == 10.0
+    assert rows[0]["load_status"] == "below"
+    assert rows[1]["load_status"] == "at_target"
+    assert rows[2]["load_status"] == "above"
+    assert "actual_load_includes_bodyweight" not in rows[0]["limitations"]
+    assert "actual_load_includes_bodyweight" not in result["exercises"][0]["limitations"]
+    assert "actual_load_includes_bodyweight" not in result["quality"]["unavailable_metrics"]
+    assert result["load"]["evaluated_sets"] == 3
+    assert result["load"]["below_target"] == 1
+    assert result["load"]["at_target"] == 1
+    assert result["load"]["above_target"] == 1
+
+
 def test_missing_and_invalid_targets_are_explicitly_unavailable(conn):
     started = start(conn, item(sets=3, reps_low=None, reps_high=None,
                                load_kg=None, rir_target=None))
