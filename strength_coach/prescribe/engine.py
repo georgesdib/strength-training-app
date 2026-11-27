@@ -1699,6 +1699,73 @@ def _target_values(target, item) -> tuple[float, float | None, float | None, str
     return (round(value, 4), round(value - half, 4), round(value + half, 4), "line")
 
 
+def _pooled_covers(target, item) -> bool:
+    """Whether the issued target already resolves every prescribed rep count.
+
+    A pooled target carries an explicit rep term fitted over a range of rep counts, so it
+    is evaluated at whatever rep count the set used rather than being frozen at one.
+    """
+    if str(target.fit_method or "").split("_")[0] != "pooled":
+        return False
+    if target.velocity_rep_coef is None:
+        return False
+    if target.reps_min is None or target.reps_max is None:
+        return False
+    return int(target.reps_min) <= int(item.reps_low) and int(item.reps_high) <= int(target.reps_max)
+
+
+def _rep_targets(conn, result, item, primary, for_date: str, ids: list[str]):
+    """Freeze the calibration target for every other rep count the prescription allows.
+
+    Targets are issued at the item's first prescribed rep count, so a 3-5 prescription used
+    to carry only the rep-3 target and every 4- or 5-rep set was excluded as a rep mismatch
+    even where the calibration had measured that rep count directly (DEC-VBT-11). Each rep
+    count is resolved through the same ladder as the primary target, so nothing is
+    extrapolated here: a rep count with no target of its own has no entry, and the
+    comparison reports that rather than inventing a number. A pooled model already covers
+    the range through its rep term and needs no vector.
+    """
+    low, high = int(item.reps_low), int(item.reps_high)
+    if high <= low or _pooled_covers(primary, item):
+        return ()
+    entries = []
+    for reps in range(low, high + 1):
+        if reps == int(primary.rep_count):
+            continue
+        target = result.lookup(item.exercise_id, reps)
+        if target is None:
+            continue
+        value, entry_low, entry_high, basis = _target_values(target, item)
+        calibration_id = _persist_calibration(conn, target, for_date)
+        ids.append(calibration_id)
+        entries.append(VbtTarget(
+            target_mps=float(value),
+            low_mps=entry_low,
+            high_mps=entry_high,
+            rep_count=int(target.rep_count),
+            rir_low=int(target.rir_band[0]),
+            rir_high=int(target.rir_band[1]),
+            scope=str(target.scope),
+            family=target.vbt_family,
+            n_sets=int(target.n_sets),
+            n_sessions=int(target.n_sessions),
+            method_version=str(target.method_version),
+            calibration_id=calibration_id,
+            source=str(target.source),
+            fit_method=basis,
+            velocity_slope=target.velocity_slope,
+            velocity_intercept=target.velocity_intercept,
+            velocity_rir_coef=target.velocity_rir_coef,
+            velocity_residual_mad=target.velocity_residual_mad,
+            velocity_rep_coef=target.velocity_rep_coef,
+            reps_min=target.reps_min,
+            reps_max=target.reps_max,
+            load_min=target.load_min,
+            load_max=target.load_max,
+        ).as_dict())
+    return tuple(entries)
+
+
 def _attach_vbt_targets(
     conn,
     context: RuleContext,
@@ -1719,6 +1786,10 @@ def _attach_vbt_targets(
     comparable; the comparison uses the load actually used, and a set whose effort left the band
     or whose load/rep count left the fitted range is excluded rather than the whole workout. Only
     a plan item that no longer carries the lift, rep count or set group loses its target.
+
+    A prescription with a rep range freezes one target per rep count in that range, so a 5-rep
+    set is compared with the rep-5 target instead of being discarded against the rep-3 one
+    (DEC-VBT-11). The frozen plan therefore records every target it can be judged against.
     """
     modified = bool(fallback_level != "full" or context.symptom_flare)
     if context.sets.empty:
@@ -1755,6 +1826,7 @@ def _attach_vbt_targets(
         value, low, high, basis = _target_values(target, item)
         calibration_id = _persist_calibration(conn, target, for_date)
         ids.append(calibration_id)
+        per_rep = _rep_targets(conn, result, item, target, for_date, ids)
         out.append(
             replace(
                 item,
@@ -1781,8 +1853,12 @@ def _attach_vbt_targets(
                     velocity_intercept=target.velocity_intercept,
                     velocity_rir_coef=target.velocity_rir_coef,
                     velocity_residual_mad=target.velocity_residual_mad,
+                    velocity_rep_coef=target.velocity_rep_coef,
+                    reps_min=target.reps_min,
+                    reps_max=target.reps_max,
                     load_min=target.load_min,
                     load_max=target.load_max,
+                    per_rep=per_rep,
                 ),
             )
         )

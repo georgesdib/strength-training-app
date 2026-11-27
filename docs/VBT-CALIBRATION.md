@@ -53,6 +53,15 @@ a point is what makes the check "did velocity fall outside the expected range" h
 Why not a single "target velocity" per lift: velocity at 3 reps and at 6 reps are different
 quantities, and a target that ignores rep count will systematically flag one of them.
 
+A prescription that allows a **rep range** therefore freezes one target per allowed rep count
+(`vbt.per_rep`), each resolved through the same L0–L2 ladder and carrying its own calibration
+id and band (`DEC-VBT-11`). A 3–5 prescription is judged at 5 reps against the rep-5 target, not
+against the rep-3 one. Nothing is interpolated across rep counts: a rep count with no target of
+its own has no entry, and the comparison says `rep_mismatch` rather than presenting a
+neighbouring rep count's number. A pooled target already carries a rep term, so when its fitted
+rep range covers the prescription that single target is evaluated at the reps used and no vector
+is frozen.
+
 ## 3. Sparse data: a strict fallback ladder
 
 Never interpolate silently. Resolve in order and record which level was used:
@@ -164,6 +173,10 @@ only where the ladder produces one:
 - the item records the legacy `velocity_target` and `vbt_basis` fields and a structured
   `vbt` object with target/lower/upper, rep count, RIR band, scope/family, sample size,
   method version, calibration id and source;
+- a rep-range prescription freezes one target per allowed rep count in `vbt.per_rep`, each
+  with its own calibration id and band; the per-set comparison uses the entry for the reps the
+  set used, and `rep_outside_prescription` (left the prescribed range) or `rep_mismatch` (no
+  target at that rep count) is reported when there is none (`DEC-VBT-11`);
 - the structured object is frozen into the workout plan JSON, so it is reproducible after a
   later recalibration; old plans without it are `legacy_partial` and are never reconstructed
   from today's calibration;

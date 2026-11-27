@@ -135,6 +135,84 @@ def test_rep_count_mismatch_is_never_comparable():
     assert result["delta_mps"] == pytest.approx(0.0)
 
 
+def per_rep_vbt(**overrides):
+    value = dict(
+        item()["vbt"],
+        per_rep=[
+            {"rep_count": 4, "target_mps": 0.38, "low_mps": 0.35, "high_mps": 0.41,
+             "rir_low": 2, "rir_high": 3, "scope": "lift", "calibration_id": "vbt-rep4"},
+            {"rep_count": 5, "target_mps": 0.36, "low_mps": 0.33, "high_mps": 0.39,
+             "rir_low": 2, "rir_high": 3, "scope": "lift", "calibration_id": "vbt-rep5"},
+        ],
+    )
+    value.update(overrides)
+    return value
+
+
+def test_a_rep_range_prescription_is_judged_at_the_reps_actually_used():
+    five = vbt_analysis.compare_set([item(vbt=per_rep_vbt())], row(reps=5, velocity=0.37))
+    four = vbt_analysis.compare_set([item(vbt=per_rep_vbt())], row(reps=4, velocity=0.39))
+
+    assert five["comparable"] is True
+    assert five["reasons"] == []
+    assert five["target_mps"] == pytest.approx(0.36)
+    assert five["target_rep_count"] == 5
+    assert five["target"]["calibration_id"] == "vbt-rep5"
+    assert five["within_calibration_band"] is True
+    assert four["comparable"] is True
+    assert four["target_mps"] == pytest.approx(0.38)
+
+
+def test_reps_outside_the_prescription_are_reported_not_compared():
+    result = vbt_analysis.compare_set([item(vbt=per_rep_vbt())], row(reps=6, velocity=0.34))
+
+    assert result["comparable"] is False
+    assert result["reasons"] == ["rep_outside_prescription"]
+
+
+def test_a_rep_count_without_its_own_target_stays_a_mismatch():
+    vbt = per_rep_vbt(per_rep=[{"rep_count": 4, "target_mps": 0.38, "low_mps": 0.35,
+                                "high_mps": 0.41, "rir_low": 2, "rir_high": 3}])
+    result = vbt_analysis.compare_set([item(vbt=vbt)], row(reps=5, velocity=0.36))
+
+    assert result["comparable"] is False
+    assert result["reasons"] == ["rep_mismatch"]
+
+
+def test_a_pooled_target_is_evaluated_at_another_fitted_rep_count():
+    vbt = dict(
+        item()["vbt"],
+        fit_method="pooled",
+        velocity_slope=-0.004,
+        velocity_intercept=0.95,
+        velocity_rir_coef=0.0,
+        velocity_rep_coef=-0.03,
+        velocity_residual_mad=0.01,
+        reps_min=2,
+        reps_max=6,
+        load_min=80,
+        load_max=120,
+    )
+    result = vbt_analysis.compare_set([item(vbt=vbt)], row(reps=5, velocity=0.71))
+
+    # 0.95 - 0.004*100 - 0.03*5 = 0.40 m/s at five reps; the rep term is the fit's own.
+    assert result["comparable"] is True
+    assert result["comparison_basis"] == "pooled"
+    assert result["expected_mps"] == pytest.approx(0.40, abs=1e-3)
+    assert "rep_outside_fitted_range" not in result["reasons"]
+
+
+def test_a_rep_range_group_is_covered_by_its_own_rep_target():
+    groups = [{"group_index": 0, "sets": 2, "reps_low": 5, "reps_high": 5,
+               "load_kg": 100, "rir_target": 2}]
+    result = vbt_analysis.compare_set(
+        [item(set_groups=groups, vbt=per_rep_vbt())], row(reps=5, rir=2),
+    )
+
+    assert result["comparable"] is True
+    assert "group_rep_mismatch" not in result["reasons"]
+
+
 def test_missing_and_invalid_velocity_are_explicit():
     missing = vbt_analysis.compare_set([item()], row(velocity=None))
     invalid = vbt_analysis.compare_set([item()], row(velocity=0))

@@ -6,9 +6,12 @@ exercise. It never writes, never changes a prescription and never combines exerc
 single score.
 
 A frozen target is either a per-rep line or pooled model evaluated at the prescribed load,
-reps and RIR, or a flat median band. The comparison evaluates the line/pooled model at the load
-actually used; an actual load or rep count outside the fitted range is an extrapolation and not
-comparable, and a known/compatible load basis still gates comparability.
+reps and RIR, or a flat median band. A prescription with a rep range freezes one target per
+allowed rep count, so the comparison picks the target measured at the reps actually used
+(DEC-VBT-11); the frozen vector is plan provenance and is not repeated in the per-set result.
+The comparison evaluates the line/pooled model at the load actually used; an actual load or rep
+count outside the fitted range is an extrapolation and not comparable, and a known/compatible
+load basis still gates comparability.
 """
 
 from __future__ import annotations
@@ -31,8 +34,9 @@ _REASON_TEXT = {
     "missing_velocity": "No actual mean velocity was recorded.",
     "invalid_velocity": "The actual mean velocity is not positive and finite.",
     "warm_up": "Warm-up sets are not target comparisons.",
-    "rep_mismatch": "The actual rep count differs from the target's calibration rep count.",
-    "group_rep_mismatch": "The selected set group's rep count differs from the target's rep count.",
+    "rep_mismatch": "No calibrated target exists at the rep count this set used.",
+    "rep_outside_prescription": "The set's rep count is outside the range the prescription allowed.",
+    "group_rep_mismatch": "The selected set group's rep range is not covered by the target.",
     "ambiguous_group": "The set group could not be resolved from the plan's order.",
     "actual_rir_missing": "Actual RIR is missing, so effort comparability cannot be established.",
     "actual_rir_outside_band": "Actual RIR is outside the target's calibration band.",
@@ -46,7 +50,8 @@ _REASON_TEXT = {
 
 _HARD_REASONS = {
     "legacy_target", "unattributed_set", "exercise_mismatch", "missing_velocity",
-    "invalid_velocity", "warm_up", "rep_mismatch", "group_rep_mismatch",
+    "invalid_velocity", "warm_up", "rep_mismatch", "rep_outside_prescription",
+    "group_rep_mismatch",
     "ambiguous_group", "actual_rir_missing", "actual_rir_outside_band",
     "load_basis_unknown", "load_basis_mismatch", "time_based", "data_quality_flag",
     "load_outside_fitted_range", "rep_outside_fitted_range",
@@ -106,38 +111,58 @@ def _load_basis_compatible(actual: str, prescribed: str) -> bool:
     return actual in {"external", "added"} and prescribed in {"external", "added"}
 
 
+def _structured_target(raw: Mapping[str, Any]) -> dict[str, Any] | None:
+    """One frozen target, normalised. None when it carries no usable velocity."""
+    target = _number(raw.get("target_mps"))
+    if target is None or target <= 0:
+        return None
+    return {
+        "target_mps": target,
+        "low_mps": _number(raw.get("low_mps")),
+        "high_mps": _number(raw.get("high_mps")),
+        "rep_count": _integer(raw.get("rep_count")),
+        "rir_low": _integer(raw.get("rir_low")),
+        "rir_high": _integer(raw.get("rir_high")),
+        "scope": raw.get("scope"),
+        "family": raw.get("family"),
+        "n_sets": _integer(raw.get("n_sets")),
+        "n_sessions": _integer(raw.get("n_sessions")),
+        "method_version": raw.get("method_version"),
+        "calibration_id": raw.get("calibration_id"),
+        "source": raw.get("source"),
+        "fit_method": raw.get("fit_method") or "median",
+        "velocity_slope": _number(raw.get("velocity_slope")),
+        "velocity_intercept": _number(raw.get("velocity_intercept")),
+        "velocity_rir_coef": _number(raw.get("velocity_rir_coef")),
+        "velocity_residual_mad": _number(raw.get("velocity_residual_mad")),
+        "velocity_rep_coef": _number(raw.get("velocity_rep_coef")),
+        "reps_min": _integer(raw.get("reps_min")),
+        "reps_max": _integer(raw.get("reps_max")),
+        "load_min": _number(raw.get("load_min")),
+        "load_max": _number(raw.get("load_max")),
+        "metadata": "complete",
+    }
+
+
 def _target_for_item(item: Mapping[str, Any]) -> dict[str, Any] | None:
     vbt = item.get("vbt")
     if isinstance(vbt, Mapping):
-        target = _number(vbt.get("target_mps"))
-        if target is None or target <= 0:
+        target = _structured_target(vbt)
+        if target is None:
             return None
-        return {
-            "target_mps": target,
-            "low_mps": _number(vbt.get("low_mps")),
-            "high_mps": _number(vbt.get("high_mps")),
-            "rep_count": _integer(vbt.get("rep_count")),
-            "rir_low": _integer(vbt.get("rir_low")),
-            "rir_high": _integer(vbt.get("rir_high")),
-            "scope": vbt.get("scope"),
-            "family": vbt.get("family"),
-            "n_sets": _integer(vbt.get("n_sets")),
-            "n_sessions": _integer(vbt.get("n_sessions")),
-            "method_version": vbt.get("method_version"),
-            "calibration_id": vbt.get("calibration_id"),
-            "source": vbt.get("source"),
-            "fit_method": vbt.get("fit_method") or "median",
-            "velocity_slope": _number(vbt.get("velocity_slope")),
-            "velocity_intercept": _number(vbt.get("velocity_intercept")),
-            "velocity_rir_coef": _number(vbt.get("velocity_rir_coef")),
-            "velocity_residual_mad": _number(vbt.get("velocity_residual_mad")),
-            "velocity_rep_coef": _number(vbt.get("velocity_rep_coef")),
-            "reps_min": _integer(vbt.get("reps_min")),
-            "reps_max": _integer(vbt.get("reps_max")),
-            "load_min": _number(vbt.get("load_min")),
-            "load_max": _number(vbt.get("load_max")),
-            "metadata": "complete",
-        }
+        # The frozen plan also carries the target for the other rep counts the prescription
+        # allowed, each resolved from its own calibration (DEC-VBT-11). A broken entry is
+        # dropped rather than repaired: a comparison needs a number that was actually issued.
+        entries = vbt.get("per_rep")
+        per_rep: list[dict[str, Any]] = []
+        if isinstance(entries, Sequence) and not isinstance(entries, (str, bytes)):
+            for raw in entries:
+                if isinstance(raw, Mapping):
+                    entry = _structured_target(raw)
+                    if entry is not None:
+                        per_rep.append(entry)
+        target["per_rep"] = tuple(per_rep)
+        return target
     legacy = _number(item.get("velocity_target"))
     if legacy is not None and legacy > 0:
         return {
@@ -238,12 +263,83 @@ def _base_result(
         "target_source": target_source,
         "extra_set": extra_set,
         "flags": sorted(set(flags)),
-        "target": dict(target) if target else None,
+        "target": (
+            {key: value for key, value in target.items() if key != "per_rep"}
+            if target else None
+        ),
     }
 
 
 def _missing_result(row: Mapping[str, Any], reasons: Sequence[str], target_source: str | None = None) -> dict[str, Any]:
     return _base_result(row, reasons=reasons, target_source=target_source)
+
+
+def _reevaluable_at(target: Mapping[str, Any], reps: int) -> bool:
+    """A pooled target carries a rep term, so it can be evaluated at another fitted rep count.
+
+    A line and a median band were fitted at one rep count and have no rep term; evaluating
+    either at another rep count would be a guess, so they stay specific to their own count.
+    """
+    if str(target.get("fit_method") or "").split("_")[0] != "pooled":
+        return False
+    if target.get("velocity_rep_coef") is None:
+        return False
+    low, high = target.get("reps_min"), target.get("reps_max")
+    if low is None or high is None:
+        return False
+    return int(low) <= int(reps) <= int(high)
+
+
+def _target_for_rep(
+    target: Mapping[str, Any] | None, reps: int
+) -> Mapping[str, Any] | None:
+    """The target that applies at one rep count: its own entry, the frozen target, or a
+    pooled model evaluated there."""
+    if target is None:
+        return None
+    for entry in target.get("per_rep") or ():
+        if entry.get("rep_count") == reps:
+            return entry
+    if target.get("rep_count") == reps:
+        return target
+    if _reevaluable_at(target, reps):
+        return target
+    return None
+
+
+def _covers_span(target: Mapping[str, Any] | None, span: Mapping[str, Any]) -> bool:
+    """Whether the target resolves at least one rep count the span prescribes."""
+    low = _integer(span.get("reps_low"))
+    high = _integer(span.get("reps_high"))
+    if low is None or high is None:
+        return True
+    return any(_target_for_rep(target, reps) is not None for reps in range(low, high + 1))
+
+
+def _target_for_reps(
+    item: Mapping[str, Any],
+    target: Mapping[str, Any] | None,
+    reps: int | None,
+) -> tuple[Mapping[str, Any] | None, str | None]:
+    """Resolve the target for the rep count this set actually used.
+
+    A prescription with a rep range freezes one target per rep count, so a 5-rep set is
+    judged against the rep-5 target rather than discarded against the rep-3 one
+    (DEC-VBT-11). A rep count outside the prescribed range, or one with no target of its
+    own, is reported instead of being compared with a different rep count's number.
+    """
+    if target is None:
+        return target, None
+    if reps is None:
+        return target, "rep_mismatch"
+    low = _integer(item.get("reps_low"))
+    high = _integer(item.get("reps_high"))
+    if low is not None and high is not None and not low <= reps <= high:
+        return target, "rep_outside_prescription"
+    selected = _target_for_rep(target, reps)
+    if selected is None:
+        return target, "rep_mismatch"
+    return selected, None
 
 
 def _compare_item(
@@ -302,16 +398,14 @@ def _compare_item(
     if target.get("metadata") == "legacy":
         reasons.append("legacy_target")
     reps = _integer(row.get("reps"))
-    if reps is None or (target.get("rep_count") is not None and reps != target["rep_count"]):
-        reasons.append("rep_mismatch")
+    frozen = target
+    target, rep_reason = _target_for_reps(item, frozen, reps)
+    if rep_reason is not None:
+        reasons.append(rep_reason)
     group, group_error = _group_for_set(item, ordinal)
     if group_error:
         reasons.append(group_error)
-    elif (
-        group is not None
-        and target.get("rep_count") is not None
-        and _integer(group.get("reps_low")) != target["rep_count"]
-    ):
+    elif group is not None and not _covers_span(frozen, group):
         reasons.append("group_rep_mismatch")
     prescribed_rir = _integer((group if group is not None else item).get("rir_target"))
     if actual_rir is None:
@@ -330,7 +424,10 @@ def _compare_item(
     basis = "planned"
     extrapolated = False
     low, high = target.get("low_mps"), target.get("high_mps")
-    method = target.get("fit_method")
+    # A frozen "pooled_extrapolated"/"line_extrapolated" basis names the same model, not
+    # another one: the coefficients are unchanged, so the evaluation still uses the actual
+    # load and RIR and re-decides the fitted ranges for this set.
+    method = str(target.get("fit_method") or "median").split("_")[0]
     if (
         method in ("line", "pooled")
         and target.get("velocity_slope") is not None

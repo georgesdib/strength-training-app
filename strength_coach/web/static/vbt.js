@@ -3,7 +3,9 @@
  * The server owns calibration and comparison arithmetic. This module only formats target
  * provenance and renders the server's applicability/comparison result. A target is conditional
  * on rep count and, for a fitted or pooled target, on the prescribed load and RIR; the
- * comparison uses the load actually used. It is never presented as a success score.
+ * comparison uses the load actually used. A prescription with a rep range carries one target
+ * per allowed rep count, so a set is judged against the target for the reps it used. It is
+ * never presented as a success score.
  */
 
 var VBT_REASON_TEXT = {
@@ -16,8 +18,10 @@ var VBT_REASON_TEXT = {
   missing_velocity: "No actual mean velocity was recorded.",
   invalid_velocity: "The actual mean velocity is not positive and finite.",
   warm_up: "Warm-up sets are not target comparisons.",
-  rep_mismatch: "The actual rep count differs from the target's calibration rep count.",
-  group_rep_mismatch: "The selected set group's rep count differs from the target's calibration rep count.",
+  rep_mismatch: "No calibrated target exists at the rep count this set used.",
+  rep_outside_prescription: "The set's rep count is outside the range the prescription allowed.",
+  group_rep_mismatch: "The selected set group's rep range is not covered by the target.",
+  rep_outside_fitted_range: "The rep count used is outside the range the pooled model was fitted on, so the comparison would be an extrapolation.",
   ambiguous_group: "The set group could not be resolved from the plan order.",
   actual_rir_missing: "Actual RIR is missing, so effort comparability cannot be established.",
   actual_rir_outside_band: "Actual RIR is outside the target's calibration band.",
@@ -84,6 +88,11 @@ function vbtTargetDetails(item) {
     ? "not recorded" : "RIR " + target.rir_low + "–" + target.rir_high;
   var sample = (target.n_sets == null ? "—" : target.n_sets) + " sets / " +
     (target.n_sessions == null ? "—" : target.n_sessions) + " sessions";
+  var covered = (target.per_rep && target.per_rep.length)
+    ? " Also frozen for " + target.per_rep.map(function (entry) {
+        return String(entry.rep_count);
+      }).join(", ") + " reps, each from its own calibration."
+    : "";
   return "<details class='vbt-details'><summary>VBT " + vbtTargetInline(target) +
     "</summary><p class='muted'>Band: " +
     (target.low_mps == null || target.high_mps == null
@@ -95,7 +104,7 @@ function vbtTargetDetails(item) {
     (target.source ? " · source " + esc(target.source) : "") +
     "</p><p class='muted'>A fitted or pooled target is evaluated at the prescribed load, RIR " +
     "and reps; the comparison uses the load actually used. The median fallback is flat." +
-    "</p></details>";
+    esc(covered) + "</p></details>";
 }
 
 function vbtGroupForOrdinal(item, ordinal) {
@@ -108,6 +117,35 @@ function vbtGroupForOrdinal(item, ordinal) {
     if (target <= cumulative) return groups[index];
   }
   return groups[groups.length - 1];
+}
+
+/* The target that applies at one rep count: its own per-rep entry, the frozen target, or a
+ * pooled model evaluated there. This mirrors the server rule so the logger does not invite a
+ * set the comparison would then reject; the server still owns the comparison itself.
+ */
+function vbtRepTarget(target, reps) {
+  if (!target || reps === "" || reps == null) return null;
+  var count = Number(reps);
+  var entries = target.per_rep || [];
+  for (var index = 0; index < entries.length; index += 1) {
+    if (Number(entries[index].rep_count) === count) return entries[index];
+  }
+  if (target.rep_count != null && Number(target.rep_count) === count) return target;
+  if (String(target.fit_method || "").split("_")[0] === "pooled" &&
+      target.velocity_rep_coef != null &&
+      target.reps_min != null && target.reps_max != null &&
+      count >= Number(target.reps_min) && count <= Number(target.reps_max)) {
+    return target;
+  }
+  return null;
+}
+
+function vbtCoversSpan(target, span) {
+  if (!span || span.reps_low == null || span.reps_high == null) return true;
+  for (var reps = Number(span.reps_low); reps <= Number(span.reps_high); reps += 1) {
+    if (vbtRepTarget(target, reps)) return true;
+  }
+  return false;
 }
 
 function vbtApplicability(item, ordinal, reps, rir) {
@@ -123,11 +161,20 @@ function vbtApplicability(item, ordinal, reps, rir) {
   if (groups.length && !group) {
     return {status: "not_applicable", reason: "ambiguous_group", target: target};
   }
-  if (group && Number(group.reps_low) !== Number(target.rep_count)) {
+  if (group && !vbtCoversSpan(target, group)) {
     return {status: "not_applicable", reason: "group_rep_mismatch", target: target, group: group};
   }
-  if (reps !== "" && reps != null && Number(reps) !== Number(target.rep_count)) {
-    return {status: "not_applicable", reason: "rep_mismatch", target: target, group: group};
+  if (reps !== "" && reps != null) {
+    if (item.reps_low != null && item.reps_high != null &&
+        (Number(reps) < Number(item.reps_low) || Number(reps) > Number(item.reps_high))) {
+      return {status: "not_applicable", reason: "rep_outside_prescription",
+        target: target, group: group};
+    }
+    var selected = vbtRepTarget(target, reps);
+    if (!selected) {
+      return {status: "not_applicable", reason: "rep_mismatch", target: target, group: group};
+    }
+    target = selected;
   }
   if (rir === "" || rir == null) {
     return {status: "effort_unknown", reason: "actual_rir_missing", target: target, group: group};

@@ -8,7 +8,7 @@ import pytest
 from conftest import make_readiness, make_training
 
 from strength_coach import workout
-from strength_coach.features import vbt_calibration
+from strength_coach.features import vbt_analysis, vbt_calibration
 from strength_coach.prescribe import build_prescription
 from strength_coach.store import db, importer
 from strength_coach.web.server import prescription_dict
@@ -107,6 +107,32 @@ def test_a_trustworthy_calibration_attaches_and_persists_a_target():
     assert stored["vbt_basis"] == squat.vbt_basis
 
 
+def test_a_five_rep_set_is_compared_with_the_five_rep_target():
+    with store_with(rows_with_two_rep_counts()) as store:
+        prescription = build_prescription(
+            store.connection, for_date="2024-01-22", session_type="squat",
+        )
+    plan = prescription_dict(prescription)
+    item = next(value for value in plan["items"] if value["exercise_id"] == "ssb_squat")
+    index = item["order_index"]
+    rows = [
+        {"set_id": 1, "set_index": 1, "exercise_id": "ssb_squat", "reps": 3, "rir": 2,
+         "load_kg": 100, "velocity": 0.45, "prescription_item_index": index,
+         "is_working_set": 1, "load_basis": "external", "flags": []},
+        {"set_id": 2, "set_index": 2, "exercise_id": "ssb_squat", "reps": 5, "rir": 2,
+         "load_kg": 100, "velocity": 0.37, "prescription_item_index": index,
+         "is_working_set": 1, "load_basis": "external", "flags": []},
+    ]
+    result = vbt_analysis.completed({"workout_id": "w1", "plan": plan}, rows)
+
+    assert item["vbt"]["per_rep"][0]["rep_count"] == 5
+    assert result["quality"]["comparable_sets"] == 2
+    five = next(row for row in result["sets"] if row["reps"] == 5)
+    assert five["comparable"] is True
+    assert five["target_rep_count"] == 5
+    assert five["target_mps"] == pytest.approx(0.375, abs=0.02)
+
+
 def test_the_same_target_is_not_persisted_twice():
     with store_with(rows_with_velocity()) as store:
         conn = store.connection
@@ -116,6 +142,48 @@ def test_the_same_target_is_not_persisted_twice():
 
     assert first.calibration_ids == second.calibration_ids
     assert count == 1
+
+
+def rows_with_two_rep_counts() -> list[dict]:
+    rows = []
+    for day in DATES:
+        for index in range(4):
+            rows.append({
+                "Date": day, "Exercise": "Safety Squat Bar", "Weight_Used": "100",
+                "RIR": "2", "Reps_Done": "3", "Avg_velocity": f"{0.44 + 0.01 * index:.6f}",
+            })
+            rows.append({
+                "Date": day, "Exercise": "Safety Squat Bar", "Weight_Used": "100",
+                "RIR": "2", "Reps_Done": "5", "Avg_velocity": f"{0.36 + 0.01 * index:.6f}",
+            })
+    rows += [
+        {"Date": "2024-01-01", "Exercise": "Competition Bench Press", "Weight_Used": "80",
+         "RIR": "2", "Reps_Done": "5"},
+        {"Date": "2024-01-01", "Exercise": "Lateral Raise", "Weight_Used": "12.5",
+         "RIR": "2", "Reps_Done": "10"},
+    ]
+    return rows
+
+
+def test_a_rep_range_prescription_freezes_a_target_for_each_rep_count():
+    # The squat template prescribes 3-5 reps. Freezing only the rep-3 target discarded every
+    # 5-rep set as a rep mismatch even where rep 5 had its own calibration (DEC-VBT-11).
+    with store_with(rows_with_two_rep_counts()) as store:
+        conn = store.connection
+        prescription = build_prescription(conn, for_date="2024-01-22", session_type="squat")
+        squat = next(i for i in prescription.items if i.exercise_id == "ssb_squat")
+        stored = conn.execute("SELECT COUNT(*) AS c FROM vbt_calibration").fetchone()["c"]
+
+    assert squat.vbt is not None
+    assert (squat.reps_low, squat.reps_high) == (3, 5)
+    assert squat.vbt.rep_count == 3
+    entries = {entry["rep_count"]: entry for entry in squat.vbt.per_rep}
+    # Rep 4 has no calibration of its own and no pooled model (one load only), so it is
+    # absent rather than borrowed from a neighbour.
+    assert sorted(entries) == [5]
+    assert entries[5]["target_mps"] == pytest.approx(0.375, abs=0.02)
+    assert entries[5]["calibration_id"] in prescription.calibration_ids
+    assert stored == 2
 
 
 def test_without_enough_velocity_data_no_target_is_invented():

@@ -157,6 +157,11 @@ class VbtTarget:
     reps_max: int | None = None
     load_min: float | None = None
     load_max: float | None = None
+    # The same target frozen for every other rep count the prescription allows, when the
+    # calibration measured that rep count separately. A 3-5 prescription would otherwise
+    # carry only the rep-3 target, and a 5-rep set would have nothing to be compared with
+    # (DEC-VBT-11). Empty for a single-rep prescription.
+    per_rep: tuple[dict[str, Any], ...] = ()
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -183,6 +188,7 @@ class VbtTarget:
             "reps_max": self.reps_max,
             "load_min": self.load_min,
             "load_max": self.load_max,
+            "per_rep": [dict(entry) for entry in self.per_rep],
         }
 
 

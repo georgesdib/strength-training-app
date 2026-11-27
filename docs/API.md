@@ -375,9 +375,13 @@ modified-session line when targets were issued anyway. When no plan note was rec
 rows, voided sessions) the field is `null`.
 
 A comparison is marked `comparable: false` with explicit reasons when the set is warm-up,
-unattributed, attributed to another exercise, missing/invalid velocity, a different rep count,
-a different set-group rep count, has unknown/incompatible load basis, is time-based, carries a
-data-quality flag, or has missing/out-of-band actual RIR. The delta may still be present as
+unattributed, attributed to another exercise, missing/invalid velocity, at a rep count with no
+target or outside the prescribed rep range, in a set group the target does not cover, has
+unknown/incompatible load basis, is time-based, carries a data-quality flag, or has
+missing/out-of-band actual RIR. A prescription with a rep range freezes one target per allowed
+rep count in `vbt.per_rep`, and a set is compared with the entry for the reps it used; the
+per-set `target_rep_count` is the rep count of that entry, while the frozen vector itself stays
+plan provenance and is not repeated per set. The delta may still be present as
 context, but it is not a valid target observation. Imported sessions report
 `no_prescription_snapshot`; voided sessions report `session_voided`. No cross-exercise
 composite score is produced.

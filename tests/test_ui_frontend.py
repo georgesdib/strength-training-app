@@ -2272,6 +2272,16 @@ var ok = vbtApplicability(item, 0, 3, 2);
 if (ok.status !== "applicable") throw new Error("applicable target");
 var reps = vbtApplicability(item, 0, 5, 2);
 if (reps.reason !== "rep_mismatch") throw new Error("rep mismatch");
+var rangeItem = {exercise_id: "ssb_squat", reps_low: 3, reps_high: 5, set_groups: [],
+  vbt: {target_mps: 0.42, low_mps: 0.39, high_mps: 0.45, rep_count: 3, rir_low: 2,
+        rir_high: 3, scope: "lift", fit_method: "median",
+        per_rep: [{rep_count: 4, target_mps: 0.38, low_mps: 0.35, high_mps: 0.41},
+                  {rep_count: 5, target_mps: 0.36, low_mps: 0.33, high_mps: 0.39}]}};
+var atFive = vbtApplicability(rangeItem, 0, 5, 2);
+if (atFive.status !== "applicable" || atFive.target.target_mps !== 0.36) throw new Error("per-rep target");
+var outsideRange = vbtApplicability(rangeItem, 0, 6, 2);
+if (outsideRange.reason !== "rep_outside_prescription") throw new Error("outside prescription");
+if (vbtTargetDetails(rangeItem).indexOf("Also frozen for 4, 5 reps") < 0) throw new Error("rep coverage");
 var effort = vbtApplicability(item, 0, 3, 1);
 if (effort.reason !== "actual_rir_outside_band") throw new Error("rir band");
 var missingEffort = vbtApplicability(item, 0, 3, "");
