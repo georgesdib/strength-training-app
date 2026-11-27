@@ -2131,6 +2131,17 @@ def test_the_exercise_tab_offers_an_e1rm_override(server):
     assert "/api/state/e1rm" in js
 
 
+def test_the_exercise_e1rm_button_responds_before_the_state_read(server):
+    # The panel sits below the whole catalogue and /api/state builds the calibration
+    # report, so revealing it must not wait for that request: the row button used to
+    # look inert for seconds.
+    _status, js = get(server, "/static/exercises.js")
+    start = js.index("async function openExerciseE1rm(")
+    body = js[start:js.index("\n}", start)]
+    assert body.index("panel.hidden = false") < body.index("panel.scrollIntoView")
+    assert body.index("panel.scrollIntoView") < body.index('await api("/api/state")')
+
+
 def test_resolver_preview_uses_the_direct_prescription_response(server):
     _status, js = get(server, "/static/settings.js")
     assert "previous.prescription" not in js

@@ -561,13 +561,16 @@ async function openExerciseE1rm(exerciseId) {
   $("#exercise-e1rm-reason").value = "";
   $("#exercise-e1rm-msg").textContent = "";
   $("#exercise-e1rm-current").textContent = "Loading…";
+  // Reveal the panel before the state read. It sits below the whole catalogue, and
+  // /api/state builds the calibration report, so waiting for it made the row button
+  // look inert: nothing moved on screen until the request came back seconds later.
+  panel.scrollIntoView({ block: "start", behavior: "smooth" });
   try {
     const state = await api("/api/state");
     renderExerciseE1rmCurrent(exerciseId, state.e1rm_overrides);
   } catch (error) {
     $("#exercise-e1rm-current").textContent = error.message;
   }
-  panel.scrollIntoView({ block: "nearest", behavior: "smooth" });
 }
 
 function demandClaims() {
