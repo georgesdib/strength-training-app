@@ -750,6 +750,11 @@ body.menu-open { overflow: hidden; }
 /* Keep a revealed target clear of the sticky topbar. */
 .view, .panel, [id^="profile-"] { scroll-margin-top: 72px; }
 
+/* e1RM calibration preview: keep the wider table inside the panel and scroll it. */
+#state-e1rm-preview { max-width: 100%; min-width: 0; }
+#state-e1rm-preview .table-scroll { max-width: 100%; overflow-x: auto; }
+.e1rm-calibration-table { min-width: 920px; }
+
 /* VBT load-velocity profile (Exercises dialog). Display only. */
 .vbt-chart { width: 100%; max-width: 760px; height: auto; display: block; margin: 4px 0 8px; }
 .vbt-grid { stroke: rgba(0, 0, 0, 0.08); stroke-width: 1; }

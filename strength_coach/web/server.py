@@ -5204,6 +5204,32 @@ class Handler(BaseHTTPRequestHandler):
             "summary": strength_trend_feature.summarize(points),
         }
 
+    def _vbt_e1rm_columns(self, conn, rows: list[dict]) -> list[dict]:
+        """Attach the display-only per-rep and pooled VBT e1RM to calibration rows."""
+        if not rows:
+            return rows
+        from strength_coach.features import derived, vbt_profile
+        from strength_coach.store import queries
+        from strength_coach.utils import exercises
+
+        raw = queries.clean_sets(conn)
+        sets = derived.enrich(raw) if not raw.empty else raw
+        entities = exercises.taxonomy().entities
+        out: list[dict] = []
+        for row in rows:
+            item = dict(row)
+            exercise_id = str(item.get("exercise_id") or "")
+            family = (entities.get(exercise_id) or {}).get("vbt_family")
+            profile = vbt_profile.build(
+                sets, exercise_id, family=family, include_series=False
+            )
+            item["vbt_per_rep_e1rm"] = profile.e1rm_kg
+            item["vbt_per_rep_note"] = profile.e1rm_note
+            item["vbt_pooled_e1rm"] = profile.pooled_e1rm_kg
+            item["vbt_pooled_note"] = profile.pooled_e1rm_note
+            out.append(item)
+        return out
+
     def _e1rm_calibration_response(self, conn, window_days: int) -> dict:
         preview = e1rm_calibration_feature.build(conn, window_days=window_days)
         active = e1rm_calibration_feature.build(conn)
@@ -5212,7 +5238,9 @@ class Handler(BaseHTTPRequestHandler):
             "preview": True,
             "active_window_days": e1rm_calibration_feature.DEFAULT_WINDOW_DAYS,
             "active_calibration": e1rm_calibration_feature.as_dict(active),
-            "calibration": e1rm_calibration_feature.as_dict(preview),
+            "calibration": self._vbt_e1rm_columns(
+                conn, e1rm_calibration_feature.as_dict(preview)
+            ),
             "note": "Preview only; the active calibration factor is unchanged.",
         }
 

@@ -656,6 +656,13 @@ def test_exercise_catalogue_is_served(server):
     assert rows["plank"]["time_based"] is True
     assert rows["bench_press"]["time_based"] is False
 
+def test_e1rm_calibration_preview_includes_vbt_columns(server):
+    js = client_js(server)
+    assert "vbt_per_rep_e1rm" in js
+    assert "vbt_pooled_e1rm" in js
+    assert "e1rm-calibration-table" in js
+
+
 def test_performance_e1rm_chart_overlays_the_vbt_series(server):
     status, page = get(server, "/")
     assert status == 200

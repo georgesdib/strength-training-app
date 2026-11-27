@@ -202,7 +202,9 @@ ratio inherits its precision limits.
   limited by the configured lookback. It shows the current tables, injury signal, a separate
   athlete-attributed symptoms block and the **e1RM calibration** report (current formula e1RM and last set for every lift, plus
   measured tests vs formula; a bounded correction is applied only when the confidence interval
-  excludes 1.0). Read-only preview controls change the calibration/coverage window without
+  excludes 1.0). The report also carries two display-only VBT columns — the per-rep-line and
+  pooled-model implied e1RM, flagged when outside the fitted load range — in a horizontally
+  scrollable table. Read-only preview controls change the calibration/coverage window without
   changing active calibration, the raw symptom history shows the latest 10 with Show all, and
   the strength-test cadence block reports last/next/due state. Cadence and measured-test
   coverage are shown separately; coverage reuses the e1RM coverage gate (current, insufficient

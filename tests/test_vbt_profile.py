@@ -219,6 +219,17 @@ def test_an_inconsistent_e1rm_is_shown_with_a_note():
     assert any(point.get("flag") == "below_heaviest_load" for point in data.e1rm_series)
 
 
+def test_a_summary_build_skips_the_series():
+    data = profile.build(
+        enriched(bench_rows([80, 95, 110, 125], lambda load: 1.05 - 0.0045 * load)),
+        "bench_press", family="horizontal_push", include_series=False,
+    )
+    assert data.e1rm_kg is not None
+    assert data.e1rm_series == ()
+    assert data.rir_e1rm_series == ()
+    assert data.pooled_e1rm_series == ()
+
+
 def test_no_stored_sets_reports_why():
     empty = enriched(bench_rows([80], lambda load: 1.0)).iloc[0:0]
     data = profile.build(empty, "bench_press", family="horizontal_push")

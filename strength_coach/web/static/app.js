@@ -2336,6 +2336,14 @@ async function loadExposureStatus() {
   }
 }
 
+function vbtE1rmCell(value, note) {
+  if (value == null) return "—";
+  const text = fmt(value, 1) + " kg";
+  if (!note) return text;
+  const label = note === "below_heaviest_load" ? "below load range" : "extrapolated";
+  return text + " <span class='muted'>(" + label + ")</span>";
+}
+
 function renderE1rmPreview(data, kind) {
   const box = $("#state-e1rm-preview");
   if (!box) return;
@@ -2357,12 +2365,14 @@ function renderE1rmPreview(data, kind) {
     return "<tr><td>" + esc(row.exercise_id) + "</td><td>" + row.n + "</td><td>" +
       (row.median_ratio == null ? "—" : row.median_ratio) + "</td><td>" + ci +
       "</td><td>" + row.correction_factor + "</td><td>" +
-      esc(row.correction_reason || row.status || "") + "</td></tr>";
+      esc(row.correction_reason || row.status || "") + "</td><td>" +
+      vbtE1rmCell(row.vbt_per_rep_e1rm, row.vbt_per_rep_note) + "</td><td>" +
+      vbtE1rmCell(row.vbt_pooled_e1rm, row.vbt_pooled_note) + "</td></tr>";
   }).join("");
   box.innerHTML = "<p class='muted'>Calibration preview window " + data.window_days +
     " days; active window " + data.active_window_days +
-    ". Preview only — active calibration unchanged.</p>" +
-    (rows ? "<div class='table-scroll'><table><thead><tr><th>Lift</th><th>tests</th><th>median ratio</th><th>95% CI</th><th>factor</th><th>reason</th></tr></thead><tbody>" +
+    ". Preview only — active calibration unchanged. VBT columns are display only.</p>" +
+    (rows ? "<div class='table-scroll'><table class='e1rm-calibration-table'><thead><tr><th>Lift</th><th>tests</th><th>median ratio</th><th>95% CI</th><th>factor</th><th>reason</th><th>VBT per-rep e1RM</th><th>VBT pooled e1RM</th></tr></thead><tbody>" +
       rows + "</tbody></table></div>" : "<p class='empty'>No measured tests in this window.</p>") +
     "<p class='muted'>" + esc(data.note || "") + "</p>";
 }

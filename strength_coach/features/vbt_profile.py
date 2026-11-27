@@ -184,6 +184,7 @@ def build(
     rep_count: int | None = None,
     family: str | None = None,
     mvt_mps: float | None = None,
+    include_series: bool = True,
 ) -> VbtProfile:
     """Build the profile from an enriched clean-set frame (see `derived.enrich`)."""
     if sets is None or sets.empty:
@@ -234,8 +235,12 @@ def build(
 
     e1rm = _implied_e1rm(fit, mvt)
     e1rm_note = _e1rm_flag(e1rm, float(fit["load_max"]))
-    series = _e1rm_series(frame, int(chosen), mvt)
-    pooled_series = _pooled_e1rm_series(frame, series, mvt)
+    if include_series:
+        series = _e1rm_series(frame, int(chosen), mvt)
+        pooled_series = _pooled_e1rm_series(frame, series, mvt)
+        rir_series = _rir_series(sets, series)
+    else:
+        series, pooled_series, rir_series = (), (), ()
     points = tuple(
         ProfilePoint(
             date=str(row.date)[:10],
@@ -269,7 +274,7 @@ def build(
         ),
         e1rm_note=e1rm_note,
         e1rm_series=series,
-        rir_e1rm_series=_rir_series(sets, series),
+        rir_e1rm_series=rir_series,
         pooled_e1rm_series=pooled_series,
         **pooled,
     )
