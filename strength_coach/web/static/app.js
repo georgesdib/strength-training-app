@@ -3987,9 +3987,47 @@ function measurementHistoryChart(data, metricKey, perMetric = false, windowLabel
   });
 }
 
-function measureChartMetrics(summary) {
-  // One chart per metric that has recorded values; an unmeasured metric keeps its empty row.
-  return (summary || []).filter((metric) => Number(metric.count || 0) > 0);
+function measureSideParts(metric) {
+  // "Grip strength (left)" -> base "Grip strength", side "left"; a label without a trailing
+  // parenthetical keeps the whole label as its base and has no side.
+  const label = String(metric.label == null ? metric.key : metric.label).trim();
+  const match = label.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
+  return match ? {base: match[1].trim(), side: match[2].trim()} : {base: label, side: ""};
+}
+
+function measureChartGroups(summary) {
+  // One chart per metric with recorded data, except a metric that declares compare_with: that
+  // pair shares one chart so the difference is visible. Pairing is display-only; the values
+  // stay two independent series and nothing is combined or derived (DEC-GRIP-02).
+  const all = summary || [];
+  const byKey = new Map(all.map((metric) => [metric.key, metric]));
+  const partners = new Set(all.map((metric) => metric.compare_with).filter(Boolean));
+  const groups = [];
+  all.forEach((metric) => {
+    const hasData = Number(metric.count || 0) > 0;
+    if (metric.compare_with) {
+      const partner = byKey.get(metric.compare_with);
+      if (!partner || (!hasData && !(Number(partner.count || 0) > 0))) return;
+      const ordered = [partner, metric];
+      const parts = ordered.map(measureSideParts);
+      const paired = parts[0].base === parts[1].base;
+      const sides = paired ? Object.fromEntries(ordered.map((item, index) => [item.key, parts[index].side])) : null;
+      groups.push({
+        key: metric.key,
+        pair: true,
+        metrics: ordered,
+        sides,
+        title: paired && parts.every((part) => part.side)
+          ? parts[0].base + " \u2014 " + parts.map((part) => part.side).join(" vs ")
+          : String(partner.label) + " vs " + String(metric.label),
+      });
+      return;
+    }
+    if (hasData && !partners.has(metric.key)) {
+      groups.push({key: metric.key, pair: false, metrics: [metric], sides: null, title: String(metric.label)});
+    }
+  });
+  return groups;
 }
 
 function renderMeasurements(data) {
@@ -4024,11 +4062,14 @@ function renderMeasurements(data) {
     .slice().reverse().map((e) => `
     <tr><td>${esc(e.measured_on)}</td><td>${esc(e.metric_key)}</td>
     <td>${e.value}</td><td>${esc(e.method || "")}</td></tr>`).join("");
-  const chartMetrics = measureChartMetrics(summary);
-  const chartPanel = chartMetrics.length
-    ? '<div id="measure-charts">' + chartMetrics.map((metric) =>
-        '<div class="health-trend-chart" data-measure-chart="' + esc(metric.key) + '">' +
-        '<h3>' + esc(metric.label) + '</h3><p class="empty">Loading…</p></div>'
+  // The table follows the filter; a paired chart keeps both hands so a filtered view still
+  // shows the comparison it is asking about.
+  const chartGroups = measureChartGroups(all).filter((group) =>
+    !filter || group.metrics.some((metric) => metric.key === filter));
+  const chartPanel = chartGroups.length
+    ? '<div id="measure-charts">' + chartGroups.map((group) =>
+        '<div class="health-trend-chart" data-measure-chart="' + esc(group.key) + '">' +
+        '<h3>' + esc(group.title) + '</h3><p class="empty">Loading…</p></div>'
       ).join("") + '</div>'
     : "<p class='empty'>No recorded measurements yet.</p>";
   $("#measure-result").innerHTML =
@@ -4042,7 +4083,7 @@ function renderMeasurements(data) {
         '<tbody>' + entries + '</tbody></table>' + older
       : "<p class='empty'>No measurements yet.</p>") +
     '</div>';
-  loadMeasureCharts(chartMetrics);
+  loadMeasureCharts(chartGroups);
   const olderButton = document.getElementById("measure-older");
   if (olderButton) olderButton.addEventListener("click", () => loadMeasurements(page.next_offset));
 }
@@ -4078,23 +4119,70 @@ async function fetchMeasurementWindow(metricKey, from, to) {
   return entries;
 }
 
-async function loadMeasureCharts(metrics) {
+function measureSeriesLabel(metric, group) {
+  const unit = metric.unit ? " (" + metric.unit + ")" : "";
+  const side = group.sides ? group.sides[metric.key] : "";
+  return side ? side.charAt(0).toUpperCase() + side.slice(1) + unit : String(metric.label) + unit;
+}
+
+function measurementComparisonChart(group, entriesByKey, windowLabel) {
+  // Two independent series on one axis: the gap between them is the recorded between-hand
+  // difference, not a computed value. Each hand's own points are joined; no point is imputed.
+  const series = group.metrics.map((metric, index) => ({
+    id: metric.key,
+    label: measureSeriesLabel(metric, group),
+    className: "chart-series-" + index,
+    line: true,
+    points: (entriesByKey[metric.key] || []).map((entry) => ({
+      date: entry.measured_on,
+      value: entry.value,
+      label: entry.method ? String(entry.method) : "",
+    })),
+  }));
+  const total = series.reduce((sum, item) => sum + item.points.length, 0);
+  const window = windowLabel || "the selected window";
+  if (!total) {
+    return "<p class='empty'>No recorded observations for this pair in " + esc(window) + ".</p>";
+  }
+  return dateSeriesChart({
+    title: group.title + " · recorded observations",
+    xTitle: "Measurement date",
+    yTitle: group.metrics[0].unit || "recorded units",
+    series,
+    note: "Independent recorded observations for each series in " + esc(window) + " (" + total + " total); " +
+      "a line joins only that series' own points; no averaging, interpolation or derived difference.",
+  });
+}
+
+function measureGroupChart(group, entriesByKey, windowLabel) {
+  if (!group.pair) {
+    const metric = group.metrics[0];
+    return measurementHistoryChart(
+      {summary: [metric], entries: entriesByKey[metric.key] || []}, metric.key, true, windowLabel);
+  }
+  return measurementComparisonChart(group, entriesByKey, windowLabel);
+}
+
+async function loadMeasureCharts(groups) {
   const generation = ++measureChartGeneration;
   const windowValue = $("#measure-window") ? $("#measure-window").value : "12";
   const from = measureWindowFrom(windowValue);
   const to = today();
   const windowLabel = measureWindowLabel(windowValue);
-  await Promise.all((metrics || []).map(async (metric) => {
-    const host = document.querySelector('[data-measure-chart="' + metric.key + '"]');
+  await Promise.all((groups || []).map(async (group) => {
+    const host = document.querySelector('[data-measure-chart="' + group.key + '"]');
     if (!host) return;
     try {
-      const entries = await fetchMeasurementWindow(metric.key, from, to);
+      const loaded = {};
+      await Promise.all(group.metrics.map(async (metric) => {
+        loaded[metric.key] = await fetchMeasurementWindow(metric.key, from, to);
+      }));
       if (generation !== measureChartGeneration) return;
-      host.innerHTML = '<h3>' + esc(metric.label) + '</h3>' +
-        measurementHistoryChart({summary: [metric], entries: entries}, metric.key, true, windowLabel);
+      host.innerHTML = '<h3>' + esc(group.title) + '</h3>' +
+        measureGroupChart(group, loaded, windowLabel);
     } catch (error) {
       if (generation === measureChartGeneration) {
-        host.innerHTML = '<h3>' + esc(metric.label) + '</h3><p class="warnbox">' +
+        host.innerHTML = '<h3>' + esc(group.title) + '</h3><p class="warnbox">' +
           esc(error.message) + '</p>';
       }
     }

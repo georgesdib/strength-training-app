@@ -43,6 +43,9 @@ metrics:
     aggregation: best_of_3
     plausible: [5, 150]
     note: "Best of three squeezes with the left hand; record the dynamometer in the method."
+    # Display link only: the web UI draws this metric and the named one on one chart so the
+    # between-hand difference is visible. It does not combine the values or change either series.
+    compare_with: grip_strength_right_kg
 
   body_fat_pct:
     label: "Body fat"

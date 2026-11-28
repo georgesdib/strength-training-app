@@ -38,6 +38,9 @@ class MetricSpec:
     plausible_min: float | None = None
     plausible_max: float | None = None
     note: str = ""
+    # Display link only: the web UI draws this metric beside the named one so a paired series
+    # (grip right/left) can be compared on one chart. It never merges or derives a value.
+    compare_with: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -49,6 +52,7 @@ class MetricSpec:
             "plausible_min": self.plausible_min,
             "plausible_max": self.plausible_max,
             "note": self.note,
+            "compare_with": self.compare_with,
         }
 
     def validate(self, value: Any) -> float:
@@ -112,11 +116,43 @@ class MeasurementConfig:
                 plausible_min=low,
                 plausible_max=high,
                 note=str(body.get("note") or "").strip(),
+                compare_with=(
+                    str(body["compare_with"]).strip() if body.get("compare_with") else None
+                ),
             )
         if not metrics:
             raise MeasurementError("no measurement metrics configured")
         aliases = cls._parse_aliases(raw.get("legacy_aliases"), metrics)
+        cls._validate_comparisons(metrics)
         return cls(metrics=metrics, source_path=source, legacy_aliases=aliases)
+
+    @staticmethod
+    def _validate_comparisons(metrics: Mapping[str, MetricSpec]) -> None:
+        """A paired chart needs two comparable metrics: same unit, no self-link, no chain.
+
+        The chart only renders; the values stay independent series. Refusing a bad pair here
+        keeps a units mismatch from being drawn as if the two numbers were on one scale.
+        """
+        for key, spec in metrics.items():
+            other_key = spec.compare_with
+            if other_key is None:
+                continue
+            if other_key == key:
+                raise MeasurementError(f"{key}: compare_with must name a different metric")
+            other = metrics.get(other_key)
+            if other is None:
+                raise MeasurementError(
+                    f"{key}: compare_with names unknown metric {other_key!r}"
+                )
+            if other.compare_with is not None:
+                raise MeasurementError(
+                    f"{key}: compare_with chains through {other_key!r}; "
+                    "declare the pair on one side only"
+                )
+            if other.unit != spec.unit:
+                raise MeasurementError(
+                    f"{key}: compare_with {other_key!r} has unit {other.unit!r}, not {spec.unit!r}"
+                )
 
     @staticmethod
     def _parse_aliases(raw: Any, metrics: Mapping[str, MetricSpec]) -> dict[str, str]:

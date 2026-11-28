@@ -1249,8 +1249,9 @@ def test_health_longevity_charts_preserve_logged_observations_and_methods() -> N
         pytest.skip("node is not installed")
     source = (STATIC / "app.js").read_text(encoding="utf-8")
     chunks = []
-    for name in ("cardioWeeklyChart", "measurementHistoryChart", "measureChartMetrics",
-                 "measureWindowFrom", "measureWindowLabel"):
+    for name in ("cardioWeeklyChart", "measurementHistoryChart", "measureChartGroups",
+                 "measureSideParts", "measureGroupChart", "measurementComparisonChart",
+                 "measureSeriesLabel", "measureWindowFrom", "measureWindowLabel"):
         match = re.search(r"function " + name + r"\([\s\S]*?^}", source, re.MULTILINE)
         assert match, f"{name}() not found"
         chunks.append(match.group(0))
@@ -1285,8 +1286,28 @@ if (lineSpec.series.length !== 2 || lineSpec.series.some(x => x.line !== false))
 if (lineSpec.series.reduce((sum, series) => sum + series.points.length, 0) !== 3) throw new Error("measurement observations were averaged or discarded");
 if (!lineSpec.note.includes("newest-first pages") || !lineSpec.note.includes("no averaging, interpolation")) throw new Error("measurement coverage caveat absent");
 if (!measurementHistoryChart(data, "missing").includes("Select a configured measurement")) throw new Error("metric empty state absent");
-const charted = measureChartMetrics([{key: "a", count: 0}, {key: "b", count: 3}, {key: "c", count: null}, {key: "d", count: 1}]);
-if (charted.map(m => m.key).join(",") !== "b,d") throw new Error("only recorded measures may get a chart");
+const charted = measureChartGroups([{key: "a", label: "A", count: 0}, {key: "b", label: "B", count: 3},
+  {key: "c", label: "C", count: null}, {key: "d", label: "D", count: 1}]);
+if (charted.map(group => group.key).join(",") !== "b,d") throw new Error("only recorded measures may get a chart");
+const gripGroups = measureChartGroups([
+  {key: "r", label: "Grip strength (right)", unit: "kg", count: 2},
+  {key: "l", label: "Grip strength (left)", unit: "kg", count: 1, compare_with: "r"},
+]);
+if (gripGroups.length !== 1 || !gripGroups[0].pair) throw new Error("paired metrics must share one chart");
+if (gripGroups[0].metrics.map(m => m.key).join(",") !== "r,l") throw new Error("pair order changed");
+if (gripGroups[0].title !== "Grip strength \u2014 right vs left")
+  throw new Error("pair title incorrect: " + gripGroups[0].title);
+if (measureGroupChart(gripGroups[0], {r: [{measured_on: "2024-01-01", value: 40, method: "dynamometer"}],
+  l: [{measured_on: "2024-01-01", value: 38}]}, "the last 12 months") !== "dots")
+  throw new Error("comparison chart not returned");
+if (lineSpec.series.length !== 2) throw new Error("both hands must be drawn");
+if (lineSpec.series.map(s => s.label).join(",") !== "Right (kg),Left (kg)")
+  throw new Error("series labels lost the hand");
+if (!lineSpec.note.includes("no averaging") || !lineSpec.note.includes("derived difference"))
+  throw new Error("comparison caveat missing");
+const oneSided = measureChartGroups([{key: "r", label: "Grip strength (right)", count: 2},
+  {key: "l", label: "Grip strength (left)", count: 0, compare_with: "r"}]);
+if (oneSided.length !== 1 || !oneSided[0].pair) throw new Error("a pair with one recorded side must still chart");
 const perMetric = measurementHistoryChart({summary: data.summary, entries: data.entries}, "grip", true, "the last 3 months");
 if (perMetric !== "dots") throw new Error("per-metric chart not returned");
 if (!lineSpec.note.includes("the last 3 months (3)") || !lineSpec.note.includes("no averaging"))
@@ -1303,7 +1324,9 @@ if (measureWindowLabel("all") !== "all history" || measureWindowLabel("6") !== "
 
 def test_measures_page_charts_every_metric_with_recorded_data() -> None:
     app = (STATIC / "app.js").read_text(encoding="utf-8")
-    assert "function measureChartMetrics" in app
+    assert "function measureChartGroups" in app
+    assert "measurementComparisonChart" in app
+    assert "compare_with" in app
     assert "data-measure-chart" in app
     assert "loadMeasureCharts" in app
     assert "measureWindowFrom" in app

@@ -526,6 +526,10 @@ under their old key, because `measurement` is append-only. `legacy_aliases` in
 before filtering, so a request for the new key returns the historical rows. An alias may not
 also be a configured metric, and its target must exist; the stored row keeps its original key.
 
+`compare_with` is a catalogue-only display link: it puts two metrics on one web chart
+(grip right/left) as independent series. It is not stored in `metric_definition`, never merges
+the values, and the config refuses a self-link, a chain or a pair with different units.
+
 **It is not the live readiness-score driver.** The score reads the `readiness_registry`
 (documented above); `metric_definition` supplies only the metric's label, scale and direction.
 The table has no weight/role, baseline or slope columns. Adding a metric still needs its
