@@ -352,13 +352,13 @@ def test_scheduled_deload_decisions_are_persistent_and_event_scoped():
         assert reconsidered.event_id == due.event_id
         assert reconsidered.owner_decision == "deferred"
         assert reconsidered.owner_decision_id == deferred_id
-        assert programme.header(conn, "2024-02-05")["deload"]["status"] == "none"
-        # The deferral covers only its own day; the next day inside the event's window asks again.
-        next_day = programme.header(conn, "2024-02-06")["deload"]
-        assert next_day["status"] == "suggested"
-        assert next_day["decision"] == "deferred"
-        # The deferred window is re-presented until a new block is due, and the new block then
-        # replaces it instead of inheriting the old deferral.
+        # A deferral is never an actionable suggestion: the header stays quiet and the next
+        # prescription issuance is what presents the choice again (see the rule test below).
+        for day in ("2024-02-05", "2024-02-06"):
+            header = programme.header(conn, day)["deload"]
+            assert header["status"] == "none"
+            assert header["decision"] == "deferred"
+        # The deferred event is still the newest block, so it is re-presented after its window.
         after_window = deload_feature.scheduled_decision(
             conn, "2024-03-01", include_deferred=True
         )
@@ -399,6 +399,111 @@ def test_scheduled_deload_decisions_are_persistent_and_event_scoped():
         assert conn.execute(
             "SELECT COUNT(*) FROM scheduled_deload_decision"
         ).fetchone()[0] == 3
+
+
+def test_deferral_eligibility_is_decided_by_issuance_not_by_the_calendar():
+    """One rule for issuance, header and nudge: the deferring issuance is not asked again."""
+    deferred = deload_feature.DeloadDecision(
+        reason="scheduled deload", trigger="scheduled",
+        owner_decision="deferred", owner_reconsider_after="issuance-1",
+    )
+    # The issuance that recorded the deferral already answered it.
+    assert deload_feature.deferral_reconsiderable(
+        deferred, issuance_id="issuance-1"
+    ) is False
+    # Any later issuance is the next eligible issuance.
+    assert deload_feature.deferral_reconsiderable(
+        deferred, issuance_id="issuance-2"
+    ) is True
+    # The header and the nudge have no issuance, so the deferral is still in force for them.
+    assert deload_feature.deferral_reconsiderable(deferred) is False
+    for owner_decision in (None, "accepted", "dismissed"):
+        other = deload_feature.DeloadDecision(
+            reason="scheduled deload", trigger="scheduled",
+            owner_decision=owner_decision,
+        )
+        assert deload_feature.deferral_reconsiderable(
+            other, issuance_id="issuance-2"
+        ) is False
+    assert deload_feature.deferral_reconsiderable(None, issuance_id="x") is False
+
+
+def test_a_new_block_retires_an_unresolved_deferral_from_an_older_block():
+    with store_with() as store:
+        conn = store.connection
+        repositories.append_athlete_profile(
+            conn, effective_from="2024-01-01",
+            block_start_date="2024-01-01",
+        )
+        first = deload_feature.scheduled_decision(conn, "2024-02-05")
+        assert first is not None
+        deload_feature.record_scheduled_decision(
+            conn,
+            event=first,
+            decision="defer",
+            expected_decision_id=None,
+            operation_id="defer-first-block",
+            issuance_id="issuance-1",
+            decided_at="2024-02-05T12:00:00Z",
+        )
+
+        # The next block comes due and is dismissed; the older deferral must not survive it.
+        second = deload_feature.scheduled_decision(conn, "2024-03-18")
+        assert second is not None
+        assert second.event_id == "scheduled:2024-01-01:2024-03-18"
+        deload_feature.record_scheduled_decision(
+            conn,
+            event=second,
+            decision="dismiss",
+            expected_decision_id=None,
+            operation_id="dismiss-second-block",
+            issuance_id="issuance-2",
+            decided_at="2024-03-18T12:00:00Z",
+        )
+
+        after_second_window = deload_feature.scheduled_decision(
+            conn, "2024-04-10", include_deferred=True
+        )
+        next_block = deload_feature.scheduled_decision(
+            conn, "2024-04-29", include_deferred=True
+        )
+        # Between blocks nothing is presented: the first block is retired, not re-offered.
+        assert after_second_window is None
+        assert next_block is not None
+        assert next_block.event_id == "scheduled:2024-01-01:2024-04-29"
+        assert next_block.owner_decision is None
+
+        # The historical decision is preserved even though its block can no longer be presented.
+        assert conn.execute(
+            "SELECT COUNT(*) FROM scheduled_deload_decision WHERE event_id = ?",
+            (first.event_id,),
+        ).fetchone()[0] == 1
+
+
+def test_a_deferral_is_retired_once_its_block_is_skipped_entirely():
+    """A later block that was never answered still supersedes the older deferral."""
+    with store_with() as store:
+        conn = store.connection
+        repositories.append_athlete_profile(
+            conn, effective_from="2024-01-01",
+            block_start_date="2024-01-01",
+        )
+        first = deload_feature.scheduled_decision(conn, "2024-02-05")
+        assert first is not None
+        deload_feature.record_scheduled_decision(
+            conn,
+            event=first,
+            decision="defer",
+            expected_decision_id=None,
+            operation_id="defer-skipped-block",
+            issuance_id="issuance-1",
+            decided_at="2024-02-05T12:00:00Z",
+        )
+        # No prescription was ever requested during the second block's window.
+        after_skipped_block = deload_feature.scheduled_decision(
+            conn, "2024-04-10", include_deferred=True
+        )
+        assert after_skipped_block is None
 
 
 def test_four_and_five_day_programmes_use_spaced_weekdays():

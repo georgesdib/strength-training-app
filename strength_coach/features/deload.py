@@ -94,6 +94,7 @@ class DeloadDecision:
     owner_decision: str | None = None
     owner_decision_id: int | None = None
     owner_decided_on: str | None = None
+    owner_reconsider_after: str | None = None
 
     def applies_to(self, exercise_id: str) -> bool:
         """Whether this decision may change one prescription item."""
@@ -103,19 +104,24 @@ class DeloadDecision:
 
 
 def deferral_reconsiderable(
-    scheduled: DeloadDecision | None, on_date: str,
+    scheduled: DeloadDecision | None, *, issuance_id: str | None = None,
 ) -> bool:
-    """A deferral covers the issuance that recorded it, so a later day asks again.
+    """Whether a deferred event must be presented again, decided by issuance, not by a clock.
 
-    The deferral's own day stays quiet: the athlete answered minutes ago. Both callers that
-    present the choice (prescription issuance and the programme header) use this rule, so the
-    header never looks actionable while issuance would stay silent, or the reverse.
+    A deferral covers exactly the issuance that recorded it (``reconsider_after_issuance_id``).
+    Every later issuance is the next eligible issuance and asks again, so a deferral cannot
+    silently become acceptance. Without an issuance in hand - the programme header and the nudge
+    describe state rather than a request - the deferral is still in force and the event is not
+    an actionable suggestion.
+
+    This is the single rule for prescription issuance, the programme header and the nudge, and
+    it never consults the calendar.
     """
-    return (
-        scheduled is not None
-        and scheduled.owner_decision == "deferred"
-        and (scheduled.owner_decided_on or "") < str(on_date)[:10]
-    )
+    if scheduled is None or scheduled.owner_decision != "deferred":
+        return False
+    if issuance_id is None:
+        return False
+    return issuance_id != scheduled.owner_reconsider_after
 
 
 def scheduled_reason(conn, as_of: str, *, config: DeloadConfig | None = None) -> str | None:
@@ -126,6 +132,20 @@ def scheduled_reason(conn, as_of: str, *, config: DeloadConfig | None = None) ->
 
 
 def _scheduled_event_context(conn, as_of: str, config: DeloadConfig) -> dict | None:
+    """The occurrence due on `as_of`, or None when no scheduled deload is due."""
+    occurrence = _scheduled_occurrence(conn, as_of, config)
+    return occurrence if occurrence is not None and occurrence["due"] else None
+
+
+def _scheduled_occurrence(
+    conn, as_of: str, config: DeloadConfig,
+) -> dict | None:
+    """The latest scheduled occurrence at or before `as_of`, due or not.
+
+    The event identity is returned even when `as_of` is past its window, because the schedule
+    needs it to retire an older unresolved deferral: a block that has come due replaces the
+    previous block's answer whether or not the athlete requested a prescription during it.
+    """
     if not config.enabled or not config.scheduled_enabled:
         return None
     profile = queries.athlete_profile(conn) or {}
@@ -162,26 +182,32 @@ def _scheduled_event_context(conn, as_of: str, config: DeloadConfig) -> dict | N
             anchor = postponed_until - dt.timedelta(weeks=config.every_weeks - 1)
 
     week = (current - anchor).days // 7 + 1
-    if week < 1 or week % config.every_weeks != 0:
+    if week < 1:
         return None
+    # Every occurrence is a block of `every_weeks` weeks ending in its seven-day window; the
+    # latest one at or before today is the newest block the schedule has produced.
     occurrence = week // config.every_weeks
+    if occurrence < 1:
+        return None
     window_start = anchor + dt.timedelta(
         weeks=(occurrence * config.every_weeks) - 1
     )
     window_end = window_start + dt.timedelta(days=6)
+    due_week = occurrence * config.every_weeks
     reason = (
         f"scheduled deload (postponed window starting {postponed_until}; "
         f"every {config.every_weeks} weeks)"
         if postponed_until is not None and current >= postponed_until
-        else f"scheduled deload (block week {week}; every {config.every_weeks} weeks)"
+        else f"scheduled deload (block week {due_week}; every {config.every_weeks} weeks)"
     )
     return {
         "reason": reason,
-        "block_week": week,
+        "block_week": due_week,
         "schedule_anchor": anchor,
         "window_starts_on": window_start,
         "window_ends_on": window_end,
         "event_id": f"scheduled:{anchor.isoformat()}:{window_start.isoformat()}",
+        "due": window_start <= current <= window_end,
     }
 
 
@@ -473,14 +499,24 @@ def scheduled_decision(
     include_deferred: bool = False,
 ) -> DeloadDecision | None:
     """Return the scheduled-deload event and its persisted owner decision, if any."""
-    event = _scheduled_event_context(conn, as_of, config or DeloadConfig.load())
+    cfg = config or DeloadConfig.load()
+    latest = _scheduled_occurrence(conn, as_of, cfg)
+    event = latest if latest is not None and latest["due"] else None
+    # A deferral on an older block is retired once the schedule has produced a newer one; the
+    # decision row stays as history, it just stops being presentable.
     pending_deferral = (
-        queries.latest_pending_scheduled_deload_deferral(conn)
-        if include_deferred else None
+        queries.latest_pending_scheduled_deload_deferral(
+            conn,
+            not_before_window=(
+                latest["window_starts_on"].isoformat()
+                if latest is not None else None
+            ),
+        )
+        if include_deferred and latest is not None else None
     )
     if pending_deferral is not None and event is None:
-        # The deferred window is over and nothing new is due: present it again at this issuance.
-        # A newly due block wins instead, because a new block is a new independent decision.
+        # Nothing is due and a deferral is still in force: the deferral is presented again at
+        # the next issuance, which is what `deferral_reconsiderable` decides for the request.
         event = {
             "reason": (
                 "scheduled deload (deferred; window "
@@ -515,6 +551,9 @@ def scheduled_decision(
         owner_decision=stored["decision"] if stored else None,
         owner_decision_id=int(stored["decision_id"]) if stored else None,
         owner_decided_on=str(stored["decided_at"])[:10] if stored else None,
+        owner_reconsider_after=(
+            stored["reconsider_after_issuance_id"] if stored else None
+        ),
     )
 
 

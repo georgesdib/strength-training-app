@@ -2625,7 +2625,19 @@ class Handler(BaseHTTPRequestHandler):
                 409, "decision_already_final",
                 "this scheduled deload already has a final decision",
             )
-        if scheduled is not None and scheduled.owner_decision in (None, "deferred"):
+        issued_plan_id = uuid.uuid4().hex
+        # This request is a new issuance, so a deferral from an earlier one asks again; the
+        # deferring issuance itself already answered. Same rule as the header and the nudge.
+        ask_again = (
+            scheduled is not None
+            and (
+                scheduled.owner_decision is None
+                or deload_feature.deferral_reconsiderable(
+                    scheduled, issuance_id=issued_plan_id
+                )
+            )
+        )
+        if scheduled is not None and ask_again:
             if decision_request is None:
                 # A reactive deload already applies automatically, so asking about the
                 # scheduled one would only delay a decision the athlete cannot change.
@@ -2660,7 +2672,6 @@ class Handler(BaseHTTPRequestHandler):
                 details=pending,
             )
 
-        issued_plan_id = uuid.uuid4().hex
         operation_id = ios_workflow.normalize_operation_id(
             self.headers.get("Idempotency-Key", "")
         )
@@ -6012,6 +6023,9 @@ class Handler(BaseHTTPRequestHandler):
         scheduled_suggestion = None
         decision_request = body.get("scheduled_deload_decision")
         decision_id = scheduled.owner_decision_id if scheduled is not None else None
+        # One identity per build: this request is a distinct issuance, which is what makes a
+        # deferral from an earlier one ask again.
+        request_issuance_id = uuid.uuid4().hex
         pending_decision_write = None
         if decision_request is not None and not isinstance(decision_request, dict):
             raise FieldError(
@@ -6054,7 +6068,7 @@ class Handler(BaseHTTPRequestHandler):
                     "decision must be accept, defer, or dismiss",
                     {"decision": "must be accept, defer, or dismiss"},
                 )
-            pending_decision_write = (uuid.uuid4().hex, decision_request)
+            pending_decision_write = (request_issuance_id, decision_request)
             owner_decision = {
                 "accept": "accepted",
                 "defer": "deferred",
@@ -6067,11 +6081,17 @@ class Handler(BaseHTTPRequestHandler):
         if reactive is not None:
             deload_decision = reactive
         elif scheduled is not None:
+            # This build is a fresh issuance (minted above), so a deferral asks again here;
+            # the same rule the programme header and the nudge use.
+            asks_again = decision_request is None and (
+                owner_decision is None
+                or deload_feature.deferral_reconsiderable(
+                    scheduled, issuance_id=request_issuance_id
+                )
+            )
             if owner_decision == "accepted":
                 deload_decision = scheduled
-            elif owner_decision is None or (
-                owner_decision == "deferred" and decision_request is None
-            ):
+            elif asks_again:
                 scheduled_suggestion = scheduled
         prescription = build_prescription(
             conn, for_date=for_date, session_type=session_type,

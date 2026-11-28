@@ -889,15 +889,26 @@ are therefore independent across scheduled blocks.
 | decided_at | decision timestamp |
 | operation_id | unique request operation identity for idempotent writes |
 | consumed_by_issuance_id | prescription issuance that consumed the decision; for defer, that issuance proceeds without the deload |
-| reconsider_after_issuance_id | deferral becomes eligible for confirmation after the consuming issuance |
+| reconsider_after_issuance_id | the issuance the deferral already answered; eligibility is "any other issuance", so this column is what decides re-presentation |
 
-No-update/no-delete triggers preserve every decision. A deferred event is presented again at the
-next distinct eligible prescription issuance; it is not driven by elapsed time. Acceptance applies
-the scheduled deload from the consuming prescription on, for the rest of that scheduled deload week.
-Dismissal suppresses that event, and a later scheduled block has a new event id. Reactive deloads
-remain automatic, do not wait for scheduled confirmation, and take precedence. `build_inputs_json`
-freezes the scheduled event and decision for the asynchronous iOS worker; the worker does not
-re-read a changed scheduled decision.
+No-update/no-delete triggers preserve every decision. Re-presentation is decided by this table, not
+by the clock: a deferral is presentable only to an issuance other than
+`reconsider_after_issuance_id`, so the request that recorded it is not asked again and every later
+request is. Because issuance forces an answer, an unresolved deferral means no later issuance
+occurred, which is why `programme.header` reports it as `none` while it is in force rather than as
+an actionable suggestion.
+
+An unresolved deferral is also retired when the schedule produces a newer block: the window start
+of the newest occurrence is the lower bound for a pending deferral, so an older block's deferral is
+never presented again. Its row is kept and stays readable; only its eligibility ends. This holds
+even when the intervening block was skipped without any prescription request, so a stale suggestion
+cannot resurface two blocks later.
+
+Acceptance applies the scheduled deload from the consuming prescription on, for the rest of that
+scheduled deload week. Dismissal suppresses that event, and a later scheduled block has a new event
+id. Reactive deloads remain automatic, do not wait for scheduled confirmation, and take precedence.
+`build_inputs_json` freezes the scheduled event and decision for the asynchronous iOS worker; the
+worker does not re-read a changed scheduled decision.
 
 Migration `0085_deload_schedule_postponement.sql` and its append-only
 `scheduled_deload_postponement` rows are retained as historical schedule re-anchors. New

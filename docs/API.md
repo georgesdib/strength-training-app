@@ -257,14 +257,21 @@ of its scheduled block. A new block has a new event identity.
 
 The next eligible issuance is a new prescription operation after the deferral's consuming
 issuance; replaying the same idempotency key returns the original plan and is not another
-issuance. An unresolved deferral is re-presented until a new scheduled block is due; the new
-block's event replaces it with an independent decision. There is no calendar-day or arbitrary
-snooze interval. `programme.header` and the
-programme nudge use the same rule (`features/deload.py:deferral_reconsiderable`): a deferral is not
-an actionable suggestion on the day it was recorded, and it becomes actionable again from the next
-day, which is when a new issuance can occur. Reactive triggers remain automatic and take precedence
-over accepted, deferred or dismissed scheduled state. When a reactive trigger is present, issuance
-does not wait for scheduled-deload confirmation.
+issuance. An unresolved deferral belongs to its own block: once the schedule produces a newer
+block, the older deferral is retired - the row is kept as history but is never presented again -
+even when the intervening block was skipped without a prescription request. There is no
+calendar-day or arbitrary snooze interval.
+
+One rule decides presentation, and it is keyed on issuance identity, never on elapsed time:
+`features/deload.py:deferral_reconsiderable(scheduled, issuance_id=...)` returns true when the
+issuance asking is not the one recorded in `reconsider_after_issuance_id`. Prescription issuance
+always asks again, because every request is a new issuance; `programme.header` and the nudge
+describe state rather than a request and pass no issuance, so a deferral in force reports
+`status: none` and is not an actionable suggestion. The two views therefore agree: the header
+stops suggesting while the deferral is in force, and the next request is exactly what ends it.
+Reactive triggers remain automatic and take precedence over accepted, deferred or dismissed
+scheduled state. When a reactive trigger is present, issuance does not wait for scheduled-deload
+confirmation.
 
 `POST /api/ios/v1/prescriptions` sends
 `scheduled_deload_decision: {event_id, decision, expected_decision_id}`; the idempotency header is

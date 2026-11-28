@@ -134,15 +134,12 @@ def build_programme(conn, *, start: str | None = None, weeks: int = 4,
             projected_items=tuple(prior_items),
             projected_sessions=prior_sessions,
         )
+        # A deferral is not presentable here: this forecast is not a prescription request, so
+        # it has no issuance to spend on it. Issuance asks again (deferral_reconsiderable).
         suggests_deload = (
             reactive is None
             and scheduled is not None
-            and (
-                scheduled.owner_decision is None
-                or deload_feature.deferral_reconsiderable(
-                    scheduled, date.isoformat()
-                )
-            )
+            and scheduled.owner_decision is None
         )
         if suggests_deload:
             prescription = deload_mod.suggest(prescription, scheduled)
@@ -233,9 +230,9 @@ def header(
         trigger = scheduled.trigger
         reason = scheduled.reason
     elif scheduled is not None:
-        suggested = scheduled.owner_decision is None or (
-            deload_feature.deferral_reconsiderable(scheduled, on_date)
-        )
+        # One rule with issuance and the nudge: a deferral is not an actionable suggestion while
+        # it is in force; the next prescription issuance presents it again.
+        suggested = scheduled.owner_decision is None
         status = "suggested" if suggested else "none"
         trigger = scheduled.trigger if suggested else None
         reason = scheduled.reason if suggested else None

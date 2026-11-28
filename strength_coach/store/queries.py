@@ -532,15 +532,29 @@ def latest_scheduled_deload_decision(conn, event_id: str) -> dict | None:
     return dict(row) if row is not None else None
 
 
-def latest_pending_scheduled_deload_deferral(conn) -> dict | None:
-    row = conn.execute(
+def latest_pending_scheduled_deload_deferral(
+    conn, *, not_before_window: str | None = None,
+) -> dict | None:
+    """The newest deferred event with no later decision for that event.
+
+    `not_before_window` retires an older block: once the schedule has produced a newer
+    occurrence, its window start is later than the deferred event's, so that deferral is no
+    longer pending. The historical row is kept and stays readable; only its eligibility ends.
+    """
+    sql = (
         "SELECT decision.* FROM scheduled_deload_decision AS decision "
         "WHERE decision.decision = 'deferred' AND NOT EXISTS ("
         "SELECT 1 FROM scheduled_deload_decision AS later "
         "WHERE later.event_id = decision.event_id "
         "AND later.decision_id > decision.decision_id"
-        ") ORDER BY decision.decision_id DESC LIMIT 1"
-    ).fetchone()
+        ")"
+    )
+    params: list[object] = []
+    if not_before_window is not None:
+        sql += " AND decision.window_starts_on >= ?"
+        params.append(str(not_before_window))
+    sql += " ORDER BY decision.decision_id DESC LIMIT 1"
+    row = conn.execute(sql, params).fetchone()
     return dict(row) if row is not None else None
 
 
