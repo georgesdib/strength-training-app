@@ -1001,6 +1001,21 @@ def analyse(db_path: str | Path) -> dict[str, Any]:
     return report
 
 
+def assert_writable(path: str, *, force: bool) -> None:
+    """Refuse an output path outside `private/`, by containment rather than by name.
+
+    Membership of a `private` path part looked equivalent and was not: on macOS every
+    temporary file resolves through `/private/var`, so the check passed for a path nowhere
+    near the repository and the guard never fired.
+    """
+    if force:
+        return
+    resolved = Path(path).resolve()
+    private_root = (paths.repo_root() / "private").resolve()
+    if not resolved.is_relative_to(private_root):
+        raise SystemExit(f"refusing to write outside private/: {resolved} (use --force)")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Phase 0 performance carry-over analysis.")
     parser.add_argument("--db", default=str(paths.data_dir("coach.db")))
@@ -1017,10 +1032,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     for path in (args.out, args.json):
-        resolved = Path(path).resolve()
-        if "private" not in resolved.parts and not args.force:
-            raise SystemExit(f"refusing to write outside private/: {resolved} (use --force)")
-        resolved.parent.mkdir(parents=True, exist_ok=True)
+        assert_writable(path, force=args.force)
+        Path(path).resolve().parent.mkdir(parents=True, exist_ok=True)
     Path(args.out).write_text(render_markdown(report), encoding="utf-8")
     Path(args.json).write_text(payload + "\n", encoding="utf-8")
     print(f"\nwrote {args.out}\nwrote {args.json}", file=sys.stderr)

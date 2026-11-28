@@ -236,3 +236,19 @@ def test_tool_refuses_to_write_outside_private(tmp_path, capsys):
               "--json", str(tmp_path / "out.json")])
     capsys.readouterr()
     assert not (tmp_path / "out.md").exists()
+
+
+
+def test_writable_check_is_containment_not_a_path_name(tmp_path, monkeypatch):
+    """`/private/var/...` satisfied a substring test, so the guard never fired on macOS."""
+    from strength_coach.utils import paths
+    from tools.performance_carryover import assert_writable
+
+    monkeypatch.setattr(paths, "repo_root", lambda: tmp_path / "repo")
+    assert_writable(str(tmp_path / "repo" / "private" / "docs" / "out.md"), force=False)
+
+    with pytest.raises(SystemExit, match="private"):
+        assert_writable(str(tmp_path / "private" / "var" / "out.md"), force=False)
+
+    # --force is the documented escape hatch and still works.
+    assert_writable(str(tmp_path / "var" / "out.md"), force=True)

@@ -34,6 +34,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from strength_coach.utils import exercises, paths  # noqa: E402
 from tools.performance_carryover import (  # noqa: E402
     add_expected_velocity,
+    assert_writable,
     connect_readonly,
     fingerprint,
     load_sets,
@@ -584,10 +585,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     for path in (args.out, args.json):
-        resolved = Path(path).resolve()
-        if "private" not in resolved.parts and not args.force:
-            raise SystemExit(f"refusing to write outside private/: {resolved} (use --force)")
-        resolved.parent.mkdir(parents=True, exist_ok=True)
+        assert_writable(path, force=args.force)
+        Path(path).resolve().parent.mkdir(parents=True, exist_ok=True)
     Path(args.out).write_text(render_markdown(report), encoding="utf-8")
     Path(args.json).write_text(payload + "\n", encoding="utf-8")
     print(f"\nwrote {args.out}\nwrote {args.json}", file=sys.stderr)
