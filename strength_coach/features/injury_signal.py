@@ -158,7 +158,7 @@ class InjuryConfig:
     def _from_raw(cls, source: Path, raw: Mapping[str, Any]) -> InjuryConfig:
         defaults = raw.get("defaults") or {}
         taxonomy = exercises.taxonomy()
-        known_patterns, known_flags, known_muscles = _taxonomy_vocabulary(taxonomy)
+        known_patterns, known_flags, known_muscles, known_ids = _taxonomy_vocabulary(taxonomy)
 
         regions: dict[str, RegionRule] = {}
         for name, body in (raw.get("regions") or {}).items():
@@ -174,9 +174,9 @@ class InjuryConfig:
                 region=region,
                 label=str(body.get("label", region.replace("_", " ").title())),
                 direct=_link(links.get("direct") or {}, region, known_patterns,
-                             known_flags, known_muscles),
+                             known_flags, known_muscles, known_ids),
                 indirect=_link(links.get("indirect") or {}, region, known_patterns,
-                               known_flags, known_muscles),
+                               known_flags, known_muscles, known_ids),
                 base_symptom_free_days=_value(
                     body, defaults, "base_symptom_free_days", 28
                 ),
@@ -221,7 +221,8 @@ def _value(body: Mapping[str, Any], defaults: Mapping[str, Any], key: str,
 
 
 def _link(raw: Mapping[str, Any], region: str, known_patterns: set[str],
-          known_flags: set[str], known_muscles: set[str]) -> ExerciseLink:
+          known_flags: set[str], known_muscles: set[str],
+          known_ids: set[str]) -> ExerciseLink:
     patterns = tuple(str(p) for p in (raw.get("patterns") or ()))
     flags = tuple(str(f) for f in (raw.get("flags") or ()))
     muscles = tuple(str(m) for m in (raw.get("muscles") or ()))
@@ -236,6 +237,11 @@ def _link(raw: Mapping[str, Any], region: str, known_patterns: set[str],
     unknown = [m for m in muscles if m not in known_muscles]
     if unknown:
         raise InjuryConfigError(f"{region}: unknown muscles {unknown}")
+    # An id that names nothing would make the region load nothing, which reads as "no
+    # exposure" rather than as the typo it is.
+    unknown = [e for e in ids if e not in known_ids]
+    if unknown:
+        raise InjuryConfigError(f"{region}: unknown exercises {unknown}")
     return ExerciseLink(patterns=patterns, muscles=muscles, flags=flags, exercises=ids)
 
 
@@ -277,8 +283,9 @@ def _validate_rule(rule: RegionRule) -> None:
         )
 
 
-def _taxonomy_vocabulary(taxonomy: exercises.Taxonomy) -> tuple[set[str], set[str],
-                                                                set[str]]:
+def _taxonomy_vocabulary(
+    taxonomy: exercises.Taxonomy,
+) -> tuple[set[str], set[str], set[str], set[str]]:
     patterns: set[str] = set()
     flags: set[str] = set()
     muscles: set[str] = set()
@@ -292,7 +299,7 @@ def _taxonomy_vocabulary(taxonomy: exercises.Taxonomy) -> tuple[set[str], set[st
         synthetic = rule.get("synthetic") or {}
         if synthetic.get("pattern"):
             patterns.add(str(synthetic["pattern"]))
-    return patterns, flags, muscles
+    return patterns, flags, muscles, set(taxonomy.entities)
 
 
 # ---------------------------------------------------------------------------

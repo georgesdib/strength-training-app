@@ -315,6 +315,37 @@ def test_an_unknown_pattern_in_the_config_is_rejected(tmp_path: Path):
         injury_signal.InjuryConfig.load(path)
 
 
+def test_an_unknown_exercise_id_in_the_config_is_rejected(tmp_path: Path):
+    path = tmp_path / "injuries.v1.yaml"
+    path.write_text(
+        "regions:\n"
+        "  knee:\n"
+        "    links:\n"
+        "      direct: {exercises: [not_a_real_lift]}\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(injury_signal.InjuryConfigError, match="unknown exercises"):
+        injury_signal.InjuryConfig.load(path)
+
+
+def test_every_region_maps_some_exercise_and_starts_without_a_local_deload():
+    """Links are prepared for all eleven regions, but no region deloads locally yet.
+
+    The local mechanism must not begin changing prescriptions because a region was added to
+    the config: the three original regions keep the signal, and every region starts with the
+    local deload off (DEC-SYMPTOM-06).
+    """
+    config = injury_signal.InjuryConfig.load()
+    taxonomy = exercises.taxonomy()
+    assert len(config.regions) == 11
+    for rule in config.regions.values():
+        assert injury_signal.linked_exercises(rule, taxonomy), rule.region
+        assert rule.deload_enabled is False, rule.region
+    assert {name for name, rule in config.regions.items() if rule.signal_enabled} == {
+        "low_back", "biceps", "knee",
+    }
+
+
 def test_a_missing_config_file_says_unknown_rather_than_fine(tmp_path: Path):
     config = injury_signal.InjuryConfig.load(tmp_path / "absent.yaml")
     with store_with() as store:

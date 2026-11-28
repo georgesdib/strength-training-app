@@ -165,6 +165,8 @@ API already use the id (`DEC-SYMPTOM-03`).
 **Log-only regions.** Eight of the eleven start with `policy: {signal: false, deload: false}`.
 A reading for one of them is stored, shown in history and available for review, but it does not
 join the injury signal, does not change exercise selection, and cannot trigger a local deload.
+The three original regions keep `signal: true` and also start with `deload: false`, so the
+existing back-flare response is unchanged and a regional deload cannot stack on it.
 That is deliberate: adding a region to the config must not, by itself, start suppressing
 exercises (`DEC-SYMPTOM-06`). A region joins when its exposure mapping and recovery policy
 have been reviewed; that is a config change, never a code change. The Athlete overview names

@@ -61,9 +61,10 @@ regions:
   # ---------------------------------------------------------------------
   low_back:
     label: "Low back"
-    # Joins the injury signal and the local reactive deload; the back rules (MOD-BACK-001)
-    # keep reading this region directly.
-    policy: {signal: true, deload: true}
+    # Joins the injury signal; the back rules (MOD-BACK-001) keep reading this region
+    # directly. The local reactive deload is off: the existing whole-session flare response
+    # stays exactly as it is, and a regional deload must not stack on top of it.
+    policy: {signal: true, deload: false}
     links:
       # Direct: the spine is the target or is loaded as a prime mover. Hinges put a lumbar
       # moment on the spine even when the erectors are not the "target" (Swinton 2011,
@@ -91,7 +92,7 @@ regions:
   # stays `biceps` because history, the CLI and the API already use it (DEC-SYMPTOM-03).
   biceps:
     label: "Elbow / upper arm"
-    policy: {signal: true, deload: true}
+    policy: {signal: true, deload: false}
     links:
       # Everything that pulls with a flexed elbow loads it. Grip is not recorded, so the
       # supinated-versus-neutral distinction cannot be used; that makes this linkage coarse
@@ -107,7 +108,7 @@ regions:
   # ---------------------------------------------------------------------
   knee:
     label: "Knee"
-    policy: {signal: true, deload: true}
+    policy: {signal: true, deload: false}
     links:
       direct:
         # Knee-dominant and impact work: the extensor mechanism is the loaded tissue.
@@ -121,43 +122,95 @@ regions:
   # Log-only regions.
   #
   # These are training-relevant groupings, not clinical findings. They are recorded so a
-  # symptom can be described and reviewed, but they start outside the injury signal and
-  # outside the local reactive deload. A region joins those only when it has an exposure
-  # mapping and a recovery policy someone has actually reviewed for it (DEC-SYMPTOM-06).
-  # Enabling one is a config change — `policy: {signal: true, deload: true}` plus its links —
-  # never a code change.
+  # symptom can be described and reviewed, and each carries an exposure mapping so the region
+  # is ready to join the signal and the local deload, but `policy` keeps both switched off
+  # until someone has reviewed a recovery policy for that region (DEC-SYMPTOM-06). Enabling one
+  # is a config change — `policy: {signal: true, deload: true}` — never a code change.
   # ---------------------------------------------------------------------
   shoulder:
     label: "Shoulder"
     policy: {signal: false, deload: false}
+    links:
+      direct:
+        patterns: [horizontal_push, vertical_push, horizontal_push_bw,
+                   shoulder_abduction, shoulder_isolation, rotator_cuff]
+      # Pulls load the shoulder without it being the limiting joint, so they are indirect.
+      # That is what stops a shoulder reading from deleting every pulling exercise.
+      indirect:
+        patterns: [horizontal_pull, vertical_pull, rear_delt_pull, lat_isolation]
 
   upper_back:
     label: "Upper back"
     policy: {signal: false, deload: false}
+    links:
+      direct:
+        patterns: [horizontal_pull, vertical_pull, rear_delt_pull, upper_trap]
+      indirect:
+        patterns: [erector_extension, carry]
 
   core:
     label: "Core"
     policy: {signal: false, deload: false}
+    links:
+      direct:
+        patterns: [core, core_flexion, core_anti_extension, core_stability, core_isometric]
+      # Trunk stiffness is needed everywhere, but it is not the target tissue. Core symptoms
+      # stay in this region and never activate the low-back rules.
+      indirect:
+        patterns: [squat, squat_unilateral, hinge, hinge_unilateral, carry,
+                   horizontal_push_bw]
 
   forearm:
     label: "Forearm"
     policy: {signal: false, deload: false}
+    links:
+      direct:
+        # Grip is a property of the exercise, not of the movement shape, so the heavy-grip
+        # lifts are named rather than described by a pattern that would also catch light pulls.
+        patterns: [horizontal_pull, vertical_pull, carry]
+        exercises: [trap_bar_deadlift, conventional_deadlift, sumo_deadlift, rdl, rack_pull,
+                    deadlift_to_knees, deadlift_from_center_block, deficit_deadlift_conventional,
+                    deficit_deadlift_sumo, shoulder_shrugs]
+      indirect:
+        patterns: [hinge_ballistic, elbow_flexion]
 
   hip_groin:
     label: "Hip / groin"
     policy: {signal: false, deload: false}
+    links:
+      direct:
+        patterns: [hip_extension, squat, squat_unilateral]
+      indirect:
+        patterns: [hinge, hinge_unilateral, carry, power_jump]
 
   quadriceps:
     label: "Quadriceps"
     policy: {signal: false, deload: false}
+    links:
+      direct:
+        patterns: [squat, squat_unilateral, knee_extension, power_jump]
+      indirect:
+        patterns: [hinge, hinge_ballistic, power_throw]
 
   hamstring:
     label: "Hamstring"
     policy: {signal: false, deload: false}
+    links:
+      direct:
+        patterns: [hinge, hinge_unilateral, hinge_ballistic, hamstring_eccentric,
+                   knee_flexion, hip_extension]
+      indirect:
+        patterns: [squat, power_jump]
 
   lower_leg:
     label: "Lower leg"
     policy: {signal: false, deload: false}
+    links:
+      direct:
+        patterns: [plantar_flexion]
+      # Landing and impact load the Achilles and ankle without the calf being the target.
+      indirect:
+        patterns: [power_jump, power_throw, hinge_ballistic]
 
 # Adding an injury is a config change: append a region, give it links if it is ever to load
 # anything, and log symptoms against it (`strength-coach symptom --region ...`). A log-only
