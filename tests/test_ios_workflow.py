@@ -823,6 +823,44 @@ def test_scheduled_deload_and_drop_require_confirmation(ios, monkeypatch):
     assert status == 200, body
 
 
+def test_ios_postpones_scheduled_deload_with_idempotent_request(ios):
+    token, _ = _paired(ios)
+    today_date = datetime.date.fromisoformat(ios["today"])
+    anchor = (today_date - datetime.timedelta(weeks=5)).isoformat()
+    postponed_until = (today_date + datetime.timedelta(days=35)).isoformat()
+    status, profile = _request(
+        ios["base"], "/api/state/profile", method="POST",
+        payload={"effective_from": anchor, "block_start_date": anchor},
+    )
+    assert status == 200, profile
+
+    payload = {
+        "postponed_until": postponed_until,
+        "operation_id": "ios-deload-postpone-test",
+    }
+    key = str(uuid.uuid4())
+    status, body = _request(
+        ios["base"], "/api/ios/v1/deload/postpone", method="POST",
+        payload=payload, token=token, key=key,
+    )
+    assert status == 200, body
+    assert body["postponed_until"] == postponed_until
+    assert body["window_ends_on"] == (
+        datetime.date.fromisoformat(postponed_until) + datetime.timedelta(days=6)
+    ).isoformat()
+
+    replay_status, replay = _request(
+        ios["base"], "/api/ios/v1/deload/postpone", method="POST",
+        payload=payload, token=token, key=key,
+    )
+    assert replay_status == 200, replay
+    assert replay == body
+    assert _scalar(
+        ios["path"],
+        "SELECT COUNT(*) FROM scheduled_deload_postponement",
+    ) == 1
+
+
 # --- start -----------------------------------------------------------------
 
 

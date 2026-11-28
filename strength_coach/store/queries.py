@@ -479,6 +479,31 @@ def declared_breaks(conn) -> list[dict]:
     ]
 
 
+def latest_scheduled_deload_postponement(
+    conn, *, as_of: str | None = None,
+) -> dict | None:
+    if as_of is None:
+        row = conn.execute(
+            "SELECT * FROM scheduled_deload_postponement "
+            "ORDER BY postponement_id DESC LIMIT 1"
+        ).fetchone()
+    else:
+        row = conn.execute(
+            "SELECT * FROM scheduled_deload_postponement WHERE recorded_on <= ? "
+            "ORDER BY postponement_id DESC LIMIT 1",
+            (str(as_of),),
+        ).fetchone()
+    return dict(row) if row is not None else None
+
+
+def scheduled_deload_postponement_by_operation(conn, operation_id: str) -> dict | None:
+    row = conn.execute(
+        "SELECT * FROM scheduled_deload_postponement WHERE operation_id = ?",
+        (operation_id,),
+    ).fetchone()
+    return dict(row) if row is not None else None
+
+
 def symptom_entries(conn, *, since: str | None = None,
                     region: str | None = None) -> list[dict]:
     clauses: list[str] = []

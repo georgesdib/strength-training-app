@@ -181,6 +181,9 @@ Readiness page and recorded in the `MOD-FAT-001` warning.
 - The cap is asymmetric: it never adds work below MEV and never cuts an essential item.
 - The evidence does not support a fixed automatic deload schedule; the scheduled deload is a
   configurable fatigue-management policy (`DEC-PROGRAMME-05`), not a claim of proven superiority.
+- When a scheduled deload is due, the athlete may apply it, proceed without it for that workout,
+  or postpone it. The selected future date starts a seven-day window and re-anchors later
+  scheduled deloads; declared breaks still reset the clock, and reactive deloads remain automatic.
 - Volume management does not itself trigger a deload; the deload policy is separate.
 - Frequency is not used to redistribute weekly volume: `programme --sessions-per-week` changes
   which days are projected, not the per-session dose. See

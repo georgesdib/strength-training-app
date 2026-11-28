@@ -222,7 +222,13 @@ An e1RM is an estimate, not a measured current maximum. Loads are calculated by 
 
 ### Volume and deloads
 
-The volume ledger compares recent working sets with configurable pattern-level MEV/MAV/MRV landmarks. These are broad guardrails, not measured personal biological limits. The MRV cap trims non-essential work first; it does not silently remove essential work to force a number under the cap. Deload policy is separate from the volume ledger.
+The volume ledger compares recent working sets with configurable pattern-level MEV/MAV/MRV
+landmarks. These are broad guardrails, not measured personal biological limits. The MRV cap trims
+non-essential work first; it does not silently remove essential work to force a number under the
+cap. Deload policy is separate from the volume ledger. When the web prescription shows a
+scheduled deload due today, you can apply it, train as planned, or choose **Postpone schedule** and
+select a future date. That date begins a one-week deload window and shifts future scheduled weeks.
+Reactive deloads stay automatic; declared breaks retain precedence and reset the schedule.
 
 ### Injury signal and constraints
 

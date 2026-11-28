@@ -835,6 +835,23 @@ intervals. Reads: the trained-week index subtracts every week that contains a br
 DUP cycle and the erector ramp freeze for that week (`DEC-CONTINUITY-04`, `docs/CONTINUITY.md`).
 Nothing else reads this table — no load, RIR or set depends on it.
 
+### Scheduled-deload postponement (migration `0085_deload_schedule_postponement.sql`)
+
+`scheduled_deload_postponement` is an append-only schedule re-anchor, separate from
+`athlete_profile.block_start_date` because that profile date also anchors programme context.
+
+| column | notes |
+|---|---|
+| postponement_id | append-only row identity |
+| operation_id | unique client operation identity |
+| recorded_on | server-local date the decision was recorded |
+| postponed_until | selected first day of the new seven-day deload window |
+| created_at | UTC insertion timestamp |
+
+No-update/no-delete triggers preserve the audit record. The selected date starts a seven-day
+scheduled-deload window and shifts the future cadence. A later declared break supersedes the
+postponement and restarts the schedule after the break.
+
 ## 19. `ios_device` / `ios_pairing_code` — iPhone credentials
 
 Migration `0052_ios_device` adds the Phase 1 credential boundary. Both tables are additive and

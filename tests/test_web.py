@@ -10,7 +10,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from urllib.parse import quote, urlparse
 
@@ -1539,6 +1539,42 @@ def test_prescribe_suggests_a_scheduled_deload_and_applies_only_when_confirmed(s
     assert applied["fallback_level"] == "fatigue_reduced"
     squat = next(item for item in applied["items"] if item["exercise_id"] == "ssb_squat")
     assert squat["sets"] == 3
+
+
+def test_web_postpones_scheduled_deload_and_reanchors_the_window(server):
+    today_date = date.today()
+    today_text = today_date.isoformat()
+    anchor = (today_date - timedelta(weeks=5)).isoformat()
+    postponed_until = (today_date + timedelta(days=35)).isoformat()
+    post(server, "/api/state/profile", {
+        "effective_from": anchor,
+        "block_start_date": anchor,
+    })
+
+    body = {
+        "as_of": today_text,
+        "postponed_until": postponed_until,
+        "operation_id": "web-deload-postpone-test",
+    }
+    result = post(server, "/api/deload/postpone", body)
+    assert result == {
+        "postponed_until": postponed_until,
+        "window_ends_on": (date.fromisoformat(postponed_until) + timedelta(days=6)).isoformat(),
+    }
+    assert post(server, "/api/deload/postpone", body) == result
+
+    postponed_suggestion = post(server, "/api/programme", {
+        "start": postponed_until, "weeks": 1, "sessions_per_week": 1,
+    })
+    postponed_entry = postponed_suggestion["entries"][0]
+    assert postponed_entry["deload_suggestion"]
+    assert postponed_until in postponed_entry["deload_suggestion"]
+
+    after_window = (date.fromisoformat(postponed_until) + timedelta(days=7)).isoformat()
+    ordinary = post(server, "/api/programme", {
+        "start": after_window, "weeks": 1, "sessions_per_week": 1,
+    })
+    assert ordinary["entries"][0]["deload_suggestion"] is None
 
 
 def test_progress_dashboard_endpoint(server):

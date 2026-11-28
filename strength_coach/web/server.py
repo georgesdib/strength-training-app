@@ -1464,6 +1464,13 @@ class Handler(BaseHTTPRequestHandler):
                         conn, device, path, body, config, self._ios_prescription,
                         status=202,
                     )
+                elif path == "/api/ios/v1/deload/postpone":
+                    config = self._ios_require_mutations()
+                    body = self._body()
+                    self._ios_mutation(
+                        conn, device, path, body, config,
+                        self._ios_postpone_scheduled_deload,
+                    )
                 elif path == "/api/ios/v1/workouts":
                     config = self._ios_require_mutations()
                     body = self._body()
@@ -2623,6 +2630,30 @@ class Handler(BaseHTTPRequestHandler):
             "retry_after_ms": self._ios_retry_after("queued"),
             "settings": settings,
         }
+
+    def _ios_postpone_scheduled_deload(
+        self, conn, _device: dict, body: dict,
+    ) -> dict:
+        self._ios_closed_fields(body, {"postponed_until", "operation_id"})
+        today = datetime.date.today().isoformat()
+        resolved = settings_profile.feature_settings(conn, today)
+        try:
+            return deload_feature.postpone_scheduled(
+                conn,
+                as_of=today,
+                recorded_on=today,
+                postponed_until=body.get("postponed_until"),
+                operation_id=body.get("operation_id"),
+                config=resolved.deload,
+            )
+        except deload_feature.DeloadPostponementError as exc:
+            fields = {}
+            if exc.status == 400 and exc.code == "validation_failed":
+                field = "operation_id" if "operation_id" in str(exc) else "postponed_until"
+                fields[field] = str(exc)
+            raise ios_workflow.IOSWorkflowError(
+                exc.status, exc.code, str(exc), fields=fields,
+            ) from exc
 
     @staticmethod
     def _ios_retry_after(status: str) -> int:
@@ -4231,6 +4262,11 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/prescribe/jobs":
                 job = start_prescribe_job(self.db_path, body)
                 self._json(202, job)
+            elif path == "/api/deload/postpone":
+                self._json(
+                    200,
+                    self._with_conn(lambda c: self._postpone_scheduled_deload(c, body)),
+                )
             elif path == "/api/resolver/preview":
                 self._json(200, self._with_conn(lambda c: self._resolver_preview(c, body)))
             elif path.startswith("/api/modalities/"):
@@ -5892,6 +5928,38 @@ class Handler(BaseHTTPRequestHandler):
         if scheduled_suggestion is not None:
             prescription = deload_mod.suggest(prescription, scheduled_suggestion)
         return prescription_dict(prescription)
+
+    def _postpone_scheduled_deload(self, conn, body: dict) -> dict:
+        unknown = set(body) - {"as_of", "postponed_until", "operation_id"}
+        if unknown:
+            raise FieldError(
+                "unknown field(s): " + ", ".join(sorted(unknown)),
+                {key: "not accepted" for key in sorted(unknown)},
+            )
+        today = datetime.date.today().isoformat()
+        as_of = body.get("as_of", today)
+        try:
+            as_of = readiness_score.parse_date(str(as_of), field="as_of")
+        except (TypeError, ValueError) as exc:
+            raise FieldError(str(exc), {"as_of": str(exc)}) from exc
+        resolved = settings_profile.feature_settings(conn, as_of)
+        try:
+            return deload_feature.postpone_scheduled(
+                conn,
+                as_of=as_of,
+                recorded_on=today,
+                postponed_until=body.get("postponed_until"),
+                operation_id=body.get("operation_id"),
+                config=resolved.deload,
+            )
+        except deload_feature.DeloadPostponementError as exc:
+            if exc.status == 400:
+                field = (
+                    "operation_id" if "operation_id" in str(exc)
+                    else "postponed_until"
+                )
+                raise FieldError(str(exc), {field: str(exc)}) from exc
+            raise RequestError(exc.status, str(exc), code=exc.code) from exc
 
     def _review_sheet(self, conn, session: str) -> dict:
         """Read-only historical rubric sheet.

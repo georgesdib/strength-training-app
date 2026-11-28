@@ -15,8 +15,15 @@ from pathlib import Path
 from strength_coach.domain.symptoms import flare_from
 from strength_coach.features import breaks as breaks_feature
 from strength_coach.rules import History, RuleContext, evaluate, load_document
-from strength_coach.store import queries
+from strength_coach.store import db, queries, repositories
 from strength_coach.utils import paths, yaml_files
+
+
+class DeloadPostponementError(ValueError):
+    def __init__(self, message: str, *, code: str, status: int) -> None:
+        super().__init__(message)
+        self.code = code
+        self.status = status
 
 
 @dataclass(frozen=True)
@@ -79,9 +86,11 @@ def scheduled_reason(conn, as_of: str, *, config: DeloadConfig | None = None) ->
     current = dt.date.fromisoformat(as_of)
     if current < anchor:
         return None
-    # Scheduled time off resets the deload clock: the block restarts after the latest
-    # declared break ends. A break that is still active does not also trigger a deload.
+    # A scheduled break suppresses the deload while active and restarts the clock on its
+    # first day back.
     breaks = [item for item in breaks_feature.all_breaks(conn) if not item.cancelled]
+    if any(item.covers(current.isoformat()) for item in breaks):
+        return None
     latest_end = None
     for item in breaks:
         end = dt.date.fromisoformat(item.ends_on)
@@ -90,15 +99,118 @@ def scheduled_reason(conn, as_of: str, *, config: DeloadConfig | None = None) ->
         if latest_end is None or end > latest_end:
             latest_end = end
     if latest_end is not None:
-        if current <= latest_end:
-            return None
         anchor = latest_end + dt.timedelta(days=1)
-    week = (current - anchor).days // 7 + 1
-    if week % cfg.every_weeks != 0:
-        return None
-    return (
-        f"scheduled deload (block week {week}; every {cfg.every_weeks} weeks)"
+    postponed = queries.latest_scheduled_deload_postponement(
+        conn, as_of=current.isoformat()
     )
+    if postponed is not None:
+        recorded_on = dt.date.fromisoformat(postponed["recorded_on"])
+        if latest_end is None or recorded_on > latest_end:
+            postponed_until = dt.date.fromisoformat(postponed["postponed_until"])
+            anchor = postponed_until - dt.timedelta(weeks=cfg.every_weeks - 1)
+            return _scheduled_reason_for_anchor(
+                current, anchor, cfg, postponed_until=postponed_until
+            )
+    return _scheduled_reason_for_anchor(current, anchor, cfg)
+
+
+def _scheduled_reason_for_anchor(
+    current: dt.date,
+    anchor: dt.date,
+    config: DeloadConfig,
+    *,
+    postponed_until: dt.date | None = None,
+) -> str | None:
+    week = (current - anchor).days // 7 + 1
+    if week < 1 or week % config.every_weeks != 0:
+        return None
+    if postponed_until is not None:
+        return (
+            f"scheduled deload (postponed window starting {postponed_until}; "
+            f"every {config.every_weeks} weeks)"
+        )
+    return (
+        f"scheduled deload (block week {week}; every {config.every_weeks} weeks)"
+    )
+
+
+def postpone_scheduled(
+    conn,
+    *,
+    as_of: str,
+    recorded_on: str | None = None,
+    postponed_until: str,
+    operation_id: str,
+    config: DeloadConfig | None = None,
+) -> dict:
+    """Append a schedule re-anchor; the chosen date starts a seven-day due window."""
+    current = _strict_date(as_of, "as_of")
+    recorded = _strict_date(recorded_on or as_of, "recorded_on")
+    target = _strict_date(postponed_until, "postponed_until")
+    operation = operation_id.strip() if isinstance(operation_id, str) else ""
+    if not operation or len(operation) > 128 or not operation.isascii():
+        raise DeloadPostponementError(
+            "operation_id must be 1-128 ASCII characters",
+            code="validation_failed",
+            status=400,
+        )
+    if target <= max(current, recorded):
+        raise DeloadPostponementError(
+            "postponed_until must be after today and the scheduled date",
+            code="validation_failed",
+            status=400,
+        )
+    cfg = config or DeloadConfig.load()
+    with db.transaction(conn):
+        existing = queries.scheduled_deload_postponement_by_operation(
+            conn, operation
+        )
+        if existing is not None:
+            if existing["postponed_until"] != target.isoformat():
+                raise DeloadPostponementError(
+                    "operation_id was already used for a different postponement",
+                    code="idempotency_conflict",
+                    status=409,
+                )
+            return _postponement_response(target)
+        if scheduled_reason(conn, current.isoformat(), config=cfg) is None:
+            raise DeloadPostponementError(
+                "no scheduled deload is due today",
+                code="deload_not_due",
+                status=409,
+            )
+        repositories.append_scheduled_deload_postponement(
+            conn,
+            operation_id=operation,
+            recorded_on=recorded.isoformat(),
+            postponed_until=target.isoformat(),
+        )
+    return _postponement_response(target)
+
+
+def _postponement_response(target: dt.date) -> dict:
+    return {
+        "postponed_until": target.isoformat(),
+        "window_ends_on": (target + dt.timedelta(days=6)).isoformat(),
+    }
+
+
+def _strict_date(value: str, field: str) -> dt.date:
+    try:
+        parsed = dt.date.fromisoformat(str(value))
+    except (TypeError, ValueError) as exc:
+        raise DeloadPostponementError(
+            f"{field} must be YYYY-MM-DD",
+            code="validation_failed",
+            status=400,
+        ) from exc
+    if parsed.isoformat() != value:
+        raise DeloadPostponementError(
+            f"{field} must be YYYY-MM-DD",
+            code="validation_failed",
+            status=400,
+        )
+    return parsed
 
 
 def reactive_reason(

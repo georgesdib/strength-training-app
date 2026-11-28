@@ -853,6 +853,25 @@ def append_declared_break(
     return int(cursor.lastrowid)
 
 
+def append_scheduled_deload_postponement(
+    conn: sqlite3.Connection,
+    *,
+    operation_id: str,
+    recorded_on: str,
+    postponed_until: str,
+) -> int:
+    """Append one idempotent request's scheduled-deload re-anchor."""
+    cursor = conn.execute(
+        """
+        INSERT INTO scheduled_deload_postponement
+            (operation_id, recorded_on, postponed_until)
+        VALUES (?, ?, ?)
+        """,
+        (operation_id, recorded_on, postponed_until),
+    )
+    return int(cursor.lastrowid)
+
+
 def append_symptom(
     conn: sqlite3.Connection,
     *,

@@ -15,6 +15,12 @@ function today() {
   return formatLocalDate(new Date());
 }
 
+function nextLocalDate() {
+  const date = new Date();
+  date.setDate(date.getDate() + 1);
+  return formatLocalDate(date);
+}
+
 function esc(value) {
   return String(value ?? "").replace(/[&<>"']/g, (c) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",

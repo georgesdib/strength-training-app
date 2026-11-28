@@ -10,6 +10,7 @@ document.addEventListener("click", (event) => {
   else if (action === "open-review") openReview(element.dataset.session);
   else if (action === "comp-e1rm") recordCompensationE1rm(element.dataset.exerciseId);
   else if (action === "suggested-deload") applySuggestedDeload();
+  else if (action === "postpone-scheduled-deload") postponeScheduledDeload();
   else if (action === "open-workout-start") openWorkoutStart();
   else if (action === "readiness-preset") applyReadinessPreset(element.dataset.preset);
   else if (action === "edit-readiness-presets") openReadinessPresetEditor();
@@ -1170,6 +1171,7 @@ async function syncPrescribeTopSet() {
 }
 
 let lastPrescribePayload = null;
+let pendingDeloadPostponement = null;
 
 async function requestPrescription(payload, message = "Building…") {
   const box = $("#prescribe-result");
@@ -1272,6 +1274,51 @@ async function applySuggestedDeload() {
     renderPrescription(data);
   } catch (error) {
     $("#prescribe-result").innerHTML = `<div class="panel warnbox">${esc(error.message)}</div>`;
+  }
+}
+
+async function postponeScheduledDeload() {
+  const payload = lastPrescribePayload && { ...lastPrescribePayload };
+  if (!payload || payload.date !== today()) return;
+  const dateInput = $("#deload-postponed-until");
+  const message = $("#deload-postponement-message");
+  const button = document.querySelector('[data-action="postpone-scheduled-deload"]');
+  const postponedUntil = dateInput?.value;
+  if (!postponedUntil || postponedUntil <= today()) {
+    if (message) message.textContent = "Choose a future date.";
+    return;
+  }
+  if (!pendingDeloadPostponement || pendingDeloadPostponement.postponedUntil !== postponedUntil) {
+    pendingDeloadPostponement = {
+      postponedUntil,
+      operationId: typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID().toLowerCase()
+        : `postpone-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    };
+  }
+  if (button) button.disabled = true;
+  if (message) message.textContent = "Saving postponement…";
+  try {
+    await api("/api/deload/postpone", {
+      method: "POST",
+      body: JSON.stringify({
+        as_of: payload.date,
+        postponed_until: postponedUntil,
+        operation_id: pendingDeloadPostponement.operationId,
+      }),
+    });
+  } catch (error) {
+    if (message) message.textContent = error.message;
+    if (button) button.disabled = false;
+    return;
+  }
+  pendingDeloadPostponement = null;
+  try {
+    const data = await requestPrescription(payload, "Refreshing…");
+    renderPrescription(data);
+  } catch (error) {
+    $("#prescribe-result").innerHTML =
+      `<div class="panel warnbox">Postponement saved, but the plan refresh failed: ${esc(error.message)}. Rebuild the prescription to see the updated schedule.</div>`;
   }
 }
 
@@ -1486,10 +1533,21 @@ function renderPrescription(p, options = {}) {
     ${minimum.retained_patterns?.length ? `Retained patterns: ${esc(minimum.retained_patterns.join(", "))}.` : ""}
     Load and RIR unchanged. Heuristic, not a validated minimum dose.</p>` : "";
   const suggestion = p.notes?.deload_suggestion;
+  const postponeControl = suggestion?.trigger === "scheduled" && p.for_date === today()
+    ? `<div class="grid-fields">
+      <label>Postpone to
+        <input id="deload-postponed-until" type="date" min="${esc(nextLocalDate())}" value="${esc(nextLocalDate())}">
+      </label>
+      <button type="button" data-action="postpone-scheduled-deload">Postpone schedule</button>
+      <span id="deload-postponement-message" class="muted" role="status"></span>
+    </div>
+    <p class="muted">The chosen date starts a one-week window and shifts the future deload schedule.</p>`
+    : "";
   const suggestionBox = suggestion ? `<div class="warnbox"><strong>Deload suggested</strong>
     — ${esc(suggestion.reason)}.<br>
     <button type="button" data-action="suggested-deload">Deload this workout</button>
-    <span class="muted">Or train as planned; the suggestion will return next workout this week.</span></div>` : "";
+    <span class="muted">Or train as planned; the suggestion will return next workout this week.</span>
+    ${postponeControl}</div>` : "";
   const cards = p.items.map((item) => {
     const st = stress[item.exercise_id];
     const lr = liftReady[item.exercise_id];

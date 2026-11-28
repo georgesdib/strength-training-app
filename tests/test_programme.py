@@ -9,6 +9,7 @@ import pytest
 from conftest import make_readiness, make_training
 
 from strength_coach import cli
+from strength_coach.features import breaks as breaks_feature
 from strength_coach.features import deload as deload_feature
 from strength_coach.features import programme
 from strength_coach.prescribe import deload as deload_mod
@@ -261,6 +262,111 @@ def test_scheduled_deload_can_be_applied_after_confirmation():
     assert any("MOD-DELOAD-001" in warning for warning in applied.warnings)
     squat = next(item for item in applied.items if item.exercise_id == "ssb_squat")
     assert squat.sets == 3
+
+
+def test_postponement_reanchors_the_full_schedule_to_a_one_week_window():
+    with store_with() as store:
+        conn = store.connection
+        repositories.append_athlete_profile(
+            conn, effective_from="2024-01-01",
+            block_start_date="2024-01-01",
+        )
+        result = deload_feature.postpone_scheduled(
+            conn,
+            as_of="2024-02-05",
+            postponed_until="2024-04-01",
+            operation_id="operation-1",
+        )
+        old_due_week = deload_feature.scheduled_reason(conn, "2024-03-18")
+        window_start = deload_feature.scheduled_reason(conn, "2024-04-01")
+        window_end = deload_feature.scheduled_reason(conn, "2024-04-07")
+        after_window = deload_feature.scheduled_reason(conn, "2024-04-08")
+        shifted_next = deload_feature.scheduled_reason(conn, "2024-05-13")
+        duplicate = deload_feature.postpone_scheduled(
+            conn,
+            as_of="2024-02-05",
+            postponed_until="2024-04-01",
+            operation_id="operation-1",
+        )
+        row_count = conn.execute(
+            "SELECT COUNT(*) FROM scheduled_deload_postponement"
+        ).fetchone()[0]
+
+    assert result == {
+        "postponed_until": "2024-04-01",
+        "window_ends_on": "2024-04-07",
+    }
+    assert old_due_week is None
+    assert window_start is not None
+    assert "postponed window starting 2024-04-01" in window_start
+    assert window_end is not None
+    assert after_window is None
+    assert shifted_next is not None
+    assert duplicate == result
+    assert row_count == 1
+
+
+def test_declared_break_supersedes_a_postponed_schedule():
+    with store_with() as store:
+        conn = store.connection
+        repositories.append_athlete_profile(
+            conn, effective_from="2024-01-01",
+            block_start_date="2024-01-01",
+        )
+        deload_feature.postpone_scheduled(
+            conn,
+            as_of="2024-02-05",
+            postponed_until="2024-03-01",
+            operation_id="operation-break",
+        )
+        breaks_feature.record(
+            conn,
+            starts_on="2024-02-12",
+            ends_on="2024-02-16",
+            reason="holiday",
+        )
+        during_break = deload_feature.scheduled_reason(conn, "2024-02-13")
+        after_break = deload_feature.scheduled_reason(conn, "2024-03-01")
+        reset_window = deload_feature.scheduled_reason(conn, "2024-03-23")
+
+    assert during_break is None
+    assert after_break is None
+    assert reset_window is not None
+
+
+def test_postponement_requires_a_due_scheduled_deload_and_a_future_date():
+    with store_with() as store:
+        conn = store.connection
+        repositories.append_athlete_profile(
+            conn, effective_from="2024-01-01",
+            block_start_date="2024-01-01",
+        )
+        with pytest.raises(deload_feature.DeloadPostponementError) as not_due:
+            deload_feature.postpone_scheduled(
+                conn,
+                as_of="2024-02-12",
+                postponed_until="2024-04-01",
+                operation_id="not-due",
+            )
+        with pytest.raises(deload_feature.DeloadPostponementError) as not_future:
+            deload_feature.postpone_scheduled(
+                conn,
+                as_of="2024-02-05",
+                postponed_until="2024-02-05",
+                operation_id="not-future",
+            )
+        with pytest.raises(deload_feature.DeloadPostponementError) as bad_date:
+            deload_feature.postpone_scheduled(
+                conn,
+                as_of="2024-02-05",
+                postponed_until="2024-13-01",
+                operation_id="bad-date",
+            )
+
+    assert not_due.value.code == "deload_not_due"
+    assert not_future.value.code == "validation_failed"
+    assert bad_date.value.code == "validation_failed"
+
 
 def test_four_and_five_day_programmes_use_spaced_weekdays():
     four = programme._dates(dt.date(2024, 1, 1), 1, 4)
