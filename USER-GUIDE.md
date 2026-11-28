@@ -206,6 +206,8 @@ Useful CLI commands:
 .venv/bin/strength-coach readiness calibrate
 .venv/bin/strength-coach readiness shadow
 .venv/bin/strength-coach programme --weeks 4 --remaining
+.venv/bin/strength-coach injury              # regions, policy and how many lifts each loads
+.venv/bin/strength-coach deload status       # scheduled, full and per-region deload state
 ```
 
 The reports do not automatically retune readiness weights, calibration thresholds, or training rules.

@@ -270,6 +270,10 @@ it were recovering from one (amendment to `DEC-INJURY-04`). Only `active` caps.
 3. If the region needs a movement the taxonomy cannot express, add the property to the
    taxonomy (and document it in [DATA-MODEL.md](DATA-MODEL.md)), not a special case in code.
 
+How to change an existing mapping — which clause to use, what a pattern/flag/id change does to
+this signal and to the local deload, and how to verify it — is
+[INJURY-CONFIG.md](INJURY-CONFIG.md).
+
 ### Per-region policy
 
 Every region is in the signal and in the local deload, and `policy` is how either is taken

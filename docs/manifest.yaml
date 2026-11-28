@@ -328,6 +328,14 @@ documents:
   status: evidence
   audience: public
   nav: true
+- id: injury-config
+  path: docs/INJURY-CONFIG.md
+  title: INJURY CONFIG — changing which lifts load a region
+  description: 'how to edit config/injuries.v1.yaml — patterns, flags, exercise ids, direct and indirect weight, per-region policy, validation and verification'
+  category: readiness
+  status: canonical
+  audience: public
+  nav: true
 - id: injury-signal
   path: docs/INJURY-SIGNAL.md
   title: INJURY SIGNAL — from a symptom number to a decision the athlete can inspect

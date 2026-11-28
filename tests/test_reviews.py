@@ -296,3 +296,28 @@ def test_every_review_renders_its_steps_as_text():
             for entry in task[field]:
                 assert isinstance(entry, str), (task["key"], field, entry)
 
+def test_a_flaring_region_gets_its_own_review_task():
+    store = db.Store(":memory:")
+    try:
+        conn = store.connection
+        repositories.append_symptom(
+            conn, logged_on="2024-01-10", timing="pre_session", region="shoulder", level=3,
+        )
+        task = next(
+            t for t in reviews.status(conn, "2024-01-11")["tasks"]
+            if t["key"] == "injury_shoulder"
+        )
+        assert task["status"] == "attention"
+        assert task["label"] == "Shoulder flare review"
+        assert task["details"]["region"] == "shoulder"
+        assert task["details"]["linked_exercises"]
+
+        repositories.append_symptom(
+            conn, logged_on="2024-01-12", timing="pre_session", region="shoulder", level=0,
+        )
+        keys = {t["key"] for t in reviews.status(conn, "2024-01-13")["tasks"]}
+        assert "injury_shoulder" not in keys
+        # The back keeps its own task whether or not a region is flaring.
+        assert "back_pattern" in keys
+    finally:
+        store.close()

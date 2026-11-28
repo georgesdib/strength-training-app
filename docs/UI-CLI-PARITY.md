@@ -49,6 +49,8 @@ This is deliberate: the UI is a planning surface until the athlete starts the wo
 | e1RM set/list/withdraw | `e1rm set/list/withdraw` | Athlete page ledger and override form, Exercises tab, post-workout panel | same overrides; withdrawal is the dated append-only tombstone, never a delete |
 | Strength test recording | `test` | Athlete page, post-workout panel | same exposure/test path |
 | Symptom logging | `symptom` | Athlete → Symptoms & injury sub-page | same region, character and side validation; the form hides characters under *More details*, the CLI repeats `--char` |
+| Injury region policy and mappings | `injury [--region] [--show]` | Athlete → Overview (signal, policies) | same config; the CLI prints mapped-lift counts and ids, the UI shows the signal per region |
+| Deload state | `deload status` | Today card, Programme banner, prescription warnings | same decision objects: scheduled suggestion, full reactive, per-region local |
 | Exposure logging/status | `exposure ...` | Athlete page | same guard |
 | Exercise selection | `select` | Prescribe panel | same selection engine |
 | Retrospective validation | `validate` | Prescribe panel | same report |

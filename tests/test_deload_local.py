@@ -36,8 +36,12 @@ def store_with(training_rows):
 
 
 def config_file(tmp_path, regions=("knee",)):
-    patterns = {"knee": "[squat, knee_extension]", "shoulder": "[horizontal_push]"}
-    labels = {"knee": "Knee", "shoulder": "Shoulder"}
+    patterns = {
+        "knee": "[squat, knee_extension]",
+        "shoulder": "[horizontal_push]",
+        "quadriceps": "[squat, knee_extension]",
+    }
+    labels = {"knee": "Knee", "shoulder": "Shoulder", "quadriceps": "Quadriceps"}
     blocks = [
         f'  {region}:\n'
         f'    label: "{labels[region]}"\n'
@@ -256,3 +260,71 @@ def test_the_shipped_config_enables_the_policy_for_every_region():
     assert all(rule.signal_enabled for rule in shipped.regions.values())
     with store_with([("2024-01-04", SQUAT), ("2024-01-08", SQUAT)]) as store:
         assert deload.local_deloads(store.connection, "2024-01-12") == []
+
+def test_overlapping_scopes_apply_the_modifier_once(tmp_path):
+    # A squat loads both the knee and the quadriceps. Two regions, one item, one cut.
+    config = config_file(tmp_path, regions=("knee", "quadriceps"))
+    with store_with([("2024-01-04", SQUAT), ("2024-01-08", SQUAT)]) as store:
+        log(store.connection, "2024-01-04", 2)
+        log(store.connection, "2024-01-08", 2)
+        log(store.connection, "2024-01-04", 2, region="quadriceps")
+        log(store.connection, "2024-01-08", 2, region="quadriceps")
+        found = decision(store, config)
+
+    assert set(found.regions) == {"knee", "quadriceps"}
+    out, _warning, _note, _fallback = prescribe_deload.apply_items(
+        (item("ssb_squat"),), found, config=deload.DeloadConfig(),
+    )
+    assert out[0].sets == 3
+    assert out[0].load_kg == 90.0
+
+
+def test_recovery_in_one_region_leaves_the_other_active(tmp_path):
+    config = config_file(tmp_path, regions=("knee", "shoulder"))
+    with store_with([
+        ("2024-01-04", SQUAT), ("2024-01-04", BENCH),
+        ("2024-01-08", SQUAT), ("2024-01-08", BENCH),
+    ]) as store:
+        log(store.connection, "2024-01-04", 2)
+        log(store.connection, "2024-01-08", 2)
+        log(store.connection, "2024-01-04", 2, region="shoulder")
+        log(store.connection, "2024-01-08", 2, region="shoulder")
+        assert set(decision(store, config).regions) == {"knee", "shoulder"}
+
+        log(store.connection, "2024-01-10", 0)                     # knee settles
+        remaining = decision(store, config)
+
+    assert remaining is not None
+    assert remaining.regions == ("shoulder",)
+    assert "ssb_squat" not in remaining.exercise_ids
+
+
+def test_the_same_day_is_idempotent(tmp_path):
+    config = config_file(tmp_path)
+    with store_with([("2024-01-04", SQUAT), ("2024-01-08", SQUAT)]) as store:
+        log(store.connection, "2024-01-04", 2)
+        log(store.connection, "2024-01-08", 3)
+        first = decision(store, config)
+        second = decision(store, config)
+        assert first == second
+
+        items = (item("ssb_squat"), item("bench_press", load=80.0))
+        once = prescribe_deload.apply_items(items, first, config=deload.DeloadConfig())
+        twice = prescribe_deload.apply_items(items, second, config=deload.DeloadConfig())
+        assert once[0] == twice[0]
+
+
+def test_the_deload_note_is_json_serialisable(tmp_path):
+    import json
+
+    config = config_file(tmp_path)
+    with store_with([("2024-01-04", SQUAT), ("2024-01-08", SQUAT)]) as store:
+        log(store.connection, "2024-01-04", 2)
+        log(store.connection, "2024-01-08", 3)
+        found = decision(store, config)
+
+    _out, _warning, note, _fallback = prescribe_deload.apply_items(
+        (item("ssb_squat"),), found, config=deload.DeloadConfig(),
+    )
+    # The note is frozen into the prescription record, so it must survive JSON as-is.
+    assert json.loads(json.dumps(note))["scope"] == "local"

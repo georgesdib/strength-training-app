@@ -531,7 +531,11 @@ async function loadReviews() {
   try {
     const data = await api("/api/reviews");
     const tasks = data.tasks || [];
-    const actionable = tasks.filter((t) => ["due", "attention", "insufficient", "snoozed", "planned", "waiting"].includes(t.status));
+    // Most urgent first: a flaring region must not sit below a planned research follow-up.
+    const order = { attention: 0, due: 1, waiting: 2, insufficient: 3, snoozed: 4, planned: 5 };
+    const actionable = tasks
+      .filter((t) => ["due", "attention", "insufficient", "snoozed", "planned", "waiting"].includes(t.status))
+      .sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9));
     if (!actionable.length) {
       $("#reviews").innerHTML = "<p class='muted'>No reviews due.</p>";
       return;
@@ -539,6 +543,13 @@ async function loadReviews() {
     const cards = actionable.map((task) => {
       const details = (task.steps || []).map((s) => `<li>${esc(s)}</li>`).join("");
       const dont = (task.dont || []).map((s) => `<li>${esc(s)}</li>`).join("");
+      // A region task names the lifts the region loads, capped so a broad mapping stays readable.
+      const linked = (task.details && task.details.linked_exercises) || [];
+      const linkedNote = linked.length
+        ? `<p class="muted">${linked.length} configured lifts load this region: ` +
+          linked.slice(0, 12).map(esc).join(", ") +
+          (linked.length > 12 ? " …" : "") + "</p>"
+        : "";
       const doc = task.doc
         ? `<a href="#docs?doc=${encodeURIComponent(task.doc)}">${esc(task.doc)}</a>`
         : "";
@@ -566,6 +577,7 @@ async function loadReviews() {
         <div class="panel-head"><h3>${esc(task.label)}</h3>
           <span class="badge ${task.status === "ok" ? "" : "warn"}">${esc(task.status)}</span></div>
         <p><strong>${esc(task.summary)}</strong></p>
+        ${linkedNote}
         ${measurementHtml(task)}
         <p class="muted">${esc(task.why)}</p>
         <ul class="list">${details}</ul>

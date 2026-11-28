@@ -58,6 +58,17 @@ back_pattern:
   - Check whether the new episode fits the existing case series.
   - If not, record what was different.
   - Do not change the back rules automatically.
+injury_region:
+  # One prompt appears per flaring region; the low back keeps its own `back_pattern` task.
+  # `{label}` is the region's display name from config/injuries.v1.yaml.
+  label: "{label} flare review"
+  doc: docs/INJURY-SIGNAL.md
+  why: A flare in a region may mean a lift that loads it needs re-rating; the signal suggests
+    a review and the athlete decides.
+  steps:
+  - Check which prescribed lifts load the region (the task lists them).
+  - Re-rate suitability only if the evidence is clear.
+  - Do not change the training rules from one episode.
 exercise_substitution:
   label: Review substitution suggestions
   interval_weeks: 8

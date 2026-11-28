@@ -1816,3 +1816,31 @@ Migrations `0083` and `0084` are additive.
   it the default. See [TOP-SET-BACKOFF-EVIDENCE.md](docs/TOP-SET-BACKOFF-EVIDENCE.md).
 - Per-set/rep manual velocity overrides — delivered (`vbt_override`, append-only); the
   per-lift override with expiry idea is dropped.
+
+---
+
+## 2026-11-28 — symptom regions, characters, Athlete split, local deload, ceiling amendment
+
+**Delivered.** Eleven configured symptom regions (the original `low_back` / `biceps` / `knee`
+ids preserved, `biceps` relabelled *Elbow / upper arm*); a config-driven character vocabulary
+(13 descriptors) and an optional side on any reading (migration `0086`: `symptom_log.side` and
+the append-only `symptom_character` child table); severity stays on the 0–3 scale with display
+bands only. Exposure links for every region, with exercise-id validation. A per-region
+`policy: {signal, deload}` switch. A region-scoped reactive deload (two relevant flaring
+exposures → one set, 10% load, +1 RIR on mapped items only; unknown exposures skipped, a clear
+reading resets and ends it, full-session triggers still win and never compound). The readiness
+ceiling now applies to an active flare only. The Athlete page is six sub-pages behind its own
+nav group. New CLI: `injury` (regions, policy, mapped-lift counts) and `deload status`.
+
+**Why the ceiling changed.** `monitoring` capped load at 80/85%, so a level-0 reading lowered
+every linked lift for up to 28 days and a region with no flare history was treated as recovering
+from one. The cleanest way to avoid the cap was to stop logging. `DEC-INJURY-07`.
+
+**Evidence.** `./check.sh` fast lane green, `ruff` clean; new coverage in
+`tests/test_symptom.py`, `tests/test_symptom_vocabulary.py`,
+`tests/test_migration_0086_symptom_characters.py`, `tests/test_deload_local.py`,
+`tests/test_injury_signal.py`, `tests/test_readiness_score.py`, `tests/test_web.py`,
+`tests/test_ui_search.py`. Docs: `SYMPTOM-LOGGING.md`, `INJURY-SIGNAL.md`, `INJURY-CONFIG.md`
+(new), `READINESS-SCORE.md`, `DATA-MODEL.md` §11.5–11.7, `UI-MAP.md`, `UI-CLI-PARITY.md`,
+`DECISIONS.md` (`DEC-SYMPTOM-05/06`, `DEC-PROGRAMME-12`, `DEC-INJURY-07`),
+`LIMITATIONS-REGISTER.md` LIM-78/79.

@@ -49,6 +49,7 @@ for open work and next actions; completed history is in ROADMAP-DONE.md and reti
 - [READINESS-SCORE.md](READINESS-SCORE.md) — global/per-lift score, overrides, limits
 - [LIFT-READINESS.md](LIFT-READINESS.md) — per-lift components and downward-only rule
 - [CONTINUITY.md](CONTINUITY.md), [INJURY-SIGNAL.md](INJURY-SIGNAL.md), [SYMPTOM-LOGGING.md](SYMPTOM-LOGGING.md)
+- [INJURY-CONFIG.md](INJURY-CONFIG.md) — how to change which lifts load a region, and what moves when you do
 - [FORM-ASSESSMENT.md](FORM-ASSESSMENT.md), [FORM-PROSPECTIVE.md](FORM-PROSPECTIVE.md), [FORM-USE-EVIDENCE.md](FORM-USE-EVIDENCE.md)
 - [READINESS-EXERCISE-SELECTION-PLAN.md](READINESS-EXERCISE-SELECTION-PLAN.md) (implemented policy), [SELECTION-COMPARABILITY.md](SELECTION-COMPARABILITY.md)
 - [FATIGUE-SIGNALS.md](FATIGUE-SIGNALS.md), [FATIGUE-FITNESS.md](FATIGUE-FITNESS.md)

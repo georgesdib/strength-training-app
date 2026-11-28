@@ -639,6 +639,19 @@ def main(argv: list[str] | None = None) -> int:
                      help="cancel a recorded break by id (appends, never edits)")
     brk.add_argument("--show", action="store_true", help="list recorded breaks")
 
+    injury_cmd = sub.add_parser(
+        "injury", help="list injury regions, their policy and the lifts each one loads"
+    )
+    injury_cmd.add_argument("--date", default=None, help="YYYY-MM-DD (default: today)")
+    injury_cmd.add_argument("--region", default=None, help="one region")
+    injury_cmd.add_argument("--show", action="store_true", help="list the linked exercise ids")
+
+    deload_cmd = sub.add_parser(
+        "deload", help="show deload state: scheduled, full reactive and per-region"
+    )
+    deload_cmd.add_argument("action", nargs="?", choices=("status",), default="status")
+    deload_cmd.add_argument("--date", default=None, help="YYYY-MM-DD (default: today)")
+
     args = parser.parse_args(argv)
     handlers = {
         "import": _cmd_import,
@@ -650,6 +663,8 @@ def main(argv: list[str] | None = None) -> int:
         "e1rm": _cmd_e1rm,
         "test": _cmd_test,
         "symptom": _cmd_symptom,
+        "injury": _cmd_injury,
+        "deload": _cmd_deload,
         "measure": _cmd_measure,
         "volume": _cmd_volume,
         "continuity": _cmd_continuity,
@@ -2096,6 +2111,86 @@ def _print_symptoms(conn, *, region: str | None = None) -> None:
             parts.append(f"side {row['side']}")
         print(f"{row['logged_on']:<12}{row['region']:<12}{row['timing']:<14}"
               f"{row['level']:>6}  {settled:<8} " + " · ".join(parts))
+
+
+def _cmd_injury(args) -> int:
+    """List configured regions: policy, current status and how many lifts each one loads."""
+    store = db.Store(args.db)
+    try:
+        conn = store.connection
+        on_date = args.date or datetime.date.today().isoformat()
+        config = injury_signal_mod.InjuryConfig.load()
+        signal = injury_signal_mod.compute(conn, on_date, config=config)
+        rules = [
+            rule for rule in sorted(config.regions.values(), key=lambda item: item.region)
+            if not args.region or rule.region == str(args.region).strip().lower()
+        ]
+        if not rules:
+            known = ", ".join(sorted(config.regions))
+            print(f"unknown region {args.region!r}; configured: {known}")
+            return 2
+        print(f"injury regions on {on_date} ({len(config.regions)} configured)")
+        print(f"{'region':<12}{'signal':<8}{'status':<14}{'deload':<8}{'lifts':>6}  label")
+        for rule in rules:
+            region = signal.region(rule.region)
+            status = region.status if region is not None else "not signalled"
+            linked = injury_signal_mod.linked_exercises(rule)
+            print(
+                f"{rule.region:<12}{'on' if rule.signal_enabled else 'off':<8}"
+                f"{status:<14}{'on' if rule.deload_enabled else 'off':<8}"
+                f"{len(linked):>6}  {rule.label}"
+            )
+        if args.show:
+            for rule in rules:
+                print(f"\n{rule.region} loads ({len(injury_signal_mod.linked_exercises(rule))}):")
+                for exercise_id in injury_signal_mod.linked_exercises(rule):
+                    print(f"  {exercise_id}")
+        return 0
+    finally:
+        store.close()
+
+
+def _cmd_deload(args) -> int:
+    store = db.Store(args.db)
+    try:
+        conn = store.connection
+        on_date = args.date or datetime.date.today().isoformat()
+        config = deload_feature.DeloadConfig.load()
+        print(f"deload state on {on_date}")
+        if not config.enabled:
+            print("  deload policy is disabled (config/deload.v1.yaml)")
+            return 0
+
+        injury = injury_signal_mod.InjuryConfig.load()
+        enabled = [rule.label for rule in injury.regions.values() if rule.deload_enabled]
+        local = deload_feature.local_deloads(conn, on_date, config=config)
+        if local:
+            print("  local reactive deloads:")
+            for item in local:
+                exposures = ", ".join(
+                    f"{entry['exposure_on']} level {entry['level']}"
+                    for entry in reversed(item["exposures"])
+                )
+                print(f"    {item['label']}: {exposures}")
+                print(
+                    f"      scope: {len(item['exercise_ids'])} mapped exercises; "
+                    f"patterns: {', '.join(item['patterns'])}"
+                )
+                if item["stale"]:
+                    print("      evidence is stale; the deload stays until a reading arrives")
+                print(f"      clears with a 0-1 {item['label']} reading")
+        else:
+            print(f"  local reactive deloads: none ({len(enabled)} region(s) enabled)")
+
+        reactive = deload_feature.reactive_decision(conn, on_date, config=config)
+        if reactive is not None and reactive.scope == "full":
+            print(f"  reactive (full session): {reactive.reason}")
+        scheduled = deload_feature.scheduled_decision(conn, on_date, config=config)
+        if scheduled is not None:
+            print(f"  scheduled: {scheduled.reason} (suggestion only)")
+        return 0
+    finally:
+        store.close()
 
 
 def _cmd_exercise_demands(args) -> int:

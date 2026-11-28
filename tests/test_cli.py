@@ -224,3 +224,28 @@ def test_observations_command_reports_and_abstains(database, capsys):
     ]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert "observations" in payload and "abstain" in payload
+
+def test_cli_injury_lists_regions_and_deload_reports_state(database, capsys):
+    code = cli.main(["--db", str(database), "injury", "--date", "2024-01-01"])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "11 configured" in out
+    assert "low_back" in out and "shoulder" in out
+    assert "on" in out
+
+    assert cli.main([
+        "--db", str(database), "injury", "--region", "core", "--show",
+    ]) == 0
+    out = capsys.readouterr().out
+    assert "core loads" in out
+    assert "ab_wheel" in out
+
+    assert cli.main(["--db", str(database), "injury", "--region", "elbow"]) == 2
+    assert "unknown region" in capsys.readouterr().out
+
+    assert cli.main([
+        "--db", str(database), "deload", "status", "--date", "2024-01-01",
+    ]) == 0
+    out = capsys.readouterr().out
+    assert "deload state on 2024-01-01" in out
+    assert "local reactive deloads: none" in out

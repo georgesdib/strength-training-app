@@ -13,7 +13,7 @@ from typing import Any
 import yaml
 
 from strength_coach.domain.symptoms import flare_from
-from strength_coach.features import hr_recovery, test_cadence
+from strength_coach.features import hr_recovery, injury_signal, test_cadence
 from strength_coach.store import queries
 from strength_coach.utils import paths
 
@@ -406,6 +406,49 @@ def _hr_probe_task(conn, on_date: str, cfg: dict) -> ReviewTask:
     )
 
 
+def _injury_region_tasks(conn, on_date: str, config: dict) -> list[ReviewTask]:
+    """One review prompt per flaring region, other than the back.
+
+    The back keeps its own `back_pattern` task because its rules are special-cased and its
+    key is already in use. A region appears only while it is flaring: eleven permanent "no
+    flare" rows would bury the tasks that need attention, and a resolved region needs no
+    prompt. Nothing here changes a rating.
+    """
+    cfg = config.get("injury_region") or {}
+    signal = injury_signal.compute(conn, on_date)
+    tasks: list[ReviewTask] = []
+    for region in signal.regions:
+        if region.region == "low_back":
+            continue
+        if region.status != injury_signal.STATUS_ACTIVE:
+            continue
+        template = str(cfg.get("label") or "{label} flare review")
+        tasks.append(
+            ReviewTask(
+                key=f"injury_{region.region}",
+                label=template.replace("{label}", region.label),
+                kind="data",
+                status="attention",
+                due_on=region.last_flare_on,
+                summary=(
+                    f"A flare is logged for {region.label} (level {region.latest_level}/3); "
+                    f"{len(region.linked_exercises)} configured lifts load this region"
+                ),
+                why=str(cfg.get("why", "")),
+                steps=tuple(cfg.get("steps") or ()),
+                dont=tuple(cfg.get("dont") or ()),
+                doc=str(cfg.get("doc", "docs/INJURY-SIGNAL.md")),
+                details={
+                    "region": region.region,
+                    "latest_level": region.latest_level,
+                    "last_flare_on": region.last_flare_on,
+                    "linked_exercises": list(region.linked_exercises),
+                },
+            )
+        )
+    return tasks
+
+
 def status(conn, on_date: str) -> dict:
     config = _config()
     tasks = []
@@ -422,6 +465,8 @@ def status(conn, on_date: str) -> dict:
             int((config.get(key) or {}).get("snooze_days", 14)) if key in SNOOZE_KEYS else None
         )
         tasks.append(task)
+    # One extra prompt per flaring region, appended here because the key is data-driven.
+    tasks.extend(task.as_dict() for task in _injury_region_tasks(conn, on_date, config))
     # The former "Volume review (standing)" reminder was removed on 2026-11-22: it had no clock
     # and no acknowledgement, so it read as a permanent warning on Today. The budget is inspected
     # in the Prescribe volume panels; enabling it must not re-add a reminder here.
