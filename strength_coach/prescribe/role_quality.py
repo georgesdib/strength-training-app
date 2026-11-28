@@ -629,7 +629,7 @@ def snapshot(
     """Build the role-quality vector for one complete finalist."""
     config = RoleQualityConfig.load()
     taxonomy = exercises.taxonomy().entities
-    suitability = queries.exercise_suitability(conn)
+    suitability = queries.exercise_suitability(conn, as_of=for_date)
     tax_config = selection_tax.TaxConfig.load()
     panel = prescription.notes.get("volume_panel") or {}
     previous = _previous_choices(

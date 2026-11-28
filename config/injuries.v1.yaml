@@ -99,6 +99,11 @@ regions:
       # rather than precise (ASSUMPTION-10).
       direct:
         patterns: [elbow_flexion, vertical_pull, horizontal_pull]
+      # Pressing loads the elbow as an extensor/antagonist demand, so it belongs here as
+      # indirect (weight 1), never as a direct biceps link. `triceps_extension` is the same
+      # joint from the other side: a real elbow exposure, not biceps work.
+      indirect:
+        patterns: [triceps_extension, horizontal_push, vertical_push, horizontal_push_bw]
 
   # ---------------------------------------------------------------------
   # Knee. Exercise is the main treatment for patellar tendinopathy, but certainty is low and
@@ -115,8 +120,9 @@ regions:
         patterns: [squat, squat_unilateral, knee_extension, knee_flexion,
                    hamstring_eccentric, power_jump]
       indirect:
-        # Hinges and carries load the knee without it being the limiting joint.
-        patterns: [hinge, hinge_unilateral, hinge_ballistic, carry]
+        # A ballistic hinge flexes and extends the knee under load; a slow hinge holds the
+        # angle. Carries load it too little to be a knee exposure at all.
+        patterns: [hinge_ballistic]
 
   # ---------------------------------------------------------------------
   # Additional regions.
@@ -159,8 +165,7 @@ regions:
       # Trunk stiffness is needed everywhere, but it is not the target tissue. Core symptoms
       # stay in this region and never activate the low-back rules.
       indirect:
-        patterns: [squat, squat_unilateral, hinge, hinge_unilateral, carry,
-                   horizontal_push_bw]
+        patterns: [carry, horizontal_push_bw]
 
   forearm:
     label: "Forearm"
@@ -202,7 +207,7 @@ regions:
         patterns: [hinge, hinge_unilateral, hinge_ballistic, hamstring_eccentric,
                    knee_flexion, hip_extension]
       indirect:
-        patterns: [squat, power_jump]
+        patterns: [power_jump]
 
   lower_leg:
     label: "Lower leg"

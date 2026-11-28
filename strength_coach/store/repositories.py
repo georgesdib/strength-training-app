@@ -59,6 +59,14 @@ def _json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True)
 
 
+def _parseable(text: str, fmt: str) -> bool:
+    """True when `text` is exactly `fmt`, not merely something strptime tolerates."""
+    try:
+        return datetime.datetime.strptime(text, fmt).strftime(fmt) == text
+    except ValueError:
+        return False
+
+
 def flag_list(raw: Any) -> list[str]:
     """`";".join` flags from the cleaner -> a JSON list for the column."""
     if raw is None or (isinstance(raw, float) and pd.isna(raw)):
@@ -660,13 +668,47 @@ def append_athlete_constraint(
     settled_on: str | None = None,
     evidence: str | None = None,
     source: str = "user",
-) -> None:
-    conn.execute(
+    supersedes: int | None = None,
+) -> int:
+    """Record a constraint, optionally replacing the one it supersedes.
+
+    `supersedes` retires the named row by the act of appending this one: there is never a
+    moment with two current rules for the same thing, and the old row is never edited.
+    """
+    for name, value in (("since", since), ("settled_on", settled_on)):
+        if value is None:
+            continue
+        text = str(value)
+        # Day precision is the norm; a month is accepted because a recalled onset often is.
+        # Anything else ("last spring") would compare unpredictably against a date.
+        if not any(
+            _parseable(text, fmt) for fmt in ("%Y-%m-%d", "%Y-%m")
+        ):
+            raise ValueError(f"{name} must be YYYY-MM-DD or YYYY-MM")
+    if supersedes is not None:
+        parent = conn.execute(
+            "SELECT constraint_id, retired FROM athlete_constraint WHERE constraint_id = ?",
+            (int(supersedes),),
+        ).fetchone()
+        if parent is None:
+            raise ValueError(f"constraint {supersedes} does not exist")
+        if parent["retired"]:
+            raise ValueError(f"constraint {supersedes} is already retired")
+        existing = conn.execute(
+            "SELECT constraint_id FROM athlete_constraint "
+            "WHERE supersedes_constraint_id = ?",
+            (int(supersedes),),
+        ).fetchone()
+        if existing is not None:
+            raise ValueError(
+                f"constraint {supersedes} was already superseded by {existing['constraint_id']}"
+            )
+    cursor = conn.execute(
         """
         INSERT INTO athlete_constraint (kind, region, severity, forbidden_patterns,
                                         forbidden_exercises, rom_limit, since, settled_on,
-                                        evidence, source)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                        evidence, source, supersedes_constraint_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             kind,
@@ -679,8 +721,58 @@ def append_athlete_constraint(
             settled_on,
             evidence,
             source,
+            int(supersedes) if supersedes is not None else None,
         ),
     )
+    return int(cursor.lastrowid)
+
+
+def retire_athlete_constraint(
+    conn: sqlite3.Connection,
+    constraint_id: int,
+    *,
+    evidence: str | None = None,
+) -> int:
+    """End a constraint with no replacement, by appending a tombstone that supersedes it.
+
+    The tombstone repeats the parent's kind, region and severity only because those columns
+    are NOT NULL; `retired = 1` is what makes it contribute no rule.
+    """
+    parent = conn.execute(
+        "SELECT * FROM athlete_constraint WHERE constraint_id = ?", (int(constraint_id),)
+    ).fetchone()
+    if parent is None:
+        raise ValueError(f"constraint {constraint_id} does not exist")
+    if parent["retired"]:
+        raise ValueError(f"constraint {constraint_id} is already retired")
+    existing = conn.execute(
+        "SELECT constraint_id FROM athlete_constraint WHERE supersedes_constraint_id = ?",
+        (int(constraint_id),),
+    ).fetchone()
+    if existing is not None:
+        raise ValueError(f"constraint {constraint_id} was already superseded")
+    cursor = conn.execute(
+        """
+        INSERT INTO athlete_constraint (kind, region, severity, forbidden_patterns,
+                                        forbidden_exercises, rom_limit, since, settled_on,
+                                        evidence, source, supersedes_constraint_id, retired)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+        """,
+        (
+            str(parent["kind"]),
+            str(parent["region"]),
+            str(parent["severity"]),
+            parent["forbidden_patterns"] or "[]",
+            parent["forbidden_exercises"] or "[]",
+            parent["rom_limit"],
+            parent["since"],
+            parent["settled_on"],
+            evidence or f"retired constraint {int(constraint_id)}",
+            str(parent["source"] or "user"),
+            int(constraint_id),
+        ),
+    )
+    return int(cursor.lastrowid)
 
 
 def append_exercise_suitability(

@@ -351,3 +351,49 @@ def test_a_missing_config_file_says_unknown_rather_than_fine(tmp_path: Path):
 
     assert signal.status == "unknown"
     assert "no injury regions" in signal.summary
+
+
+# --- exposure maps (DEC-INJURY-08) -----------------------------------------
+
+# The counts a mapping change moves. Pinned so config and the prose that quotes a number
+# cannot drift apart again: LIM-78's "core covers N catalogue exercises" is this number.
+REGION_EXPOSURE_COUNTS = {
+    "biceps": 52,
+    "core": 14,
+    "forearm": 28,
+    "hamstring": 39,
+    "hip_groin": 61,
+    "knee": 33,
+    "low_back": 59,
+    "lower_leg": 8,
+    "quadriceps": 58,
+    "shoulder": 47,
+    "upper_back": 18,
+}
+
+
+def test_every_region_maps_the_documented_number_of_lifts():
+    config = injury_signal.InjuryConfig.load()
+    taxonomy = exercises.taxonomy()
+    actual = {
+        key: len(injury_signal.linked_exercises(rule, taxonomy))
+        for key, rule in config.regions.items()
+    }
+    assert actual == REGION_EXPOSURE_COUNTS
+
+
+def test_biceps_counts_pressing_as_an_indirect_elbow_exposure_only():
+    config = injury_signal.InjuryConfig.load()
+    rule = config.regions["biceps"]
+    assert set(rule.direct.patterns) == {"elbow_flexion", "vertical_pull", "horizontal_pull"}
+    assert set(rule.indirect.patterns) == {
+        "triceps_extension", "horizontal_push", "vertical_push", "horizontal_push_bw",
+    }
+
+
+def test_a_region_removed_from_a_family_stops_reaching_that_family():
+    # A core symptom must not scope squat or hinge work (INJURY-CONFIG §3.2).
+    config = injury_signal.InjuryConfig.load()
+    core = config.regions["core"]
+    linked = set(core.direct.patterns) | set(core.indirect.patterns)
+    assert not linked & {"squat", "squat_unilateral", "hinge", "hinge_unilateral"}

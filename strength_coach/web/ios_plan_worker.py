@@ -45,6 +45,19 @@ def wake() -> None:
         dispatcher.wake.set()
 
 
+class PlanNotExecutable(Exception):
+    """A recorded constraint forbids part of the session that would be built.
+
+    Raised instead of publishing: a plan the athlete cannot start must not be issued as
+    `ready`. The client gets a `constraint_veto` failure naming the items, at the moment it
+    asked, rather than a plan plus a refusal later (DEC-STATE-04).
+    """
+
+    def __init__(self, vetoes: tuple[str, ...]):
+        self.vetoes = vetoes
+        super().__init__(", ".join(vetoes))
+
+
 def _serialize_plan(prescription) -> dict:
     """Use the one serialiser the web UI and the Phase 2 route already share.
 
@@ -115,6 +128,11 @@ def build_plan(conn, row) -> tuple[str, str, str | None]:
     )
     if scheduled_suggestion is not None:
         prescription = deload_mod.suggest(prescription, scheduled_suggestion)
+    if prescription.constraint_vetoes:
+        # The engine already refuses to route around a vetoed primary lift, and the scheduler
+        # avoids vetoed families for an automatic request. Reaching here means the athlete
+        # asked for this session type and a stored constraint forbids its main lift.
+        raise PlanNotExecutable(prescription.constraint_vetoes)
     plan = _serialize_plan(prescription)
     resolved_type = str(plan["session_type"])
     try:
@@ -239,6 +257,10 @@ def drain_once(db_path=None, slot: threading.Semaphore | None = None) -> bool:
 
 def _build_failure(exc: Exception) -> tuple[str, str]:
     """Map a build failure to an owner-safe code and message (no paths or tracebacks)."""
+    if isinstance(exc, PlanNotExecutable):
+        return "constraint_veto", (
+            "a recorded constraint forbids this session: " + str(exc)
+        )[:200]
     try:
         from strength_coach.prescribe.resolver import ResolverBuildError
 

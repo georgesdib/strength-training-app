@@ -39,7 +39,9 @@ def _availability(conn, before: str | None = None) -> dict[str, bool]:
         if not primary:
             out[session_type] = True
             continue
-        out[session_type] = not constraints_mod.evaluate(conn, [primary]).vetoes
+        out[session_type] = not constraints_mod.evaluate(
+            conn, [primary], as_of=before
+        ).vetoes
     return out
 
 

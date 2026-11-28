@@ -3143,3 +3143,60 @@ def test_minimum_target_is_ignored_when_the_session_is_not_minimum():
     })
     assert "minimum_target_minutes" not in settings
 
+
+
+def test_a_stored_constraint_blocks_starting_an_already_published_plan(ios):
+    """The plan is built first, then the rule is recorded: the gate is at start (DEC-STATE-04)."""
+    token, _ = _paired(ios)
+    _, state = _issue(ios, token)
+    assert state["status"] == "ready", state
+    first_item = state["plan"]["items"][0]["exercise_id"]
+
+    store = db.Store(ios["path"])
+    try:
+        from strength_coach.store import repositories
+
+        repositories.append_athlete_constraint(
+            store.connection,
+            kind="contraindication",
+            region="low_back",
+            severity="hard_exclude",
+            forbidden_exercises=[first_item],
+            since=ios["today"],
+        )
+    finally:
+        store.close()
+
+    status, body = _start(ios, token, state["issued_plan_id"])
+    assert status == 409, body
+    assert body["code"] == "plan_not_executable"
+    assert first_item in body["details"]["exercise_ids"]
+
+
+def test_a_request_the_constraints_forbid_fails_instead_of_publishing(ios):
+    """A session the athlete cannot start is never issued as `ready` (DEC-STATE-04)."""
+    token, _ = _paired(ios)
+    store = db.Store(ios["path"])
+    try:
+        from strength_coach.store import repositories
+
+        # The requested session's main lift is excluded: the engine refuses to route around
+        # the primary lift, so the honest answer is a failure naming it.
+        repositories.append_athlete_constraint(
+            store.connection,
+            kind="contraindication",
+            region="low_back",
+            severity="hard_exclude",
+            forbidden_patterns=["squat"],
+            since=ios["today"],
+        )
+    finally:
+        store.close()
+
+    _, state = _issue(ios, token, body={"settings": {"session_type": "squat"}})
+    assert state["status"] == "error", state
+    assert state["error"]["code"] == "constraint_veto"
+    # The failure names the blocked lift, so the athlete knows what to resolve.
+    assert "squat" in state["error"]["message"]
+    assert state["error"]["message"].startswith("a recorded constraint forbids")
+    assert state["plan"] is None

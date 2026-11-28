@@ -189,7 +189,11 @@ loaded and followed by a quiet reading.
 
 ### 4.2 Biceps / elbow flexors
 
-Linked: elbow flexion, vertical pulls (pull-ups, chin-ups) and horizontal pulls (rows).
+Linked directly: elbow flexion, vertical pulls (pull-ups, chin-ups) and horizontal pulls
+(rows). Pressing (bench, overhead, triceps extension) is linked *indirectly*: it loads the
+elbow as an extensor demand, which makes it a real elbow exposure and a poor direct biceps
+claim (`DEC-INJURY-08`). Because indirect links still count toward the deload scope, a
+biceps/elbow reading can ease pressing days.
 
 This is the weakest evidence of the three. A scoping review of physical-therapy interventions
 for long-head biceps tendinopathy found 14 eligible articles, mostly of modalities, and
@@ -233,6 +237,29 @@ A symptom may optionally carry an athlete-attributed session and lift (`DEC-INJU
 region panel shows these in a separate **athlete-attributed symptoms** block. They are not
 merged into `linked_exercises`, and the signal's status, counts and recommendation never read
 them. The label is a suspicion, not a cause.
+
+### 4.5 One staleness bound, two consequences
+
+`max_entry_age_days` (default 14) is a single key, and two consumers read it differently on
+purpose:
+
+- **The signal** treats a reading older than the bound as *insufficient*. It cannot support a
+  claim about today, so the region reports unknown rather than recovered.
+- **The local deload** keeps the deload and marks the evidence stale. Missing is not recovery,
+  so an unread region is not a cleared region.
+
+They are not two thresholds and there is no second setting: the same day count answers "can
+this support a claim?" and "should the easing still apply?". `lookback_days` in
+`config/deload.v1.yaml` is a different bound — how far back a flaring exposure still counts in
+the sequence — and does not touch staleness.
+
+### 4.6 What clears a local deload
+
+A local reactive deload clears with a level 0 reading, or a level 1 recorded as settled within
+48 h. The wording is identical in the CLI, the dashboard card and the prescription warning, so
+it is one rule read in three places rather than three paraphrases of it. The rule is
+`flare_from(level, settled_within_48h)`: any other level, or an unsettled level 1, is still a
+flare and the deload stands.
 
 ---
 

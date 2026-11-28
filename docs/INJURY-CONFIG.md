@@ -74,8 +74,9 @@ Delete the pattern from both blocks. Example: a core reading should not touch sq
       patterns: [carry, horizontal_push_bw]     # squat and hinge removed
 ```
 
-Effect: 65 mapped lifts drop to a much smaller set, and the local deload can no longer cut a
-squat because of a core symptom.
+Effect: 65 mapped lifts drop to 14, and the local deload can no longer cut a squat because of
+a core symptom. This is the shipped mapping (`DEC-INJURY-08`); the count is pinned in
+`tests/test_injury_signal.py`, so change both or neither.
 
 ### 3.3 Name specific lifts instead of a family
 
@@ -91,6 +92,11 @@ lifts:
 
 Add or remove ids to change the set. Prefer this over a new flag when only a handful of lifts
 need the link.
+
+The named ids here are deadlift and shrug variants, which the `horizontal_pull` and
+`vertical_pull` patterns do **not** match: the list adds heavy-grip hinge work, it does not
+duplicate the pulls. Removing the patterns to "de-duplicate" would drop every row and pull-up
+from the region.
 
 ### 3.4 Prefer a flag when the property is not the pattern
 
@@ -181,6 +187,11 @@ reducer's scope.
   prescription stays byte-identical.
 - **The review prompt.** A flaring region gets its own review task; the linked count appears in
   it.
+- **Whether pressing counts as an elbow exposure.** `biceps` maps pressing as *indirect*
+  (`DEC-INJURY-08`). Indirect carries weight 1 rather than 2, but it still puts pressing days
+  in the region's deload scope: a biceps/elbow flare will ease bench and overhead work. That is
+  intended — pressing loads the elbow — and it is the reason the pattern list lives in config
+  rather than in code.
 
 Two rules of thumb: keep `indirect` for "loaded but not the limiting tissue", and prefer the
 narrowest clause that names the lifts you mean. Broad indirect links are how one reading ends
@@ -200,7 +211,7 @@ up touching half the catalogue.
 
 - **Decisions:** [DECISIONS.md](DECISIONS.md) — `DEC-INJURY-01` to `DEC-INJURY-07` (exposure
   model, ceiling, verification), `DEC-SYMPTOM-03` (regions stay separate), `DEC-SYMPTOM-06`
-  (per-region policy), `DEC-PROGRAMME-12` (local deload).
+  (per-region policy), `DEC-PROGRAMME-14` (local deload).
 - **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) — per-region recovery windows and
   the two-exposure trigger remain assumptions, not findings.
 - **Roadmap:** [ROADMAP.md](../ROADMAP.md) §4.7 (injury signal).

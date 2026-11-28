@@ -443,13 +443,32 @@ Stored as `athlete_constraint`: `constraint` is a reserved SQL keyword (`DEC-STA
 | severity | `hard_exclude` \| `caution` \| `monitor` |
 | forbidden_patterns | JSON, e.g. `["loaded_spinal_flexion"]` |
 | forbidden_exercises | JSON list of exercise ids |
-| rom_limit | nullable, e.g. depth constraint |
-| since / settled_on | dates; drives the "has it settled in 24-48h" logic |
+| rom_limit | nullable, e.g. depth constraint. **Captured only**: stored so the athlete's words are not lost, not read by any rule |
+| since / settled_on | `YYYY-MM-DD` or `YYYY-MM`; a row applies to a day when `since <= day` and (`settled_on IS NULL OR settled_on > day`). Unstated onset means "always in force" |
 | evidence | free text from the user, kept verbatim |
 | source | `user` \| `clinician` |
+| supersedes_constraint_id | the row this one replaces; NULL for an original (migration 0088) |
+| retired | 1 marks a tombstone: this row supersedes a parent and contributes no rule |
 
 `severity: hard_exclude` is evaluated by the policy engine with **veto** severity and is
-never overridable by an agent.
+never overridable by an agent. `caution` and `monitor` are **stored only**: they are recorded
+for the athlete and no rule, ceiling or deload reads them, so they must not be presented as if
+they changed a prescription.
+
+#### Supersession and retirement (`DEC-STATE-04`)
+
+The table stays append-only; a rule that changed or an injury that resolved is a **new row**.
+
+- A replacement is a new row naming `supersedes_constraint_id`. A retirement is a tombstone:
+  `retired = 1` plus the same pointer, because a resolved injury has no successor to name.
+- A row is *current* when it is not retired and no other row supersedes it. Every pre-0088 row
+  satisfies that, so nothing changed meaning on migration.
+- The chain is linear by construction: a partial unique index on `supersedes_constraint_id`
+  refuses a second successor, and the repository refuses to supersede a retired row.
+- Read-time resolution uses the athlete's dates (`since`, `settled_on`) and never the write
+  timestamp. A constraint recorded today that says `since: 2026-11-28` leaves an earlier date
+  alone; one with no `since` is read as always in force, because an unstated onset is missing
+  information rather than permission.
 
 ### 11.3 `exercise_suitability` — living per-exercise rating
 

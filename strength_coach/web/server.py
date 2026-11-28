@@ -2720,6 +2720,9 @@ class Handler(BaseHTTPRequestHandler):
                 "window_ends_on": scheduled.window_ends_on,
                 "owner_decision": scheduled.owner_decision,
                 "owner_decision_id": scheduled.owner_decision_id,
+                "decision_label": deload_feature.owner_decision_label(
+                    scheduled.owner_decision
+                ),
             }
         else:
             scheduled_snapshot = None
@@ -2783,6 +2786,44 @@ class Handler(BaseHTTPRequestHandler):
         if status == "building":
             return 2000
         return 0
+
+    def _ios_assert_executable(self, conn, plan: dict, row) -> None:
+        """Refuse a plan a constraint recorded *after* it was issued now forbids (DEC-STATE-04).
+
+        This is the stale-plan guard, not the primary refusal: a veto the engine already knew
+        about fails the build with `constraint_veto` and is never published (`ios_plan_worker`).
+        What remains is drift — an injury recorded between build and start — and frozen history
+        must not be silently rebuilt, so the plan keeps its identity and the start is refused.
+        Re-evaluation uses the plan's own `for_date`, so a constraint that began later cannot
+        retro-invalidate an earlier plan.
+        """
+        from strength_coach.prescribe import constraints as constraints_mod
+
+        issues = [str(issue) for issue in plan.get("issues") or []]
+        blockers = [issue for issue in issues if issue.startswith("CONSTRAINT_VETO:")]
+        exercise_ids = [
+            str(item["exercise_id"])
+            for item in plan.get("items") or []
+            if isinstance(item, dict) and item.get("exercise_id")
+        ]
+        report = constraints_mod.evaluate(
+            conn, exercise_ids, as_of=str(row["for_date"])
+        )
+        blockers.extend(
+            f"CONSTRAINT_VETO:{exercise_id}:{reason}"
+            for exercise_id, reason in report.vetoes
+        )
+        unique = list(dict.fromkeys(blockers))
+        if not unique:
+            return
+        raise ios_workflow.IOSWorkflowError(
+            409, "plan_not_executable",
+            "a constraint recorded since this plan was issued forbids part of it",
+            details={
+                "issues": unique,
+                "exercise_ids": [issue.split(":", 2)[1] for issue in unique],
+            },
+        )
 
     def _ios_bind_execution_id(self, conn, row, body: dict) -> str:
         """The execution this start becomes: the plan's own id (D1).
@@ -3004,6 +3045,7 @@ class Handler(BaseHTTPRequestHandler):
         recorded_start = self._ios_check_bind_window(row, body.get("started_at"))
         self._ios_idle_sweep(conn)
         plan = json.loads(row["plan_json"])
+        self._ios_assert_executable(conn, plan, row)
         readiness = json.loads(row["readiness_json"])
         try:
             with db.transaction(conn):
@@ -4524,6 +4566,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, self._with_conn(lambda c: self._save_profile(c, body)))
             elif path == "/api/state/constraint":
                 self._json(200, self._with_conn(lambda c: self._save_constraint(c, body)))
+            elif path == "/api/state/constraint/retire":
+                self._json(200, self._with_conn(lambda c: self._retire_constraint(c, body)))
             elif path == "/api/state/suitability":
                 self._json(200, self._with_conn(lambda c: self._save_suitability(c, body)))
             elif path == "/api/state/e1rm":
@@ -6464,11 +6508,22 @@ class Handler(BaseHTTPRequestHandler):
                 except (TypeError, ValueError):
                     data[key] = []
             constraints.append(data)
+        # Ended chains stay visible: the athlete can see what they replaced, not a silent gap.
+        current_ids = {row["constraint_id"] for row in constraints}
+        ended_constraints = [
+            {key: row[key] for key in (
+                "constraint_id", "kind", "region", "severity", "since", "settled_on",
+                "evidence", "supersedes_constraint_id", "retired", "created_at",
+            )}
+            for row in queries.athlete_constraint_history(conn)
+            if row["constraint_id"] not in current_ids
+        ]
         profile = dict(queries.athlete_profile(conn) or {}) or None
         symptoms = queries.symptom_entries(conn)
         return {
             "profile": profile,
             "constraints": constraints,
+            "ended_constraints": ended_constraints,
             "suitability": queries.exercise_suitability(conn),
             "symptoms": symptoms[-10:],
             "attributed_symptoms": [
@@ -6828,32 +6883,67 @@ class Handler(BaseHTTPRequestHandler):
         }
 
     def _save_constraint(self, conn, body: dict) -> dict:
-        repositories.append_athlete_constraint(
-            conn,
-            kind=_field_call(
-                validation.choice, "kind",
-                body.get("kind"), athlete_state.CONSTRAINT_KINDS, "kind",
-            ),
-            region=_field_call(validation.region, "region", body.get("region")),
-            severity=_field_call(
-                validation.choice, "severity",
-                body.get("severity") or "monitor", athlete_state.SEVERITIES, "severity",
-            ),
-            forbidden_patterns=_field_call(
-                validation.list_choice, "forbidden_patterns",
-                _list(body.get("forbidden_patterns")),
-                exercises.canonical_patterns(),
-                "forbidden_patterns",
-            ),
-            forbidden_exercises=_field_call(
-                validation.exercise_ids, "forbidden_exercises",
-                _list(body.get("forbidden_exercises")), "forbidden_exercises",
-            ),
-            rom_limit=body.get("rom_limit") or None,
-            since=body.get("since") or None,
-            settled_on=body.get("settled_on") or None,
-            evidence=body.get("evidence") or None,
+        supersedes = body.get("supersedes_constraint_id")
+        if supersedes in ("", None):
+            supersedes = None
+        else:
+            try:
+                supersedes = int(supersedes)
+            except (TypeError, ValueError) as exc:
+                raise FieldError(
+                    "supersedes_constraint_id must be a constraint id",
+                    {"supersedes_constraint_id": "must be a constraint id"},
+                ) from exc
+        kind = _field_call(
+            validation.choice, "kind",
+            body.get("kind"), athlete_state.CONSTRAINT_KINDS, "kind",
         )
+        region = _field_call(validation.region, "region", body.get("region"))
+        severity = _field_call(
+            validation.choice, "severity",
+            body.get("severity") or "monitor", athlete_state.SEVERITIES, "severity",
+        )
+        forbidden_patterns = _field_call(
+            validation.list_choice, "forbidden_patterns",
+            _list(body.get("forbidden_patterns")),
+            exercises.canonical_patterns(),
+            "forbidden_patterns",
+        )
+        forbidden_exercises = _field_call(
+            validation.exercise_ids, "forbidden_exercises",
+            _list(body.get("forbidden_exercises")), "forbidden_exercises",
+        )
+        try:
+            repositories.append_athlete_constraint(
+                conn,
+                kind=kind,
+                region=region,
+                severity=severity,
+                forbidden_patterns=forbidden_patterns,
+                forbidden_exercises=forbidden_exercises,
+                rom_limit=body.get("rom_limit") or None,
+                since=body.get("since") or None,
+                settled_on=body.get("settled_on") or None,
+                evidence=body.get("evidence") or None,
+                supersedes=supersedes,
+            )
+        except ValueError as exc:
+            raise FieldError(str(exc), {"supersedes_constraint_id": str(exc)}) from exc
+        return self._state(conn)
+
+    def _retire_constraint(self, conn, body: dict) -> dict:
+        try:
+            constraint_id = int(body.get("constraint_id"))
+        except (TypeError, ValueError) as exc:
+            raise FieldError(
+                "constraint_id is required", {"constraint_id": "required"}
+            ) from exc
+        try:
+            repositories.retire_athlete_constraint(
+                conn, constraint_id, evidence=body.get("evidence") or None
+            )
+        except ValueError as exc:
+            raise FieldError(str(exc), {"constraint_id": str(exc)}) from exc
         return self._state(conn)
 
     def _resolver_dwell(self, conn) -> dict:

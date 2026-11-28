@@ -26,8 +26,10 @@ reactive:
   # They stay available even when the scheduled calendar is disabled.
   #
   # The local reactive deload (per region) reads the same consecutive_flares count. It only
-  # evaluates regions whose `policy.deload` is true in config/injuries.v1.yaml, and every
-  # region starts false: this mechanism is dormant until a region is reviewed and switched on.
+  # evaluates regions whose `policy.deload` is true in config/injuries.v1.yaml. Every shipped
+  # region enables it, so the mechanism is live; switching one off is a per-region decision.
+  # It never stacks on the whole-session response: the reducer compares against the factor
+  # already applied, so the most restrictive cut wins (DEC-PROGRAMME-14, DEC-SYMPTOM-06).
   local:
     enabled: true
     # How far back a flaring exposure still counts. Bounded on purpose: a long layoff ends the

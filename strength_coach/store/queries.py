@@ -378,11 +378,53 @@ def athlete_profile(conn, *, as_of: str | None = None) -> dict | None:
     return dict(row) if row is not None else None
 
 
-def athlete_constraints(conn) -> list[dict]:
-    return [
+def athlete_constraints(conn, *, as_of: str | None = None) -> list[dict]:
+    """The constraints in force, one row per supersession chain.
+
+    `as_of` is the day being judged, and a row applies when the athlete's own dates say so:
+    `since` is not later than that day, and `settled_on` is not earlier. Those are declared
+    dates, not write timestamps, for the same reason a suitability rating is bounded by
+    `rated_on`: the date the athlete means is the one that governs the answer. A constraint
+    that states it began after the day in question therefore cannot veto or permit it.
+
+    So `since: 2026-11-28` recorded today leaves 2026-06-01 alone; a row with no `since` is
+    in force wherever it is read, which is the conservative reading of an unstated onset
+    (missing is not pass).
+
+    Without `as_of` the answer is "in force today".
+    """
+    day = str(as_of or dt.date.today().isoformat())
+    rows = [
         dict(row)
         for row in conn.execute(
             "SELECT * FROM athlete_constraint ORDER BY constraint_id"
+        )
+    ]
+    superseded = {
+        row["supersedes_constraint_id"]
+        for row in rows
+        if row.get("supersedes_constraint_id") is not None
+    }
+    current: list[dict] = []
+    for row in rows:
+        if row.get("retired") or row["constraint_id"] in superseded:
+            continue
+        since = row.get("since")
+        if since is not None and str(since) > day:
+            continue
+        settled = row.get("settled_on")
+        if settled is not None and str(settled) <= day:
+            continue
+        current.append(row)
+    return current
+
+
+def athlete_constraint_history(conn) -> list[dict]:
+    """Every constraint row, newest first, with the chain each tombstone or replacement ends."""
+    return [
+        dict(row)
+        for row in conn.execute(
+            "SELECT * FROM athlete_constraint ORDER BY constraint_id DESC"
         )
     ]
 

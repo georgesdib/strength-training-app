@@ -151,6 +151,10 @@ def main(argv: list[str] | None = None) -> int:
                        help="append a new version even if state is already recorded")
     state.add_argument("--rate", metavar="EXERCISE", default=None,
                        help="record a suitability rating for one exercise")
+    state.add_argument("--retire", metavar="CONSTRAINT_ID", type=int, default=None,
+                       help="end a recorded constraint with no replacement")
+    state.add_argument("--evidence", default=None,
+                       help="why the constraint was retired (with --retire)")
     state.add_argument("--can-do", choices=("yes", "no"), default="yes")
     state.add_argument("--will-do", choices=("yes", "no"), default="yes")
     state.add_argument("--feels-bad", choices=("yes", "no"), default="no")
@@ -1071,6 +1075,18 @@ def _cmd_state(args) -> int:
         if args.import_file and args.rate:
             print("use either --import or --rate, not both")
             return 2
+        if args.retire is not None:
+            try:
+                tombstone = repositories.retire_athlete_constraint(
+                    conn, args.retire, evidence=args.evidence
+                )
+            except ValueError as exc:
+                print(f"cannot retire: {exc}")
+                return 2
+            print(f"retired constraint {args.retire} (tombstone {tombstone}); "
+                  "its history is unchanged")
+            _print_state(conn)
+            return 0
         if (args.volume_budget is not None or args.main_lift_policy is not None
                 or args.exposure_trim is not None):
             current = queries.athlete_profile(conn)
@@ -2179,7 +2195,10 @@ def _cmd_deload(args) -> int:
                 )
                 if item["stale"]:
                     print("      evidence is stale; the deload stays until a reading arrives")
-                print(f"      clears with a 0-1 {item['label']} reading")
+                print(
+                    "      clears with a level 0 reading, or a level 1 recorded as settled "
+                    "within 48 h"
+                )
         else:
             print(f"  local reactive deloads: none ({len(enabled)} region(s) enabled)")
 
@@ -2189,6 +2208,7 @@ def _cmd_deload(args) -> int:
         scheduled = deload_feature.scheduled_decision(conn, on_date, config=config)
         if scheduled is not None:
             print(f"  scheduled: {scheduled.reason} (suggestion only)")
+            print(f"    decision: {deload_feature.owner_decision_label(scheduled.owner_decision)}")
         return 0
     finally:
         store.close()
@@ -3135,19 +3155,24 @@ def _import_state(conn, path: Path, *, force: bool) -> int:
 
     constraints = raw.get("constraints") or []
     for entry in constraints:
-        repositories.append_athlete_constraint(
-            conn,
-            kind=str(entry["kind"]),
-            region=str(entry["region"]),
-            severity=str(entry["severity"]),
-            forbidden_patterns=entry.get("forbidden_patterns") or [],
-            forbidden_exercises=entry.get("forbidden_exercises") or [],
-            rom_limit=entry.get("rom_limit"),
-            since=entry.get("since"),
-            settled_on=entry.get("settled_on"),
-            evidence=entry.get("evidence"),
-            source=str(entry.get("source", "user")),
-        )
+        try:
+            repositories.append_athlete_constraint(
+                conn,
+                kind=str(entry["kind"]),
+                region=str(entry["region"]),
+                severity=str(entry["severity"]),
+                forbidden_patterns=entry.get("forbidden_patterns") or [],
+                forbidden_exercises=entry.get("forbidden_exercises") or [],
+                rom_limit=entry.get("rom_limit"),
+                since=entry.get("since"),
+                settled_on=entry.get("settled_on"),
+                evidence=entry.get("evidence"),
+                source=str(entry.get("source", "user")),
+                supersedes=entry.get("supersedes"),
+            )
+        except ValueError as exc:
+            print(f"constraint {entry.get('region')}: {exc}")
+            return 2
 
     suitability = raw.get("suitability") or {}
     rated_on = str(suitability.get("rated_on") or datetime.date.today().isoformat())
@@ -3236,10 +3261,22 @@ def _print_state(conn) -> None:
     print(f"  main-lift policy    {profile.get('main_lift_policy', 'preserve')}")
 
     constraints = queries.athlete_constraints(conn)
-    print(f"\nconstraints ({len(constraints)})")
+    print(f"\nconstraints ({len(constraints)} in force)")
     for rule in constraints:
-        print(f"  {rule['severity']:<12} {rule['kind']:<14} {rule['region']:<10} "
-              f"since {rule['since'] or '?'}  settled {rule['settled_on'] or '?'}")
+        print(f"  #{rule['constraint_id']:<3} {rule['severity']:<12} {rule['kind']:<14} "
+              f"{rule['region']:<10} since {rule['since'] or '?'}  "
+              f"settled {rule['settled_on'] or '?'}")
+    history = queries.athlete_constraint_history(conn)
+    ended = [row for row in history if row["retired"]]
+    if ended:
+        print(f"  superseded or retired ({(len(history) - len(constraints))}): "
+              + ", ".join(
+                  f"#{row['constraint_id']}" for row in reversed(history)
+                  if row["constraint_id"] not in {r["constraint_id"] for r in constraints}
+              ))
+    if constraints:
+        print("  'state --retire ID' ends one with no replacement; a replacement is "
+              "recorded with 'supersedes: ID' in the state file")
 
     ratings = queries.exercise_suitability(conn)
     blocked = [e for e, r in ratings.items() if not r["can_do"]]

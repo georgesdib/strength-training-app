@@ -171,6 +171,18 @@ def start(
         raise ValueError(
             "rate the suggested exercise(s) before starting: " + ", ".join(map(str, pending))
         )
+    # A stored constraint that refuses an item is not advice to weigh up: the session would
+    # train around a rule the athlete recorded (DEC-STATE-04).
+    blocked = [
+        str(issue)
+        for issue in ((plan.get("issues") if isinstance(plan, dict) else None) or [])
+        if str(issue).startswith("CONSTRAINT_VETO:")
+    ]
+    if blocked:
+        refused = sorted({issue.split(":", 2)[1] for issue in blocked})
+        raise ValueError(
+            "a recorded constraint blocks this session: " + ", ".join(refused)
+        )
     plan_data = _plan(plan, allow_empty=session_identity.is_technique(resolved_type))
     readiness_data = validate_readiness(
         readiness, allow_partial=allow_partial_readiness

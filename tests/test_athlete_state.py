@@ -261,3 +261,108 @@ def test_block_start_declares_week_one_and_reset_replaces_it(tmp_path, capsys):
         assert queries.athlete_profile(store.connection)["block_start_date"] == "2026-12-01"
     finally:
         store.close()
+
+
+# --- constraint lifecycle (DEC-STATE-04) -----------------------------------
+
+
+def test_a_replacement_retires_the_rule_it_supersedes():
+    with db.Store(":memory:") as store:
+        conn = store.connection
+        first = repositories.append_athlete_constraint(
+            conn, kind="injury", region="low_back", severity="hard_exclude",
+            forbidden_exercises=["trap_bar_deadlift"], since="2026-01-01",
+        )
+        second = repositories.append_athlete_constraint(
+            conn, kind="injury", region="low_back", severity="monitor",
+            forbidden_exercises=["trap_bar_deadlift"], since="2026-06-01",
+            supersedes=first,
+        )
+        current = queries.athlete_constraints(conn)
+        assert [row["constraint_id"] for row in current] == [second]
+        # The replaced row is history, not a deletion.
+        assert [row["constraint_id"] for row in queries.athlete_constraint_history(conn)] == [
+            second, first,
+        ]
+        with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+            conn.execute("DELETE FROM athlete_constraint WHERE constraint_id = ?", (first,))
+
+
+def test_a_retired_constraint_stops_applying_and_keeps_its_history():
+    with store_with() as store:
+        conn = store.connection
+        add_profile(conn)
+        first = repositories.append_athlete_constraint(
+            conn, kind="contraindication", region="low_back", severity="hard_exclude",
+            forbidden_exercises=["trap_bar_deadlift"],
+        )
+        assert not build_prescription(conn, for_date="2024-02-01").executable
+
+        tombstone = repositories.retire_athlete_constraint(conn, first, evidence="settled")
+        assert tombstone != first
+        assert queries.athlete_constraints(conn) == []
+        assert build_prescription(conn, for_date="2024-02-01").executable
+        assert len(queries.athlete_constraint_history(conn)) == 2
+
+
+def test_a_chain_cannot_fork_and_a_tombstone_cannot_be_retired_again():
+    with db.Store(":memory:") as store:
+        conn = store.connection
+        first = repositories.append_athlete_constraint(
+            conn, kind="injury", region="knee", severity="monitor", since="2026-01-01",
+        )
+        repositories.append_athlete_constraint(
+            conn, kind="injury", region="knee", severity="hard_exclude",
+            since="2026-02-01", supersedes=first,
+        )
+        with pytest.raises(ValueError, match="already superseded"):
+            repositories.append_athlete_constraint(
+                conn, kind="injury", region="knee", severity="monitor",
+                since="2026-03-01", supersedes=first,
+            )
+        with pytest.raises(ValueError, match="already superseded"):
+            repositories.retire_athlete_constraint(conn, first)
+
+
+def test_a_constraint_that_began_later_does_not_rewrite_an_earlier_date():
+    """The declared onset decides, so a new rule cannot retro-veto a past prescription."""
+    with store_with() as store:
+        conn = store.connection
+        add_profile(conn)
+        repositories.append_athlete_constraint(
+            conn, kind="contraindication", region="low_back", severity="hard_exclude",
+            forbidden_exercises=["trap_bar_deadlift"], since="2026-11-28",
+        )
+        assert build_prescription(conn, for_date="2024-02-01").executable
+        assert not build_prescription(conn, for_date="2026-12-01").executable
+
+
+def test_a_settled_constraint_no_longer_applies_after_the_day_it_settled():
+    with db.Store(":memory:") as store:
+        conn = store.connection
+        repositories.append_athlete_constraint(
+            conn, kind="injury", region="knee", severity="hard_exclude",
+            since="2026-01-01", settled_on="2026-05-01",
+        )
+        assert [row["severity"] for row in queries.athlete_constraints(
+            conn, as_of="2026-04-30")] == ["hard_exclude"]
+        assert queries.athlete_constraints(conn, as_of="2026-05-01") == []
+
+
+def test_constraint_dates_must_be_dates():
+    with db.Store(":memory:") as store:
+        conn = store.connection
+        with pytest.raises(ValueError, match="since must be"):
+            repositories.append_athlete_constraint(
+                conn, kind="injury", region="knee", severity="monitor",
+                since="last spring",
+            )
+        with pytest.raises(ValueError, match="settled_on must be"):
+            repositories.append_athlete_constraint(
+                conn, kind="injury", region="knee", severity="monitor",
+                settled_on="2026-13-01",
+            )
+        # A month is accepted: a recalled onset is often only known to the month.
+        repositories.append_athlete_constraint(
+            conn, kind="injury", region="knee", severity="monitor", since="2026-06",
+        )

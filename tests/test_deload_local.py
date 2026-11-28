@@ -328,3 +328,13 @@ def test_the_deload_note_is_json_serialisable(tmp_path):
     )
     # The note is frozen into the prescription record, so it must survive JSON as-is.
     assert json.loads(json.dumps(note))["scope"] == "local"
+
+
+def test_owner_decision_labels_are_one_vocabulary():
+    from strength_coach.features.deload import owner_decision_label
+
+    # `awaiting` is the absence of a choice, and `deferred` states when it comes back.
+    assert owner_decision_label(None) == "awaiting"
+    assert owner_decision_label("accepted") == "accepted"
+    assert owner_decision_label("dismissed") == "dismissed"
+    assert owner_decision_label("deferred") == "deferred (asks again on the next issuance)"

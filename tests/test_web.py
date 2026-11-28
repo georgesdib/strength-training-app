@@ -4040,3 +4040,40 @@ def test_readiness_form_is_rendered_from_the_registry_schema(server):
     assert 'id="registry-metrics"' in body
     assert "registryPayloadFromForm" in js
     assert "/api/readiness/settings" not in js
+
+
+def test_a_constraint_can_be_replaced_and_retired_over_the_api(server):
+    """The web surface keeps the ledger: a replacement and a retirement are appends."""
+    state = post(server, "/api/state/constraint", {
+        "kind": "injury", "region": "low_back", "severity": "hard_exclude",
+        "forbidden_exercises": ["trap_bar_deadlift"], "since": "2026-01-01",
+    })
+    first = max(row["constraint_id"] for row in state["constraints"])
+
+    state = post(server, "/api/state/constraint", {
+        "kind": "injury", "region": "low_back", "severity": "monitor",
+        "forbidden_exercises": ["trap_bar_deadlift"], "since": "2026-06-01",
+        "supersedes_constraint_id": first,
+    })
+    by_id = {row["constraint_id"]: row for row in state["constraints"]}
+    assert first not in by_id
+    replacement = max(by_id)
+    assert by_id[replacement]["supersedes_constraint_id"] == first
+    assert first in {row["constraint_id"] for row in state["ended_constraints"]}
+
+    state = post(server, "/api/state/constraint/retire", {"constraint_id": replacement})
+    assert replacement not in {row["constraint_id"] for row in state["constraints"]}
+    assert replacement in {row["constraint_id"] for row in state["ended_constraints"]}
+
+
+def test_retiring_a_constraint_twice_is_refused(server):
+    state = post(server, "/api/state/constraint", {
+        "kind": "injury", "region": "knee", "severity": "monitor",
+    })
+    constraint_id = state["constraints"][0]["constraint_id"]
+    post(server, "/api/state/constraint/retire", {"constraint_id": constraint_id})
+    code, body = post_status(server, "/api/state/constraint/retire", {
+        "constraint_id": constraint_id,
+    })
+    assert code == 400, body
+    assert "constraint_id" in json.loads(body).get("fields", {})

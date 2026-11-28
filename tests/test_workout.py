@@ -977,3 +977,22 @@ def test_concurrent_automatic_set_indices_are_not_lost(tmp_path):
         ).fetchall()
     assert [row["set_index"] for row in rows] == [1, 2, 3, 4, 5, 6]
     assert sorted(row["load_kg"] for row in rows) == loads
+
+
+def test_a_plan_carrying_a_constraint_veto_cannot_start(conn):
+    """The web start path refuses rather than training around a recorded rule."""
+    plan = {
+        "for_date": "2024-01-01",
+        "session_type": "hinge",
+        "items": [{
+            "exercise_id": "trap_bar_deadlift",
+            "sets": 3, "reps_low": 5, "reps_high": 5,
+            "load_kg": 100, "rir_target": 2,
+        }],
+        "issues": ["CONSTRAINT_VETO:trap_bar_deadlift:hard_exclude constraint 1 (injury low_back)"],
+    }
+    with pytest.raises(ValueError, match="recorded constraint blocks"):
+        workout.start(
+            conn, for_date="2024-01-01", plan=plan,
+            readiness={"sleep": 4, "energy": 4, "mood": 4, "soreness": 2, "stress": 3},
+        )

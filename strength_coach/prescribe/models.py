@@ -262,6 +262,20 @@ class Prescription:
             item.load_kg is not None and item.unknown_load_reason is None for item in self.items
         )
 
+    @property
+    def constraint_vetoes(self) -> tuple[str, ...]:
+        """The exercise ids a stored constraint refused, read back out of `issues`.
+
+        Derived rather than stored: the issue list is already the one place a veto is
+        recorded, and a second field could disagree with it (DEC-STATE-04).
+        """
+        prefix = "CONSTRAINT_VETO:"
+        return tuple(
+            issue[len(prefix):].split(":", 1)[0]
+            for issue in self.issues
+            if issue.startswith(prefix)
+        )
+
     def item(self, order_index: int) -> PrescriptionItem:
         return self.items[order_index]
 

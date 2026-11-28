@@ -103,6 +103,24 @@ class DeloadDecision:
         return exercise_id in self.exercise_ids
 
 
+OWNER_DECISION_LABELS = {
+    None: "awaiting",
+    "accepted": "accepted",
+    "deferred": "deferred (asks again on the next issuance)",
+    "dismissed": "dismissed",
+}
+
+
+def owner_decision_label(owner_decision: str | None) -> str:
+    """One vocabulary for the CLI, the dashboard card and the contract (DEC-PROGRAMME-14).
+
+    `awaiting` means no choice has been recorded. `deferred` states when the question
+    returns, because that is the one label whose consequence is not obvious: the next
+    issuance asks again, every time, with no expiry.
+    """
+    return OWNER_DECISION_LABELS.get(owner_decision, "awaiting")
+
+
 def deferral_reconsiderable(
     scheduled: DeloadDecision | None, *, issuance_id: str | None = None,
 ) -> bool:
@@ -386,9 +404,10 @@ def local_deloads(conn, as_of: str, *, config: DeloadConfig | None = None,
     skipped: it is neither evidence of a flare nor evidence of recovery. A clear reading at an
     exposure stops the run, which is how a non-flaring observation resets the sequence.
 
-    Only regions whose policy.deload is enabled are considered, and that flag is false for
-    every shipped region: this mechanism is dormant until a region is reviewed
-    (DEC-SYMPTOM-06).
+    Only regions whose policy.deload is enabled are considered. Every shipped region enables
+    it, so this mechanism is live: the back response it joins is unchanged because the reducer
+    compares against the factor already applied, so a local deload cannot double the cut
+    (DEC-SYMPTOM-06, DEC-PROGRAMME-14).
     """
     cfg = config or DeloadConfig.load()
     if not cfg.enabled or not cfg.reactive_enabled or not cfg.local_enabled:
@@ -479,7 +498,8 @@ def local_decision(
     reason = "local reactive deload -- " + "; ".join(parts)
     if stale:
         reason += (
-            f"; evidence is stale for {', '.join(stale)} -- log a 0-1 reading to clear it"
+            f"; evidence is stale for {', '.join(stale)} -- a level 0 reading, or a level 1 "
+            f"recorded as settled within 48 h, clears it"
         )
     return DeloadDecision(
         reason,

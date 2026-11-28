@@ -132,7 +132,8 @@ def apply_items(
             f"sets -{cfg.set_reduction} (floor {cfg.minimum_sets}), "
             f"load factor {cfg.load_multiplier:.0%} (most restrictive), "
             f"RIR +{cfg.rir_add}; unrelated patterns unchanged. "
-            f"Log a 0-1 reading to clear it."
+            f"Clears with a level 0 reading, or a level 1 recorded as settled "
+            f"within 48 h."
         )
     else:
         warning = (

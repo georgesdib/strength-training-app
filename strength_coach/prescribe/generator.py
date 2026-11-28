@@ -160,7 +160,7 @@ def generate(
     injury = injury_signal.compute(conn, for_date, ramp_week=context.block_week_index)
     stress_config = recent_stress.StressConfig.load()
     stress = recent_stress.compute(context.sets, for_date, config=stress_config)
-    suitability = queries.exercise_suitability(conn)
+    suitability = queries.exercise_suitability(conn, as_of=for_date)
     active_linked = {
         exercise_id
         for region in injury.regions
@@ -181,7 +181,9 @@ def generate(
         candidates = _candidate_ids(session_type, slot, policy, catalogue)
         pools[slot.id] = candidates
         all_candidates.update(candidates)
-    veto_report = constraints_mod.evaluate(conn, sorted(all_candidates))
+    veto_report = constraints_mod.evaluate(
+        conn, sorted(all_candidates), as_of=for_date
+    )
     vetoed = {exercise_id for exercise_id, _reason in veto_report.vetoes}
 
     selected: dict[str, str] = {}
@@ -485,7 +487,7 @@ def candidate_pools(
     catalogue_digest = resolver_policy.candidate_catalogue_digest(catalogue)
     taxonomy = exercises.taxonomy().entities
     injury = injury_signal.compute(conn, for_date, ramp_week=context.block_week_index)
-    suitability = queries.exercise_suitability(conn)
+    suitability = queries.exercise_suitability(conn, as_of=for_date)
     active_linked = {
         term
         for region in injury.regions
@@ -506,7 +508,7 @@ def candidate_pools(
     vetoed = {
         exercise_id
         for exercise_id, _reason in constraints_mod.evaluate(
-            conn, sorted(all_candidates)
+            conn, sorted(all_candidates), as_of=for_date
         ).vetoes
     }
 
@@ -721,7 +723,7 @@ def available_session_types(
         spinal_cap=runtime.spinal_cap,
         spinal_costs=runtime.spinal_costs,
     )
-    suitability = queries.exercise_suitability(conn)
+    suitability = queries.exercise_suitability(conn, as_of=for_date)
     injury = injury_signal.compute(
         conn, for_date, ramp_week=context.block_week_index
     )
@@ -744,7 +746,7 @@ def available_session_types(
             for slot in template.slots
         }
         all_candidates = sorted({item for ids in pools.values() for item in ids})
-        report = constraints_mod.evaluate(conn, all_candidates)
+        report = constraints_mod.evaluate(conn, all_candidates, as_of=for_date)
         vetoed = {exercise_id for exercise_id, _reason in report.vetoes}
         available, _reason, _auto = _structure_check(
             template, policy, main_slot, pools, vetoed, active_injury,

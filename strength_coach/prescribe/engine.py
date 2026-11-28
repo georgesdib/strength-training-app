@@ -626,7 +626,7 @@ def build_prescription(
     # Constraint evaluation is needed before the optional minimum-session tier: a hard veto
     # must refuse volume reduction rather than hide it behind a non-executable prescription.
     constraint_report = constraints_mod.evaluate(
-        conn, [item.exercise_id for item in items]
+        conn, [item.exercise_id for item in items], as_of=for_date
     )
     # A hard constraint on a secondary lift removes that lift, not the session. The primary
     # lift is the scheduling identity; if it is vetoed the session stays non-executable.
@@ -642,7 +642,7 @@ def build_prescription(
         if omitted:
             items = keep
             constraint_report = constraints_mod.evaluate(
-                conn, [item.exercise_id for item in items]
+                conn, [item.exercise_id for item in items], as_of=for_date
             )
             warnings.append(
                 "CONSTRAINT_OMITTED: " + ", ".join(

@@ -251,8 +251,9 @@ function renderLocalDeloads(rows) {
     return esc(row.label) + " (" + esc(exposures) + ")";
   }).join("; ");
   target.innerHTML = "<div class='warnbox'><strong>Local deload active: " + detail +
-    "</strong><p class='muted'>Only the exercises mapped to that region are reduced. Log a " +
-    "0-1 reading for the region to clear it; a stale reading keeps it and is flagged.</p></div>";
+    "</strong><p class='muted'>Only the exercises mapped to that region are reduced. A level 0 " +
+    "reading, or a level 1 recorded as settled within 48 h, clears it; a stale reading keeps " +
+    "it and is flagged.</p></div>";
 }
 
 async function loadOverview() {
@@ -292,7 +293,7 @@ async function loadOverview() {
     const locals = data.local_deloads || [];
     if (locals.length) {
       cards.push(["Local deload", locals.map((row) => row.label).join(" · "),
-        "symptom-driven; mapped exercises reduced — log a 0-1 reading to clear"]);
+        "symptom-driven; mapped exercises reduced — a level 0 reading clears it"]);
     }
     $("#cards").innerHTML = cards.map(([label, value, sub]) => `
       <div class="card"><div class="label">${esc(label)}</div>
@@ -1531,6 +1532,16 @@ function renderPrescription(p, options = {}) {
   const warnings = p.warnings.length
     ? '<div class="warnbox"><strong>Warnings</strong><ul class="list">' +
       p.warnings.map((w) => "<li>" + esc(w) + "</li>").join("") + "</ul></div>" : "";
+  // A stored constraint that refuses an item is why the plan cannot start; say so where the
+  // athlete reads the plan, not only when the start button fails.
+  const constraintIssues = (p.issues || []).filter((issue) => issue.startsWith("CONSTRAINT_VETO:"));
+  const constraintBox = constraintIssues.length
+    ? '<div class="warnbox"><strong>A recorded constraint blocks this plan.</strong><ul class="list">' +
+      constraintIssues.map((issue) => {
+        const [, exercise, ...reason] = issue.split(":");
+        return "<li><code>" + esc(exercise) + "</code> — " + esc(reason.join(":")) + "</li>";
+      }).join("") + "</ul>Resolve or retire the constraint in Athlete state before starting.</div>"
+    : "";
   const pendingRatings = p.notes?.resolver?.pending_ratings || [];
   const pendingBox = pendingRatings.length
     ? '<div class="warnbox"><strong>Suitability ratings needed.</strong> Rate ' +
@@ -1602,8 +1613,10 @@ function renderPrescription(p, options = {}) {
     </div>
     <p class="muted">Defer skips the deload on the prescription you issue now and asks again at the next eligible prescription. Dismiss closes this scheduled block.</p>`
     : "";
+  const decisionLabel = scheduledEvent?.decision_label
+    ? ` <span class="muted">(${esc(scheduledEvent.decision_label)})</span>` : "";
   const suggestionBox = suggestion ? `<div class="warnbox"><strong>Deload suggested</strong>
-    — ${esc(suggestion.reason)}.<br>${decisionControls}</div>` : "";
+    — ${esc(suggestion.reason)}.${decisionLabel}<br>${decisionControls}</div>` : "";
   const cards = p.items.map((item) => {
     const st = stress[item.exercise_id];
     const lr = liftReady[item.exercise_id];
@@ -1645,7 +1658,7 @@ function renderPrescription(p, options = {}) {
     ${cachedBox}
     <div class="panel-head"><h2>${esc(p.for_date)} · ${esc(p.session_label || sessionLabel(p.session_type || "unknown"))}</h2>
       <span class="badge ${p.executable ? "" : "bad"}">${p.executable ? "executable" : "needs input"}</span></div>
-    ${timeLine}${vbtNoteBox}${volumeBox}${compBox}${topSetBox}${pendingBox}${warnings}${spinalBox}${minimumBox}${deloadBox}${suggestionBox}${selectionBox}${signalBox}${cadenceBox}
+    ${timeLine}${constraintBox}${vbtNoteBox}${volumeBox}${compBox}${topSetBox}${pendingBox}${warnings}${spinalBox}${minimumBox}${deloadBox}${suggestionBox}${selectionBox}${signalBox}${cadenceBox}
     <div class="table-scroll desktop-table"><table><thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>kg</th><th>RIR</th><th>recent stress</th><th>readiness</th><th>e1RM n</th><th>refs</th></tr></thead>
     <tbody>${rows}</tbody></table></div>
     <div class="mobile-cards prescription-cards">${cards}</div>
@@ -2595,9 +2608,15 @@ async function loadState() {
       <tr><td class="muted">${esc(k)}</td><td>${esc(v ?? "—")}</td></tr>`).join("")
       : "<tr><td class='empty'>not recorded</td></tr>";
     const constraints = data.constraints.length ? data.constraints.map((c) => `
-      <li><strong>${esc(c.kind)}</strong> · ${esc(c.region)} · ${esc(c.severity)}
-      ${Array.isArray(c.forbidden_exercises) && c.forbidden_exercises.length ? " · forbids " + esc(c.forbidden_exercises.join(", ")) : ""}</li>`).join("")
+      <li><strong>${esc(c.kind)}</strong> · ${esc(c.region)} · ${esc(c.severity)} · <span class="muted">#${c.constraint_id}</span>
+      ${c.supersedes_constraint_id ? `<span class="muted">replaces #${c.supersedes_constraint_id}</span>` : ""}
+      ${Array.isArray(c.forbidden_exercises) && c.forbidden_exercises.length ? " · forbids " + esc(c.forbidden_exercises.join(", ")) : ""}
+      <button class="ghost" type="button" data-retire-constraint="${c.constraint_id}">Retire</button></li>`).join("")
       : "<li class='empty'>none recorded</li>";
+    // Ended chains stay visible: replacing or retiring a rule is history, not a deletion.
+    const endedConstraints = (data.ended_constraints || []).map((c) => `
+      <li class="muted">#${c.constraint_id} ${esc(c.kind)} · ${esc(c.region)} · ${esc(c.severity)}
+      · ${c.retired ? "retired" : "replaced"}${c.evidence ? " · " + esc(c.evidence) : ""}</li>`).join("");
     const suitability = Object.entries(data.suitability).map(([exercise, rating]) => `
       <tr><td>${esc(exercise)}</td><td>${rating.can_do ? "yes" : "no"}</td>
       <td>${rating.will_do ? "yes" : "no"}</td><td>${rating.feels_bad ? "yes" : "no"}</td></tr>`).join("");
@@ -2667,8 +2686,8 @@ async function loadState() {
       ? "<div class='warnbox'><strong>Local deload active: " +
         localRows.map((row) => esc(row.label)).join(", ") +
         "</strong><p class='muted'>Mapped exercises are reduced one set at 90% load with +1 " +
-        "RIR; unrelated patterns are unchanged. Log a 0-1 reading for the region to clear " +
-        "it.</p></div>"
+        "RIR; unrelated patterns are unchanged. A level 0 reading, or a level 1 recorded as " +
+        "settled within 48 h, clears it.</p></div>"
       : "";
     $("#state-summary").innerHTML = localNote + `
         <p>${esc(data.injury_signal?.summary || "")}</p>
@@ -2680,7 +2699,7 @@ async function loadState() {
       <div class="panel"><div class="panel-head"><h2>Profile</h2></div>
         <table><tbody>${profileRows}</tbody></table></div>`;
     $("#state-limits-summary").innerHTML = `
-      <div class="panel"><div class="panel-head"><h2>Constraints</h2></div><ul class="list">${constraints}</ul></div>
+      <div class="panel"><div class="panel-head"><h2>Constraints</h2></div><ul class="list">${constraints}${endedConstraints}</ul></div>
       <div class="panel"><div class="panel-head"><h2>Suitability</h2></div>
         ${suitability ? `<table><thead><tr><th>Exercise</th><th>can-do</th><th>will-do</th><th>feels bad</th></tr></thead><tbody>${suitability}</tbody></table>` : "<p class='empty'>none recorded</p>"}</div>`;
     $("#state-metrics-summary").innerHTML = coveragePanel + `
@@ -2836,6 +2855,8 @@ function renderStateForms(data) {
     ? opts.regions
     : Object.keys(data.injury_signal?.regions || {}).map((key) => ({ value: key, label: key }));
   const regionOptions = choiceOptions(regionChoices, "");
+  const supersedeOptions = (data.constraints || []).map((c) =>
+    `<option value="${c.constraint_id}">#${c.constraint_id} ${esc(c.kind)} · ${esc(c.region)} · ${esc(c.severity)}</option>`).join("");
   // Description is optional; the visible path stays region + level + timing.
   const sideOptions = choiceOptions(
     [{ value: "", label: "not recorded" }, ...(opts.symptom_sides || [])], ""
@@ -2908,6 +2929,12 @@ function renderStateForms(data) {
         <label>Severity<select data-constraint="severity">${choiceOptions(opts.severities, "monitor")}</select></label>
         <label>Since<input data-constraint="since" type="month"></label>
         <label>Settled on<input data-constraint="settled_on" type="month"></label>
+        <label>Replaces <span class="muted">(optional)</span>
+          <select data-constraint="supersedes_constraint_id">
+            <option value="">nothing — a new constraint</option>
+            ${supersedeOptions}
+          </select>
+        </label>
         <label class="grow">Evidence <span class="muted">(optional source/context)</span><input data-constraint="evidence" placeholder="e.g. diagnosis, clinician note, imaging"></label>
         <details class="advanced choice-details">
           <summary>Forbidden patterns</summary>
@@ -3070,6 +3097,7 @@ function renderStateForms(data) {
     forbidden_exercises: '[data-choice-group="forbidden_exercises"] input',
     since: '[data-constraint="since"]',
     settled_on: '[data-constraint="settled_on"]',
+    supersedes_constraint_id: '[data-constraint="supersedes_constraint_id"]',
     evidence: '[data-constraint="evidence"]',
   };
   const save = async (path, payload, target = null, message = "Saved.", mapping = {}) => {
@@ -3099,8 +3127,35 @@ function renderStateForms(data) {
     const values = collect("constraint");
     values.forbidden_patterns = checkedChoices("forbidden_patterns");
     values.forbidden_exercises = checkedChoices("forbidden_exercises");
-    save("/api/state/constraint", values, null, "Constraint appended.", CONSTRAINT_ERRORS);
+    values.supersedes_constraint_id = values.supersedes_constraint_id
+      ? Number(values.supersedes_constraint_id) : null;
+    save("/api/state/constraint", values, null,
+      values.supersedes_constraint_id ? "Constraint appended; the earlier rule is retired." : "Constraint appended.",
+      CONSTRAINT_ERRORS);
   });
+  // Delegated: the list is re-rendered after every save, so per-button listeners would leak.
+  if (!document.body.dataset.retireConstraintWired) {
+    document.body.dataset.retireConstraintWired = "1";
+    document.addEventListener("click", async (event) => {
+      const button = event.target?.closest?.("[data-retire-constraint]");
+      if (!button) return;
+      event.preventDefault();
+      const constraintId = Number(button.dataset.retireConstraint);
+      if (!window.confirm(
+        `Retire constraint #${constraintId}? Its history stays visible and it stops applying.`
+      )) return;
+      try {
+        await api("/api/state/constraint/retire", {
+          method: "POST", body: JSON.stringify({ constraint_id: constraintId }),
+        });
+        notify(`Constraint #${constraintId} retired.`);
+        loadState();
+        loadOverview();
+      } catch (error) {
+        applyFieldErrors(error, stateResultBox(), {});
+      }
+    });
+  }
   $("#suitability-form").addEventListener("submit", (event) => {
     event.preventDefault();
     const values = collect("suit");
