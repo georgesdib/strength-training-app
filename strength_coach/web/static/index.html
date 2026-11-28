@@ -65,21 +65,31 @@
         </div>
       </details>
       <details class="nav-group">
-        <summary>Athlete</summary>
-        <div class="nav-group-items">
-          <button data-view="state">Overview</button>
-          <button data-view="state-symptoms">Symptoms &amp; injury</button>
-          <button data-view="state-limits">Constraints &amp; suitability</button>
-          <button data-view="state-profile">Profile</button>
-          <button data-view="state-metrics">e1RM &amp; tests</button>
-          <button data-view="state-events">Breaks &amp; block start</button>
-        </div>
-      </details>
-      <details class="nav-group">
         <summary>Administration</summary>
         <div class="nav-group-items">
+          <details class="nav-subgroup">
+            <summary>Athlete</summary>
+            <div class="nav-subgroup-items">
+              <button data-view="state">Overview</button>
+              <button data-view="state-symptoms">Symptoms &amp; injury</button>
+              <button data-view="state-limits">Constraints &amp; suitability</button>
+              <button data-view="state-profile">Profile</button>
+              <button data-view="state-metrics">e1RM &amp; tests</button>
+              <button data-view="state-events">Breaks &amp; block start</button>
+            </div>
+          </details>
+          <details class="nav-subgroup">
+            <summary>Settings</summary>
+            <div class="nav-subgroup-items">
+              <button data-view="settings">General</button>
+              <button data-view="settings-ios">iOS</button>
+              <button data-view="settings-training">Training defaults</button>
+              <button data-view="settings-resolver">Resolver</button>
+              <button data-view="settings-reports">Monitoring &amp; reports</button>
+              <button data-view="settings-profile">Profile &amp; cache</button>
+            </div>
+          </details>
           <button data-view="import">Import</button>
-          <button data-view="settings">Settings</button>
           <button data-view="logs">Logs</button>
           <button data-view="docs">Docs</button>
         </div>
@@ -1234,6 +1244,14 @@
     </section>
 
     <section id="view-settings" class="view">
+      <nav class="subnav" aria-label="Settings sections">
+        <a href="#settings" data-view-link="settings">General</a>
+        <a href="#settings-ios" data-view-link="settings-ios">iOS</a>
+        <a href="#settings-training" data-view-link="settings-training">Training defaults</a>
+        <a href="#settings-resolver" data-view-link="settings-resolver">Resolver</a>
+        <a href="#settings-reports" data-view-link="settings-reports">Monitoring &amp; reports</a>
+        <a href="#settings-profile" data-view-link="settings-profile">Profile &amp; cache</a>
+      </nav>
       <div class="panel">
         <div class="panel-head"><h2>Appearance</h2><span class="muted">this browser</span></div>
         <p class="section-help"><span>Stores the theme in this browser only.</span> <a class="doc-link" href="#docs?doc=docs/WEB-UI.md">Web UI</a></p>
@@ -1282,6 +1300,28 @@
           the file; if they do, the status says so.</p>
       </div>
 
+      <div class="panel">
+        <div class="panel-head"><h2>App</h2><span class="muted">local only</span></div>
+        <p class="section-help"><span>Shows local-only runtime and storage facts; no hosted service.</span> <a class="doc-link" href="#docs?doc=docs/WEB-UI.md">Web UI</a></p>
+        <p>Version <code id="settings-version">—</code></p>
+        <p>Database <code id="settings-database">—</code></p>
+        <p>LLM file <code id="settings-config-path">—</code></p>
+        <p class="muted">The server binds to <code>0.0.0.0</code> and has no authentication. Use it
+          only on the trusted home network; never expose it to the internet. Raw exports and the
+          database stay git-ignored.</p>
+      </div>
+    
+    </section>
+
+    <section id="view-settings-ios" class="view">
+      <nav class="subnav" aria-label="Settings sections">
+        <a href="#settings" data-view-link="settings">General</a>
+        <a href="#settings-ios" data-view-link="settings-ios">iOS</a>
+        <a href="#settings-training" data-view-link="settings-training">Training defaults</a>
+        <a href="#settings-resolver" data-view-link="settings-resolver">Resolver</a>
+        <a href="#settings-reports" data-view-link="settings-reports">Monitoring &amp; reports</a>
+        <a href="#settings-profile" data-view-link="settings-profile">Profile &amp; cache</a>
+      </nav>
       <div class="panel" id="settings-ios-panel">
         <div class="panel-head"><h2>iOS settings</h2>
           <span class="badge" id="settings-ios-status">loading…</span></div>
@@ -1303,6 +1343,17 @@
         </form>
       </div>
 
+    </section>
+
+    <section id="view-settings-training" class="view">
+      <nav class="subnav" aria-label="Settings sections">
+        <a href="#settings" data-view-link="settings">General</a>
+        <a href="#settings-ios" data-view-link="settings-ios">iOS</a>
+        <a href="#settings-training" data-view-link="settings-training">Training defaults</a>
+        <a href="#settings-resolver" data-view-link="settings-resolver">Resolver</a>
+        <a href="#settings-reports" data-view-link="settings-reports">Monitoring &amp; reports</a>
+        <a href="#settings-profile" data-view-link="settings-profile">Profile &amp; cache</a>
+      </nav>
       <div class="panel">
         <div class="panel-head"><h2>Prescribe defaults</h2><span class="muted">browser-only preferences</span></div>
         <p class="section-help"><span>Browser-only form preferences; they do not change server rules.</span> <a class="doc-link" href="#docs?doc=docs/WEB-UI.md">Web UI</a></p>
@@ -1340,30 +1391,23 @@
         </form>
       </div>
 
-      <div class="panel" id="settings-monitoring-panel">
-        <div class="panel-head"><h2>Monitoring &amp; reports</h2>
-          <span class="badge" id="settings-monitoring-meta">loading…</span></div>
-        <p class="section-help"><span>Read-only inventory of effective monitoring, calibration, prescription and volume parameters. Visible on the home network; no values are editable here.</span> <a class="doc-link" href="#docs?doc=docs/MONITORING-ANALYSIS.md">Configuration reference</a></p>
-        <details id="settings-monitoring-disclosure">
-          <summary id="settings-monitoring-summary">Show inventory</summary>
-          <p class="muted" id="settings-monitoring-phase"></p>
-          <div class="form-row">
-            <label class="grow">Search <input id="settings-monitoring-search" placeholder="parameter, value or source"></label>
-            <label>Group
-              <select id="settings-monitoring-group"><option value="">All groups</option></select>
-            </label>
-          </div>
-          <div id="settings-monitoring-groups"><p class="empty">Loading inventory…</p></div>
-          <p class="empty" id="settings-monitoring-empty" hidden>No matching parameters.</p>
-        </details>
-      </div>
-
       <div class="panel">
         <div class="panel-head"><h2>Modules</h2><span class="muted">metadata over existing flags</span></div>
         <p class="section-help"><span>Classes, dependencies and factor references; toggles delegate to the existing setting. Hard-safety entries are read-only; guarded changes need confirmation and a reason; selection is per session.</span> <a class="doc-link" href="#docs?doc=docs/archive/VOLUME-MODULATION-PLAN.md&amp;anchor=9-ui-cli-api">Modality controls</a></p>
         <div id="settings-modalities"></div>
       </div>
 
+    </section>
+
+    <section id="view-settings-resolver" class="view">
+      <nav class="subnav" aria-label="Settings sections">
+        <a href="#settings" data-view-link="settings">General</a>
+        <a href="#settings-ios" data-view-link="settings-ios">iOS</a>
+        <a href="#settings-training" data-view-link="settings-training">Training defaults</a>
+        <a href="#settings-resolver" data-view-link="settings-resolver">Resolver</a>
+        <a href="#settings-reports" data-view-link="settings-reports">Monitoring &amp; reports</a>
+        <a href="#settings-profile" data-view-link="settings-profile">Profile &amp; cache</a>
+      </nav>
       <div class="panel" id="settings-resolver-panel">
         <div class="panel-head"><h2>Resolver</h2>
           <span class="badge" id="resolver-status">loading…</span></div>
@@ -1444,6 +1488,46 @@
         </div>
       </div>
 
+    </section>
+
+    <section id="view-settings-reports" class="view">
+      <nav class="subnav" aria-label="Settings sections">
+        <a href="#settings" data-view-link="settings">General</a>
+        <a href="#settings-ios" data-view-link="settings-ios">iOS</a>
+        <a href="#settings-training" data-view-link="settings-training">Training defaults</a>
+        <a href="#settings-resolver" data-view-link="settings-resolver">Resolver</a>
+        <a href="#settings-reports" data-view-link="settings-reports">Monitoring &amp; reports</a>
+        <a href="#settings-profile" data-view-link="settings-profile">Profile &amp; cache</a>
+      </nav>
+      <div class="panel" id="settings-monitoring-panel">
+        <div class="panel-head"><h2>Monitoring &amp; reports</h2>
+          <span class="badge" id="settings-monitoring-meta">loading…</span></div>
+        <p class="section-help"><span>Read-only inventory of effective monitoring, calibration, prescription and volume parameters. Visible on the home network; no values are editable here.</span> <a class="doc-link" href="#docs?doc=docs/MONITORING-ANALYSIS.md">Configuration reference</a></p>
+        <details id="settings-monitoring-disclosure">
+          <summary id="settings-monitoring-summary">Show inventory</summary>
+          <p class="muted" id="settings-monitoring-phase"></p>
+          <div class="form-row">
+            <label class="grow">Search <input id="settings-monitoring-search" placeholder="parameter, value or source"></label>
+            <label>Group
+              <select id="settings-monitoring-group"><option value="">All groups</option></select>
+            </label>
+          </div>
+          <div id="settings-monitoring-groups"><p class="empty">Loading inventory…</p></div>
+          <p class="empty" id="settings-monitoring-empty" hidden>No matching parameters.</p>
+        </details>
+      </div>
+
+    </section>
+
+    <section id="view-settings-profile" class="view">
+      <nav class="subnav" aria-label="Settings sections">
+        <a href="#settings" data-view-link="settings">General</a>
+        <a href="#settings-ios" data-view-link="settings-ios">iOS</a>
+        <a href="#settings-training" data-view-link="settings-training">Training defaults</a>
+        <a href="#settings-resolver" data-view-link="settings-resolver">Resolver</a>
+        <a href="#settings-reports" data-view-link="settings-reports">Monitoring &amp; reports</a>
+        <a href="#settings-profile" data-view-link="settings-profile">Profile &amp; cache</a>
+      </nav>
       <div class="panel">
         <div class="panel-head"><h2>Settings profile</h2>
           <span class="badge" id="settings-profile-meta">loading…</span></div>
@@ -1476,16 +1560,6 @@
           are not touched.</p>
       </div>
 
-      <div class="panel">
-        <div class="panel-head"><h2>App</h2><span class="muted">local only</span></div>
-        <p class="section-help"><span>Shows local-only runtime and storage facts; no hosted service.</span> <a class="doc-link" href="#docs?doc=docs/WEB-UI.md">Web UI</a></p>
-        <p>Version <code id="settings-version">—</code></p>
-        <p>Database <code id="settings-database">—</code></p>
-        <p>LLM file <code id="settings-config-path">—</code></p>
-        <p class="muted">The server binds to <code>0.0.0.0</code> and has no authentication. Use it
-          only on the trusted home network; never expose it to the internet. Raw exports and the
-          database stay git-ignored.</p>
-      </div>
     </section>
 
     <section id="view-logs" class="view">

@@ -66,6 +66,11 @@ const VIEW_LOADERS = {
     loadState();
   },
   settings: () => loadSettings(),
+  "settings-ios": () => loadSettings(),
+  "settings-training": () => loadSettings(),
+  "settings-resolver": () => loadSettings(),
+  "settings-reports": () => loadSettings(),
+  "settings-profile": () => loadSettings(),
   explain: () => { loadExplainStatus(); loadExplainSettings(); },
   history: () => loadHistory(),
   progress: () => loadProgressOverview(),
@@ -84,8 +89,9 @@ function setView(name, options = {}) {
   document.querySelectorAll(".view").forEach((v) => {
     v.classList.toggle("active", v.id === "view-" + name);
   });
-  const activeGroup = [...document.querySelectorAll("#nav button")]
-    .find((button) => button.dataset.view === name)?.closest(".nav-group");
+  const activeButton = [...document.querySelectorAll("#nav button")]
+    .find((button) => button.dataset.view === name);
+  const activeGroup = activeButton?.closest(".nav-group");
   document.querySelectorAll("#nav .nav-group").forEach((group) => {
     group.open = group === activeGroup;
     const summary = group.querySelector(":scope > summary");
@@ -98,6 +104,16 @@ function setView(name, options = {}) {
     link.classList.toggle("active", active);
     if (active) link.setAttribute("aria-current", "page");
     else link.removeAttribute("aria-current");
+  });
+  // A nested submenu opens to show the active page, and keeps a visible marker when its
+  // parent group is collapsed.
+  document.querySelectorAll("#nav .nav-subgroup").forEach((subgroup) => {
+    const active = activeButton ? subgroup.contains(activeButton) : false;
+    if (active) subgroup.open = true;
+    const summary = subgroup.querySelector(":scope > summary");
+    if (!summary) return;
+    if (active) summary.setAttribute("aria-current", "location");
+    else summary.removeAttribute("aria-current");
   });
   const loader = VIEW_LOADERS[name];
   if (loader) loader(options);

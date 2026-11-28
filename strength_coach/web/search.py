@@ -15,6 +15,7 @@ import html
 import re
 import threading
 from dataclasses import dataclass
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 
@@ -62,14 +63,6 @@ _WORD = re.compile(r"[a-z0-9]+")
 _NON_ID = re.compile(r"[^A-Za-z0-9_-]")
 
 _NAV = re.compile(r'<nav id="nav"[^>]*>(?P<body>.*?)</nav>', re.S)
-_NAV_GROUP = re.compile(
-    r'<details class="nav-group"[^>]*>\s*<summary>(?P<group>.*?)</summary>'
-    r"(?P<body>.*?)</details>",
-    re.S,
-)
-_NAV_BUTTON = re.compile(
-    r'<button data-view="(?P<view>[^"]+)"[^>]*>(?P<label>.*?)</button>', re.S
-)
 _SECTION = re.compile(r'<section id="view-(?P<view>[a-z0-9-]+)"[^>]*>')
 _PANEL = re.compile(r'<div class="(?P<classes>panel(?:\s[^"]*)?)"(?P<attrs>[^>]*)>')
 _PANEL_ID = re.compile(r'id="(?P<id>[^"]+)"')
@@ -125,22 +118,63 @@ def _clean(fragment: str) -> str:
     return _SPACE.sub(" ", html.unescape(_TAG.sub(" ", fragment))).strip()
 
 
+class _NavParser(HTMLParser):
+    """Collect nav buttons with the label of their nearest enclosing summary.
+
+    Why not a regex: the Administration group nests Athlete and Settings as submenus, and a
+    non-greedy `<details>.*?</details>` match stops at the first closing tag, silently losing
+    every button after it. This walker keeps a stack, so nesting is just a deeper label.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self._details: list[str] = []
+        self._summary: list[str] | None = None
+        self._button: dict[str, Any] | None = None
+        self.entries: dict[str, tuple[str, str]] = {}
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attributes = dict(attrs)
+        if tag == "details":
+            self._details.append("")
+        elif tag == "summary":
+            self._summary = []
+        elif tag == "button" and attributes.get("data-view"):
+            self._button = {"view": str(attributes["data-view"]), "text": []}
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "details":
+            if self._details:
+                self._details.pop()
+        elif tag == "summary":
+            if self._summary is not None and self._details:
+                self._details[-1] = " ".join("".join(self._summary).split())
+            self._summary = None
+        elif tag == "button" and self._button is not None:
+            label = " ".join("".join(self._button["text"]).split())
+            group = next((item for item in reversed(self._details) if item), "Home")
+            self.entries[str(self._button["view"])] = (label, group)
+            self._button = None
+
+    def handle_data(self, data: str) -> None:
+        if self._summary is not None:
+            self._summary.append(data)
+        if self._button is not None:
+            self._button["text"].append(data)
+
+
 def _nav_entries(text: str) -> dict[str, tuple[str, str]]:
-    """Map a view id to its nav label and group."""
+    """Map a view id to its nav label and nearest enclosing group."""
     block = _NAV.search(text)
     if block is None:
         return {}
-    body = block.group("body")
-    entries: dict[str, tuple[str, str]] = {}
-    first_group = _NAV_GROUP.search(body)
-    head = body[: first_group.start()] if first_group else body
-    for match in _NAV_BUTTON.finditer(head):
-        entries[match.group("view")] = (_clean(match.group("label")), "Home")
-    for group_match in _NAV_GROUP.finditer(body):
-        group = _clean(group_match.group("group"))
-        for match in _NAV_BUTTON.finditer(group_match.group("body")):
-            entries[match.group("view")] = (_clean(match.group("label")), group)
-    return entries
+    parser = _NavParser()
+    parser.feed(block.group("body"))
+    parser.close()
+    return {
+        view: (_clean(label), _clean(group))
+        for view, (label, group) in parser.entries.items()
+    }
 
 
 def _view_entries(text: str) -> list[Entry]:
@@ -226,11 +260,14 @@ def _section_entries(
         if not target:
             following = _ANY_ID.search(slice_[head.end():])
             target = following.group("id") if following else fallback
+        # Do not repeat a page name that is also the panel's own heading (Settings → Resolver
+        # holds a panel also called Resolver).
+        subtitle = label if label == panel_title else label + " · " + panel_title
         entries.append(
             Entry(
                 kind="panel",
                 title=title,
-                subtitle=label + " · " + panel_title,
+                subtitle=subtitle,
                 view=view,
                 target=target,
                 body=body,
@@ -365,7 +402,7 @@ ACTION_TARGETS = (
     {
         "title": "Rate resolver generation suggestions",
         "subtitle": "Settings · Resolver",
-        "view": "settings",
+        "view": "settings-resolver",
         "target": "settings-resolver-preview",
         "body": "rate suggestions can-do, will-not-do or feels-bad before starting a workout",
     },
@@ -394,7 +431,8 @@ def _setting_entries() -> list[Entry]:
                 kind="setting",
                 title=setting.label,
                 subtitle="Settings · " + setting.group,
-                view="settings",
+                # Every profile field lives in the Settings → Profile & cache sub-page.
+                view="settings-profile",
                 target="profile-" + _NON_ID.sub("-", setting.key),
                 body=setting.description,
             )

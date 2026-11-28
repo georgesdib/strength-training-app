@@ -86,11 +86,11 @@ def test_dwell_prefers_a_dwell_labelled_setting(entries):
         ("where do I log a set?", {"workout"}),
         ("where do I edit a past session?", {"history"}),
         ("where do I configure relative strength ratios?", {"performance"}),
-        ("where do I rate resolver suggestions?", {"settings"}),
+        ("where do I rate resolver suggestions?", {"settings-resolver"}),
         ("where do I change the readiness baseline?", {"readiness"}),
         ("where do I import a CSV?", {"import", "workout"}),
         ("where do I log a symptom before training?", {"state-symptoms"}),
-        ("where do I see the resolver generation preview?", {"settings"}),
+        ("where do I see the resolver generation preview?", {"settings-resolver"}),
     ],
 )
 def test_realistic_questions_land_in_the_expected_view(entries, question, views):
@@ -121,7 +121,7 @@ def test_the_dwell_counter_question_finds_the_resolver_section(entries):
     sections = [entry for entry, _ in results if entry.title == "Dwell counters"]
     assert sections
     assert sections[0].target.startswith("settings-dwell")
-    assert sections[0].subtitle == "Settings · Resolver"
+    assert sections[0].subtitle == "Resolver"
 
 
 def test_layout_words_do_not_hide_a_result(entries):
@@ -233,3 +233,57 @@ def test_athlete_is_split_into_wired_subsections():
     assert "appendChild(panel)" not in script
     # The workout deep link must land on the form, not on the overview.
     assert 'setView("state-symptoms")' in script
+
+def test_settings_is_split_into_wired_subsections():
+    text = INDEX_HTML.read_text(encoding="utf-8")
+    views = re.findall(r'<section id="view-(settings[a-z-]*)"', text)
+    assert views == [
+        "settings", "settings-ios", "settings-training",
+        "settings-resolver", "settings-reports", "settings-profile",
+    ]
+    nav = re.search(r"<summary>Settings</summary>(.*?)</details>", text, re.S)
+    assert nav is not None
+    assert re.findall(r'data-view="([a-z-]+)"', nav.group(1)) == views
+    for view in views:
+        section = text.split(f'<section id="view-{view}"', 1)[1].split("</section>", 1)[0]
+        assert 'class="subnav"' in section, view
+    # Re-homed, never lost: every panel heading appears exactly once across the six pages.
+    joined = "".join(
+        text.split(f'<section id="view-{view}"', 1)[1].split("</section>", 1)[0]
+        for view in views
+    )
+    for heading in (
+        "Appearance", "Language model", "iOS settings", "Prescribe defaults",
+        "Volume budget", "Monitoring &amp; reports", "Modules", "Resolver",
+        "Settings profile", "Programme cache", "App",
+    ):
+        assert joined.count(f"<h2>{heading}</h2>") == 1, heading
+
+
+def test_administration_nests_athlete_and_settings():
+    text = INDEX_HTML.read_text(encoding="utf-8")
+    admin = re.search(r"<summary>Administration</summary>(.*?)</nav>", text, re.S)
+    assert admin is not None
+    body = admin.group(1)
+    assert body.count('class="nav-subgroup"') == 2
+    assert "<summary>Athlete</summary>" in body
+    assert "<summary>Settings</summary>" in body
+    for view in ("import", "logs", "docs"):
+        assert f'data-view="{view}"' in body
+
+
+def test_every_indexed_view_is_a_real_section(entries):
+    # A palette result that navigates to a view id with no section would silently do nothing.
+    text = INDEX_HTML.read_text(encoding="utf-8")
+    views = set(re.findall(r'<section id="view-([a-z0-9-]+)"', text))
+    # Doc entries carry no view; every surface entry must name a real section.
+    assert {entry.view for entry in entries if entry.view} <= views
+
+def test_every_nav_and_subnav_link_has_a_section():
+    # A nav button or sub-navigation link that names no section silently does nothing.
+    text = INDEX_HTML.read_text(encoding="utf-8")
+    views = set(re.findall(r'<section id="view-([a-z0-9-]+)"', text))
+    nav = re.search(r'<nav id="nav".*?</nav>', text, re.S)
+    assert nav is not None
+    assert set(re.findall(r'data-view="([a-z0-9-]+)"', nav.group(0))) <= views
+    assert set(re.findall(r'data-view-link="([a-z0-9-]+)"', text)) <= views
