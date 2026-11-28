@@ -21,7 +21,7 @@ from conftest import make_readiness, make_training
 
 from strength_coach import ios_config
 from strength_coach.features.deload import DeloadDecision
-from strength_coach.store import db, importer, ios_devices, ios_workflow
+from strength_coach.store import db, importer, ios_devices, ios_workflow, queries
 from strength_coach.web import ios_plan_worker
 from strength_coach.web import server as web_server
 from strength_coach.web.server import create_server
@@ -789,24 +789,132 @@ def test_prescription_issue_requires_idempotency_and_rejects_unknown_fields(ios)
     assert "readiness_ack" in body["fields"]
 
 
-def test_scheduled_deload_and_drop_require_confirmation(ios, monkeypatch):
+def test_scheduled_deload_defer_is_persisted_and_frozen_into_the_issued_plan(
+    ios, monkeypatch,
+):
     token, _ = _paired(ios)
+    event = DeloadDecision(
+        reason="test scheduled deload",
+        trigger="scheduled",
+        block_week=6,
+        event_id="scheduled:2026-01-01:2026-02-05",
+        schedule_anchor="2026-01-01",
+        window_starts_on="2026-02-05",
+        window_ends_on="2026-02-11",
+    )
+    def scheduled_decision(conn, *args, **kwargs):
+        stored = queries.latest_scheduled_deload_decision(conn, event.event_id)
+        return DeloadDecision(
+            reason=event.reason,
+            trigger=event.trigger,
+            block_week=event.block_week,
+            event_id=event.event_id,
+            schedule_anchor=event.schedule_anchor,
+            window_starts_on=event.window_starts_on,
+            window_ends_on=event.window_ends_on,
+            owner_decision=stored["decision"] if stored else None,
+            owner_decision_id=(
+                int(stored["decision_id"]) if stored else None
+            ),
+        )
     monkeypatch.setattr(
         web_server.deload_feature,
         "scheduled_decision",
-        lambda *args, **kwargs: DeloadDecision(
-            reason="test scheduled deload", trigger="scheduled", block_week=1
-        ),
+        scheduled_decision,
     )
     status, body = _issue(ios, token)
     assert status == 409, body
     assert body["code"] == "confirmation_required"
-    assert "deload" in body["details"]
+    assert "scheduled_deload" in body["details"]
     assert int(_scalar(ios["path"], "SELECT COUNT(*) FROM ios_issued_plan")) == 0
 
-    status, body = _issue(ios, token, body={"confirmations": {"deload": False}})
+    decision_body = {
+        "scheduled_deload_decision": {
+            "event_id": event.event_id,
+            "decision": "defer",
+            "expected_decision_id": None,
+        },
+    }
+    key = uuid.uuid4().hex
+    status, body = _issue(ios, token, key=key, body=decision_body)
     assert status == 200, body
+    assert "deload" not in body["plan"]["notes"]
+    stored = _row(
+        ios["path"],
+        "SELECT decision_id, decision, consumed_by_issuance_id, "
+        "reconsider_after_issuance_id "
+        "FROM scheduled_deload_decision",
+    )
+    assert stored["decision"] == "deferred"
+    assert stored["consumed_by_issuance_id"] == body["issued_plan_id"]
+    assert stored["reconsider_after_issuance_id"] == body["issued_plan_id"]
+    build_inputs = json.loads(_row(
+        ios["path"],
+        "SELECT build_inputs_json FROM ios_issued_plan WHERE issued_plan_id = ?",
+        (body["issued_plan_id"],),
+    )["build_inputs_json"])
+    assert build_inputs["scheduled_deload"]["owner_decision"] == "deferred"
 
+    status, body = _issue(ios, token)
+    assert status == 409, body
+    assert body["details"]["scheduled_deload"]["decision_id"] == stored["decision_id"]
+
+    decision_body["scheduled_deload_decision"]["decision"] = "accept"
+    decision_body["scheduled_deload_decision"]["expected_decision_id"] = (
+        stored["decision_id"]
+    )
+    status, accepted = _issue(
+        ios, token, key=uuid.uuid4().hex, body=decision_body
+    )
+    assert status == 200, accepted
+    assert accepted["plan"]["notes"]["deload"]["trigger"] == "scheduled"
+    accepted_inputs = json.loads(_row(
+        ios["path"],
+        "SELECT build_inputs_json FROM ios_issued_plan WHERE issued_plan_id = ?",
+        (accepted["issued_plan_id"],),
+    )["build_inputs_json"])
+    assert accepted_inputs["scheduled_deload"]["owner_decision"] == "accepted"
+
+
+def test_reactive_deload_does_not_wait_for_scheduled_confirmation(ios, monkeypatch):
+    token, _ = _paired(ios)
+    scheduled = DeloadDecision(
+        reason="test scheduled deload",
+        trigger="scheduled",
+        block_week=6,
+        event_id="scheduled:2026-01-01:2026-02-05",
+        schedule_anchor="2026-01-01",
+        window_starts_on="2026-02-05",
+        window_ends_on="2026-02-11",
+    )
+    reactive = DeloadDecision(
+        reason="test reactive deload",
+        trigger="reactive",
+        block_week=6,
+    )
+    monkeypatch.setattr(
+        web_server.deload_feature,
+        "scheduled_decision",
+        lambda *args, **kwargs: scheduled,
+    )
+    monkeypatch.setattr(
+        web_server.deload_feature,
+        "reactive_decision",
+        lambda *args, **kwargs: reactive,
+    )
+
+    status, body = _issue(ios, token)
+    assert status == 200, body
+    assert body["plan"]["notes"]["deload"]["trigger"] == "reactive"
+
+
+def test_drop_confirmation_is_independent_of_deload_confirmation(ios, monkeypatch):
+    token, _ = _paired(ios)
+    monkeypatch.setattr(
+        web_server.deload_feature,
+        "scheduled_decision",
+        lambda *args, **kwargs: None,
+    )
     monkeypatch.setattr(
         web_server.Handler,
         "_drop_confirmation_window",
@@ -817,48 +925,8 @@ def test_scheduled_deload_and_drop_require_confirmation(ios, monkeypatch):
     status, body = _issue(ios, token)
     assert status == 409, body
     assert "drop" in body["details"]
-    status, body = _issue(
-        ios, token, body={"confirmations": {"deload": False, "drop": False}}
-    )
+    status, body = _issue(ios, token, body={"confirmations": {"drop": False}})
     assert status == 200, body
-
-
-def test_ios_postpones_scheduled_deload_with_idempotent_request(ios):
-    token, _ = _paired(ios)
-    today_date = datetime.date.fromisoformat(ios["today"])
-    anchor = (today_date - datetime.timedelta(weeks=5)).isoformat()
-    postponed_until = (today_date + datetime.timedelta(days=35)).isoformat()
-    status, profile = _request(
-        ios["base"], "/api/state/profile", method="POST",
-        payload={"effective_from": anchor, "block_start_date": anchor},
-    )
-    assert status == 200, profile
-
-    payload = {
-        "postponed_until": postponed_until,
-        "operation_id": "ios-deload-postpone-test",
-    }
-    key = str(uuid.uuid4())
-    status, body = _request(
-        ios["base"], "/api/ios/v1/deload/postpone", method="POST",
-        payload=payload, token=token, key=key,
-    )
-    assert status == 200, body
-    assert body["postponed_until"] == postponed_until
-    assert body["window_ends_on"] == (
-        datetime.date.fromisoformat(postponed_until) + datetime.timedelta(days=6)
-    ).isoformat()
-
-    replay_status, replay = _request(
-        ios["base"], "/api/ios/v1/deload/postpone", method="POST",
-        payload=payload, token=token, key=key,
-    )
-    assert replay_status == 200, replay
-    assert replay == body
-    assert _scalar(
-        ios["path"],
-        "SELECT COUNT(*) FROM scheduled_deload_postponement",
-    ) == 1
 
 
 # --- start -----------------------------------------------------------------

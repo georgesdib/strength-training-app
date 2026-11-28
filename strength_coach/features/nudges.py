@@ -107,7 +107,12 @@ def _programme_nudge(conn, *, on_date: str) -> dict[str, Any] | None:
     deload = header.get("deload") or {}
     if deload.get("status") == "suggested":
         week = deload.get("calendar_week")
-        evidence_id = f"programme:deload:{week if week is not None else 'unknown'}"
+        event_id = deload.get("event_id")
+        evidence_id = (
+            f"programme:deload:{event_id}"
+            if event_id else
+            f"programme:deload:{week if week is not None else 'unknown'}"
+        )
         statement = (
             f"A scheduled deload is due (block week {week}). Review whether to take it."
             if week is not None
@@ -122,6 +127,7 @@ def _programme_nudge(conn, *, on_date: str) -> dict[str, Any] | None:
                 "calendar_week": week,
                 "trigger": deload.get("trigger"),
                 "reason": deload.get("reason"),
+                "event_id": event_id,
             },
             limitations=("A policy suggestion, not a measured requirement.",),
         )

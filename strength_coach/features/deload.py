@@ -16,11 +16,11 @@ from strength_coach.domain.symptoms import flare_from
 from strength_coach.features import breaks as breaks_feature
 from strength_coach.features import injury_signal
 from strength_coach.rules import History, RuleContext, evaluate, load_document
-from strength_coach.store import db, queries, repositories
+from strength_coach.store import queries, repositories
 from strength_coach.utils import exercises, paths, yaml_files
 
 
-class DeloadPostponementError(ValueError):
+class ScheduledDeloadDecisionError(ValueError):
     def __init__(self, message: str, *, code: str, status: int) -> None:
         super().__init__(message)
         self.code = code
@@ -87,6 +87,13 @@ class DeloadDecision:
     exercise_ids: tuple[str, ...] = ()
     evidence: tuple[dict, ...] = ()
     policy: str = ""
+    event_id: str | None = None
+    schedule_anchor: str | None = None
+    window_starts_on: str | None = None
+    window_ends_on: str | None = None
+    owner_decision: str | None = None
+    owner_decision_id: int | None = None
+    owner_decided_on: str | None = None
 
     def applies_to(self, exercise_id: str) -> bool:
         """Whether this decision may change one prescription item."""
@@ -95,10 +102,31 @@ class DeloadDecision:
         return exercise_id in self.exercise_ids
 
 
+def deferral_reconsiderable(
+    scheduled: DeloadDecision | None, on_date: str,
+) -> bool:
+    """A deferral covers the issuance that recorded it, so a later day asks again.
+
+    The deferral's own day stays quiet: the athlete answered minutes ago. Both callers that
+    present the choice (prescription issuance and the programme header) use this rule, so the
+    header never looks actionable while issuance would stay silent, or the reverse.
+    """
+    return (
+        scheduled is not None
+        and scheduled.owner_decision == "deferred"
+        and (scheduled.owner_decided_on or "") < str(on_date)[:10]
+    )
+
+
 def scheduled_reason(conn, as_of: str, *, config: DeloadConfig | None = None) -> str | None:
     """Return a reason when `as_of` falls in a scheduled deload week, else None."""
     cfg = config or DeloadConfig.load()
-    if not cfg.enabled or not cfg.scheduled_enabled:
+    event = _scheduled_event_context(conn, as_of, cfg)
+    return event["reason"] if event is not None else None
+
+
+def _scheduled_event_context(conn, as_of: str, config: DeloadConfig) -> dict | None:
+    if not config.enabled or not config.scheduled_enabled:
         return None
     profile = queries.athlete_profile(conn) or {}
     anchor_raw = profile.get("block_start_date")
@@ -122,117 +150,117 @@ def scheduled_reason(conn, as_of: str, *, config: DeloadConfig | None = None) ->
             latest_end = end
     if latest_end is not None:
         anchor = latest_end + dt.timedelta(days=1)
+
     postponed = queries.latest_scheduled_deload_postponement(
         conn, as_of=current.isoformat()
     )
+    postponed_until = None
     if postponed is not None:
         recorded_on = dt.date.fromisoformat(postponed["recorded_on"])
         if latest_end is None or recorded_on > latest_end:
             postponed_until = dt.date.fromisoformat(postponed["postponed_until"])
-            anchor = postponed_until - dt.timedelta(weeks=cfg.every_weeks - 1)
-            return _scheduled_reason_for_anchor(
-                current, anchor, cfg, postponed_until=postponed_until
-            )
-    return _scheduled_reason_for_anchor(current, anchor, cfg)
+            anchor = postponed_until - dt.timedelta(weeks=config.every_weeks - 1)
 
-
-def _scheduled_reason_for_anchor(
-    current: dt.date,
-    anchor: dt.date,
-    config: DeloadConfig,
-    *,
-    postponed_until: dt.date | None = None,
-) -> str | None:
     week = (current - anchor).days // 7 + 1
     if week < 1 or week % config.every_weeks != 0:
         return None
-    if postponed_until is not None:
-        return (
-            f"scheduled deload (postponed window starting {postponed_until}; "
-            f"every {config.every_weeks} weeks)"
-        )
-    return (
-        f"scheduled deload (block week {week}; every {config.every_weeks} weeks)"
+    occurrence = week // config.every_weeks
+    window_start = anchor + dt.timedelta(
+        weeks=(occurrence * config.every_weeks) - 1
     )
+    window_end = window_start + dt.timedelta(days=6)
+    reason = (
+        f"scheduled deload (postponed window starting {postponed_until}; "
+        f"every {config.every_weeks} weeks)"
+        if postponed_until is not None and current >= postponed_until
+        else f"scheduled deload (block week {week}; every {config.every_weeks} weeks)"
+    )
+    return {
+        "reason": reason,
+        "block_week": week,
+        "schedule_anchor": anchor,
+        "window_starts_on": window_start,
+        "window_ends_on": window_end,
+        "event_id": f"scheduled:{anchor.isoformat()}:{window_start.isoformat()}",
+    }
 
 
-def postpone_scheduled(
+def record_scheduled_decision(
     conn,
     *,
-    as_of: str,
-    recorded_on: str | None = None,
-    postponed_until: str,
+    event: DeloadDecision,
+    decision: str,
+    expected_decision_id: int | None,
     operation_id: str,
-    config: DeloadConfig | None = None,
-) -> dict:
-    """Append a schedule re-anchor; the chosen date starts a seven-day due window."""
-    current = _strict_date(as_of, "as_of")
-    recorded = _strict_date(recorded_on or as_of, "recorded_on")
-    target = _strict_date(postponed_until, "postponed_until")
+    issuance_id: str,
+    decided_at: str,
+) -> int:
+    choice_map = {"accept": "accepted", "defer": "deferred", "dismiss": "dismissed"}
+    persisted = choice_map.get(decision) if isinstance(decision, str) else None
+    if persisted is None:
+        raise ScheduledDeloadDecisionError(
+            "decision must be accept, defer, or dismiss",
+            code="validation_failed",
+            status=400,
+        )
     operation = operation_id.strip() if isinstance(operation_id, str) else ""
     if not operation or len(operation) > 128 or not operation.isascii():
-        raise DeloadPostponementError(
+        raise ScheduledDeloadDecisionError(
             "operation_id must be 1-128 ASCII characters",
             code="validation_failed",
             status=400,
         )
-    if target <= max(current, recorded):
-        raise DeloadPostponementError(
-            "postponed_until must be after today and the scheduled date",
-            code="validation_failed",
-            status=400,
+    if not event.event_id or not event.schedule_anchor or not event.window_starts_on \
+            or not event.window_ends_on:
+        raise ScheduledDeloadDecisionError(
+            "scheduled deload event is incomplete",
+            code="deload_event_changed",
+            status=409,
         )
-    cfg = config or DeloadConfig.load()
-    with db.transaction(conn):
-        existing = queries.scheduled_deload_postponement_by_operation(
-            conn, operation
-        )
-        if existing is not None:
-            if existing["postponed_until"] != target.isoformat():
-                raise DeloadPostponementError(
-                    "operation_id was already used for a different postponement",
-                    code="idempotency_conflict",
-                    status=409,
-                )
-            return _postponement_response(target)
-        if scheduled_reason(conn, current.isoformat(), config=cfg) is None:
-            raise DeloadPostponementError(
-                "no scheduled deload is due today",
-                code="deload_not_due",
+    existing_operation = queries.scheduled_deload_decision_by_operation(
+        conn, operation
+    )
+    if existing_operation is not None:
+        if (
+            existing_operation["event_id"] != event.event_id
+            or existing_operation["decision"] != persisted
+        ):
+            raise ScheduledDeloadDecisionError(
+                "operation_id was already used for a different deload decision",
+                code="idempotency_conflict",
                 status=409,
             )
-        repositories.append_scheduled_deload_postponement(
-            conn,
-            operation_id=operation,
-            recorded_on=recorded.isoformat(),
-            postponed_until=target.isoformat(),
+        return int(existing_operation["decision_id"])
+
+    latest = queries.latest_scheduled_deload_decision(conn, event.event_id)
+    latest_id = int(latest["decision_id"]) if latest else None
+    if latest_id != expected_decision_id:
+        raise ScheduledDeloadDecisionError(
+            "the scheduled-deload decision changed; refresh and try again",
+            code="decision_changed",
+            status=409,
         )
-    return _postponement_response(target)
-
-
-def _postponement_response(target: dt.date) -> dict:
-    return {
-        "postponed_until": target.isoformat(),
-        "window_ends_on": (target + dt.timedelta(days=6)).isoformat(),
-    }
-
-
-def _strict_date(value: str, field: str) -> dt.date:
-    try:
-        parsed = dt.date.fromisoformat(str(value))
-    except (TypeError, ValueError) as exc:
-        raise DeloadPostponementError(
-            f"{field} must be YYYY-MM-DD",
-            code="validation_failed",
-            status=400,
-        ) from exc
-    if parsed.isoformat() != value:
-        raise DeloadPostponementError(
-            f"{field} must be YYYY-MM-DD",
-            code="validation_failed",
-            status=400,
+    if latest is not None and latest["decision"] in {"accepted", "dismissed"}:
+        raise ScheduledDeloadDecisionError(
+            "this scheduled deload already has a final decision",
+            code="decision_already_final",
+            status=409,
         )
-    return parsed
+
+    return repositories.append_scheduled_deload_decision(
+        conn,
+        event_id=event.event_id,
+        schedule_anchor=event.schedule_anchor,
+        window_starts_on=event.window_starts_on,
+        window_ends_on=event.window_ends_on,
+        decision=persisted,
+        decided_at=decided_at,
+        operation_id=operation,
+        consumed_by_issuance_id=issuance_id,
+        reconsider_after_issuance_id=(
+            issuance_id if persisted == "deferred" else None
+        ),
+    )
 
 
 def reactive_reason(
@@ -442,12 +470,52 @@ def local_decision(
 
 def scheduled_decision(
     conn, as_of: str, *, config: DeloadConfig | None = None,
+    include_deferred: bool = False,
 ) -> DeloadDecision | None:
-    """Return the scheduled-deload suggestion for one date, without applying it."""
-    reason = scheduled_reason(conn, as_of, config=config)
-    if reason is None:
+    """Return the scheduled-deload event and its persisted owner decision, if any."""
+    event = _scheduled_event_context(conn, as_of, config or DeloadConfig.load())
+    pending_deferral = (
+        queries.latest_pending_scheduled_deload_deferral(conn)
+        if include_deferred else None
+    )
+    if pending_deferral is not None and event is None:
+        # The deferred window is over and nothing new is due: present it again at this issuance.
+        # A newly due block wins instead, because a new block is a new independent decision.
+        event = {
+            "reason": (
+                "scheduled deload (deferred; window "
+                f"{pending_deferral['window_starts_on']} to "
+                f"{pending_deferral['window_ends_on']})"
+            ),
+            "block_week": None,
+            "schedule_anchor": dt.date.fromisoformat(
+                pending_deferral["schedule_anchor"]
+            ),
+            "window_starts_on": dt.date.fromisoformat(
+                pending_deferral["window_starts_on"]
+            ),
+            "window_ends_on": dt.date.fromisoformat(
+                pending_deferral["window_ends_on"]
+            ),
+            "event_id": pending_deferral["event_id"],
+        }
+        stored = pending_deferral
+    elif event is None:
         return None
-    return DeloadDecision(reason, "scheduled", block_week=_block_week(conn, as_of))
+    else:
+        stored = queries.latest_scheduled_deload_decision(conn, event["event_id"])
+    return DeloadDecision(
+        reason=event["reason"],
+        trigger="scheduled",
+        block_week=event["block_week"],
+        event_id=event["event_id"],
+        schedule_anchor=event["schedule_anchor"].isoformat(),
+        window_starts_on=event["window_starts_on"].isoformat(),
+        window_ends_on=event["window_ends_on"].isoformat(),
+        owner_decision=stored["decision"] if stored else None,
+        owner_decision_id=int(stored["decision_id"]) if stored else None,
+        owner_decided_on=str(stored["decided_at"])[:10] if stored else None,
+    )
 
 
 def reactive_decision(

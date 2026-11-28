@@ -62,6 +62,12 @@ def _decision_from(data: Any):
         reason=str(data.get("reason") or ""),
         trigger=str(data.get("trigger") or ""),
         block_week=data.get("block_week"),
+        event_id=data.get("event_id"),
+        schedule_anchor=data.get("schedule_anchor"),
+        window_starts_on=data.get("window_starts_on"),
+        window_ends_on=data.get("window_ends_on"),
+        owner_decision=data.get("owner_decision"),
+        owner_decision_id=data.get("owner_decision_id"),
     )
 
 
@@ -76,18 +82,20 @@ def build_plan(conn, row) -> tuple[str, str, str | None]:
         if requested in ("", "auto") else requested
     )
 
-    # The deload decisions are date-based, so re-deriving them a few seconds after the request
-    # is the same decision the handler validated. The client's confirmations are stored in
-    # build_inputs_json rather than re-asked.
+    # Reactive decisions remain automatic and are re-evaluated. Scheduled decisions are frozen
+    # into the request so a later owner choice cannot change a plan already being built.
     resolved = settings_profile.feature_settings(conn, for_date)
     reactive = deload_feature.reactive_decision(conn, for_date, config=resolved.deload)
-    scheduled = deload_feature.scheduled_decision(conn, for_date, config=resolved.deload)
+    scheduled_snapshot = inputs.get("scheduled_deload")
+    scheduled = _decision_from(scheduled_snapshot)
     deload_decision = reactive
-    if deload_decision is None and scheduled is not None and inputs.get("deload_confirmed"):
+    if (
+        deload_decision is None
+        and scheduled is not None
+        and scheduled.owner_decision == "accepted"
+    ):
         deload_decision = scheduled
-    scheduled_suggestion = (
-        scheduled if scheduled is not None and deload_decision is None else None
-    )
+    scheduled_suggestion = None
 
     target_minutes = settings.get("minimum_target_minutes")
     prescription = build_prescription(

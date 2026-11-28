@@ -855,21 +855,32 @@ def append_declared_break(
     return int(cursor.lastrowid)
 
 
-def append_scheduled_deload_postponement(
+def append_scheduled_deload_decision(
     conn: sqlite3.Connection,
     *,
+    event_id: str,
+    schedule_anchor: str,
+    window_starts_on: str,
+    window_ends_on: str,
+    decision: str,
+    decided_at: str,
     operation_id: str,
-    recorded_on: str,
-    postponed_until: str,
+    consumed_by_issuance_id: str,
+    reconsider_after_issuance_id: str | None,
 ) -> int:
-    """Append one idempotent request's scheduled-deload re-anchor."""
     cursor = conn.execute(
         """
-        INSERT INTO scheduled_deload_postponement
-            (operation_id, recorded_on, postponed_until)
-        VALUES (?, ?, ?)
+        INSERT INTO scheduled_deload_decision (
+            event_id, schedule_anchor, window_starts_on, window_ends_on,
+            decision, decided_at, operation_id, consumed_by_issuance_id,
+            reconsider_after_issuance_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (operation_id, recorded_on, postponed_until),
+        (
+            event_id, schedule_anchor, window_starts_on, window_ends_on,
+            decision, decided_at, operation_id, consumed_by_issuance_id,
+            reconsider_after_issuance_id,
+        ),
     )
     return int(cursor.lastrowid)
 

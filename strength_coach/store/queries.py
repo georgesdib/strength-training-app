@@ -523,6 +523,35 @@ def latest_region_symptom(conn, on_or_before: str, *, region: str) -> dict | Non
     return dict(row) if row is not None else None
 
 
+def latest_scheduled_deload_decision(conn, event_id: str) -> dict | None:
+    row = conn.execute(
+        "SELECT * FROM scheduled_deload_decision WHERE event_id = ? "
+        "ORDER BY decision_id DESC LIMIT 1",
+        (str(event_id),),
+    ).fetchone()
+    return dict(row) if row is not None else None
+
+
+def latest_pending_scheduled_deload_deferral(conn) -> dict | None:
+    row = conn.execute(
+        "SELECT decision.* FROM scheduled_deload_decision AS decision "
+        "WHERE decision.decision = 'deferred' AND NOT EXISTS ("
+        "SELECT 1 FROM scheduled_deload_decision AS later "
+        "WHERE later.event_id = decision.event_id "
+        "AND later.decision_id > decision.decision_id"
+        ") ORDER BY decision.decision_id DESC LIMIT 1"
+    ).fetchone()
+    return dict(row) if row is not None else None
+
+
+def scheduled_deload_decision_by_operation(conn, operation_id: str) -> dict | None:
+    row = conn.execute(
+        "SELECT * FROM scheduled_deload_decision WHERE operation_id = ?",
+        (str(operation_id),),
+    ).fetchone()
+    return dict(row) if row is not None else None
+
+
 def symptom_entries(conn, *, since: str | None = None,
                     region: str | None = None) -> list[dict]:
     clauses: list[str] = []

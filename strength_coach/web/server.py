@@ -1465,13 +1465,6 @@ class Handler(BaseHTTPRequestHandler):
                         conn, device, path, body, config, self._ios_prescription,
                         status=202,
                     )
-                elif path == "/api/ios/v1/deload/postpone":
-                    config = self._ios_require_mutations()
-                    body = self._body()
-                    self._ios_mutation(
-                        conn, device, path, body, config,
-                        self._ios_postpone_scheduled_deload,
-                    )
                 elif path == "/api/ios/v1/workouts":
                     config = self._ios_require_mutations()
                     body = self._body()
@@ -2496,7 +2489,10 @@ class Handler(BaseHTTPRequestHandler):
     def _ios_prescription(self, conn, device: dict, body: dict) -> dict:
         config = self._ios_require_mutations()
         self._ios_closed_fields(
-            body, {"readiness_ack", "confirmations", "settings"}
+            body, {
+                "readiness_ack", "confirmations", "scheduled_deload_decision",
+                "settings",
+            }
         )
         settings = self._ios_request_settings(body)
         # The plan belongs to the pairing: a phone is its own pairing; a watch uses the phone
@@ -2514,7 +2510,7 @@ class Handler(BaseHTTPRequestHandler):
                 400, "validation_failed", "confirmations must be an object",
                 fields={"confirmations": "must be an object"},
             )
-        unknown = sorted(set(confirmations) - {"deload", "drop"})
+        unknown = sorted(set(confirmations) - {"drop"})
         if unknown:
             raise ios_workflow.IOSWorkflowError(
                 400, "unknown_field",
@@ -2554,19 +2550,106 @@ class Handler(BaseHTTPRequestHandler):
                 },
             ) from exc
 
-        # Only the scheduled deload needs an owner confirmation. A reactive deload is applied
-        # automatically by the builder and reported in the plan's warnings, so it needs no gate
-        # here — and the builder re-derives both decisions from the same date when it runs.
+        decision_request = body.get("scheduled_deload_decision")
+        if decision_request is not None:
+            if not isinstance(decision_request, dict):
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed",
+                    "scheduled_deload_decision must be an object",
+                    fields={"scheduled_deload_decision": "must be an object"},
+                )
+            unknown_decision_fields = sorted(
+                set(decision_request) - {
+                    "event_id", "decision", "expected_decision_id",
+                }
+            )
+            if unknown_decision_fields:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "unknown_field",
+                    "unknown scheduled-deload decision field(s): "
+                    + ", ".join(unknown_decision_fields),
+                    fields={key: "not accepted" for key in unknown_decision_fields},
+                )
+            required_decision_fields = {
+                "event_id", "decision", "expected_decision_id",
+            }
+            missing_decision_fields = sorted(
+                required_decision_fields - set(decision_request)
+            )
+            if missing_decision_fields:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed",
+                    "scheduled-deload decision is missing required fields",
+                    fields={key: "required" for key in missing_decision_fields},
+                )
+            if not isinstance(decision_request.get("event_id"), str) \
+                    or not decision_request["event_id"].strip():
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed", "event_id must be a non-empty string",
+                    fields={"event_id": "must be a non-empty string"},
+                )
+            if not isinstance(decision_request.get("decision"), str) \
+                    or decision_request["decision"] not in {
+                        "accept", "defer", "dismiss",
+                    }:
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed",
+                    "decision must be accept, defer, or dismiss",
+                    fields={"decision": "must be accept, defer, or dismiss"},
+                )
+            expected_id = decision_request.get("expected_decision_id")
+            if expected_id is not None and (
+                isinstance(expected_id, bool) or not isinstance(expected_id, int)
+            ):
+                raise ios_workflow.IOSWorkflowError(
+                    400, "validation_failed",
+                    "expected_decision_id must be an integer or null",
+                    fields={"expected_decision_id": "must be an integer or null"},
+                )
         resolved = settings_profile.feature_settings(conn, today)
-        scheduled = deload_feature.scheduled_decision(
+        reactive = deload_feature.reactive_decision(
             conn, today, config=resolved.deload
         )
+        scheduled = deload_feature.scheduled_decision(
+            conn, today, config=resolved.deload, include_deferred=True
+        )
         pending: dict[str, Any] = {}
-        if scheduled is not None and "deload" not in confirmations:
-            pending["deload"] = {
-                "reason": scheduled.reason,
-                "scheduled": True,
-            }
+        if scheduled is None and decision_request is not None:
+            raise ios_workflow.IOSWorkflowError(
+                409, "deload_event_changed",
+                "there is no scheduled deload event to decide",
+            )
+        if scheduled is not None and decision_request is not None \
+                and scheduled.owner_decision in {"accepted", "dismissed"}:
+            raise ios_workflow.IOSWorkflowError(
+                409, "decision_already_final",
+                "this scheduled deload already has a final decision",
+            )
+        if scheduled is not None and scheduled.owner_decision in (None, "deferred"):
+            if decision_request is None:
+                # A reactive deload already applies automatically, so asking about the
+                # scheduled one would only delay a decision the athlete cannot change.
+                if reactive is None:
+                    pending["scheduled_deload"] = {
+                        "reason": scheduled.reason,
+                        "event_id": scheduled.event_id,
+                        "decision_id": scheduled.owner_decision_id,
+                        "window_starts_on": scheduled.window_starts_on,
+                        "window_ends_on": scheduled.window_ends_on,
+                        "scheduled": True,
+                    }
+            elif decision_request.get("event_id") != scheduled.event_id:
+                raise ios_workflow.IOSWorkflowError(
+                    409, "deload_event_changed",
+                    "the scheduled deload event changed; refresh and try again",
+                    details={"event_id": scheduled.event_id},
+                )
+            elif decision_request.get("expected_decision_id") != scheduled.owner_decision_id:
+                raise ios_workflow.IOSWorkflowError(
+                    409, "decision_changed",
+                    "the scheduled-deload decision changed; refresh and try again",
+                    details={"decision_id": scheduled.owner_decision_id},
+                )
         drop_window = self._drop_confirmation_window(conn, today)
         if drop_window["applies"] and "drop" not in confirmations:
             pending["drop"] = drop_window
@@ -2577,9 +2660,59 @@ class Handler(BaseHTTPRequestHandler):
                 details=pending,
             )
 
-        # The gates above decided; the build runs in the dispatcher. The deload/drop inputs are
-        # date-based, so re-deriving them seconds later is the same decision; only the owner's
-        # confirmations need freezing, and they go into build_inputs_json.
+        issued_plan_id = uuid.uuid4().hex
+        operation_id = ios_workflow.normalize_operation_id(
+            self.headers.get("Idempotency-Key", "")
+        )
+        if scheduled is not None and decision_request is not None:
+            try:
+                decision_id = deload_feature.record_scheduled_decision(
+                    conn,
+                    event=scheduled,
+                    decision=decision_request.get("decision"),
+                    expected_decision_id=decision_request.get(
+                        "expected_decision_id"
+                    ),
+                    operation_id=operation_id,
+                    issuance_id=issued_plan_id,
+                    decided_at=ios_workflow.iso(ios_workflow.now()),
+                )
+            except deload_feature.ScheduledDeloadDecisionError as exc:
+                raise ios_workflow.IOSWorkflowError(
+                    exc.status, exc.code, str(exc)
+                ) from exc
+            selected_decision = str(decision_request.get("decision") or "")
+            owner_decision = {
+                "accept": "accepted",
+                "defer": "deferred",
+                "dismiss": "dismissed",
+            }.get(selected_decision)
+            scheduled_snapshot = {
+                "reason": scheduled.reason,
+                "trigger": scheduled.trigger,
+                "block_week": scheduled.block_week,
+                "event_id": scheduled.event_id,
+                "schedule_anchor": scheduled.schedule_anchor,
+                "window_starts_on": scheduled.window_starts_on,
+                "window_ends_on": scheduled.window_ends_on,
+                "owner_decision": owner_decision,
+                "owner_decision_id": decision_id,
+            }
+        elif scheduled is not None:
+            scheduled_snapshot = {
+                "reason": scheduled.reason,
+                "trigger": scheduled.trigger,
+                "block_week": scheduled.block_week,
+                "event_id": scheduled.event_id,
+                "schedule_anchor": scheduled.schedule_anchor,
+                "window_starts_on": scheduled.window_starts_on,
+                "window_ends_on": scheduled.window_ends_on,
+                "owner_decision": scheduled.owner_decision,
+                "owner_decision_id": scheduled.owner_decision_id,
+            }
+        else:
+            scheduled_snapshot = None
+
         day = queries.readiness_day(conn, today) or {}
         readiness_values = {
             field: day[field]
@@ -2594,7 +2727,6 @@ class Handler(BaseHTTPRequestHandler):
         request_expires_at = ios_workflow.iso(
             created + datetime.timedelta(seconds=config.plan_request_ttl_seconds)
         )
-        issued_plan_id = uuid.uuid4().hex
         # The execution the athlete will start offline. Minted here, not at start, so both
         # devices can name it before either of them reaches the server (D1, WP0 section 5).
         execution_id = str(uuid.uuid4())
@@ -2608,7 +2740,7 @@ class Handler(BaseHTTPRequestHandler):
             requested_session_type=str(settings["session_type"]),
             settings=settings,
             build_inputs={
-                "deload_confirmed": confirmations.get("deload") is True,
+                "scheduled_deload": scheduled_snapshot,
                 "drop_confirmed": confirmations.get("drop") is True,
                 "readiness_ack": acknowledge,
             },
@@ -2631,30 +2763,6 @@ class Handler(BaseHTTPRequestHandler):
             "retry_after_ms": self._ios_retry_after("queued"),
             "settings": settings,
         }
-
-    def _ios_postpone_scheduled_deload(
-        self, conn, _device: dict, body: dict,
-    ) -> dict:
-        self._ios_closed_fields(body, {"postponed_until", "operation_id"})
-        today = datetime.date.today().isoformat()
-        resolved = settings_profile.feature_settings(conn, today)
-        try:
-            return deload_feature.postpone_scheduled(
-                conn,
-                as_of=today,
-                recorded_on=today,
-                postponed_until=body.get("postponed_until"),
-                operation_id=body.get("operation_id"),
-                config=resolved.deload,
-            )
-        except deload_feature.DeloadPostponementError as exc:
-            fields = {}
-            if exc.status == 400 and exc.code == "validation_failed":
-                field = "operation_id" if "operation_id" in str(exc) else "postponed_until"
-                fields[field] = str(exc)
-            raise ios_workflow.IOSWorkflowError(
-                exc.status, exc.code, str(exc), fields=fields,
-            ) from exc
 
     @staticmethod
     def _ios_retry_after(status: str) -> int:
@@ -4263,11 +4371,6 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/prescribe/jobs":
                 job = start_prescribe_job(self.db_path, body)
                 self._json(202, job)
-            elif path == "/api/deload/postpone":
-                self._json(
-                    200,
-                    self._with_conn(lambda c: self._postpone_scheduled_deload(c, body)),
-                )
             elif path == "/api/resolver/preview":
                 self._json(200, self._with_conn(lambda c: self._resolver_preview(c, body)))
             elif path.startswith("/api/modalities/"):
@@ -5753,14 +5856,15 @@ class Handler(BaseHTTPRequestHandler):
             conn, for_date, config=resolved_settings.deload
         )
         scheduled = deload_feature.scheduled_decision(
-            conn, for_date, config=resolved_settings.deload
+            conn, for_date, config=resolved_settings.deload,
+            include_deferred=True,
         )
         deload_decision = reactive
         scheduled_suggestion = None
         if reactive is None and scheduled is not None:
-            if _truth(body.get("deload_confirmed")):
+            if scheduled.owner_decision == "accepted":
                 deload_decision = scheduled
-            else:
+            elif scheduled.owner_decision in (None, "deferred"):
                 scheduled_suggestion = scheduled
         options = EvaluationInputs(
             minimum_session=minimum_session,
@@ -5902,16 +6006,72 @@ class Handler(BaseHTTPRequestHandler):
             conn, for_date, config=resolved.deload
         )
         scheduled = deload_feature.scheduled_decision(
-            conn, for_date, config=resolved.deload
+            conn, for_date, config=resolved.deload, include_deferred=True
         )
         deload_decision = None
         scheduled_suggestion = None
+        decision_request = body.get("scheduled_deload_decision")
+        decision_id = scheduled.owner_decision_id if scheduled is not None else None
+        pending_decision_write = None
+        if decision_request is not None and not isinstance(decision_request, dict):
+            raise FieldError(
+                "scheduled_deload_decision must be an object",
+                {"scheduled_deload_decision": "must be an object"},
+            )
+        if decision_request is not None:
+            required = {
+                "event_id", "decision", "expected_decision_id", "operation_id",
+            }
+            unknown = set(decision_request) - required
+            missing = required - set(decision_request)
+            if unknown or missing:
+                details = {
+                    key: "not accepted" for key in sorted(unknown)
+                }
+                details.update({key: "required" for key in sorted(missing)})
+                raise FieldError(
+                    "invalid scheduled-deload decision fields",
+                    details,
+                )
+            if scheduled is None or decision_request["event_id"] != scheduled.event_id:
+                raise FieldError(
+                    "scheduled deload event changed; refresh and try again",
+                    {"event_id": "does not match the current scheduled event"},
+                )
+            expected_id = decision_request["expected_decision_id"]
+            if expected_id is not None and (
+                isinstance(expected_id, bool) or not isinstance(expected_id, int)
+            ):
+                raise FieldError(
+                    "expected_decision_id must be an integer or null",
+                    {"expected_decision_id": "must be an integer or null"},
+                )
+            if not isinstance(decision_request["decision"], str) \
+                    or decision_request["decision"] not in {
+                        "accept", "defer", "dismiss",
+                    }:
+                raise FieldError(
+                    "decision must be accept, defer, or dismiss",
+                    {"decision": "must be accept, defer, or dismiss"},
+                )
+            pending_decision_write = (uuid.uuid4().hex, decision_request)
+            owner_decision = {
+                "accept": "accepted",
+                "defer": "deferred",
+                "dismiss": "dismissed",
+            }.get(decision_request["decision"])
+        else:
+            owner_decision = (
+                scheduled.owner_decision if scheduled is not None else None
+            )
         if reactive is not None:
             deload_decision = reactive
         elif scheduled is not None:
-            if _truth(body.get("deload_confirmed")):
+            if owner_decision == "accepted":
                 deload_decision = scheduled
-            else:
+            elif owner_decision is None or (
+                owner_decision == "deferred" and decision_request is None
+            ):
                 scheduled_suggestion = scheduled
         prescription = build_prescription(
             conn, for_date=for_date, session_type=session_type,
@@ -5929,39 +6089,33 @@ class Handler(BaseHTTPRequestHandler):
         )
         if scheduled_suggestion is not None:
             prescription = deload_mod.suggest(prescription, scheduled_suggestion)
-        return prescription_dict(prescription)
-
-    def _postpone_scheduled_deload(self, conn, body: dict) -> dict:
-        unknown = set(body) - {"as_of", "postponed_until", "operation_id"}
-        if unknown:
-            raise FieldError(
-                "unknown field(s): " + ", ".join(sorted(unknown)),
-                {key: "not accepted" for key in sorted(unknown)},
-            )
-        today = datetime.date.today().isoformat()
-        as_of = body.get("as_of", today)
-        try:
-            as_of = readiness_score.parse_date(str(as_of), field="as_of")
-        except (TypeError, ValueError) as exc:
-            raise FieldError(str(exc), {"as_of": str(exc)}) from exc
-        resolved = settings_profile.feature_settings(conn, as_of)
-        try:
-            return deload_feature.postpone_scheduled(
-                conn,
-                as_of=as_of,
-                recorded_on=today,
-                postponed_until=body.get("postponed_until"),
-                operation_id=body.get("operation_id"),
-                config=resolved.deload,
-            )
-        except deload_feature.DeloadPostponementError as exc:
-            if exc.status == 400:
-                field = (
-                    "operation_id" if "operation_id" in str(exc)
-                    else "postponed_until"
+        if pending_decision_write is not None and scheduled is not None:
+            issue_id, request = pending_decision_write
+            try:
+                decision_id = deload_feature.record_scheduled_decision(
+                    conn,
+                    event=scheduled,
+                    decision=request["decision"],
+                    expected_decision_id=request["expected_decision_id"],
+                    operation_id=request["operation_id"],
+                    issuance_id=issue_id,
+                    decided_at=datetime.datetime.now(datetime.UTC).isoformat(),
                 )
-                raise FieldError(str(exc), {field: str(exc)}) from exc
-            raise RequestError(exc.status, str(exc), code=exc.code) from exc
+            except deload_feature.ScheduledDeloadDecisionError as exc:
+                raise FieldError(str(exc), {"decision": str(exc)}) from exc
+        payload = prescription_dict(prescription)
+        payload["scheduled_deload"] = (
+            {
+                "event_id": scheduled.event_id,
+                "decision_id": decision_id,
+                "reason": scheduled.reason,
+                "window_starts_on": scheduled.window_starts_on,
+                "window_ends_on": scheduled.window_ends_on,
+                "owner_decision": owner_decision,
+            }
+            if scheduled is not None else None
+        )
+        return payload
 
     def _review_sheet(self, conn, session: str) -> dict:
         """Read-only historical rubric sheet.

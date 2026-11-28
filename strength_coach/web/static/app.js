@@ -9,8 +9,9 @@ document.addEventListener("click", (event) => {
   else if (action === "review-snooze") snoozeReview(element.dataset.taskKey);
   else if (action === "open-review") openReview(element.dataset.session);
   else if (action === "comp-e1rm") recordCompensationE1rm(element.dataset.exerciseId);
-  else if (action === "suggested-deload") applySuggestedDeload();
-  else if (action === "postpone-scheduled-deload") postponeScheduledDeload();
+  else if (action === "scheduled-deload-decision") {
+    applyScheduledDeloadDecision(element.dataset.decision);
+  }
   else if (action === "open-workout-start") openWorkoutStart();
   else if (action === "readiness-preset") applyReadinessPreset(element.dataset.preset);
   else if (action === "edit-readiness-presets") openReadinessPresetEditor();
@@ -1229,7 +1230,7 @@ async function syncPrescribeTopSet() {
 }
 
 let lastPrescribePayload = null;
-let pendingDeloadPostponement = null;
+let pendingScheduledDeloadDecision = null;
 
 async function requestPrescription(payload, message = "Building…") {
   const box = $("#prescribe-result");
@@ -1269,6 +1270,7 @@ $("#prescribe-form").addEventListener("submit", async (event) => {
   const selectionConfirmed = applySelection && $("#prescribe-selection-confirm").checked;
   const scoreReady = window.__workflowReadinessData?.score?.status === "ready";
   const topSetValue = $("#prescribe-top-set").value;
+  pendingScheduledDeloadDecision = null;
   lastPrescribePayload = {
     date, session_type: sessionType,
     top_set_intent: topSetValue || null,
@@ -1323,60 +1325,44 @@ async function recordCompensationE1rm(exerciseId) {
   }
 }
 
-async function applySuggestedDeload() {
-  if (!lastPrescribePayload) return;
-  const payload = { ...lastPrescribePayload, deload_confirmed: true };
-  $("#prescribe-result").innerHTML = "<p class='empty'>Applying deload…</p>";
-  try {
-    const data = await requestPrescription(payload, "Applying deload…");
-    renderPrescription(data);
-  } catch (error) {
-    $("#prescribe-result").innerHTML = `<div class="panel warnbox">${esc(error.message)}</div>`;
-  }
-}
-
-async function postponeScheduledDeload() {
-  const payload = lastPrescribePayload && { ...lastPrescribePayload };
-  if (!payload || payload.date !== today()) return;
-  const dateInput = $("#deload-postponed-until");
-  const message = $("#deload-postponement-message");
-  const button = document.querySelector('[data-action="postpone-scheduled-deload"]');
-  const postponedUntil = dateInput?.value;
-  if (!postponedUntil || postponedUntil <= today()) {
-    if (message) message.textContent = "Choose a future date.";
+async function applyScheduledDeloadDecision(decision) {
+  const event = window.__lastPrescription?.scheduled_deload;
+  if (!lastPrescribePayload || !event?.event_id ||
+      !["accept", "defer", "dismiss"].includes(decision)) return;
+  if (pendingScheduledDeloadDecision &&
+      (pendingScheduledDeloadDecision.eventId !== event.event_id ||
+       pendingScheduledDeloadDecision.decision !== decision)) {
+    $("#prescribe-result").innerHTML =
+      "<div class='panel warnbox'>Retry the previous deload choice before choosing another option.</div>";
     return;
   }
-  if (!pendingDeloadPostponement || pendingDeloadPostponement.postponedUntil !== postponedUntil) {
-    pendingDeloadPostponement = {
-      postponedUntil,
+  if (!pendingScheduledDeloadDecision) {
+    pendingScheduledDeloadDecision = {
+      eventId: event.event_id,
+      decision,
       operationId: typeof crypto !== "undefined" && crypto.randomUUID
         ? crypto.randomUUID().toLowerCase()
-        : `postpone-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        : `deload-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     };
   }
-  if (button) button.disabled = true;
-  if (message) message.textContent = "Saving postponement…";
+  const choice = pendingScheduledDeloadDecision;
+  const payload = {
+    ...lastPrescribePayload,
+    scheduled_deload_decision: {
+      event_id: choice.eventId,
+      decision: choice.decision,
+      expected_decision_id: event.decision_id ?? null,
+      operation_id: choice.operationId,
+    },
+  };
+  $("#prescribe-result").innerHTML = "<p class='empty'>Saving deload decision…</p>";
   try {
-    await api("/api/deload/postpone", {
-      method: "POST",
-      body: JSON.stringify({
-        as_of: payload.date,
-        postponed_until: postponedUntil,
-        operation_id: pendingDeloadPostponement.operationId,
-      }),
-    });
-  } catch (error) {
-    if (message) message.textContent = error.message;
-    if (button) button.disabled = false;
-    return;
-  }
-  pendingDeloadPostponement = null;
-  try {
-    const data = await requestPrescription(payload, "Refreshing…");
+    const data = await requestPrescription(payload, "Saving decision…");
+    pendingScheduledDeloadDecision = null;
     renderPrescription(data);
   } catch (error) {
     $("#prescribe-result").innerHTML =
-      `<div class="panel warnbox">Postponement saved, but the plan refresh failed: ${esc(error.message)}. Rebuild the prescription to see the updated schedule.</div>`;
+      `<div class="panel warnbox">${esc(error.message)}. Retry the same choice to safely resume.</div>`;
   }
 }
 
@@ -1591,21 +1577,17 @@ function renderPrescription(p, options = {}) {
     ${minimum.retained_patterns?.length ? `Retained patterns: ${esc(minimum.retained_patterns.join(", "))}.` : ""}
     Load and RIR unchanged. Heuristic, not a validated minimum dose.</p>` : "";
   const suggestion = p.notes?.deload_suggestion;
-  const postponeControl = suggestion?.trigger === "scheduled" && p.for_date === today()
+  const scheduledEvent = p.scheduled_deload;
+  const decisionControls = suggestion?.trigger === "scheduled" && scheduledEvent?.event_id
     ? `<div class="grid-fields">
-      <label>Postpone to
-        <input id="deload-postponed-until" type="date" min="${esc(nextLocalDate())}" value="${esc(nextLocalDate())}">
-      </label>
-      <button type="button" data-action="postpone-scheduled-deload">Postpone schedule</button>
-      <span id="deload-postponement-message" class="muted" role="status"></span>
+      <button type="button" data-action="scheduled-deload-decision" data-decision="accept">Accept scheduled deload</button>
+      <button type="button" data-action="scheduled-deload-decision" data-decision="defer">Defer one prescription</button>
+      <button type="button" data-action="scheduled-deload-decision" data-decision="dismiss">Dismiss for this block</button>
     </div>
-    <p class="muted">The chosen date starts a one-week window and shifts the future deload schedule.</p>`
+    <p class="muted">Defer skips the deload on the prescription you issue now and asks again at the next eligible prescription. Dismiss closes this scheduled block.</p>`
     : "";
   const suggestionBox = suggestion ? `<div class="warnbox"><strong>Deload suggested</strong>
-    — ${esc(suggestion.reason)}.<br>
-    <button type="button" data-action="suggested-deload">Deload this workout</button>
-    <span class="muted">Or train as planned; the suggestion will return next workout this week.</span>
-    ${postponeControl}</div>` : "";
+    — ${esc(suggestion.reason)}.<br>${decisionControls}</div>` : "";
   const cards = p.items.map((item) => {
     const st = stress[item.exercise_id];
     const lr = liftReady[item.exercise_id];

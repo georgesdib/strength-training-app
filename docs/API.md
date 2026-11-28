@@ -23,8 +23,7 @@ page behaviour and UI surfaces are in [WEB-UI.md](WEB-UI.md).
 | `GET /api/monitoring-analysis?as_of=` | read-only dose, lagged associations, coverage and calibration transparency; no path disclosure |
 | `GET /api/settings/monitoring` | read-only monitoring/config inventory, canonical/local/default/code provenance, Phase 5A period and lock, complete effective-inventory revision; no paths or athlete data |
 | `POST /api/import` | `{training: {name, text}, readiness: {name, text}}` -> import report |
-| `POST /api/prescribe` | `{date, session_type?, apply_selection?, selection_confirmed?, minimum_session?, target_minutes?, minimum_include_main?, allow_unknown_readiness?}` -> prescription; `session_type=auto` uses the rolling rule; unknown readiness requires the explicit flag; with `minimum_session`, `target_minutes` must be one of the configured targets (30/45/60) and is a 400 otherwise |
-| `POST /api/deload/postpone` | `{as_of?, postponed_until, operation_id}` -> `{postponed_until, window_ends_on}`; postpones a scheduled deload due on `as_of` (default today); the selected future date starts a seven-day window and shifts future cadence; same operation id/body is idempotent |
+| `POST /api/prescribe` | `{date, session_type?, scheduled_deload_decision?, apply_selection?, selection_confirmed?, minimum_session?, target_minutes?, minimum_include_main?, allow_unknown_readiness?}` -> prescription; `scheduled_deload_decision` is `{event_id, decision: accept|defer|dismiss, expected_decision_id, operation_id}`; unknown readiness requires the explicit flag; with `minimum_session`, `target_minutes` must be one of the configured targets (30/45/60) and is a 400 otherwise |
 | `POST /api/workout/start` | `{date, plan, readiness, readiness_ack?, note?}` -> live workout; a score-ready assessment or explicit acknowledgement is required; partial readiness stays partial |
 | `GET /api/workout/active` | active workout, or `{workout: null}` |
 | `GET /api/workout/<id>` | workout detail |
@@ -247,6 +246,37 @@ prescribed slots, and VBT cohorts whose residuals fall outside their calibration
 - It computes no metric: values come from `adherence` and `vbt_performance` and are rendered,
   not recalculated.
 
+### Scheduled-deload decisions
+
+The scheduled trigger remains the existing seven-day block window and is independent of the
+reactive trigger. If there is no decision for that scheduled event, prescription issuance asks for
+confirmation. `accept` applies the scheduled deload from the issuing prescription on, for the rest
+of that scheduled deload week. `defer` proceeds without it for the issuing prescription and asks
+again on the next distinct eligible issuance, and `dismiss` suppresses the same event for the rest
+of its scheduled block. A new block has a new event identity.
+
+The next eligible issuance is a new prescription operation after the deferral's consuming
+issuance; replaying the same idempotency key returns the original plan and is not another
+issuance. An unresolved deferral is re-presented until a new scheduled block is due; the new
+block's event replaces it with an independent decision. There is no calendar-day or arbitrary
+snooze interval. `programme.header` and the
+programme nudge use the same rule (`features/deload.py:deferral_reconsiderable`): a deferral is not
+an actionable suggestion on the day it was recorded, and it becomes actionable again from the next
+day, which is when a new issuance can occur. Reactive triggers remain automatic and take precedence
+over accepted, deferred or dismissed scheduled state. When a reactive trigger is present, issuance
+does not wait for scheduled-deload confirmation.
+
+`POST /api/ios/v1/prescriptions` sends
+`scheduled_deload_decision: {event_id, decision, expected_decision_id}`; the idempotency header is
+the operation identity. The synchronous web `POST /api/prescribe` accepts the same event/decision
+fields plus `operation_id` in that object. The iOS route returns
+`409 confirmation_required` with `details.scheduled_deload` when a choice is needed; an independent
+volume-drop choice is represented only by `confirmations.drop`. The server validates the event and
+expected latest decision id, appends the choice to `scheduled_deload_decision` (migration 0087),
+and freezes the decision in `build_inputs_json` before queueing. Repeated operations cannot append
+a second decision. Migration-0085 date postponements remain historical schedule re-anchors, but
+new date-based postponement requests are retired.
+
 ### Coaching nudges (AFC-4)
 
 `GET /api/nudge` promotes at most one Today review category: a time-sensitive programme fact
@@ -264,6 +294,12 @@ The expiry date is inclusive: a snooze issued on 1 March stays hidden through 15
 on 16 March.
 A new evidence id produces a new nudge. Attendance, volume and other signals are deliberately not
 nudge sources; programme context is limited to the two facts above.
+
+Scheduled-deload decision state is separate from nudge visibility. Accepted events are active;
+deferred and dismissed events are not immediate programme suggestions. A deferred event is
+presented again by prescription issuance at the next distinct eligible request. Nudge dismissal or
+the 14-day snooze changes only the notification/review surface and never accepts, defers or
+dismisses a scheduled deload.
 
 ### VBT target metadata
 
@@ -461,7 +497,7 @@ in the StrengthApp repository.
 |---|---|---|
 | `POST /api/ios/v1/pair` | none | `{code, label?}` -> `{api_version, device, token, server_date, server_time, utc_offset_minutes, server_timezone}`; the token is shown once |
 | `GET /api/ios/v1/bootstrap` | bearer | `{api_version, server_date, server_time, utc_offset_minutes, server_timezone, capabilities}`; Phase 2 adds `readiness_write`, `prescription` and `workout_write`; Phase 3A adds `healthkit_readiness` (false when mutations are disabled); INT-3 adds `intelligence_read` |
-| `GET /api/ios/v1/today` | bearer | `{date, readiness, readiness_score, active_workout, plan, programme_header}`; `readiness` is the existing `/api/readiness/<date>` payload; `active_workout` is null or the live workout detail; `programme_header` is the read-only `{trained_week, dup?, deload, competition?}` context |
+| `GET /api/ios/v1/today` | bearer | `{date, readiness, readiness_score, active_workout, plan, programme_header}`; `readiness` is the existing `/api/readiness/<date>` payload; `active_workout` is null or the live workout detail; `programme_header` is the read-only `{trained_week, dup?, deload, competition?}` context; deload adds stable `event_id` and persisted `decision` (`accepted`, `deferred`, `dismissed`, or null) to `{calendar_week, status, trigger, reason}` |
 | `GET /api/ios/v1/history?limit=&offset=&start=&end=` | bearer | exactly `history.list_sessions`; limit 1-100, default 50; offset >= 0, default 0 |
 | `GET /api/ios/v1/history/<id>` | bearer | exactly `history.detail`; session outline, measured/manual duration, sets and feedback; unknown id 404 |
 | `GET /api/ios/v1/workouts/<id>/summary` | bearer | `{"summary": ...}` — the same completed-workout summary payload as the web route (adherence, VBT, feedback, quality flags and evidence), plus `reconciliation: {state: none|open|closed, pending_devices, closes_at}` so a client can show that a device's events are still expected and that the totals may still grow; `ratios` is always an empty list here because relative-strength ratios walk the whole lift history and the native report does not render them, so the mobile request stays inside its timeout; unknown id 404, in-progress 409 |
@@ -481,8 +517,7 @@ in the StrengthApp repository.
 | `POST /api/ios/v1/healthkit/samples` | bearer + Idempotency-Key | `{samples:[{key, workout_key, kind, sampled_at, value, unit, association, source_name?}], metrics?:[{key, kind, measured_at, value, method}]}` -> `{samples, created, existing, rejected, rejected_keys, metrics?}`; samples land beside their workout (uploaded first), metrics in `measurement`; `kind` is `vo2max`, `steps_per_day` or `sitting_hours_per_day`; the two windowed metrics arrive already averaged by the phone (one row per window, `measured_at` is the window's last day, key is the window digest, `source` is `device`, replay of the same key is a no-op) and an implausible value is skipped, not fatal; per-item tolerance, a bad row is counted, its key returned and skipped |
 | `GET /api/ios/v1/healthkit/activity/summary?weeks=N` | bearer | `{summary, recent}` — the same computation the browser panel uses, authenticated for the phone |
 | `POST /api/ios/v1/healthkit/readiness` | bearer + Idempotency-Key | `{date, samples:[{field, value, sample_id, sample_at, source_name, source_bundle_id?, source_class, source_model?, source_manufacturer?}]}` -> the canonical readiness payload plus `healthkit` provenance; one to three samples (HRV, RHR, bodyweight), server-local today for the import, sample identity deduplicated; see Phase 3A contract |
-| `POST /api/ios/v1/prescriptions` | bearer + Idempotency-Key | `{readiness_ack?, confirmations?: {deload?, drop?}, settings?: {session_type?, minimum_session?, minimum_target_minutes?, top_set_intent?, technique_throttle?}}` `minimum_target_minutes` must be one of 30, 45 or 60 when `minimum_session` is true (400 `validation_failed` otherwise) and is ignored when it is false; `top_set_intent` is `off`, `preferred` or `required` (omitted follows the profile) and `technique_throttle` (boolean) applies MOD-TECH-001 to main work at build time -> `202 {issued_plan_id, execution_id, status, for_date, request_expires_at, plan_expires_at, retry_after_ms, settings}`; `execution_id` is the workout this plan will become, minted at issue so an offline start can name it; the request is built in the background (R7) |
-| `POST /api/ios/v1/deload/postpone` | bearer + UUID Idempotency-Key | `{postponed_until: "YYYY-MM-DD", operation_id}` -> `{postponed_until, window_ends_on}`; only while a scheduled deload is due today; chosen future date starts a seven-day window and shifts future cadence |
+| `POST /api/ios/v1/prescriptions` | bearer + Idempotency-Key | `{readiness_ack?, confirmations?: {drop?}, scheduled_deload_decision?: {event_id, decision: accept\|defer\|dismiss, expected_decision_id}, settings?: {session_type?, minimum_session?, minimum_target_minutes?, top_set_intent?, technique_throttle?}}`; `minimum_target_minutes` must be one of 30, 45 or 60 when `minimum_session` is true (400 `validation_failed` otherwise) and is ignored when it is false; `top_set_intent` is `off`, `preferred` or `required` (omitted follows the profile) and `technique_throttle` (boolean) applies MOD-TECH-001 to main work at build time -> `202 {issued_plan_id, execution_id, status, for_date, request_expires_at, plan_expires_at, retry_after_ms, settings}`; `execution_id` is minted at issue; scheduled-decision `operation_id` is the idempotency header; the request is built in the background (R7) |
 | `GET /api/ios/v1/plans/current` | bearer | the pairing's authoritative plan-request state: `{status: queued|building|ready|error|none, issued_plan_id, execution_id, elapsed_seconds, settings, plan?, load_catalogue?, readiness?, warnings?, error?}`; `load_catalogue` is the `load-catalogue/v1` object (one entry per taxonomy exercise with `load_source`, `base_load_kg`, `accessory_load_kg`, `increment_kg`, `bodyweight`, `power`) the phone uses to prefill an offline substitution; null for a plan built before it existed; `none` is a normal answer, not a 404 |
 | `POST /api/ios/v1/workouts` | bearer + Idempotency-Key, **either pairing device**; a watch token may start (execution writes after start remain phone-only) | `{issued_plan_id, execution_id?, started_at?}` -> the existing workout detail; any non-revoked device of the plan's pairing starts by id only and binds `execution_id` (the plan's own; a different value is `409 execution_id_mismatch`); `started_at` is the athlete's recorded start, which must fall inside the plan's issue window and whose `for_date` must be today or yesterday (`410 plan_expired` otherwise); identity and state decide a start, never elapsed time: the same `execution_id` returns the running session, and a different execution may start beside an open one (`409 workout_active` is no longer returned by this route); a superseded or consumed plan is `410` |
 | `POST /api/ios/v1/workouts/<id>/sets` | bearer + Idempotency-Key, **phone token only**; a watch commits through the phone (`403 watch_read_only`). The same rule applies to `update-set`, `remove-set`, `execution`, `execution-events`, `form`, `complete` and `reconciliation`; `abandon` stays open to any device as the safety valve | `{exercise_id, load_kg?, reps, rir?, velocity_mps?, set_index?, plan_item_index?, substitutes_plan_item_index?, rep_velocities?, performed_at?, origin_device_id?}` -> workout detail; `plan_item_index` is the stable plan-item identity (not the display position); `substitutes_plan_item_index` annotates a set that replaced that slot (the performed exercise must differ, and both stored columns then hold the slot); a stale index with no annotation is kept as extra work with no attribution; `set_index` defaults to the next index for that exercise, allocated inside the same write transaction as the insert; when supplied, it is the set's identity with the exercise: a replay must match the complete immutable payload (exercise, index, load, reps, RIR, mean and per-rep velocity, source, both plan attributions, `origin_device_id`, and `performed_at` when supplied, compared as an instant so equivalent ISO-8601 offsets replay) and a different payload is `400 set_index_conflict`; `velocity_mps` is optional manual mean and `rep_velocities` is optional `[{rep_index, velocity_mps}]`; values must be positive and reps are required; `origin_device_id` is the capturing device and must belong to the workout's pairing |

@@ -864,22 +864,35 @@ intervals. Reads: the trained-week index subtracts every week that contains a br
 DUP cycle and the erector ramp freeze for that week (`DEC-CONTINUITY-04`, `docs/CONTINUITY.md`).
 Nothing else reads this table — no load, RIR or set depends on it.
 
-### Scheduled-deload postponement (migration `0085_deload_schedule_postponement.sql`)
+### Scheduled-deload decisions (migration `0087_scheduled_deload_decisions.sql`)
 
-`scheduled_deload_postponement` is an append-only schedule re-anchor, separate from
-`athlete_profile.block_start_date` because that profile date also anchors programme context.
+`scheduled_deload_decision` is the backend's append-only, event-scoped decision log. The stable
+event identity includes the effective schedule anchor and the seven-day window start; decisions
+are therefore independent across scheduled blocks.
 
 | column | notes |
 |---|---|
-| postponement_id | append-only row identity |
-| operation_id | unique client operation identity |
-| recorded_on | server-local date the decision was recorded |
-| postponed_until | selected first day of the new seven-day deload window |
-| created_at | UTC insertion timestamp |
+| decision_id | append-only decision identity; latest row for an event is authoritative |
+| event_id | stable scheduled event identity |
+| schedule_anchor / window_starts_on / window_ends_on | event boundaries used when the choice was recorded |
+| decision | `accepted`, `deferred` or `dismissed` |
+| decided_at | decision timestamp |
+| operation_id | unique request operation identity for idempotent writes |
+| consumed_by_issuance_id | prescription issuance that consumed the decision; for defer, that issuance proceeds without the deload |
+| reconsider_after_issuance_id | deferral becomes eligible for confirmation after the consuming issuance |
 
-No-update/no-delete triggers preserve the audit record. The selected date starts a seven-day
-scheduled-deload window and shifts the future cadence. A later declared break supersedes the
-postponement and restarts the schedule after the break.
+No-update/no-delete triggers preserve every decision. A deferred event is presented again at the
+next distinct eligible prescription issuance; it is not driven by elapsed time. Acceptance applies
+the scheduled deload from the consuming prescription on, for the rest of that scheduled deload week.
+Dismissal suppresses that event, and a later scheduled block has a new event id. Reactive deloads
+remain automatic, do not wait for scheduled confirmation, and take precedence. `build_inputs_json`
+freezes the scheduled event and decision for the asynchronous iOS worker; the worker does not
+re-read a changed scheduled decision.
+
+Migration `0085_deload_schedule_postponement.sql` and its append-only
+`scheduled_deload_postponement` rows are retained as historical schedule re-anchors. New
+date-based postponement requests are retired; those legacy rows remain part of effective schedule
+anchor calculation for backwards compatibility.
 
 ## 19. `ios_device` / `ios_pairing_code` — iPhone credentials
 

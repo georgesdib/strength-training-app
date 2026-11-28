@@ -134,12 +134,22 @@ def build_programme(conn, *, start: str | None = None, weeks: int = 4,
             projected_items=tuple(prior_items),
             projected_sessions=prior_sessions,
         )
-        if reactive is None and scheduled is not None:
+        suggests_deload = (
+            reactive is None
+            and scheduled is not None
+            and (
+                scheduled.owner_decision is None
+                or deload_feature.deferral_reconsiderable(
+                    scheduled, date.isoformat()
+                )
+            )
+        )
+        if suggests_deload:
             prescription = deload_mod.suggest(prescription, scheduled)
         out.append(ProgrammeEntry(
             date.isoformat(), prescription, prescription.session_type,
             reactive.reason if reactive else None,
-            deload_suggestion=scheduled.reason if scheduled and reactive is None else None,
+            deload_suggestion=scheduled.reason if suggests_deload else None,
             deload_applied=reactive is not None,
         ))
         for item in prescription.items:
@@ -206,7 +216,7 @@ def header(
         conn, on_date, config=resolved.deload
     )
     scheduled = deload_feature.scheduled_decision(
-        conn, on_date, config=resolved.deload
+        conn, on_date, config=resolved.deload, include_deferred=True
     )
     live_notes = (live_plan or {}).get("notes") or {}
     live_deload = live_notes.get("deload") if isinstance(live_notes, Mapping) else None
@@ -218,10 +228,17 @@ def header(
         status = "active"
         trigger = live_deload.get("trigger")
         reason = live_deload.get("reason")
-    elif scheduled is not None:
-        status = "suggested"
+    elif scheduled is not None and scheduled.owner_decision == "accepted":
+        status = "active"
         trigger = scheduled.trigger
         reason = scheduled.reason
+    elif scheduled is not None:
+        suggested = scheduled.owner_decision is None or (
+            deload_feature.deferral_reconsiderable(scheduled, on_date)
+        )
+        status = "suggested" if suggested else "none"
+        trigger = scheduled.trigger if suggested else None
+        reason = scheduled.reason if suggested else None
     else:
         status = "none"
         trigger = None
@@ -240,6 +257,10 @@ def header(
         "status": status,
         "trigger": trigger,
         "reason": reason,
+        "event_id": scheduled.event_id if scheduled is not None else None,
+        "decision": (
+            scheduled.owner_decision if scheduled is not None else None
+        ),
     }
 
     competition_raw = profile.get("competition_date")

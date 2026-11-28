@@ -10,7 +10,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 from urllib.parse import quote, urlparse
 
@@ -1517,7 +1517,7 @@ def test_programme_accepts_a_start_session_type(server):
     assert data["entries"][0]["session_type"] == "bench_hinge"
 
 
-def test_prescribe_suggests_a_scheduled_deload_and_applies_only_when_confirmed(server):
+def test_prescribe_persists_accept_defer_and_dismiss_decisions(server):
     post(server, "/api/state/profile", {
         "effective_from": "2024-01-01",
         "block_start_date": "2024-01-01",
@@ -1526,55 +1526,81 @@ def test_prescribe_suggests_a_scheduled_deload_and_applies_only_when_confirmed(s
         "date": "2024-02-05", "session_type": "squat",
     })
     assert suggested["notes"]["deload_suggestion"]["trigger"] == "scheduled"
+    event = suggested["scheduled_deload"]
+    assert event["event_id"] == "scheduled:2024-01-01:2024-02-05"
     assert "deload" not in suggested["notes"]
     suggested_squat = next(
         item for item in suggested["items"] if item["exercise_id"] == "ssb_squat"
     )
     assert suggested_squat["sets"] == 4
 
+    deferred = post(server, "/api/prescribe", {
+        "date": "2024-02-05",
+        "session_type": "squat",
+        "scheduled_deload_decision": {
+            "event_id": event["event_id"],
+            "decision": "defer",
+            "expected_decision_id": None,
+            "operation_id": "web-defer-once",
+        },
+    })
+    assert "deload" not in deferred["notes"]
+    assert "deload_suggestion" not in deferred["notes"]
+    reconsidered = post(server, "/api/prescribe", {
+        "date": "2024-02-12", "session_type": "squat",
+    })
+    assert reconsidered["scheduled_deload"]["event_id"] == event["event_id"]
+    assert reconsidered["scheduled_deload"]["owner_decision"] == "deferred"
+    assert reconsidered["notes"]["deload_suggestion"]["trigger"] == "scheduled"
+
     applied = post(server, "/api/prescribe", {
-        "date": "2024-02-05", "session_type": "squat", "deload_confirmed": True,
+        "date": "2024-02-12",
+        "session_type": "squat",
+        "scheduled_deload_decision": {
+            "event_id": event["event_id"],
+            "decision": "accept",
+            "expected_decision_id": reconsidered["scheduled_deload"]["decision_id"],
+            "operation_id": "web-accept-after-defer",
+        },
     })
     assert applied["notes"]["deload"]["trigger"] == "scheduled"
     assert applied["fallback_level"] == "fatigue_reduced"
     squat = next(item for item in applied["items"] if item["exercise_id"] == "ssb_squat")
     assert squat["sets"] == 3
 
+    # The event's window ended on 2024-02-11, so it is no longer surfaced after acceptance.
+    subsequent = post(server, "/api/prescribe", {
+        "date": "2024-02-12", "session_type": "squat",
+    })
+    assert subsequent["scheduled_deload"] is None
+    assert "deload_suggestion" not in subsequent["notes"]
 
-def test_web_postpones_scheduled_deload_and_reanchors_the_window(server):
-    today_date = date.today()
-    today_text = today_date.isoformat()
-    anchor = (today_date - timedelta(weeks=5)).isoformat()
-    postponed_until = (today_date + timedelta(days=35)).isoformat()
+
+def test_dismissed_scheduled_deload_is_not_suggested_again_for_its_block(server):
     post(server, "/api/state/profile", {
-        "effective_from": anchor,
-        "block_start_date": anchor,
+        "effective_from": "2024-01-01",
+        "block_start_date": "2024-01-01",
     })
-
-    body = {
-        "as_of": today_text,
-        "postponed_until": postponed_until,
-        "operation_id": "web-deload-postpone-test",
-    }
-    result = post(server, "/api/deload/postpone", body)
-    assert result == {
-        "postponed_until": postponed_until,
-        "window_ends_on": (date.fromisoformat(postponed_until) + timedelta(days=6)).isoformat(),
-    }
-    assert post(server, "/api/deload/postpone", body) == result
-
-    postponed_suggestion = post(server, "/api/programme", {
-        "start": postponed_until, "weeks": 1, "sessions_per_week": 1,
+    suggested = post(server, "/api/prescribe", {
+        "date": "2024-02-05", "session_type": "squat",
     })
-    postponed_entry = postponed_suggestion["entries"][0]
-    assert postponed_entry["deload_suggestion"]
-    assert postponed_until in postponed_entry["deload_suggestion"]
-
-    after_window = (date.fromisoformat(postponed_until) + timedelta(days=7)).isoformat()
-    ordinary = post(server, "/api/programme", {
-        "start": after_window, "weeks": 1, "sessions_per_week": 1,
+    event = suggested["scheduled_deload"]
+    dismissed = post(server, "/api/prescribe", {
+        "date": "2024-02-05",
+        "session_type": "squat",
+        "scheduled_deload_decision": {
+            "event_id": event["event_id"],
+            "decision": "dismiss",
+            "expected_decision_id": None,
+            "operation_id": "web-dismiss-block",
+        },
     })
-    assert ordinary["entries"][0]["deload_suggestion"] is None
+    assert "deload" not in dismissed["notes"]
+    same_block = post(server, "/api/prescribe", {
+        "date": "2024-02-06", "session_type": "squat",
+    })
+    assert same_block["scheduled_deload"]["owner_decision"] == "dismissed"
+    assert "deload_suggestion" not in same_block["notes"]
 
 
 def test_progress_dashboard_endpoint(server):

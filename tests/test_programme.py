@@ -264,46 +264,30 @@ def test_scheduled_deload_can_be_applied_after_confirmation():
     assert squat.sets == 3
 
 
-def test_postponement_reanchors_the_full_schedule_to_a_one_week_window():
+def test_legacy_postponement_records_keep_the_historical_schedule_anchor():
     with store_with() as store:
         conn = store.connection
         repositories.append_athlete_profile(
             conn, effective_from="2024-01-01",
             block_start_date="2024-01-01",
         )
-        result = deload_feature.postpone_scheduled(
-            conn,
-            as_of="2024-02-05",
-            postponed_until="2024-04-01",
-            operation_id="operation-1",
+        conn.execute(
+            "INSERT INTO scheduled_deload_postponement "
+            "(operation_id, recorded_on, postponed_until) VALUES (?, ?, ?)",
+            ("legacy-operation", "2024-02-05", "2024-04-01"),
         )
         old_due_week = deload_feature.scheduled_reason(conn, "2024-03-18")
         window_start = deload_feature.scheduled_reason(conn, "2024-04-01")
         window_end = deload_feature.scheduled_reason(conn, "2024-04-07")
         after_window = deload_feature.scheduled_reason(conn, "2024-04-08")
         shifted_next = deload_feature.scheduled_reason(conn, "2024-05-13")
-        duplicate = deload_feature.postpone_scheduled(
-            conn,
-            as_of="2024-02-05",
-            postponed_until="2024-04-01",
-            operation_id="operation-1",
-        )
-        row_count = conn.execute(
-            "SELECT COUNT(*) FROM scheduled_deload_postponement"
-        ).fetchone()[0]
 
-    assert result == {
-        "postponed_until": "2024-04-01",
-        "window_ends_on": "2024-04-07",
-    }
     assert old_due_week is None
     assert window_start is not None
     assert "postponed window starting 2024-04-01" in window_start
     assert window_end is not None
     assert after_window is None
     assert shifted_next is not None
-    assert duplicate == result
-    assert row_count == 1
 
 
 def test_declared_break_supersedes_a_postponed_schedule():
@@ -313,11 +297,10 @@ def test_declared_break_supersedes_a_postponed_schedule():
             conn, effective_from="2024-01-01",
             block_start_date="2024-01-01",
         )
-        deload_feature.postpone_scheduled(
-            conn,
-            as_of="2024-02-05",
-            postponed_until="2024-03-01",
-            operation_id="operation-break",
+        conn.execute(
+            "INSERT INTO scheduled_deload_postponement "
+            "(operation_id, recorded_on, postponed_until) VALUES (?, ?, ?)",
+            ("legacy-break", "2024-02-05", "2024-03-01"),
         )
         breaks_feature.record(
             conn,
@@ -334,38 +317,88 @@ def test_declared_break_supersedes_a_postponed_schedule():
     assert reset_window is not None
 
 
-def test_postponement_requires_a_due_scheduled_deload_and_a_future_date():
+def test_scheduled_deload_decisions_are_persistent_and_event_scoped():
     with store_with() as store:
         conn = store.connection
         repositories.append_athlete_profile(
             conn, effective_from="2024-01-01",
             block_start_date="2024-01-01",
         )
-        with pytest.raises(deload_feature.DeloadPostponementError) as not_due:
-            deload_feature.postpone_scheduled(
-                conn,
-                as_of="2024-02-12",
-                postponed_until="2024-04-01",
-                operation_id="not-due",
-            )
-        with pytest.raises(deload_feature.DeloadPostponementError) as not_future:
-            deload_feature.postpone_scheduled(
-                conn,
-                as_of="2024-02-05",
-                postponed_until="2024-02-05",
-                operation_id="not-future",
-            )
-        with pytest.raises(deload_feature.DeloadPostponementError) as bad_date:
-            deload_feature.postpone_scheduled(
-                conn,
-                as_of="2024-02-05",
-                postponed_until="2024-13-01",
-                operation_id="bad-date",
-            )
+        due = deload_feature.scheduled_decision(conn, "2024-02-05")
+        assert due is not None
+        assert due.event_id == "scheduled:2024-01-01:2024-02-05"
+        deferred_id = deload_feature.record_scheduled_decision(
+            conn,
+            event=due,
+            decision="defer",
+            expected_decision_id=None,
+            operation_id="defer-once",
+            issuance_id="issuance-1",
+            decided_at="2024-02-05T12:00:00Z",
+        )
+        duplicate_id = deload_feature.record_scheduled_decision(
+            conn,
+            event=due,
+            decision="defer",
+            expected_decision_id=None,
+            operation_id="defer-once",
+            issuance_id="issuance-1",
+            decided_at="2024-02-05T12:00:00Z",
+        )
+        reconsidered = deload_feature.scheduled_decision(
+            conn, "2024-02-12", include_deferred=True
+        )
+        assert reconsidered is not None
+        assert reconsidered.event_id == due.event_id
+        assert reconsidered.owner_decision == "deferred"
+        assert reconsidered.owner_decision_id == deferred_id
+        assert programme.header(conn, "2024-02-05")["deload"]["status"] == "none"
+        # The deferral covers only its own day; the next day inside the event's window asks again.
+        next_day = programme.header(conn, "2024-02-06")["deload"]
+        assert next_day["status"] == "suggested"
+        assert next_day["decision"] == "deferred"
+        # The deferred window is re-presented until a new block is due, and the new block then
+        # replaces it instead of inheriting the old deferral.
+        after_window = deload_feature.scheduled_decision(
+            conn, "2024-03-01", include_deferred=True
+        )
+        assert after_window is not None
+        assert after_window.event_id == due.event_id
+        next_block_due = deload_feature.scheduled_decision(
+            conn, "2024-03-18", include_deferred=True
+        )
+        assert next_block_due is not None
+        assert next_block_due.event_id == "scheduled:2024-01-01:2024-03-18"
+        assert next_block_due.owner_decision is None
 
-    assert not_due.value.code == "deload_not_due"
-    assert not_future.value.code == "validation_failed"
-    assert bad_date.value.code == "validation_failed"
+        accepted_id = deload_feature.record_scheduled_decision(
+            conn,
+            event=reconsidered,
+            decision="accept",
+            expected_decision_id=deferred_id,
+            operation_id="accept-next",
+            issuance_id="issuance-2",
+            decided_at="2024-02-12T12:00:00Z",
+        )
+        later_block = deload_feature.scheduled_decision(conn, "2024-03-18")
+        assert later_block is not None
+        assert later_block.event_id != due.event_id
+        dismissed_id = deload_feature.record_scheduled_decision(
+            conn,
+            event=later_block,
+            decision="dismiss",
+            expected_decision_id=None,
+            operation_id="dismiss-next-block",
+            issuance_id="issuance-3",
+            decided_at="2024-03-18T12:00:00Z",
+        )
+        assert programme.header(conn, "2024-03-18")["deload"]["status"] == "none"
+        assert duplicate_id == deferred_id
+        assert accepted_id > deferred_id
+        assert dismissed_id > accepted_id
+        assert conn.execute(
+            "SELECT COUNT(*) FROM scheduled_deload_decision"
+        ).fetchone()[0] == 3
 
 
 def test_four_and_five_day_programmes_use_spaced_weekdays():
