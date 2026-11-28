@@ -50,7 +50,6 @@ Only open and future work is listed. Released versions and completed phases are 
 | — | Exercise-level symptom research (Phase 3) | **planned; unscheduled** | pre-registration and a separate owner decision | §4.28 |
 | — | AFC-5 evidence-gated prescription adaptation | **scoped, docs only; gated** | separate decision and evidence | §4.33a |
 | — | Training Intelligence remaining work | **INT-9 waits for iOS 27.3; aggregate evidence producers deferred; T-3a optional; multi-tool orchestration deferred** | see §4.34a | §4.34a |
-| — | Symptom-region mapping review | **implemented; follow-up open** | review the broad mappings (core, hamstring) after real flares; `LIM-78` | §4.35 |
 
 ## 2A. Phase 5 — prospective validation and evidence-driven improvements
 
@@ -229,25 +228,6 @@ Still open:
 - **T-3a** (optional further session-details latency work) is not started; the T-3 first pass
   is closed.
 - **Multi-tool orchestration** is deferred by owner decision.
-
-### 4.35 Symptom-region mapping review  (open; evidence-driven)
-
-**Delivered already:** eleven regions, character and side logging, exposure links, the
-per-region policy switch, the region-scoped reactive deload and the flare-only ceiling (see
-ROADMAP-DONE, 2026-11-28). What is open is whether each mapping is *narrow enough*.
-
-**Question.** A region's link set is a mechanical claim, and some are broad: `core` reaches 65
-catalogue exercises, so a core flare takes 40% off squats; `knee`, `hip_groin` and `hamstring`
-sit near 60. Is that proportionate to how those regions behave in this athlete's training, or
-is it a blanket reaction? Should forearm grip coverage stay an explicit exercise list, or become
-a taxonomy flag? Do eleven regional review prompts add signal or noise?
-
-**Trigger.** A handful of real flaring episodes observed with both the ceiling and the local
-deload active. This is a config review, not an implementation: how to change a mapping, and
-what moves when you do, is [INJURY-CONFIG.md](docs/INJURY-CONFIG.md).
-
-**Not in scope.** Per-region fuzzy matching, symptom-weighted scoring, or any predictor. The
-mapping stays a mechanical exposure statement (`ASSUMPTION-10`).
 
 ## 5. Known gaps and risks
 
