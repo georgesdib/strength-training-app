@@ -5,11 +5,9 @@
 
 Add constraint
 All e1RM overrides
-Block start
 Categories
 Configured relative strength
 Dose by session
-Edit profile
 External dose
 Fatigue-informed suggestion
 Form context

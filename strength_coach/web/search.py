@@ -312,6 +312,26 @@ ACTION_TARGETS = (
         "body": "declare a holiday, deload or test-week break as an append-only date range",
     },
     {
+        "title": "Edit the athlete profile",
+        "subtitle": "Athlete · Profile",
+        "view": "state-profile",
+        "target": "state-forms-profile",
+        "body": (
+            "change competition date, sessions per week, session minutes, block start, "
+            "volume budget, main-lift policy or exposure trim; appends a new profile version"
+        ),
+    },
+    {
+        "title": "Set the block start date",
+        "subtitle": "Athlete · Events",
+        "view": "state-events",
+        "target": "state-forms-events",
+        "body": (
+            "declare the block anchor that resets the erector ramp and the DUP week count; "
+            "record a break here too"
+        ),
+    },
+    {
         "title": "Log a symptom or pain reading",
         "subtitle": "Athlete · Symptoms",
         "view": "state-symptoms",
