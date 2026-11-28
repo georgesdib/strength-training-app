@@ -2816,9 +2816,18 @@ function distributeStateForms(host) {
   // Panels declare `data-state-section`; the container names the sub-page. A panel with no
   // target never reaches the document, so a missing section shows up as a gap rather than
   // silently landing on the wrong page.
+  //
+  // Replace, never append: loadState() runs on every Athlete sub-page switch, so appending
+  // added another copy of every form on each visit.
+  const bySection = new Map();
   host.querySelectorAll("[data-state-section]").forEach((panel) => {
-    const target = document.getElementById("state-forms-" + panel.dataset.stateSection);
-    if (target) target.appendChild(panel);
+    const section = panel.dataset.stateSection;
+    if (!bySection.has(section)) bySection.set(section, []);
+    bySection.get(section).push(panel);
+  });
+  bySection.forEach((panels, section) => {
+    const target = document.getElementById("state-forms-" + section);
+    if (target) target.replaceChildren(...panels);
   });
 }
 

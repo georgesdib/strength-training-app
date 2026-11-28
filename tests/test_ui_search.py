@@ -226,6 +226,10 @@ def test_athlete_is_split_into_wired_subsections():
     script = (ROOT / "strength_coach/web/static/app.js").read_text(encoding="utf-8")
     # Panels declare their sub-page rather than relying on template order.
     assert "data-state-section=" in script
-    assert 'getElementById("state-forms-" + panel.dataset.stateSection)' in script
+    assert 'getElementById("state-forms-" + section)' in script
+    # loadState() runs on every sub-page switch, so the container must be replaced rather
+    # than appended to; appending duplicated every form on each visit.
+    assert "replaceChildren(...panels)" in script
+    assert "appendChild(panel)" not in script
     # The workout deep link must land on the form, not on the overview.
     assert 'setView("state-symptoms")' in script
