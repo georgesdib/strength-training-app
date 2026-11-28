@@ -14,8 +14,8 @@ CONFIG = measurements.MeasurementConfig.load()
 
 
 def test_the_default_catalogue_has_the_longevity_metrics():
-    assert {"vo2max", "grip_strength_kg", "sit_to_stand_5_s",
-            "steps_per_day", "sitting_hours_per_day"} <= set(CONFIG.metrics)
+    assert {"vo2max", "grip_strength_right_kg", "grip_strength_left_kg",
+            "sit_to_stand_5_s", "steps_per_day", "sitting_hours_per_day"} <= set(CONFIG.metrics)
     assert CONFIG.metrics["sit_to_stand_5_s"].higher_is_better is False
     assert CONFIG.metrics["vo2max"].higher_is_better is True
 
@@ -113,14 +113,40 @@ def test_measurements_are_append_only():
             conn.execute("UPDATE measurement SET value = 50")
 
 
+def test_a_legacy_key_is_read_under_the_metric_that_owns_it():
+    # DEC-GRIP-02: rows written before grip was split stay in the append-only log under the old
+    # key and are read as the right hand. The stored row itself is never rewritten.
+    with db.Store(":memory:") as store:
+        conn = store.connection
+        repositories.append_metric_definition(
+            conn, metric_key="grip_strength_kg", label="Grip strength",
+            higher_is_better=True, aggregation="best_of_3", unit="kg",
+        )
+        repositories.append_measurement(
+            conn, metric_key="grip_strength_kg", measured_on="2025-01-01", value=40.0,
+        )
+        summary = {row["key"]: row for row in measurements.summary(conn)}
+        right = measurements.page(conn, metric_key="grip_strength_right_kg")
+        left = measurements.page(conn, metric_key="grip_strength_left_kg")
+        stored = [row["metric_key"] for row in conn.execute("SELECT metric_key FROM measurement")]
+
+    assert summary["grip_strength_right_kg"]["count"] == 1
+    assert summary["grip_strength_right_kg"]["latest_value"] == 40.0
+    assert summary["grip_strength_left_kg"]["count"] == 0
+    assert [entry["value"] for entry in right["entries"]] == [40.0]
+    assert right["entries"][0]["metric_key"] == "grip_strength_right_kg"
+    assert left["entries"] == []
+    assert stored == ["grip_strength_kg"]
+
+
 def test_cli_logs_and_shows(tmp_path, capsys):
     path = tmp_path / "coach.db"
-    assert cli.main(["--db", str(path), "measure", "--metric", "grip_strength_kg",
+    assert cli.main(["--db", str(path), "measure", "--metric", "grip_strength_right_kg",
                      "--value", "52", "--method", "dynamometer"]) == 0
     out = capsys.readouterr().out
-    assert "logged Grip strength: 52 kg" in out
+    assert "logged Grip strength (right): 52 kg" in out
 
     assert cli.main(["--db", str(path), "measure", "--show"]) == 0
     out = capsys.readouterr().out
-    assert "grip_strength_kg" in out
+    assert "grip_strength_right_kg" in out
     assert "52 kg on" in out

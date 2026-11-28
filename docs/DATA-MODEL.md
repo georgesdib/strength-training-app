@@ -507,7 +507,7 @@ and rollback are in [DWELL-AND-ROTATION.md](DWELL-AND-ROTATION.md).
 
 | column | notes |
 |---|---|
-| metric_key PK | e.g. `vo2max`, `grip_strength_kg` |
+| metric_key PK | e.g. `vo2max`, `grip_strength_right_kg` |
 | label | human name |
 | scale_min / scale_max | bounds |
 | higher_is_better | **0/1 — mandatory.** The documented trap (stress 5 = good) is exactly this field |
@@ -519,6 +519,12 @@ and rollback are in [DWELL-AND-ROTATION.md](DWELL-AND-ROTATION.md).
 It is consumed by the periodic **measurement** path (`features/measurements.py`,
 `DEC-MEASURE-01`): a measurement whose key has no row, or whose direction changes, is
 refused rather than reinterpreted.
+
+A metric that is split after rows exist (grip into hands, `DEC-GRIP-02`) keeps those rows
+under their old key, because `measurement` is append-only. `legacy_aliases` in
+`config/measurements.v1.yaml` names the metric that now owns them, and reads map the key
+before filtering, so a request for the new key returns the historical rows. An alias may not
+also be a configured metric, and its target must exist; the stored row keeps its original key.
 
 **It is not the live readiness-score driver.** The score reads the `readiness_registry`
 (documented above); `metric_definition` supplies only the metric's label, scale and direction.

@@ -13,7 +13,7 @@ by the store writer.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -69,6 +69,19 @@ class MetricSpec:
 class MeasurementConfig:
     metrics: Mapping[str, MetricSpec]
     source_path: Path = Path()
+    # Old metric key -> the metric that now owns its rows. The log is append-only, so a split
+    # reads legacy rows under the new key instead of rewriting them (DEC-GRIP-02).
+    legacy_aliases: Mapping[str, str] = field(default_factory=dict)
+
+    def canonical_key(self, key: str) -> str:
+        """The key a stored row is read under, following one legacy alias step."""
+        return self.legacy_aliases.get(str(key), str(key))
+
+    def keys_for(self, key: str) -> tuple[str, ...]:
+        """The canonical key plus every legacy key whose rows it owns."""
+        canonical = self.canonical_key(key)
+        legacy = tuple(old for old, new in self.legacy_aliases.items() if new == canonical)
+        return (canonical, *legacy)
 
     @classmethod
     def load(cls, path: str | Path | None = None) -> MeasurementConfig:
@@ -102,4 +115,30 @@ class MeasurementConfig:
             )
         if not metrics:
             raise MeasurementError("no measurement metrics configured")
-        return cls(metrics=metrics, source_path=source)
+        aliases = cls._parse_aliases(raw.get("legacy_aliases"), metrics)
+        return cls(metrics=metrics, source_path=source, legacy_aliases=aliases)
+
+    @staticmethod
+    def _parse_aliases(raw: Any, metrics: Mapping[str, MetricSpec]) -> dict[str, str]:
+        """Validate the opt-in map of old keys to the metric that now owns their rows.
+
+        An alias is a read-time interpretation, so a mistake here would silently move a series
+        between metrics: an alias that is itself configured, or that points at an unknown
+        metric, is refused instead of guessed.
+        """
+        aliases: dict[str, str] = {}
+        for old, new in (raw or {}).items():
+            legacy_key = str(old).strip()
+            canonical_key = str(new).strip()
+            if not legacy_key or not canonical_key:
+                raise MeasurementError("legacy_aliases keys and targets must be non-empty strings")
+            if legacy_key in metrics:
+                raise MeasurementError(
+                    f"legacy alias {legacy_key!r} is also a configured metric"
+                )
+            if canonical_key not in metrics:
+                raise MeasurementError(
+                    f"legacy alias {legacy_key!r} points at unknown metric {canonical_key!r}"
+                )
+            aliases[legacy_key] = canonical_key
+        return aliases

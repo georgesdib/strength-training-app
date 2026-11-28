@@ -57,7 +57,7 @@ def _cardio_context(conn, weeks: int, end: dt.date) -> dict:
     }
 MEASUREMENT_KEYS = (
     "steps_per_day", "sitting_hours_per_day", "bodyweight_kg", "body_fat_pct",
-    "grip_strength_kg", "vo2max", "sit_to_stand_5_s",
+    "grip_strength_right_kg", "grip_strength_left_kg", "vo2max", "sit_to_stand_5_s",
 )
 
 

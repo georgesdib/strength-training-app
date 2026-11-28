@@ -114,10 +114,28 @@ def _ensure_definition(conn, spec: MetricSpec) -> None:
     repositories.ensure_metric_definition(conn, spec)
 
 
+def _rows(conn, cfg: MeasurementConfig, *, metric_key: str | None = None,
+          since: str | None = None, until: str | None = None) -> list[dict[str, Any]]:
+    """Read measurements with legacy keys mapped to the metric that now owns them.
+
+    A split metric (DEC-GRIP-02) keeps the historical rows under their old key because the log is
+    append-only; the filter is applied after the mapping so asking for the new key returns them.
+    """
+    canonical_filter = None if metric_key is None else cfg.canonical_key(metric_key)
+    rows = queries.measurements(conn, since=since, until=until)
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        canonical = cfg.canonical_key(row["metric_key"])
+        if canonical_filter is not None and canonical != canonical_filter:
+            continue
+        out.append({**row, "metric_key": canonical})
+    return out
+
+
 def summary(conn, *, config: MeasurementConfig | None = None) -> list[dict[str, Any]]:
     """Latest, first and change for every configured metric (count 0 when unmeasured)."""
     cfg = config or MeasurementConfig.load()
-    rows = queries.measurements(conn)
+    rows = _rows(conn, cfg)
     grouped: dict[str, list[dict]] = {key: [] for key in cfg.metrics}
     for row in rows:
         grouped.setdefault(str(row["metric_key"]), []).append(row)
@@ -145,7 +163,7 @@ def summary(conn, *, config: MeasurementConfig | None = None) -> list[dict[str, 
 
 def entries(conn, *, metric_key: str | None = None,
             limit: int = 100) -> list[dict[str, Any]]:
-    rows = queries.measurements(conn, metric_key=metric_key)
+    rows = _rows(conn, MeasurementConfig.load(), metric_key=metric_key)
     return rows[-limit:]
 
 
@@ -167,8 +185,8 @@ def page(
         raise ValueError("limit must be between 1 and 200")
     if offset < 0:
         raise ValueError("offset must be non-negative")
-    rows = queries.measurements(
-        conn, metric_key=metric_key, since=since, until=until,
+    rows = _rows(
+        conn, MeasurementConfig.load(), metric_key=metric_key, since=since, until=until,
     )
     total = len(rows)
     end = max(0, total - offset)

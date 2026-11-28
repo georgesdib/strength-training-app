@@ -25,14 +25,24 @@ metrics:
       Submaximal estimate (step test, 1.5-mile/2 km, or device). Record the method; never
       compare estimates from different protocols as if they were the same measurement.
 
-  grip_strength_kg:
-    label: "Grip strength"
+  # Two keys, one per hand: grip is a per-hand capacity, and a single key forced the hand into
+  # the free-text method where it could not be compared or filtered (DEC-GRIP-02). Grip is not a
+  # readiness input (DEC-GRIP-01); these are periodic assessments.
+  grip_strength_right_kg:
+    label: "Grip strength (right)"
     unit: "kg"
     higher_is_better: true
     aggregation: best_of_3
-    # Grip is not a readiness input (DEC-GRIP-01); this is the periodic assessment.
     plausible: [5, 150]
-    note: "Best of three per hand; record which hand and dynamometer in the method."
+    note: "Best of three squeezes with the right hand; record the dynamometer in the method."
+
+  grip_strength_left_kg:
+    label: "Grip strength (left)"
+    unit: "kg"
+    higher_is_better: true
+    aggregation: best_of_3
+    plausible: [5, 150]
+    note: "Best of three squeezes with the left hand; record the dynamometer in the method."
 
   body_fat_pct:
     label: "Body fat"
@@ -70,3 +80,9 @@ metrics:
     aggregation: mean
     plausible: [0, 24]
     note: "Average daily sitting; lower is better, but it is context, not a prescription."
+
+# Rows written before a metric was split are read under the metric that now owns them. The log is
+# append-only, so the stored row is never rewritten; the alias maps the old key at read time
+# (DEC-GRIP-02). An alias may not also be a configured metric, and its target must exist here.
+legacy_aliases:
+  grip_strength_kg: grip_strength_right_kg

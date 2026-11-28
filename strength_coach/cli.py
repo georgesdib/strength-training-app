@@ -537,7 +537,8 @@ def main(argv: list[str] | None = None) -> int:
 
     measure = sub.add_parser("measure", help="log or show periodic measurements")
     measure.add_argument("--metric", default=None,
-                         help="e.g. vo2max, grip_strength_kg, sit_to_stand_5_s, steps_per_day")
+                         help="e.g. vo2max, grip_strength_right_kg, sit_to_stand_5_s, "
+                              "steps_per_day")
     measure.add_argument("--value", type=float, default=None)
     measure.add_argument("--date", default=None, help="YYYY-MM-DD (default: today)")
     measure.add_argument("--method", default=None,
