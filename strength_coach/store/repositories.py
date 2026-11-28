@@ -28,8 +28,10 @@ from typing import Any
 import pandas as pd
 
 from strength_coach.domain.athlete_state import suitability_values
+from strength_coach.domain.symptom_vocabulary import SymptomVocabulary
 from strength_coach.ingest.sessions import Session
 from strength_coach.store import queries, symptom_attribution
+from strength_coach.store.db import transaction
 from strength_coach.utils import measurements as measurement_utils
 from strength_coach.utils import numeric
 from strength_coach.utils import readiness as readiness_utils
@@ -885,7 +887,19 @@ def append_symptom(
     attributed_exercise_id: str | None = None,
     onset_on: str | None = None,
     attribution_confidence: str | None = None,
-) -> None:
+    side: str | None = None,
+    characters: Sequence[str] = (),
+) -> int:
+    """Append one reading and its character labels; return the new log id.
+
+    Severity stays on the existing 0-3 scale. `side` and `characters` are description: they
+    are validated against config/symptoms.v1.yaml and stored, never read by a rule, the
+    injury signal or the deload policy (DEC-SYMPTOM-05). A correction is another call, not an
+    edit — the parent row and its characters are append-only.
+    """
+    vocabulary = SymptomVocabulary.load()
+    chosen_side = vocabulary.validate_side(side)
+    chosen_characters = vocabulary.validate_characters(characters)
     attribution = symptom_attribution.validate(
         conn,
         logged_on=logged_on,
@@ -895,27 +909,36 @@ def append_symptom(
         onset_on=onset_on,
         attribution_confidence=attribution_confidence,
     ) or {}
-    conn.execute(
-        """
-        INSERT INTO symptom_log
-            (logged_on, timing, region, level, settled_within_48h, note,
-             attributed_session_id, attributed_exercise_id, onset_on,
-             attribution_confidence)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            logged_on,
-            timing,
-            region,
-            int(level),
-            None if settled_within_48h is None else (1 if settled_within_48h else 0),
-            note,
-            attribution.get("attributed_session_id"),
-            attribution.get("attributed_exercise_id"),
-            attribution.get("onset_on"),
-            attribution.get("attribution_confidence"),
-        ),
-    )
+    with transaction(conn):
+        cursor = conn.execute(
+            """
+            INSERT INTO symptom_log
+                (logged_on, timing, region, level, settled_within_48h, note,
+                 attributed_session_id, attributed_exercise_id, onset_on,
+                 attribution_confidence, side)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                logged_on,
+                timing,
+                region,
+                int(level),
+                None if settled_within_48h is None else (1 if settled_within_48h else 0),
+                note,
+                attribution.get("attributed_session_id"),
+                attribution.get("attributed_exercise_id"),
+                attribution.get("onset_on"),
+                attribution.get("attribution_confidence"),
+                chosen_side,
+            ),
+        )
+        log_id = int(cursor.lastrowid)
+        if chosen_characters:
+            conn.executemany(
+                "INSERT INTO symptom_character (log_id, character_id) VALUES (?, ?)",
+                [(log_id, character) for character in chosen_characters],
+            )
+    return log_id
 
 
 def append_prescription(

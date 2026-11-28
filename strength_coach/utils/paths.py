@@ -65,6 +65,7 @@ SCHEMES_YAML = "schemes.v1.yaml"
 UNDULATION_YAML = "undulation.v1.yaml"
 SESSION_TYPES_YAML = "session-types.v1.yaml"
 TEMPLATE_RESOLVER_YAML = "template-resolver.v1.yaml"
+SYMPTOMS_YAML = "symptoms.v1.yaml"
 
 
 def training_log_csv() -> Path:
@@ -101,6 +102,10 @@ def readiness_yaml() -> Path:
 
 def injuries_yaml() -> Path:
     return config_dir(INJURIES_YAML)
+
+
+def symptoms_yaml() -> Path:
+    return config_dir(SYMPTOMS_YAML)
 
 
 def cardio_yaml() -> Path:

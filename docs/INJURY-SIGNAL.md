@@ -259,12 +259,26 @@ and a duplicate would bury the modifier.
 ## 6. Adding an injury
 
 1. Append a region to `config/injuries.v1.yaml` with its `links` and, if it needs different
-   numbers, any of the window keys.
+   numbers, any of the window keys. A region that is only being *recorded* needs no links at
+   all and starts `policy: {signal: false, deload: false}`.
 2. Log against it: `strength-coach symptom --region <name> --level <0-3>`. What to
    write in `settled`, and which reading ends a flare, is in
    [SYMPTOM-LOGGING.md](SYMPTOM-LOGGING.md).
 3. If the region needs a movement the taxonomy cannot express, add the property to the
    taxonomy (and document it in [DATA-MODEL.md](DATA-MODEL.md)), not a special case in code.
+
+### Log-only regions
+
+A region can be recorded without joining the signal. `policy.signal: false` removes it from
+`compute()`: no `RegionSignal`, no readiness ceiling, no exercise-selection suppression and no
+review certificate. `policy.deload: false` keeps it out of the local reactive deload. Both
+are read where the signal is built, so the region stays selectable in the CLI and the web form
+— the point is that the reading is captured now and interpreted only when someone has reviewed
+an exposure mapping and a recovery policy for it (`DEC-SYMPTOM-06`).
+
+A region with no `policy` block defaults to `true/true`, which is why the three original
+regions behave exactly as before. Enabling either flag without `links` is a config error: a
+region that can load must say what loads it.
 
 `attribution_lookback_days` is a top-level capture window for optional symptom attribution;
 it applies to every region and is not a recovery threshold.
@@ -293,3 +307,18 @@ numeric readiness score too** (`DEC-INJURY-04`), so a flaring non-back region ca
 rather than only warning. The low back is excluded from the ceiling because `MOD-BACK-001` owns
 that flare; the advisory warning for a flaring region still excludes it for the same reason.
 See [`READINESS-SCORE.md`](READINESS-SCORE.md) §2.2 and §2.6.
+
+## Related
+
+- **Decisions:** [DECISIONS.md](DECISIONS.md) — `DEC-INJURY-01` to `DEC-INJURY-06` (exposure
+  model, the recovery certificate, verification and attribution), `DEC-SYMPTOM-03` (regions
+  stay separate), `DEC-SYMPTOM-05` (characters are description), `DEC-SYMPTOM-06` (log-only
+  regions), `DEC-BACKSIGNAL-01` (rest earns no credit).
+- **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) — Q25 (settlement) is closed by
+  `DEC-SYMPTOM-04`; per-region recovery windows remain assumptions, not findings.
+- **Roadmap:** [ROADMAP.md](../ROADMAP.md) §4.7 (injury signal).
+- **Symptom input:** [SYMPTOM-LOGGING.md](SYMPTOM-LOGGING.md) — the scale, the flare rule and
+  what to log when it settles.
+- **Schema:** [DATA-MODEL.md](DATA-MODEL.md) §11.5–11.7 — `symptom_log`, `symptom_character`
+  and the region policy flags.
+- **Configuration:** `config/injuries.v1.yaml` (regions, links, windows, policy).

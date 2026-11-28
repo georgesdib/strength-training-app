@@ -574,9 +574,10 @@ view shows both kinds in one append-only ledger; the CLI exposes `e1rm withdraw`
 |---|---|
 | logged_on | |
 | timing | `pre_session` \| `post_session` \| `next_morning` |
-| region | `low_back` \| `biceps` \| `knee` \| … — one reading per region; the configured regions live in `config/injuries.v1.yaml` |
-| level | 0–3 agreed scale (see INFO-REQUESTS §6) |
+| region | one of the 11 configured regions (`low_back`, `biceps`, `knee`, `shoulder`, …); the list lives in `config/injuries.v1.yaml`, not in the schema |
+| level | 0–3 agreed scale (see INFO-REQUESTS §6); unchanged |
 | settled_within_48h | nullable boolean |
+| side | nullable; `left` \| `right` \| `bilateral` \| `central`. Validated at the write boundary against `config/symptoms.v1.yaml` |
 | note | |
 | attributed_session_id | nullable; one completed `session` row; validated in code, not a foreign key |
 | attributed_exercise_id | nullable; at most one lift actually performed in that session |
@@ -584,9 +585,9 @@ view shows both kinds in one append-only ledger; the CLI exposes `e1rm withdraw`
 | attribution_confidence | nullable; `possible` \| `likely` \| `strong` |
 
 v0.1 recorded **one pre-session number for the whole back** (`DEC-SYMPTOM-01`). Since
-2026-10-19 the same 0-3 scale is recorded **per region** (`DEC-SYMPTOM-03`): `low_back`,
-`biceps`, `knee`, and any region added to the injuries config. The column already existed, so
-no migration is needed — but the region is now load-bearing, not decorative. Every back rule
+2026-10-19 the same 0-3 scale is recorded **per region** (`DEC-SYMPTOM-03`): eleven training
+groupings are configured, and the scale itself never changed. The region is load-bearing, not
+decorative. Every back rule
 reads `low_back` only, so a knee reading cannot trigger `MOD-BACK-001` or reset the back
 signal. Multiple entries per day are allowed and the latest wins (migration 0005), so a
 correction is an insert. A reading is a **flare** at level >= 2, or at level 1 that did not
@@ -600,6 +601,33 @@ the lift must have been performed in that session; the session is within the 7-d
 date). Historical rows stay `NULL` and are never rewritten. Attribution never feeds the
 injury signal, suitability, selection, load or any prescription. See
 [`INJURY-ATTRIBUTION-PLAN.md`](INJURY-ATTRIBUTION-PLAN.md).
+
+### 11.6 `symptom_character` — description attached to one reading
+
+Migration `0086` adds `symptom_log.side` and a child table:
+
+| column | notes |
+|---|---|
+| log_id | references `symptom_log(log_id)`; no orphan labels |
+| character_id | one of the ids in `config/symptoms.v1.yaml` (`pain`, `stiffness`, `mechanical`, …) |
+| created_at | when the label was appended |
+
+Primary key `(log_id, character_id)`: one label appears once per reading, and any number of
+labels can attach to it. No-update and no-delete triggers make the child rows append-only like
+their parent, so a correction is a new reading, not an edit.
+
+Nothing reads a character. It does not enter the flare definition, the injury signal, exercise
+selection or a prescription (`DEC-SYMPTOM-05`). Severity remains the 0-3 scale, so no
+historical value needed converting and no scale marker was introduced.
+
+### 11.7 Region policy
+
+Each region carries `policy: {signal, deload}` in `config/injuries.v1.yaml`. Both are `true`
+only for the three original regions; the eight newer ones start `false/false`, which means a
+reading is stored and reviewed but the region is not in the signal, does not affect selection
+and cannot trigger a deload (`DEC-SYMPTOM-06`). The flags are read where the signal is built
+(`features/injury_signal.py`), not at the storage layer: every configured region stays
+selectable in the CLI and the web form.
 
 The per-region signal built from this table is documented in
 [`INJURY-SIGNAL.md`](INJURY-SIGNAL.md); how to log an episode, and what to record when it

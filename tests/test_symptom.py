@@ -329,3 +329,139 @@ def test_a_knee_flare_warns_without_vetoing_or_touching_the_back():
     signal = prescription.notes["injury_signal"]
     assert signal["active_regions"] == ["knee"]
     assert signal["regions"]["knee"]["latest_level"] == 2
+
+# --- regions, characters and sides ----------------------------------------
+
+
+def test_every_configured_region_is_a_loggable_region():
+    from strength_coach.features.injury_signal import InjuryConfig
+
+    config = InjuryConfig.load()
+    assert sorted(config.regions) == [
+        "biceps", "core", "forearm", "hamstring", "hip_groin", "knee",
+        "low_back", "lower_leg", "quadriceps", "shoulder", "upper_back",
+    ]
+    # Compatibility: the three original ids survive, and biceps may widen its label but never
+    # its id (DEC-SYMPTOM-03).
+    assert config.regions["biceps"].label == "Elbow / upper arm"
+    assert config.regions["low_back"].label == "Low back"
+    assert config.regions["knee"].label == "Knee"
+
+
+def test_many_regions_can_be_logged_on_the_same_day():
+    from strength_coach.features.injury_signal import InjuryConfig
+
+    with db.Store(":memory:") as store:
+        conn = store.connection
+        regions = sorted(InjuryConfig.load().regions)
+        for region in regions:
+            repositories.append_symptom(
+                conn, logged_on="2024-01-25", timing="pre_session",
+                region=region, level=1,
+            )
+        entries = queries.symptom_entries(conn)
+        assert [row["region"] for row in entries] == regions
+        # Still separate readings, never one collapsed daily score.
+        assert len({row["log_id"] for row in entries}) == len(regions)
+
+
+def test_characters_and_side_are_stored_with_the_reading():
+    with db.Store(":memory:") as store:
+        conn = store.connection
+        log_id = repositories.append_symptom(
+            conn, logged_on="2024-01-25", timing="pre_session", region="shoulder",
+            level=2, side="left", characters=("pain", "stiffness", "pain"),
+        )
+        assert isinstance(log_id, int)
+        (entry,) = queries.symptom_entries(conn)
+        # Duplicates collapse; order is preserved so the UI can show what was chosen.
+        assert entry["characters"] == ["pain", "stiffness"]
+        assert entry["side"] == "left"
+        assert queries.latest_symptom(conn, "2024-01-25", region="shoulder")["side"] == "left"
+
+
+def test_an_unknown_character_or_side_is_rejected():
+    from strength_coach.domain.symptom_vocabulary import SymptomVocabularyError
+
+    with db.Store(":memory:") as store:
+        conn = store.connection
+        with pytest.raises(SymptomVocabularyError, match="unknown symptom character"):
+            repositories.append_symptom(
+                conn, logged_on="2024-01-25", timing="pre_session", region="knee",
+                level=2, characters=("clicky",),
+            )
+        with pytest.raises(SymptomVocabularyError, match="unknown symptom side"):
+            repositories.append_symptom(
+                conn, logged_on="2024-01-25", timing="pre_session", region="knee",
+                level=2, side="centre",
+            )
+        assert queries.symptom_entries(conn) == []
+
+
+def test_optional_description_fields_can_be_omitted():
+    with db.Store(":memory:") as store:
+        conn = store.connection
+        repositories.append_symptom(
+            conn, logged_on="2024-01-25", timing="pre_session", region="knee", level=2,
+        )
+        (entry,) = queries.symptom_entries(conn)
+        assert entry["side"] is None
+        assert entry["characters"] == []
+
+
+def test_a_log_only_region_is_recorded_without_joining_the_signal():
+    from strength_coach.features import injury_signal
+
+    with db.Store(":memory:") as store:
+        conn = store.connection
+        repositories.append_symptom(
+            conn, logged_on="2024-01-25", timing="pre_session", region="shoulder", level=3,
+        )
+        repositories.append_symptom(
+            conn, logged_on="2024-01-25", timing="pre_session", region="low_back", level=0,
+        )
+        signal = injury_signal.compute(conn, "2024-01-26")
+        regions = {region.region for region in signal.regions}
+        assert "low_back" in regions
+        # A shoulder reading must not start suppressing presses merely because it is stored.
+        assert "shoulder" not in regions
+
+
+def test_cli_accepts_characters_and_a_side(tmp_path, capsys):
+    path = tmp_path / "coach.db"
+    assert cli.main([
+        "--db", str(path), "symptom", "--date", "2024-01-25", "--region", "shoulder",
+        "--level", "2", "--char", "pain", "--char", "stiffness", "--side", "left",
+    ]) == 0
+    out = capsys.readouterr().out
+    assert "characters: pain, stiffness" in out and "side left" in out
+
+    assert cli.main(["--db", str(path), "symptom", "--show"]) == 0
+    out = capsys.readouterr().out
+    assert "pain, stiffness" in out and "side left" in out
+
+    # Without --level the command is a survey, so the bad flag has to carry a reading.
+    assert cli.main([
+        "--db", str(path), "symptom", "--date", "2024-01-26", "--level", "1",
+        "--char", "clicky",
+    ]) == 2
+
+
+def test_velocity_report_keeps_region_and_timing_apart():
+    from strength_coach.features import rep_velocity
+
+    with db.Store(":memory:") as store:
+        conn = store.connection
+        repositories.append_symptom(
+            conn, logged_on="2024-01-25", timing="pre_session", region="knee", level=3,
+        )
+        repositories.append_symptom(
+            conn, logged_on="2024-01-25", timing="pre_session", region="low_back", level=1,
+        )
+        repositories.append_symptom(
+            conn, logged_on="2024-01-25", timing="next_morning", region="low_back", level=3,
+        )
+        by_key = rep_velocity._symptom_by_date(conn)
+        assert by_key[("2024-01-25", "knee", "pre_session")] == 3
+        assert by_key[("2024-01-25", "low_back", "pre_session")] == 1
+        assert by_key[("2024-01-25", "low_back", "next_morning")] == 3

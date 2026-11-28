@@ -770,3 +770,13 @@ body.menu-open { overflow: hidden; }
 .vbt-legend { font-size: 11px; margin: 2px 0 4px; }
 .vbt-series { max-width: 760px; }
 
+
+/* Athlete sub-navigation: one row of section links, shared by the six Athlete views. */
+.subnav { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 14px; }
+.subnav a { padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line);
+  text-decoration: none; color: var(--muted); font-size: 13px; }
+.subnav a:hover { background: var(--soft); color: var(--ink); }
+.subnav a.active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+/* A form result is silent until it has something to say. */
+.state-result:empty { display: none; }
+.field-block { grid-column: 1 / -1; }

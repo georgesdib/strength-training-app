@@ -522,7 +522,28 @@ def symptom_entries(conn, *, since: str | None = None,
     if clauses:
         sql += " WHERE " + " AND ".join(clauses)
     sql += " ORDER BY l.logged_on, l.log_id"
-    return [dict(row) for row in conn.execute(sql, params)]
+    rows = [dict(row) for row in conn.execute(sql, params)]
+    # Characters are a child table, so one extra query serves every row. The list keeps the
+    # order the athlete chose; a reading with none gets an empty list, never a null.
+    characters = _symptom_characters(conn, [int(row["log_id"]) for row in rows])
+    for row in rows:
+        row["characters"] = characters.get(int(row["log_id"]), [])
+    return rows
+
+
+def _symptom_characters(conn, log_ids: list[int]) -> dict[int, list[str]]:
+    found: dict[int, list[str]] = {}
+    # Chunked because SQLite caps bound parameters; the history view can ask for everything.
+    for start in range(0, len(log_ids), 900):
+        chunk = log_ids[start:start + 900]
+        placeholders = ",".join("?" for _ in chunk)
+        for row in conn.execute(
+            "SELECT log_id, character_id FROM symptom_character "
+            f"WHERE log_id IN ({placeholders}) ORDER BY log_id, rowid",
+            chunk,
+        ):
+            found.setdefault(int(row["log_id"]), []).append(str(row["character_id"]))
+    return found
 
 
 def latest_rubric_marks(conn) -> list[dict]:

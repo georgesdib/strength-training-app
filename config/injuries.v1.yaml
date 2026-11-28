@@ -61,6 +61,9 @@ regions:
   # ---------------------------------------------------------------------
   low_back:
     label: "Low back"
+    # Joins the injury signal and the local reactive deload; the back rules (MOD-BACK-001)
+    # keep reading this region directly.
+    policy: {signal: true, deload: true}
     links:
       # Direct: the spine is the target or is loaded as a prime mover. Hinges put a lumbar
       # moment on the spine even when the erectors are not the "target" (Swinton 2011,
@@ -84,8 +87,11 @@ regions:
   # doi:10.1177/03635465241295618) — a repair is a different case from tendinopathy, and the
   # app does not model surgery.
   # ---------------------------------------------------------------------
+  # Label widened: the region covers biceps, triceps and the elbow joint. The internal id
+  # stays `biceps` because history, the CLI and the API already use it (DEC-SYMPTOM-03).
   biceps:
-    label: "Biceps / elbow flexor"
+    label: "Elbow / upper arm"
+    policy: {signal: true, deload: true}
     links:
       # Everything that pulls with a flexed elbow loads it. Grip is not recorded, so the
       # supinated-versus-neutral distinction cannot be used; that makes this linkage coarse
@@ -101,6 +107,7 @@ regions:
   # ---------------------------------------------------------------------
   knee:
     label: "Knee"
+    policy: {signal: true, deload: true}
     links:
       direct:
         # Knee-dominant and impact work: the extensor mechanism is the loaded tissue.
@@ -110,6 +117,49 @@ regions:
         # Hinges and carries load the knee without it being the limiting joint.
         patterns: [hinge, hinge_unilateral, hinge_ballistic, carry]
 
-# Adding an injury is a config change: append a region with its links, and log symptoms
-# against that region (`strength-coach symptom --region ...`). If a new region needs a new
-# *pattern* or *flag*, the taxonomy is the place for it, not this file.
+  # ---------------------------------------------------------------------
+  # Log-only regions.
+  #
+  # These are training-relevant groupings, not clinical findings. They are recorded so a
+  # symptom can be described and reviewed, but they start outside the injury signal and
+  # outside the local reactive deload. A region joins those only when it has an exposure
+  # mapping and a recovery policy someone has actually reviewed for it (DEC-SYMPTOM-06).
+  # Enabling one is a config change — `policy: {signal: true, deload: true}` plus its links —
+  # never a code change.
+  # ---------------------------------------------------------------------
+  shoulder:
+    label: "Shoulder"
+    policy: {signal: false, deload: false}
+
+  upper_back:
+    label: "Upper back"
+    policy: {signal: false, deload: false}
+
+  core:
+    label: "Core"
+    policy: {signal: false, deload: false}
+
+  forearm:
+    label: "Forearm"
+    policy: {signal: false, deload: false}
+
+  hip_groin:
+    label: "Hip / groin"
+    policy: {signal: false, deload: false}
+
+  quadriceps:
+    label: "Quadriceps"
+    policy: {signal: false, deload: false}
+
+  hamstring:
+    label: "Hamstring"
+    policy: {signal: false, deload: false}
+
+  lower_leg:
+    label: "Lower leg"
+    policy: {signal: false, deload: false}
+
+# Adding an injury is a config change: append a region, give it links if it is ever to load
+# anything, and log symptoms against it (`strength-coach symptom --region ...`). A log-only
+# region needs no links at all — it is never read by the signal or the deload policy. If a new
+# region needs a new *pattern* or *flag*, the taxonomy is the place for it, not this file.

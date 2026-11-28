@@ -46,8 +46,23 @@ const VIEW_LOADERS = {
   logs: () => loadLogs(),
   state: () => {
     loadState();
+  },
+  "state-symptoms": () => {
+    loadState();
     loadSymptomHistory(false);
+  },
+  "state-limits": () => {
+    loadState();
+  },
+  "state-profile": () => {
+    loadState();
+  },
+  "state-metrics": () => {
+    loadState();
     loadTestCadence();
+  },
+  "state-events": () => {
+    loadState();
   },
   settings: () => loadSettings(),
   explain: () => { loadExplainStatus(); loadExplainSettings(); },
@@ -77,6 +92,12 @@ function setView(name, options = {}) {
     if (group === activeGroup) summary.setAttribute("aria-current", "location");
     else summary.removeAttribute("aria-current");
   });
+  document.querySelectorAll(".subnav [data-view-link]").forEach((link) => {
+    const active = link.dataset.viewLink === name;
+    link.classList.toggle("active", active);
+    if (active) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  });
   const loader = VIEW_LOADERS[name];
   if (loader) loader(options);
   if (!options.fromHash && location.hash !== "#" + name) {
@@ -86,7 +107,7 @@ function setView(name, options = {}) {
 
 window.openSymptomForSession = function (sessionId, date) {
   window.__pendingSymptomAttribution = { sessionId: sessionId, date: date };
-  setView("state");
+  setView("state-symptoms");
 };
 
 document.querySelectorAll("#nav button").forEach((button) => {
@@ -2522,10 +2543,18 @@ async function loadTestCadence() {
   }
 }
 
+function stateResultBox() {
+  // A save or a load reports where the athlete is looking, not always in the overview.
+  return document.querySelector(".view.active .state-result")
+    || document.getElementById("state-result");
+}
+
 async function loadState() {
-  $("#state-result").innerHTML = "<p class='empty'>Loading…</p>";
+  const box = stateResultBox();
+  if (box) box.innerHTML = "<p class='empty'>Loading…</p>";
   try {
     const data = await api("/api/state");
+    const opts = data.options || {};
     const profile = data.profile;
     const profileRows = profile ? Object.entries(profile).map(([k, v]) => `
       <tr><td class="muted">${esc(k)}</td><td>${esc(v ?? "—")}</td></tr>`).join("")
@@ -2554,6 +2583,15 @@ async function loadState() {
           esc(row.attribution_confidence) + "</td><td>" +
           esc(row.attributed_session_on || row.attributed_session_id) + "</td></tr>").join("") +
         "</tbody></table></div>"
+      : "";
+    // A region can be recorded without joining the signal; say so rather than letting the
+    // reading look as though it did nothing.
+    const logOnly = (opts.regions || []).filter(
+      (row) => !(data.injury_signal?.regions || {})[row.value]
+    );
+    const logOnlyNote = logOnly.length
+      ? "<p class='muted'>Log-only regions (recorded, not signal-driven): " +
+        esc(logOnly.map((row) => row.label).join(", ")) + ".</p>"
       : "";
     const calibration = data.e1rm_calibration || [];
     const e1rmPair = (raw, eff) => raw == null ? "—" :
@@ -2589,12 +2627,20 @@ async function loadState() {
       coverageTable + "</div>";
     renderStateForms(data);
     loadExposureStatus();
-    $("#state-result").innerHTML = coveragePanel + `
+    $("#state-summary").innerHTML = `
+        <p>${esc(data.injury_signal?.summary || "")}</p>
+        ${injuryRows}
+        ${attributionBlock}
+        ${logOnlyNote}
+        <p class="muted">${esc(data.injury_signal?.disclaimer || "")}</p>`;
+    $("#state-profile-summary").innerHTML = `
       <div class="panel"><div class="panel-head"><h2>Profile</h2></div>
-        <table><tbody>${profileRows}</tbody></table></div>
+        <table><tbody>${profileRows}</tbody></table></div>`;
+    $("#state-limits-summary").innerHTML = `
       <div class="panel"><div class="panel-head"><h2>Constraints</h2></div><ul class="list">${constraints}</ul></div>
       <div class="panel"><div class="panel-head"><h2>Suitability</h2></div>
-        ${suitability ? `<table><thead><tr><th>Exercise</th><th>can-do</th><th>will-do</th><th>feels bad</th></tr></thead><tbody>${suitability}</tbody></table>` : "<p class='empty'>none recorded</p>"}</div>
+        ${suitability ? `<table><thead><tr><th>Exercise</th><th>can-do</th><th>will-do</th><th>feels bad</th></tr></thead><tbody>${suitability}</tbody></table>` : "<p class='empty'>none recorded</p>"}</div>`;
+    $("#state-metrics-summary").innerHTML = coveragePanel + `
       <div class="panel state-wide"><div class="panel-head"><h2>e1RM calibration</h2>
         <span class="muted">measured vs formula; report only</span></div>
         <details class="calibration-details">
@@ -2607,14 +2653,11 @@ async function loadState() {
           measured tests still override the formula. Formula-only rows show the current
           estimate and last set. e1RM is an estimate, not a measured maximum.</p>`
           : "<p class='empty'>no measured tests with a prior estimate yet.</p>"}
-        </details></div>
-      <div class="panel state-wide"><div class="panel-head"><h2>Injury signal</h2></div>
-        <p>${esc(data.injury_signal?.summary || "")}</p>
-        ${injuryRows}
-        ${attributionBlock}
-        <p class="muted">${esc(data.injury_signal?.disclaimer || "")}</p></div>`;
+        </details></div>`;
+    if (box) box.innerHTML = "";
+
   } catch (error) {
-    $("#state-result").innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
+    if (box) box.innerHTML = `<p class="warnbox">${esc(error.message)}</p>`;
   }
 }
 
@@ -2724,6 +2767,16 @@ async function withdrawE1rmOverride(exerciseId, effectiveFrom) {
   }
 }
 
+function distributeStateForms(host) {
+  // Panels declare `data-state-section`; the container names the sub-page. A panel with no
+  // target never reaches the document, so a missing section shows up as a gap rather than
+  // silently landing on the wrong page.
+  host.querySelectorAll("[data-state-section]").forEach((panel) => {
+    const target = document.getElementById("state-forms-" + panel.dataset.stateSection);
+    if (target) target.appendChild(panel);
+  });
+}
+
 function renderStateForms(data) {
   const p = data.profile || {};
   const opts = data.options || {};
@@ -2731,6 +2784,13 @@ function renderStateForms(data) {
     ? opts.regions
     : Object.keys(data.injury_signal?.regions || {}).map((key) => ({ value: key, label: key }));
   const regionOptions = choiceOptions(regionChoices, "");
+  // Description is optional; the visible path stays region + level + timing.
+  const sideOptions = choiceOptions(
+    [{ value: "", label: "not recorded" }, ...(opts.symptom_sides || [])], ""
+  );
+  const characterChecklist = choiceChecklist(
+    "symptom_characters", opts.symptom_characters || []
+  );
   const exerciseChoices = (opts.exercises || []).slice();
   // A declared break freezes its weeks; the list is the record, the form appends to it.
   const todayDate = today();
@@ -2751,8 +2811,11 @@ function renderStateForms(data) {
           action + "</td></tr>";
       }).join("") + "</tbody></table></div>"
     : "<p class='empty'>no declared breaks; untrained weeks are already skipped</p>";
-  $("#state-forms").innerHTML = `
-    <div class="panel"><div class="panel-head"><h2>Edit profile</h2><span class="muted">appends a new version</span></div>
+  // Each panel declares the Athlete sub-page it belongs to, so the split stays explicit as
+  // panels are added rather than depending on their order in this template.
+  const formsHost = document.createElement("div");
+  formsHost.innerHTML = `
+    <div class="panel" data-state-section="profile"><div class="panel-head"><h2>Edit profile</h2><span class="muted">appends a new version</span></div>
       <form id="profile-form" class="grid-fields">
         ${profileField("competition_date", "Competition date", p.competition_date, "date")}
         ${profileField("sessions_per_week_target", "Sessions/week", p.sessions_per_week_target, "number")}
@@ -2786,7 +2849,7 @@ function renderStateForms(data) {
         href="#docs?doc=docs/archive/VOLUME-MODULATION-PLAN.md&amp;anchor=44-what-steps-2-and-2b-actually-do-implemented">Volume budget rules</a></p>
     </div>
 
-    <div class="panel"><div class="panel-head"><h2>Add constraint</h2></div>
+    <div class="panel" data-state-section="limits"><div class="panel-head"><h2>Add constraint</h2></div>
       <form id="constraint-form" class="grid-fields">
         <label>Kind<select data-constraint="kind">${choiceOptions(opts.constraint_kinds, "")}</select></label>
         <label>Region<select data-constraint="region">${regionOptions}</select></label>
@@ -2809,7 +2872,7 @@ function renderStateForms(data) {
       </form>
     </div>
 
-    <div class="panel"><div class="panel-head"><h2>Rate suitability</h2></div>
+    <div class="panel" data-state-section="limits"><div class="panel-head"><h2>Rate suitability</h2></div>
       <form id="suitability-form" class="grid-fields">
         <label>Exercise${exercisePickerHtml('data-suit="exercise_id"', exerciseChoices)}</label>
         <label>Can do<select data-suit="can_do"><option>yes</option><option>no</option></select></label>
@@ -2820,7 +2883,7 @@ function renderStateForms(data) {
       </form>
     </div>
 
-    <div class="panel"><div class="panel-head"><h2>e1RM override</h2></div>
+    <div class="panel" data-state-section="metrics"><div class="panel-head"><h2>e1RM override</h2></div>
       <form id="e1rm-form" class="grid-fields">
         <label>Exercise${exercisePickerHtml('data-e1rm="exercise_id"', exerciseChoices)}</label>
         <label>kg<input data-e1rm="e1rm_kg" type="number" step="0.5"></label>
@@ -2832,7 +2895,7 @@ function renderStateForms(data) {
       ${e1rmLedgerHtml(data.e1rm_override_ledger || [])}
     </div>
 
-    <div class="panel"><div class="panel-head"><h2>Strength test</h2><span class="muted">records a measured e1RM; exposure is automatic</span></div>
+    <div class="panel" data-state-section="metrics"><div class="panel-head"><h2>Strength test</h2><span class="muted">records a measured e1RM; exposure is automatic</span></div>
       <form id="test-form" class="grid-fields">
         <label>Exercise${exercisePickerHtml('data-test="exercise_id"', exerciseChoices)}</label>
         <label>kg<input data-test="kg" type="number" step="0.5"></label>
@@ -2845,7 +2908,7 @@ function renderStateForms(data) {
       <p class="muted">Recording a test also registers a high-intensity exposure. It is not volume.</p>
     </div>
 
-    <div class="panel"><div class="panel-head"><h2>High-intensity exposure</h2><span class="muted">max attempts, competition, unplanned work</span></div>
+    <div class="panel" data-state-section="metrics"><div class="panel-head"><h2>High-intensity exposure</h2><span class="muted">max attempts, competition, unplanned work</span></div>
       <div id="exposure-status"><p class="muted">Loading…</p></div>
       <form id="exposure-form" class="grid-fields">
         <label>Date<input data-exposure="date" type="date"></label>
@@ -2870,7 +2933,7 @@ function renderStateForms(data) {
       </form>
     </div>
 
-    <div class="panel"><div class="panel-head"><h2>Symptom</h2></div>
+    <div class="panel" data-state-section="symptoms"><div class="panel-head"><h2>Symptom</h2></div>
       <p class="section-help"><span>One pre-session 0-3 reading per region. The latest reading drives the back rules; the whole history drives the injury signal. “Settled within 48 hours” clears a level-1 reading only when recorded as yes — unknown counts as not settled. When it settles, log a new level-0 reading.</span> <a class="doc-link" href="#docs?doc=docs/SYMPTOM-LOGGING.md">Symptom logging</a></p>
       <form id="symptom-form" class="grid-fields">
         <label>Date<input data-symptom="date" type="date"></label>
@@ -2883,6 +2946,15 @@ function renderStateForms(data) {
         <label>Level<select data-symptom="level"><option>0</option><option>1</option><option>2</option><option>3</option></select></label>
         <label>Settled within 48 hours<select data-symptom="settled"><option value="unknown">unknown (not settled)</option><option value="yes">yes</option><option value="no">no</option></select></label>
         <label class="grow">Note<input data-symptom="note"></label>
+        <details class="advanced choice-details">
+          <summary>More details</summary>
+          <label>Side<select data-symptom="side">${sideOptions}</select></label>
+          <div class="field-block">
+            <p class="muted">What it felt like. These are descriptions you chose: no rule, no
+              injury signal and no deload reads them.</p>
+            ${characterChecklist}
+          </div>
+        </details>
         <fieldset class="attribution-fields"><legend>Attribution (optional)</legend>
           <p class="muted">A suspected completed session and lift. Onset is required; confidence is a word, not a probability. This never changes the injury signal or a prescription.</p>
           <label>Onset<input data-symptom="attribution_date" type="date"></label>
@@ -2899,7 +2971,7 @@ function renderStateForms(data) {
       </form>
     </div>
 
-    <div class="panel"><div class="panel-head"><h2>Declared break</h2>
+    <div class="panel" data-state-section="events"><div class="panel-head"><h2>Declared break</h2>
       <span class="muted">holiday, deload or test week</span></div>
       <p class="section-help"><span>A break freezes its weeks: the DUP cycle and the erector ramp do not advance inside it, nothing is edited or deleted, and no load, RIR or set changes.</span> <a class="doc-link" href="#docs?doc=docs/CONTINUITY.md&anchor=declared-breaks-implemented-2026-10-26">Continuity</a></p>
       <div id="break-list">${breakRows}</div>
@@ -2916,13 +2988,15 @@ function renderStateForms(data) {
       <div id="break-msg" class="muted"></div>
     </div>
 
-    <div class="panel"><div class="panel-head"><h2>Block start</h2><span class="muted">resets the ramp</span></div>
+    <div class="panel" data-state-section="events"><div class="panel-head"><h2>Block start</h2><span class="muted">resets the ramp</span></div>
       <form id="block-form" class="form-row">
         <label>Date<input data-block="date" type="date"></label>
         <label><input data-block="force" type="checkbox"> reset if already set</label>
         <button class="primary" type="submit">Set block start</button>
       </form>
     </div>`;
+
+  distributeStateForms(formsHost);
 
   wireChoiceSearch("constraint-exercise-search", "forbidden_exercises");
 
@@ -2946,14 +3020,15 @@ function renderStateForms(data) {
     settled_on: '[data-constraint="settled_on"]',
     evidence: '[data-constraint="evidence"]',
   };
-  const save = async (path, payload, target = "#state-result", message = "Saved.", mapping = {}) => {
+  const save = async (path, payload, target = null, message = "Saved.", mapping = {}) => {
     try {
       await api(path, { method: "POST", body: JSON.stringify(payload) });
       notify(message);
       loadState();
       loadOverview();
     } catch (error) {
-      applyFieldErrors(error, $(target), mapping);
+      // Errors surface on the sub-page being edited, not always on the overview.
+      applyFieldErrors(error, target ? $(target) : stateResultBox(), mapping);
     }
   };
   $("#profile-form").addEventListener("submit", (event) => {
@@ -2965,14 +3040,14 @@ function renderStateForms(data) {
       exposure_trim_enabled: exposureTrim,
       sessions_per_week_target: values.sessions_per_week_target || null,
       max_session_minutes: values.max_session_minutes || null,
-    }, "#state-result", "Profile saved — new version appended.", PROFILE_ERRORS);
+    }, null, "Profile saved — new version appended.", PROFILE_ERRORS);
   });
   $("#constraint-form").addEventListener("submit", (event) => {
     event.preventDefault();
     const values = collect("constraint");
     values.forbidden_patterns = checkedChoices("forbidden_patterns");
     values.forbidden_exercises = checkedChoices("forbidden_exercises");
-    save("/api/state/constraint", values, "#state-result", "Constraint appended.", CONSTRAINT_ERRORS);
+    save("/api/state/constraint", values, null, "Constraint appended.", CONSTRAINT_ERRORS);
   });
   $("#suitability-form").addEventListener("submit", (event) => {
     event.preventDefault();
@@ -2982,17 +3057,17 @@ function renderStateForms(data) {
       can_do: values.can_do === "yes",
       will_do: values.will_do === "yes",
       feels_bad: values.feels_bad === "yes",
-    }, "#state-result", "Suitability appended.", { exercise_id: '[data-suit="exercise_id"]' });
+    }, null, "Suitability appended.", { exercise_id: '[data-suit="exercise_id"]' });
   });
   $("#e1rm-form").addEventListener("submit", (event) => {
     event.preventDefault();
-    save("/api/state/e1rm", collect("e1rm"), "#state-result", "e1RM override appended.", {
+    save("/api/state/e1rm", collect("e1rm"), null, "e1RM override appended.", {
       exercise_id: '[data-e1rm="exercise_id"]',
       e1rm_kg: '[data-e1rm="e1rm_kg"]',
       effective_from: '[data-e1rm="effective_from"]',
     });
   });
-  $("#state-forms").querySelectorAll("[data-e1rm-withdraw]").forEach((button) => {
+  document.querySelectorAll("[data-e1rm-withdraw]").forEach((button) => {
     button.addEventListener("click", () => {
       withdrawE1rmOverride(
         button.getAttribute("data-e1rm-withdraw"),
@@ -3077,7 +3152,10 @@ function renderStateForms(data) {
   }
   $("#symptom-form").addEventListener("submit", (event) => {
     event.preventDefault();
-    save("/api/state/symptom", collect("symptom"), "#state-result", "Symptom appended.", {
+    save("/api/state/symptom", {
+      ...collect("symptom"),
+      characters: checkedChoices("symptom_characters"),
+    }, null, "Symptom appended.", {
       date: '[data-symptom="date"]',
       region: '[data-symptom="region"]',
       level: '[data-symptom="level"]',

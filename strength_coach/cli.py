@@ -294,6 +294,11 @@ def main(argv: list[str] | None = None) -> int:
     symptom.add_argument("--settled", choices=("yes", "no", "unknown"), default=None,
                          help="settled within 48 hours? yes clears a level-1 reading; "
                               "no and unknown both count as not settled")
+    symptom.add_argument("--char", action="append", default=None, dest="characters",
+                         help="character descriptor; repeatable (pain, stiffness, "
+                              "muscle_soreness, ... — see config/symptoms.v1.yaml)")
+    symptom.add_argument("--side", default=None,
+                         help="left, right, bilateral or central (optional)")
     symptom.add_argument("--note", default=None)
     symptom.add_argument("--timing", choices=symptom_attribution.TIMINGS,
                          default="pre_session", help="reading timing (default: pre_session)")
@@ -2025,11 +2030,22 @@ def _cmd_symptom(args) -> int:
                 attributed_exercise_id=args.exercise,
                 onset_on=args.onset,
                 attribution_confidence=args.confidence,
+                side=args.side,
+                characters=args.characters or (),
             )
         except symptom_attribution.AttributionError as exc:
             print(f"{exc.field}: {exc}")
             return 2
-        print(f"logged {region} symptom {args.level}/3 on {on_date} ({args.timing})")
+        except ValueError as exc:
+            # Vocabulary errors (unknown character or side) are input problems, not crashes.
+            print(f"{exc}")
+            return 2
+        detail = ""
+        if args.characters:
+            detail += " · characters: " + ", ".join(args.characters)
+        if args.side:
+            detail += f" · side {args.side}"
+        print(f"logged {region} symptom {args.level}/3 on {on_date} ({args.timing}){detail}")
         if args.session:
             print(f"attributed to session {args.session} · onset {args.onset} · "
                   f"confidence {args.confidence}")
@@ -2060,7 +2076,7 @@ def _print_symptoms(conn, *, region: str | None = None) -> None:
         print(f"no symptom entries logged{where}; injury signals stay unknown until one exists")
         return
     print(f"{'date':<12}{'region':<12}{'timing':<14}{'level':>6}  "
-          f"{'settled<48h':<11} attribution / note")
+          f"{'settled<48h':<11} attribution / characters / note")
     for row in entries[-20:]:
         settled = "-" if row["settled_within_48h"] is None else (
             "yes" if row["settled_within_48h"] else "no"
@@ -2073,10 +2089,13 @@ def _print_symptoms(conn, *, region: str | None = None) -> None:
                 f"session {row.get('attributed_session_on') or row.get('attributed_session_id')} "
                 f"· onset {row.get('onset_on')}"
             )
+        parts = [part for part in (attribution, row["note"] or "") if part]
+        if row.get("characters"):
+            parts.append(", ".join(row["characters"]))
+        if row.get("side"):
+            parts.append(f"side {row['side']}")
         print(f"{row['logged_on']:<12}{row['region']:<12}{row['timing']:<14}"
-              f"{row['level']:>6}  {settled:<8} "
-              f"{attribution + (' · ' if attribution and row['note'] else '')}"
-              f"{row['note'] or ''}")
+              f"{row['level']:>6}  {settled:<8} " + " · ".join(parts))
 
 
 def _cmd_exercise_demands(args) -> int:

@@ -1,0 +1,46 @@
+# Symptom vocabulary — what a reading felt like, and which side it was on.
+#
+# Why this file exists: `symptom_log` records one number per region, which says how bad but not
+# what kind. The characters below are descriptors the athlete attaches to an observation. They
+# are labels, not findings: no rule, injury signal or deload policy reads a character
+# (DEC-SYMPTOM-05). Muscle soreness stays distinguishable from pain, and a "clicking" label
+# cannot launch a deload on its own.
+#
+# Severity is unchanged: the acknowledged 0-3 scale in `symptom_log.level`, with
+# `domain.symptoms.flare_from` as the only flare definition (DEC-SYMPTOM-02). The bands below
+# are display vocabulary for that same scale; they are not thresholds and must never be read
+# as one.
+#
+# Editable: reorder or relabel freely. Removing an id does not rewrite history — old rows keep
+# the character they recorded, and `symptom --show` prints the stored id when a label is gone.
+schema_version: "1.0.0"
+
+characters:
+  - {id: pain, label: "Pain / aching"}
+  - {id: sharp_pain, label: "Sharp pain"}
+  - {id: stiffness, label: "Stiffness"}
+  - {id: tenderness, label: "Tenderness"}
+  - {id: muscle_soreness, label: "Muscle soreness"}
+  - {id: weakness, label: "Weakness"}
+  - {id: reduced_rom, label: "Reduced range of motion"}
+  - {id: swelling, label: "Swelling"}
+  - {id: instability, label: "Instability"}
+  - {id: numbness, label: "Numbness"}
+  - {id: tingling, label: "Tingling / pins and needles"}
+  - {id: cramping, label: "Cramping / spasms"}
+  - {id: mechanical, label: "Clicking / catching / locking"}
+
+# Optional; one value per observation. "central" means central or not applicable, so a
+# midline symptom is not forced into left/right.
+sides:
+  - {id: left, label: "Left"}
+  - {id: right, label: "Right"}
+  - {id: bilateral, label: "Bilateral"}
+  - {id: central, label: "Central / not applicable"}
+
+# Display bands for the existing scale at `symptom_log.level` (see the header).
+severity_bands:
+  - {level: 0, label: "None"}
+  - {level: 1, label: "Mild"}
+  - {level: 2, label: "Moderate"}
+  - {level: 3, label: "Severe"}

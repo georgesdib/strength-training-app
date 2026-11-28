@@ -65,9 +65,19 @@
         </div>
       </details>
       <details class="nav-group">
+        <summary>Athlete</summary>
+        <div class="nav-group-items">
+          <button data-view="state">Overview</button>
+          <button data-view="state-symptoms">Symptoms &amp; injury</button>
+          <button data-view="state-limits">Constraints &amp; suitability</button>
+          <button data-view="state-profile">Profile</button>
+          <button data-view="state-metrics">e1RM &amp; tests</button>
+          <button data-view="state-events">Breaks &amp; block start</button>
+        </div>
+      </details>
+      <details class="nav-group">
         <summary>Administration</summary>
         <div class="nav-group-items">
-          <button data-view="state">Athlete</button>
           <button data-view="import">Import</button>
           <button data-view="settings">Settings</button>
           <button data-view="logs">Logs</button>
@@ -1114,12 +1124,81 @@
     </section>
 
     <section id="view-state" class="view">
-      <div class="panel">
-        <div class="panel-head"><h2>Athlete state</h2><span class="muted">stored in the database, not prompt text</span></div>
-        <p class="section-help"><span>Stores constraints, suitability and symptoms as state, not prompt text. The e1RM override ledger is append-only: <strong>Withdraw</strong> records a dated tombstone for that lift and keeps the row.</span> <a class="doc-link" href="#docs?doc=docs/DATA-MODEL.md&amp;anchor=11-athlete-state-constraints-suitability-metric-definitions-symptoms">Athlete state</a></p>
-        <div id="state-result" class="state-grid" role="status" aria-live="polite"></div>
-        <div id="state-forms" class="state-grid" style="margin-top:16px"></div>
+      <nav class="subnav" aria-label="Athlete sections">
+        <a href="#state" data-view-link="state">Overview</a>
+        <a href="#state-symptoms" data-view-link="state-symptoms">Symptoms &amp; injury</a>
+        <a href="#state-limits" data-view-link="state-limits">Constraints</a>
+        <a href="#state-profile" data-view-link="state-profile">Profile</a>
+        <a href="#state-metrics" data-view-link="state-metrics">e1RM &amp; tests</a>
+        <a href="#state-events" data-view-link="state-events">Events</a>
+      </nav>
+      <div class="state-result" id="state-result" role="status" aria-live="polite"></div>
+      <div class="panel state-wide">
+        <div class="panel-head"><h2>Injury signal</h2><span class="muted">observational, not a diagnosis</span></div>
+        <p class="section-help"><span>Constraints, suitability and symptoms are stored state, not prompt text. A log-only region is recorded and reviewed but does not drive a prescription until its policy is switched on.</span> <a class="doc-link" href="#docs?doc=docs/INJURY-SIGNAL.md">Injury signal</a></p>
+        <div id="state-summary"><p class="empty">Loading…</p></div>
       </div>
+    </section>
+
+    <section id="view-state-symptoms" class="view">
+      <nav class="subnav" aria-label="Athlete sections">
+        <a href="#state" data-view-link="state">Overview</a>
+        <a href="#state-symptoms" data-view-link="state-symptoms">Symptoms &amp; injury</a>
+        <a href="#state-limits" data-view-link="state-limits">Constraints</a>
+        <a href="#state-profile" data-view-link="state-profile">Profile</a>
+        <a href="#state-metrics" data-view-link="state-metrics">e1RM &amp; tests</a>
+        <a href="#state-events" data-view-link="state-events">Events</a>
+      </nav>
+      <div class="state-result" role="status" aria-live="polite"></div>
+      <div id="state-forms-symptoms"></div>
+      <div class="panel state-wide" id="state-symptom-panel">
+        <div class="panel-head"><h2>Raw symptom history</h2>
+          <span class="muted">read-only; latest 10</span></div>
+        <p class="section-help">Raw symptom entries are evidence, not a diagnosis. A character is a description you chose; no rule reads it. <a class="doc-link" href="#docs?doc=docs/SYMPTOM-LOGGING.md">Symptom logging</a></p>
+        <div id="state-symptom-history"><p class="empty">Loading…</p></div>
+      </div>
+    </section>
+
+    <section id="view-state-limits" class="view">
+      <nav class="subnav" aria-label="Athlete sections">
+        <a href="#state" data-view-link="state">Overview</a>
+        <a href="#state-symptoms" data-view-link="state-symptoms">Symptoms &amp; injury</a>
+        <a href="#state-limits" data-view-link="state-limits">Constraints</a>
+        <a href="#state-profile" data-view-link="state-profile">Profile</a>
+        <a href="#state-metrics" data-view-link="state-metrics">e1RM &amp; tests</a>
+        <a href="#state-events" data-view-link="state-events">Events</a>
+      </nav>
+      <div class="state-result" role="status" aria-live="polite"></div>
+      <div id="state-forms-limits"></div>
+      <div id="state-limits-summary"></div>
+    </section>
+
+    <section id="view-state-profile" class="view">
+      <nav class="subnav" aria-label="Athlete sections">
+        <a href="#state" data-view-link="state">Overview</a>
+        <a href="#state-symptoms" data-view-link="state-symptoms">Symptoms &amp; injury</a>
+        <a href="#state-limits" data-view-link="state-limits">Constraints</a>
+        <a href="#state-profile" data-view-link="state-profile">Profile</a>
+        <a href="#state-metrics" data-view-link="state-metrics">e1RM &amp; tests</a>
+        <a href="#state-events" data-view-link="state-events">Events</a>
+      </nav>
+      <div class="state-result" role="status" aria-live="polite"></div>
+      <div id="state-forms-profile"></div>
+      <div id="state-profile-summary"></div>
+    </section>
+
+    <section id="view-state-metrics" class="view">
+      <nav class="subnav" aria-label="Athlete sections">
+        <a href="#state" data-view-link="state">Overview</a>
+        <a href="#state-symptoms" data-view-link="state-symptoms">Symptoms &amp; injury</a>
+        <a href="#state-limits" data-view-link="state-limits">Constraints</a>
+        <a href="#state-profile" data-view-link="state-profile">Profile</a>
+        <a href="#state-metrics" data-view-link="state-metrics">e1RM &amp; tests</a>
+        <a href="#state-events" data-view-link="state-events">Events</a>
+      </nav>
+      <div class="state-result" role="status" aria-live="polite"></div>
+      <div id="state-forms-metrics"></div>
+      <div id="state-metrics-summary"></div>
       <div class="panel state-wide" id="state-report-windows">
         <div class="panel-head"><h2>Report window previews</h2>
           <span class="muted">read-only; active calibration unchanged</span></div>
@@ -1132,18 +1211,25 @@
         </div>
         <div id="state-e1rm-preview"></div>
       </div>
-      <div class="panel state-wide" id="state-symptom-panel">
-        <div class="panel-head"><h2>Raw symptom history</h2>
-          <span class="muted">read-only; latest 10</span></div>
-        <p class="section-help">Raw symptom entries are evidence, not a diagnosis. <a class="doc-link" href="#docs?doc=docs/SYMPTOM-LOGGING.md">Symptom logging</a></p>
-        <div id="state-symptom-history"><p class="empty">Loading…</p></div>
-      </div>
       <div class="panel state-wide" id="state-test-cadence-panel">
         <div class="panel-head"><h2>Strength-test cadence</h2>
           <span class="muted">read-only</span></div>
         <p class="section-help">Cadence is a reminder; measured-test coverage uses the e1RM gate. <a class="doc-link" href="#docs?doc=docs/TRAINING-DYNAMICS.md">Training dynamics</a></p>
         <div id="state-test-cadence"><p class="empty">Loading…</p></div>
       </div>
+    </section>
+
+    <section id="view-state-events" class="view">
+      <nav class="subnav" aria-label="Athlete sections">
+        <a href="#state" data-view-link="state">Overview</a>
+        <a href="#state-symptoms" data-view-link="state-symptoms">Symptoms &amp; injury</a>
+        <a href="#state-limits" data-view-link="state-limits">Constraints</a>
+        <a href="#state-profile" data-view-link="state-profile">Profile</a>
+        <a href="#state-metrics" data-view-link="state-metrics">e1RM &amp; tests</a>
+        <a href="#state-events" data-view-link="state-events">Events</a>
+      </nav>
+      <div class="state-result" role="status" aria-live="polite"></div>
+      <div id="state-forms-events"></div>
     </section>
 
     <section id="view-settings" class="view">

@@ -149,11 +149,27 @@ def _readiness_by_date(conn) -> dict[str, float]:
     return out
 
 
-def _symptom_by_date(conn) -> dict[str, int]:
+# This report is descriptive and predates multi-region logging, so it names the region it
+# reads instead of taking whichever reading happened to be latest (DEC-SYMPTOM-03).
+SYMPTOM_REGION = "low_back"
+
+
+def _symptom_by_date(conn) -> dict[tuple[str, str, str], int]:
+    """Readings keyed by (date, region, timing).
+
+    The key keeps region and timing apart. Two regions logged on the same day used to
+    overwrite each other in a single per-date map, and a next-morning reading could stand in
+    for the pre-session one. Latest row wins inside a key, matching the append-only
+    correction rule.
+    """
     rows = conn.execute(
-        "SELECT logged_on, level FROM symptom_log ORDER BY logged_on, log_id"
+        "SELECT logged_on, region, timing, level FROM symptom_log "
+        "ORDER BY logged_on, log_id"
     ).fetchall()
-    return {str(row["logged_on"]): int(row["level"]) for row in rows}
+    return {
+        (str(row["logged_on"]), str(row["region"]), str(row["timing"])): int(row["level"])
+        for row in rows
+    }
 
 
 def _e1rm(load, reps, rir) -> float | None:
@@ -284,7 +300,9 @@ def analysis_report(conn, *, on_date: str | None = None, weeks: int = 12,
     for item in aggregate.values():
         item["srpe"] = feedback.get(item["session_id"])
         item["readiness"] = readiness.get(item["date"])
-        item["symptom_level"] = symptoms.get(item["date"])
+        item["symptom_level"] = symptoms.get(
+            (item["date"], SYMPTOM_REGION, "pre_session")
+        )
         item["next"] = next_delta.get((item["session_id"], item["exercise_id"]))
     aggregates = sorted(aggregate.values(), key=lambda item: (item["date"], item["session_id"],
                                                               item["exercise_id"]))
@@ -323,7 +341,7 @@ def analysis_report(conn, *, on_date: str | None = None, weeks: int = 12,
             corr("mean_loss_pct", "readiness", ex_sessions,
                  "session mean loss vs readiness", exercise_id),
             corr("mean_loss_pct", "symptom_level", ex_sessions,
-                 "session mean loss vs pre-session symptom", exercise_id),
+                 f"session mean loss vs pre-session {SYMPTOM_REGION} symptom", exercise_id),
             corr("mean_loss_pct", "next_delta", [
                 {"mean_loss_pct": item["mean_loss_pct"],
                  "next_delta": (item["next"] or {}).get("delta_pct")}

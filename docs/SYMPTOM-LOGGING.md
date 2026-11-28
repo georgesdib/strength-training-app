@@ -18,6 +18,9 @@ triggers), and multiple rows per day are allowed with the latest winning.
 `0`–`3` is the athlete's own agreed scale, with anchors in `private/docs/INFO-REQUESTS.md` §6.
 The app does not reinterpret the anchors; it applies the flare definition to the number.
 
+Display bands used by the UI are 0 none, 1 mild, 2 moderate, 3 severe. They are vocabulary
+for the same scale, not a threshold: `flare_from` alone decides what a flare is.
+
 ## 2. What counts as a flare
 
 | reading | flare? |
@@ -112,6 +115,8 @@ Worked example:
   `latest_symptom`; other timings are stored for context.
 - **Do not back-date a clean reading to before a session you already trained.** The row is
   dated, and the date is the evidence.
+- **Do not treat a character as a diagnosis.** "Clicking" or "tingling" is a description you
+  chose. Nothing reads it, and it cannot trigger anything on its own (`DEC-SYMPTOM-05`).
 
 ## 6. Why an unanswered settle question is a flare
 
@@ -145,11 +150,59 @@ context in the note. The session picker does not infer causation; the label is
 
 See [`INJURY-ATTRIBUTION-PLAN.md`](INJURY-ATTRIBUTION-PLAN.md) and `DEC-INJURY-06`.
 
+## 8. Regions, characters and sides
+
+The reading is still **one number per region**. What expanded is where it can be recorded and
+what else can be attached to it.
+
+**Regions.** Eleven training-relevant groupings are configured in
+`config/injuries.v1.yaml`: shoulder, biceps (shown as *Elbow / upper arm*), forearm, upper
+back, low back, core, hip / groin, quadriceps, knee, hamstring and lower leg. They are training
+groupings, not clinical diagnoses. The three original ids — `low_back`, `biceps`, `knee` — are
+unchanged; `biceps` keeps its id and widens only its label, because history, the CLI and the
+API already use the id (`DEC-SYMPTOM-03`).
+
+**Log-only regions.** Eight of the eleven start with `policy: {signal: false, deload: false}`.
+A reading for one of them is stored, shown in history and available for review, but it does not
+join the injury signal, does not change exercise selection, and cannot trigger a local deload.
+That is deliberate: adding a region to the config must not, by itself, start suppressing
+exercises (`DEC-SYMPTOM-06`). A region joins when its exposure mapping and recovery policy
+have been reviewed; that is a config change, never a code change. The Athlete overview names
+the log-only regions so a reading does not look as though it did nothing.
+
+**Characters.** Any number of descriptors can attach to one reading: `pain`, `sharp_pain`,
+`stiffness`, `tenderness`, `muscle_soreness`, `weakness`, `reduced_rom`, `swelling`,
+`instability`, `numbness`, `tingling`, `cramping`, `mechanical` (clicking / catching / locking).
+They live in `config/symptoms.v1.yaml` and are stored in `symptom_character` (migration `0086`).
+Nothing reads them: no rule, no signal, no deload trigger. Muscle soreness stays separate from
+pain, weakness stays separate from pain, and a "mechanical" label cannot change a prescription
+on its own (`DEC-SYMPTOM-05`).
+
+**Side** is one optional value: `left`, `right`, `bilateral`, or `central` (central / not
+applicable, so a midline symptom is not forced into left or right). It is description too.
+
+**Where regions are still collapsed on purpose.** Two reporting summaries aggregate across
+regions: attendance's "injury-free weeks" takes the worst reading of a day, and the readiness
+feedback's flare flag is true when *any* region flared in its window. Both are descriptive
+reporting, labelled as such, and neither feeds a rule. The velocity report reads `low_back`
+pre-session explicitly and now says so in its correlation label.
+
+**What is deliberately absent.** No 0–10 scale in this release, no trend field, no
+character-to-diagnosis mapping and no character-driven rule. A finer scale needs a table
+rebuild and a re-derived flare threshold, and nothing yet justifies either; the bands above
+give the vocabulary without changing what the number means.
+
+```bash
+strength-coach symptom --region shoulder --level 2 \
+  --char pain --char stiffness --side left --note "overhead press"
+```
+
 ## Related
 
 - **Decisions:** [DECISIONS.md](DECISIONS.md) — `DEC-SYMPTOM-01` (one number, now per region),
   `DEC-SYMPTOM-02` (the flare definition), `DEC-SYMPTOM-03` (regions stay separate),
-  `DEC-SYMPTOM-04` (an unrecorded settlement is not a settlement), `DEC-INJURY-05`
+  `DEC-SYMPTOM-04` (an unrecorded settlement is not a settlement), `DEC-SYMPTOM-05`
+  (characters are description), `DEC-SYMPTOM-06` (log-only regions), `DEC-INJURY-05`
   (verification correction), `DEC-INJURY-06` (optional attribution).
 - **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) — Q25, closed by `DEC-SYMPTOM-04`.
 - **Roadmap:** [ROADMAP.md](../ROADMAP.md) §3.3 (symptom input) and §4.7 (injury signal).

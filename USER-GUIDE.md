@@ -232,7 +232,7 @@ Reactive deloads stay automatic; declared breaks retain precedence and reset the
 
 ### Injury signal and constraints
 
-The symptom/injury signal summarises recorded symptoms and loading history. It is not a diagnosis and does not certify recovery. A `review` status does not automatically make an exercise suitable or remove a constraint. Missing symptom data means unknown, not symptom-free. A symptom may optionally be attributed to one completed session (and at most one lift performed there) with an onset date and an ordinal confidence; this is the athlete's suspicion, shown for review only, and never changes the signal, suitability, selection or prescription.
+The symptom/injury signal summarises recorded symptoms and loading history. It is not a diagnosis and does not certify recovery. A `review` status does not automatically make an exercise suitable or remove a constraint. Missing symptom data means unknown, not symptom-free. A symptom may optionally be attributed to one completed session (and at most one lift performed there) with an onset date and an ordinal confidence; this is the athlete's suspicion, shown for review only, and never changes the signal, suitability, selection or prescription. A reading can also carry character labels (pain, stiffness, soreness, weakness, …) and a side; they describe the reading and are never read by a rule. Some regions are log-only: recorded and reviewable, but not yet part of the signal or a deload.
 
 ### Dynamic template resolver (optional)
 

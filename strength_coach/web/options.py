@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from strength_coach.domain import athlete_state
+from strength_coach.domain.symptom_vocabulary import SymptomVocabulary
 from strength_coach.features.injury_signal import InjuryConfig
 from strength_coach.utils import exercises
 
@@ -17,6 +18,9 @@ from strength_coach.utils import exercises
 def canonical_options() -> dict[str, Any]:
     taxonomy = exercises.taxonomy()
     config = InjuryConfig.load()
+    vocabulary = SymptomVocabulary.load()
+    # Every configured region is offered for logging, including log-only ones: the policy
+    # decides what a reading can trigger, not whether it can be recorded (DEC-SYMPTOM-06).
     regions = [
         {"value": rule.region, "label": rule.label}
         for rule in sorted(config.regions.values(), key=lambda item: item.label)
@@ -33,6 +37,15 @@ def canonical_options() -> dict[str, Any]:
             athlete_state.SEVERITIES, athlete_state.SEVERITY_LABELS
         ),
         "regions": regions,
+        "symptom_characters": [
+            {"value": item.id, "label": item.label} for item in vocabulary.characters
+        ],
+        "symptom_sides": [
+            {"value": item.id, "label": item.label} for item in vocabulary.sides
+        ],
+        "symptom_severity_bands": [
+            {"value": band.level, "label": band.label} for band in vocabulary.severity_bands
+        ],
         "patterns": [{"value": value, "label": value} for value in exercises.canonical_patterns()],
         "vbt_families": [
             {"value": value, "label": value} for value in exercises.canonical_vbt_families()

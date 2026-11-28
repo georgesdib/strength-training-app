@@ -3038,6 +3038,45 @@ def test_symptom_attribution_round_trips_and_exposes_options(server):
     assert "attribution_confidence" in json.loads(body).get("fields", {})
 
 
+def test_symptom_characters_and_side_round_trip(server):
+    state = post(server, "/api/state/symptom", {
+        "date": "2024-01-02", "timing": "pre_session", "region": "shoulder",
+        "level": 2, "characters": ["pain", "stiffness"], "side": "left",
+    })
+    entry = state["symptoms"][-1]
+    assert entry["region"] == "shoulder"
+    assert entry["characters"] == ["pain", "stiffness"]
+    assert entry["side"] == "left"
+
+    history = json.loads(get(server, "/api/symptoms/history?limit=10")[1])
+    assert history["entries"][0]["characters"] == ["pain", "stiffness"]
+
+    # One vocabulary serves the form: every configured region is loggable, including the
+    # log-only ones, and the characters are the same ids the CLI validates.
+    options = json.loads(get(server, "/api/options")[1])
+    assert any(row["value"] == "shoulder" for row in options["regions"])
+    assert {"value": "muscle_soreness", "label": "Muscle soreness"} in         options["symptom_characters"]
+    assert {"value": "left", "label": "Left"} in options["symptom_sides"]
+
+    # The UI's comma form works as well as a JSON array.
+    state = post(server, "/api/state/symptom", {
+        "date": "2024-01-03", "region": "knee", "level": 1, "characters": "cramping",
+    })
+    assert state["symptoms"][-1]["characters"] == ["cramping"]
+
+    code, body = post_status(server, "/api/state/symptom", {
+        "date": "2024-01-04", "region": "knee", "level": 1, "characters": ["clicky"],
+    })
+    assert code == 400
+    assert "characters" in json.loads(body).get("fields", {})
+
+    code, body = post_status(server, "/api/state/symptom", {
+        "date": "2024-01-04", "region": "knee", "level": 1, "side": "centre",
+    })
+    assert code == 400
+    assert "side" in json.loads(body).get("fields", {})
+
+
 
 IOS_CONFIG = """# header
 mutations_enabled: true

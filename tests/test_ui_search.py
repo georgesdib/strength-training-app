@@ -77,19 +77,19 @@ def test_dwell_prefers_a_dwell_labelled_setting(entries):
 @pytest.mark.parametrize(
     ("question", "views"),
     [
-        ("I want to remove an e1rm override, where can I do that?", {"state"}),
-        ("where can I see the table of symptoms?", {"state"}),
-        ("where do I add a constraint?", {"state"}),
-        ("where do I rate an exercise's suitability?", {"state"}),
-        ("where do I declare a break?", {"state"}),
-        ("where do I record a strength test?", {"state"}),
+        ("I want to remove an e1rm override, where can I do that?", {"state-metrics"}),
+        ("where can I see the table of symptoms?", {"state-symptoms"}),
+        ("where do I add a constraint?", {"state-limits"}),
+        ("where do I rate an exercise's suitability?", {"state-limits"}),
+        ("where do I declare a break?", {"state-events"}),
+        ("where do I record a strength test?", {"state-metrics", "state"}),
         ("where do I log a set?", {"workout"}),
         ("where do I edit a past session?", {"history"}),
         ("where do I configure relative strength ratios?", {"performance"}),
         ("where do I rate resolver suggestions?", {"settings"}),
         ("where do I change the readiness baseline?", {"readiness"}),
         ("where do I import a CSV?", {"import", "workout"}),
-        ("where do I log a symptom before training?", {"state"}),
+        ("where do I log a symptom before training?", {"state-symptoms"}),
         ("where do I see the resolver generation preview?", {"settings"}),
     ],
 )
@@ -111,8 +111,8 @@ def test_removing_an_override_finds_the_athlete_ledger(entries):
         entries, "I want to remove an e1rm override, where can I do that?"
     )
     assert results
-    assert results[0][0].view == "state"
-    assert results[0][0].target == "state-forms"
+    assert results[0][0].view == "state-metrics"
+    assert results[0][0].target == "state-forms-metrics"
 
 
 def test_the_dwell_counter_question_finds_the_resolver_section(entries):
@@ -192,3 +192,40 @@ def test_page_ships_the_palette():
     assert 'id="search-palette"' in text
     assert 'id="search-input"' in text
     assert "/static/search.js" in text
+
+def test_athlete_is_split_into_wired_subsections():
+    """The Athlete page is six real views, each with its own container and section links.
+
+    A sub-page that exists in the nav but has nowhere to render is the failure this guards:
+    the panels are injected by JS, so a missing container would silently drop a form.
+    """
+    text = INDEX_HTML.read_text(encoding="utf-8")
+    views = re.findall(r'<section id="view-(state[a-z-]*)"', text)
+    assert views == [
+        "state", "state-symptoms", "state-limits",
+        "state-profile", "state-metrics", "state-events",
+    ]
+    nav = re.search(r"<summary>Athlete</summary>(.*?)</details>", text, re.S)
+    assert nav is not None
+    assert re.findall(r'data-view="([a-z-]+)"', nav.group(1)) == views
+
+    containers = {
+        "state-symptoms": "state-forms-symptoms",
+        "state-limits": "state-forms-limits",
+        "state-profile": "state-forms-profile",
+        "state-metrics": "state-forms-metrics",
+        "state-events": "state-forms-events",
+    }
+    for view in views:
+        section = text.split(f'<section id="view-{view}"', 1)[1].split("</section>", 1)[0]
+        assert 'class="subnav"' in section, view
+        assert 'class="state-result"' in section, view
+        if view in containers:
+            assert f'id="{containers[view]}"' in section, view
+
+    script = (ROOT / "strength_coach/web/static/app.js").read_text(encoding="utf-8")
+    # Panels declare their sub-page rather than relying on template order.
+    assert "data-state-section=" in script
+    assert 'getElementById("state-forms-" + panel.dataset.stateSection)' in script
+    # The workout deep link must land on the form, not on the overview.
+    assert 'setView("state-symptoms")' in script

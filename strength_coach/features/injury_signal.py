@@ -109,6 +109,11 @@ class RegionRule:
     max_entry_age_days: int
     verify_within_days: int
     min_session_load: int
+    # Per-region policy. A region can be logged without joining the injury signal or the local
+    # reactive deload. Adding a region to the configuration must not, by itself, start
+    # suppressing exercises or easing prescriptions (DEC-SYMPTOM-06).
+    signal_enabled: bool = True
+    deload_enabled: bool = True
 
     def weight(self, exercise_id: str, props: Mapping[str, Any]) -> int:
         if self.direct.matches(exercise_id, props):
@@ -164,6 +169,7 @@ class InjuryConfig:
                 raise InjuryConfigError("a region name cannot be empty")
             body = body or {}
             links = body.get("links") or {}
+            policy = body.get("policy") or {}
             rule = RegionRule(
                 region=region,
                 label=str(body.get("label", region.replace("_", " ").title())),
@@ -188,6 +194,8 @@ class InjuryConfig:
                 max_entry_age_days=_value(body, defaults, "max_entry_age_days", 14),
                 verify_within_days=_value(body, defaults, "verify_within_days", 7),
                 min_session_load=_value(body, defaults, "min_session_load", 2),
+                signal_enabled=bool(policy.get("signal", True)),
+                deload_enabled=bool(policy.get("deload", True)),
             )
             _validate_rule(rule)
             regions[region] = rule
@@ -255,9 +263,18 @@ def _validate_rule(rule: RegionRule) -> None:
         raise InjuryConfigError(
             f"{rule.region}: max_min_tolerated_sessions is below the base"
         )
-    if not (rule.direct.patterns or rule.direct.muscles or rule.direct.flags
-            or rule.direct.exercises):
-        raise InjuryConfigError(f"{rule.region}: no direct loading links; it can never load")
+    # A log-only region never loads anything, because it is not in the signal and cannot
+    # trigger a deload. Requiring links for it would force an exposure model before there is
+    # evidence to build one on.
+    needs_links = rule.signal_enabled or rule.deload_enabled
+    has_links = bool(
+        rule.direct.patterns or rule.direct.muscles
+        or rule.direct.flags or rule.direct.exercises
+    )
+    if needs_links and not has_links:
+        raise InjuryConfigError(
+            f"{rule.region}: no direct loading links; it can never load"
+        )
 
 
 def _taxonomy_vocabulary(taxonomy: exercises.Taxonomy) -> tuple[set[str], set[str],
@@ -397,6 +414,7 @@ def compute(conn, on_date: str, *, config: InjuryConfig | None = None,
     signals = tuple(
         _region_signal(conn, rule, entries, on_date, taxonomy)
         for rule in cfg.regions.values()
+        if rule.signal_enabled
     )
     return InjurySignal(
         status=_aggregate_status(signals),

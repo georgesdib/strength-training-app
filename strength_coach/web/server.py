@@ -60,6 +60,7 @@ from strength_coach.analytics import status_snapshot as analytics_status_snapsho
 from strength_coach.critique import UnknownSessionError, build_facts
 from strength_coach.domain import athlete_state
 from strength_coach.domain import e1rm as e1rm_mod
+from strength_coach.domain.symptom_vocabulary import SymptomVocabulary
 from strength_coach.features import (
     adherence_analytics,
     cardio_metrics,
@@ -6872,6 +6873,21 @@ class Handler(BaseHTTPRequestHandler):
         timing = str(body.get("timing") or "pre_session")
         if timing not in symptom_attribution.TIMINGS:
             raise FieldError("invalid symptom timing", {"timing": "invalid timing"})
+        # Description only: a character never decides anything (DEC-SYMPTOM-05). The list is
+        # accepted as a JSON array or the UI's comma form, and validated against the one
+        # vocabulary the CLI reads too.
+        raw_characters = body.get("characters") or ()
+        if isinstance(raw_characters, str):
+            raw_characters = [part for part in raw_characters.split(",") if part.strip()]
+        vocabulary = SymptomVocabulary.load()
+        try:
+            characters = vocabulary.validate_characters(raw_characters)
+        except ValueError as exc:
+            raise FieldError(str(exc), {"characters": str(exc)}) from exc
+        try:
+            side = vocabulary.validate_side(body.get("side"))
+        except ValueError as exc:
+            raise FieldError(str(exc), {"side": str(exc)}) from exc
         try:
             repositories.append_symptom(
                 conn,
@@ -6895,9 +6911,14 @@ class Handler(BaseHTTPRequestHandler):
                 attribution_confidence=(
                     body.get("attribution_confidence") or body.get("confidence")
                 ),
+                side=side,
+                characters=characters,
             )
         except symptom_attribution.AttributionError as exc:
             raise FieldError(str(exc), {exc.field: str(exc)}) from exc
+        except ValueError as exc:
+            # Vocabulary failures are input problems; do not surface them as a 500.
+            raise FieldError(str(exc), {"characters": str(exc)}) from exc
         return self._state(conn)
 
     def _save_test(self, conn, body: dict) -> dict:

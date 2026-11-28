@@ -283,8 +283,8 @@ ACTION_TARGETS = (
     {
         "title": "Withdraw or remove an e1RM override",
         "subtitle": "Athlete · e1RM overrides",
-        "view": "state",
-        "target": "state-forms",
+        "view": "state-metrics",
+        "target": "state-forms-metrics",
         "body": (
             "remove, delete, revoke, cancel or undo an e1RM override; the ledger is append-only, "
             "so withdrawing records a dated tombstone and keeps the row"
@@ -292,31 +292,34 @@ ACTION_TARGETS = (
     },
     {
         "title": "Add or edit a constraint",
-        "subtitle": "Athlete",
-        "view": "state",
-        "target": "state-forms",
+        "subtitle": "Athlete · Constraints",
+        "view": "state-limits",
+        "target": "state-forms-limits",
         "body": "constraints, goals and injuries kept as athlete state rather than prompt text",
     },
     {
         "title": "Rate an exercise's suitability",
-        "subtitle": "Athlete",
-        "view": "state",
-        "target": "state-forms",
+        "subtitle": "Athlete · Constraints",
+        "view": "state-limits",
+        "target": "state-forms-limits",
         "body": "suitability ratings the resolver uses to prefer or avoid an exercise",
     },
     {
         "title": "Declare a break",
-        "subtitle": "Athlete",
-        "view": "state",
-        "target": "state-forms",
+        "subtitle": "Athlete · Events",
+        "view": "state-events",
+        "target": "state-forms-events",
         "body": "declare a holiday, deload or test-week break as an append-only date range",
     },
     {
         "title": "Log a symptom or pain reading",
-        "subtitle": "Athlete",
-        "view": "state",
-        "target": "state-forms",
-        "body": "pre-session symptom reading per region, with optional session attribution",
+        "subtitle": "Athlete · Symptoms",
+        "view": "state-symptoms",
+        "target": "state-forms-symptoms",
+        "body": (
+            "pre-session symptom reading per region, with optional character, side and "
+            "session attribution"
+        ),
     },
     {
         "title": "Edit a past session or its sets",
