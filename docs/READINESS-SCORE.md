@@ -218,12 +218,19 @@ lift_readiness = min(global_readiness,
 | injury status | direct ceiling | indirect ceiling |
 |---|---|---|
 | active flare | 0.50 | 0.60 |
-| monitoring | 0.80 | 0.85 |
+| monitoring | 1.00 (no cap, advisory warning) | 1.00 |
 | review | 1.00 (no cap) | 1.00 |
 | insufficient / unknown | 1.00, with a warning | 1.00 |
 
-These numbers are **assumptions** (`ASSUMPTION-13`). A high readiness score can never lift an
+The numbers are **assumptions** (`ASSUMPTION-13`). A high readiness score can never lift an
 item above its injury ceiling, and an injury signal can never *increase* readiness.
+
+**Only a flaring region caps load.** `monitoring` used to cap at 0.80/0.85, which meant that
+logging a clean reading lowered every linked lift for up to 28 days: honest logging was
+punished, and a region with no flare history was treated as though it were recovering from one.
+Monitoring is advisory now (amendment to `DEC-INJURY-04`): it still appears in the prescription
+warning and the Athlete signal, but the ceiling tracks whether a flare is still reported, never
+how long ago the last one was.
 
 The ceiling is computed **whether or not a numeric readiness score exists** (`DEC-INJURY-04`).
 With no score and no override the effective value is the ceiling itself, never a fabricated

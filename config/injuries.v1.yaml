@@ -62,9 +62,9 @@ regions:
   low_back:
     label: "Low back"
     # Joins the injury signal; the back rules (MOD-BACK-001) keep reading this region
-    # directly. The local reactive deload is off: the existing whole-session flare response
-    # stays exactly as it is, and a regional deload must not stack on top of it.
-    policy: {signal: true, deload: false}
+    # directly. The whole-session flare trigger is unchanged, and a local deload on top of it
+    # cannot double the load cut: the reducer compares against the factor already applied.
+    policy: {signal: true, deload: true}
     links:
       # Direct: the spine is the target or is loaded as a prime mover. Hinges put a lumbar
       # moment on the spine even when the erectors are not the "target" (Swinton 2011,
@@ -92,7 +92,7 @@ regions:
   # stays `biceps` because history, the CLI and the API already use it (DEC-SYMPTOM-03).
   biceps:
     label: "Elbow / upper arm"
-    policy: {signal: true, deload: false}
+    policy: {signal: true, deload: true}
     links:
       # Everything that pulls with a flexed elbow loads it. Grip is not recorded, so the
       # supinated-versus-neutral distinction cannot be used; that makes this linkage coarse
@@ -108,7 +108,7 @@ regions:
   # ---------------------------------------------------------------------
   knee:
     label: "Knee"
-    policy: {signal: true, deload: false}
+    policy: {signal: true, deload: true}
     links:
       direct:
         # Knee-dominant and impact work: the extensor mechanism is the loaded tissue.
@@ -119,17 +119,19 @@ regions:
         patterns: [hinge, hinge_unilateral, hinge_ballistic, carry]
 
   # ---------------------------------------------------------------------
-  # Log-only regions.
+  # Additional regions.
   #
-  # These are training-relevant groupings, not clinical findings. They are recorded so a
-  # symptom can be described and reviewed, and each carries an exposure mapping so the region
-  # is ready to join the signal and the local deload, but `policy` keeps both switched off
-  # until someone has reviewed a recovery policy for that region (DEC-SYMPTOM-06). Enabling one
-  # is a config change — `policy: {signal: true, deload: true}` — never a code change.
+  # Training-relevant groupings, not clinical findings. Each carries an exposure mapping used
+  # by both consumers: the injury signal (status, tolerated sessions, review suggestion and the
+  # flare ceiling) and the local reactive deload (two flaring exposures of that region).
+  #
+  # `policy` switches each consumer per region. Turning one off is a config change, not a code
+  # change: `signal: false` keeps logging and deloading but removes the ceiling, and
+  # `deload: false` keeps the signal but never eases a prescription (DEC-SYMPTOM-06).
   # ---------------------------------------------------------------------
   shoulder:
     label: "Shoulder"
-    policy: {signal: false, deload: false}
+    policy: {signal: true, deload: true}
     links:
       direct:
         patterns: [horizontal_push, vertical_push, horizontal_push_bw,
@@ -141,7 +143,7 @@ regions:
 
   upper_back:
     label: "Upper back"
-    policy: {signal: false, deload: false}
+    policy: {signal: true, deload: true}
     links:
       direct:
         patterns: [horizontal_pull, vertical_pull, rear_delt_pull, upper_trap]
@@ -150,7 +152,7 @@ regions:
 
   core:
     label: "Core"
-    policy: {signal: false, deload: false}
+    policy: {signal: true, deload: true}
     links:
       direct:
         patterns: [core, core_flexion, core_anti_extension, core_stability, core_isometric]
@@ -162,7 +164,7 @@ regions:
 
   forearm:
     label: "Forearm"
-    policy: {signal: false, deload: false}
+    policy: {signal: true, deload: true}
     links:
       direct:
         # Grip is a property of the exercise, not of the movement shape, so the heavy-grip
@@ -176,7 +178,7 @@ regions:
 
   hip_groin:
     label: "Hip / groin"
-    policy: {signal: false, deload: false}
+    policy: {signal: true, deload: true}
     links:
       direct:
         patterns: [hip_extension, squat, squat_unilateral]
@@ -185,7 +187,7 @@ regions:
 
   quadriceps:
     label: "Quadriceps"
-    policy: {signal: false, deload: false}
+    policy: {signal: true, deload: true}
     links:
       direct:
         patterns: [squat, squat_unilateral, knee_extension, power_jump]
@@ -194,7 +196,7 @@ regions:
 
   hamstring:
     label: "Hamstring"
-    policy: {signal: false, deload: false}
+    policy: {signal: true, deload: true}
     links:
       direct:
         patterns: [hinge, hinge_unilateral, hinge_ballistic, hamstring_eccentric,
@@ -204,7 +206,7 @@ regions:
 
   lower_leg:
     label: "Lower leg"
-    policy: {signal: false, deload: false}
+    policy: {signal: true, deload: true}
     links:
       direct:
         patterns: [plantar_flexion]

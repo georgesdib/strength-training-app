@@ -243,16 +243,19 @@ them. The label is a suspicion, not a cause.
 | `unknown` | no reading for the region; nothing can be said |
 | `insufficient` | the last reading is older than 14 days; a stale reading cannot speak for today |
 | `active` | the latest reading is a flare (level ≥ 2, or level 1 that did not settle in 48 h — an unrecorded settlement counts as not settled) |
-| `monitoring` | readings exist, no active flare, and the review bar is not met |
+| `monitoring` | readings exist, no active flare, and the review bar is not met. **Advisory: it does not cap load** |
 | `review` | streak ≥ window **and** loaded dates with no flare recorded ≥ requirement, with no active flare |
 
 `review` produces a recommendation to consider re-rating the lifts that load the region. It
 does not change any rating. The 2026-11-01 verification correction can move a historical
 status in either direction: removing a superseded flare can add credit, while a same-day
 pre-session flare removes it. That is a correction to how the agreed rule is evaluated, not a
-new threshold. A flaring region adds an advisory warning to a prescription that
-loads it; the low back is excluded from that warning because `MOD-BACK-001` already reports it
-and a duplicate would bury the modifier.
+new threshold. A flaring region adds an advisory warning to a prescription that loads it; the
+low back is excluded from that warning because `MOD-BACK-001` already reports it and a
+duplicate would bury the modifier. A monitored region gets a parallel advisory that says the
+load is unchanged, so visibility is not lost when the ceiling is: monitoring used to cap load
+at 80/85%, which punished honest logging and treated a region with no flare history as though
+it were recovering from one (amendment to `DEC-INJURY-04`). Only `active` caps.
 
 ---
 
@@ -260,25 +263,26 @@ and a duplicate would bury the modifier.
 
 1. Append a region to `config/injuries.v1.yaml` with its `links` and, if it needs different
    numbers, any of the window keys. A region that is only being *recorded* needs no links at
-   all and starts `policy: {signal: false, deload: false}`.
+   all and can start `policy: {signal: false, deload: false}`.
 2. Log against it: `strength-coach symptom --region <name> --level <0-3>`. What to
    write in `settled`, and which reading ends a flare, is in
    [SYMPTOM-LOGGING.md](SYMPTOM-LOGGING.md).
 3. If the region needs a movement the taxonomy cannot express, add the property to the
    taxonomy (and document it in [DATA-MODEL.md](DATA-MODEL.md)), not a special case in code.
 
-### Log-only regions
+### Per-region policy
 
-A region can be recorded without joining the signal. `policy.signal: false` removes it from
-`compute()`: no `RegionSignal`, no readiness ceiling, no exercise-selection suppression and no
-review certificate. `policy.deload: false` keeps it out of the local reactive deload. Both
-are read where the signal is built, so the region stays selectable in the CLI and the web form
-— the point is that the reading is captured now and interpreted only when someone has reviewed
-an exposure mapping and a recovery policy for it (`DEC-SYMPTOM-06`).
+Every region is in the signal and in the local deload, and `policy` is how either is taken
+out for one region without a code change (`DEC-SYMPTOM-06`):
 
-A region with no `policy` block defaults to `true/true`, which is why the three original
-regions behave exactly as before. Enabling either flag without `links` is a config error: a
-region that can load must say what loads it.
+- `signal: false` removes the region from `compute()`: no `RegionSignal`, no readiness
+  ceiling, no exercise-selection penalty and no review certificate. It still logs, and the
+  local deload still reads its links.
+- `deload: false` keeps the signal but never lets the region ease a prescription.
+
+Both flags are read where the signal is built, so a disabled region stays selectable in the
+CLI and the web form. A region with no `policy` block defaults to `true/true`; a region with
+either flag on needs `links`, and the config refuses to load if it does not have them.
 
 `attribution_lookback_days` is a top-level capture window for optional symptom attribution;
 it applies to every region and is not a recovery threshold.
@@ -310,10 +314,10 @@ See [`READINESS-SCORE.md`](READINESS-SCORE.md) §2.2 and §2.6.
 
 ## Related
 
-- **Decisions:** [DECISIONS.md](DECISIONS.md) — `DEC-INJURY-01` to `DEC-INJURY-06` (exposure
-  model, the recovery certificate, verification and attribution), `DEC-SYMPTOM-03` (regions
-  stay separate), `DEC-SYMPTOM-05` (characters are description), `DEC-SYMPTOM-06` (log-only
-  regions), `DEC-BACKSIGNAL-01` (rest earns no credit).
+- **Decisions:** [DECISIONS.md](DECISIONS.md) — `DEC-INJURY-01` to `DEC-INJURY-07` (exposure
+  model, the recovery certificate, verification, attribution and the flare-only ceiling),
+  `DEC-SYMPTOM-03` (regions stay separate), `DEC-SYMPTOM-05` (characters are description),
+  `DEC-SYMPTOM-06` (per-region policy), `DEC-BACKSIGNAL-01` (rest earns no credit).
 - **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) — Q25 (settlement) is closed by
   `DEC-SYMPTOM-04`; per-region recovery windows remain assumptions, not findings.
 - **Roadmap:** [ROADMAP.md](../ROADMAP.md) §4.7 (injury signal).

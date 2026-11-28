@@ -409,7 +409,7 @@ def test_optional_description_fields_can_be_omitted():
         assert entry["characters"] == []
 
 
-def test_a_log_only_region_is_recorded_without_joining_the_signal():
+def test_a_shoulder_reading_does_not_drive_the_back_signal():
     from strength_coach.features import injury_signal
 
     with db.Store(":memory:") as store:
@@ -421,10 +421,9 @@ def test_a_log_only_region_is_recorded_without_joining_the_signal():
             conn, logged_on="2024-01-25", timing="pre_session", region="low_back", level=0,
         )
         signal = injury_signal.compute(conn, "2024-01-26")
-        regions = {region.region for region in signal.regions}
-        assert "low_back" in regions
-        # A shoulder reading must not start suppressing presses merely because it is stored.
-        assert "shoulder" not in regions
+        # Each region keeps its own reading: the shoulder flare cannot make the back flare.
+        assert signal.region("shoulder").status == "active"
+        assert signal.region("low_back").status != "active"
 
 
 def test_cli_accepts_characters_and_a_side(tmp_path, capsys):

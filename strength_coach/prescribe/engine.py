@@ -1282,23 +1282,36 @@ def _apply_spinal_trim(
 
 def _injury_warnings(signal: injury_signal_mod.InjurySignal,
                      items: tuple[PrescriptionItem, ...]) -> list[str]:
-    """Name the prescribed lifts that load a currently flaring region.
+    """Name the prescribed lifts that load a flaring or monitored region.
 
     Low back is excluded because MOD-BACK-001 already reports it; naming it twice would bury
-    the modifier's own warning. Advisory only — it never vetoes or edits a load.
+    the modifier's own warning. Advisory only — it never vetoes or edits a load. A monitored
+    region says the load is unchanged on purpose: monitoring lost its ceiling, so the warning
+    is the only place it stays visible (DEC-INJURY-04 amendment).
     """
     warnings: list[str] = []
     for region in signal.regions:
-        if region.status != injury_signal_mod.STATUS_ACTIVE or region.region == "low_back":
+        if region.region == "low_back":
+            continue
+        if region.status not in (
+            injury_signal_mod.STATUS_ACTIVE, injury_signal_mod.STATUS_MONITORING,
+        ):
             continue
         hits = sorted({
             item.exercise_id for item in items
             if item.exercise_id in region.linked_exercises
         })
-        if hits:
+        if not hits:
+            continue
+        if region.status == injury_signal_mod.STATUS_ACTIVE:
             warnings.append(
                 f"injury signal: {region.label} is flaring; this session loads it via "
                 f"{', '.join(hits)} (advisory; the athlete decides)"
+            )
+        else:
+            warnings.append(
+                f"injury signal: {region.label} is being monitored; this session loads it "
+                f"via {', '.join(hits)} — load unchanged (advisory)"
             )
     return warnings
 

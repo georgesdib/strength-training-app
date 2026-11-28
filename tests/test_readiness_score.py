@@ -242,6 +242,25 @@ def test_injury_ceiling_caps_a_high_score():
     assert item(prescription, "ssb_squat").load_kg < 105.5
 
 
+def test_a_clean_reading_does_not_cap_load():
+    # Amendment to DEC-INJURY-04: monitoring is advisory. A level-0 reading must not lower a
+    # linked lift, or honest logging would reduce training for the next 28 days.
+    with store_with() as store:
+        bare = build_prescription(store.connection, for_date=TODAY, session_type="squat")
+    with store_with() as store:
+        conn = store.connection
+        repositories.append_symptom(
+            conn, logged_on=TODAY, timing="pre_session", region="knee", level=0,
+        )
+        logged = build_prescription(conn, for_date=TODAY, session_type="squat")
+        ceiling = readiness_score.injury_ceiling(conn, TODAY, "ssb_squat")
+
+    assert ceiling == 1.0
+    assert item(logged, "ssb_squat").load_kg == item(bare, "ssb_squat").load_kg
+    assert any("being monitored" in w for w in logged.warnings)
+    assert not any("injury ceiling applied" in w for w in logged.warnings)
+
+
 def test_injury_ceiling_applies_without_a_readiness_score():
     # DEC-INJURY-04: a flaring region caps its lifts even on a day that cannot form a score.
     with store_with() as store:

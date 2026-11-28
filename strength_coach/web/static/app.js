@@ -2615,7 +2615,7 @@ async function loadState() {
       (row) => !(data.injury_signal?.regions || {})[row.value]
     );
     const logOnlyNote = logOnly.length
-      ? "<p class='muted'>Log-only regions (recorded, not signal-driven): " +
+      ? "<p class='muted'>Regions outside the signal (recorded only): " +
         esc(logOnly.map((row) => row.label).join(", ")) + ".</p>"
       : "";
     const calibration = data.e1rm_calibration || [];

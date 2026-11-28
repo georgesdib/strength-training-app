@@ -3038,9 +3038,9 @@ def test_symptom_attribution_round_trips_and_exposes_options(server):
     assert "attribution_confidence" in json.loads(body).get("fields", {})
 
 
-def test_state_and_overview_expose_the_dormant_local_deloads(server):
-    # Every shipped region has policy.deload false, so the regional mechanism reports nothing
-    # until a region is reviewed and switched on (DEC-PROGRAMME-12).
+def test_state_and_overview_expose_local_deloads(server):
+    # The mechanism is enabled for every region; with no symptom data logged there is nothing
+    # to report, and the key is always present so the UI can render it unconditionally.
     state = json.loads(get(server, "/api/state")[1])
     assert state["local_deloads"] == []
     overview = json.loads(get(server, "/api/overview")[1])

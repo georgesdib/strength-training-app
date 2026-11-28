@@ -365,10 +365,16 @@ def compute(conn, on_date: str, config: readiness_config.ReadinessConfig | None 
 
 
 def _ceiling(status: str, weight: int) -> float:
+    """Load ceiling for one region's status; only an active flare reduces load.
+
+    `monitoring` used to cap at 80/85%, which meant a clean reading lowered every linked lift
+    for up to 28 days: honest logging was punished, and a region with no flare history was
+    treated as though it were recovering from one. Monitoring is advisory now (amendment to
+    DEC-INJURY-04): the cap tracks whether a flare is still being reported, never how long ago
+    the last one was.
+    """
     if status == injury_signal.STATUS_ACTIVE:
         return 0.50 if weight >= injury_signal.WEIGHT_DIRECT else 0.60
-    if status == injury_signal.STATUS_MONITORING:
-        return 0.80 if weight >= injury_signal.WEIGHT_DIRECT else 0.85
     return 1.0
 
 

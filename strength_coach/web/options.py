@@ -19,8 +19,9 @@ def canonical_options() -> dict[str, Any]:
     taxonomy = exercises.taxonomy()
     config = InjuryConfig.load()
     vocabulary = SymptomVocabulary.load()
-    # Every configured region is offered for logging, including log-only ones: the policy
-    # decides what a reading can trigger, not whether it can be recorded (DEC-SYMPTOM-06).
+    # Every configured region is offered for logging, including one taken out of the signal:
+    # the policy decides what a reading can trigger, not whether it can be recorded
+    # (DEC-SYMPTOM-06).
     regions = [
         {"value": rule.region, "label": rule.label}
         for rule in sorted(config.regions.values(), key=lambda item: item.label)

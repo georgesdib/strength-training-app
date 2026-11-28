@@ -162,15 +162,15 @@ groupings, not clinical diagnoses. The three original ids — `low_back`, `bicep
 unchanged; `biceps` keeps its id and widens only its label, because history, the CLI and the
 API already use the id (`DEC-SYMPTOM-03`).
 
-**Log-only regions.** Eight of the eleven start with `policy: {signal: false, deload: false}`.
-A reading for one of them is stored, shown in history and available for review, but it does not
-join the injury signal, does not change exercise selection, and cannot trigger a local deload.
-The three original regions keep `signal: true` and also start with `deload: false`, so the
-existing back-flare response is unchanged and a regional deload cannot stack on it.
-That is deliberate: adding a region to the config must not, by itself, start suppressing
-exercises (`DEC-SYMPTOM-06`). A region joins when its exposure mapping and recovery policy
-have been reviewed; that is a config change, never a code change. The Athlete overview names
-the log-only regions so a reading does not look as though it did nothing.
+**Per-region policy.** Every region is in the injury signal and in the local deload. A region
+can be taken out of either consumer with `policy: {signal: false, deload: false}` in the
+config — a config change, never a code change (`DEC-SYMPTOM-06`). `signal: false` keeps the
+logs and the deload but removes the load ceiling; `deload: false` keeps the signal but never
+eases a prescription. Nothing else about the region changes.
+
+The signal caps load **only while a flare is being reported**. `monitoring` is advisory: a
+clean reading raises no ceiling, because a rule that lowers training whenever you log honestly
+is a rule that teaches you not to log (amendment to `DEC-INJURY-04`).
 
 **Characters.** Any number of descriptors can attach to one reading: `pain`, `sharp_pain`,
 `stiffness`, `tenderness`, `muscle_soreness`, `weakness`, `reduced_rom`, `swelling`,
@@ -191,11 +191,12 @@ pre-session explicitly and now says so in its correlation label.
 
 **The local reactive deload.** Two consecutive *relevant* flaring exposures of a region
 (weighted working sets reaching its `min_session_load`) can reduce one set, 10% load and +1
-RIR on just the exercises that region loads. It runs only for regions with `policy.deload:
-true`, which is false everywhere in the shipped config, so nothing changes today. Full-session
-triggers run first and win. An exposure with no reading is skipped, a clear reading resets the
-sequence, and the deload ends when a later non-flare reading arrives — never because time
-passed. Enabling a region is one config line, not a code change.
+RIR on just the exercises that region loads. It runs for every region with `policy.deload:
+true`, which is every region in the shipped config. Full-session triggers run first and win,
+and the reducer compares against the factor already applied, so a flaring region's ceiling and
+the deload cannot multiply into a double load cut. An exposure with no reading is skipped, a
+clear reading resets the sequence, and the deload ends when a later non-flare reading arrives —
+never because time passed.
 
 **What is deliberately absent.** No 0–10 scale in this release, no trend field, no
 character-to-diagnosis mapping and no character-driven rule. A finer scale needs a table
@@ -212,7 +213,7 @@ strength-coach symptom --region shoulder --level 2 \
 - **Decisions:** [DECISIONS.md](DECISIONS.md) — `DEC-SYMPTOM-01` (one number, now per region),
   `DEC-SYMPTOM-02` (the flare definition), `DEC-SYMPTOM-03` (regions stay separate),
   `DEC-SYMPTOM-04` (an unrecorded settlement is not a settlement), `DEC-SYMPTOM-05`
-  (characters are description), `DEC-SYMPTOM-06` (log-only regions), `DEC-INJURY-05`
+  (characters are description), `DEC-SYMPTOM-06` (per-region policy), `DEC-INJURY-05`
   (verification correction), `DEC-INJURY-06` (optional attribution).
 - **Open questions:** [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) — Q25, closed by `DEC-SYMPTOM-04`.
 - **Roadmap:** [ROADMAP.md](../ROADMAP.md) §3.3 (symptom input) and §4.7 (injury signal).

@@ -186,6 +186,24 @@ def test_a_local_decision_leaves_unrelated_items_untouched():
     assert note["regions"] == ["knee"]
 
 
+def test_a_local_deload_does_not_multiply_an_existing_ceiling():
+    # The engine passes each item's current factor, which already includes the flare ceiling.
+    # The deload applies only when it is stricter, so 0.90 against an already-capped 0.50
+    # leaves the load alone and still takes the set.
+    squat = item("ssb_squat", load=50.0)
+    decision_ = deload.DeloadDecision(
+        "local reactive deload -- Knee", "reactive_local",
+        scope="local", regions=("knee",), exercise_ids=("ssb_squat",),
+    )
+    out, _warning, _note, _fallback = prescribe_deload.apply_items(
+        (squat,), decision_, config=deload.DeloadConfig(),
+        prior_load_factors={"ssb_squat": 0.5},
+    )
+
+    assert out[0].load_kg == 50.0
+    assert out[0].sets == 3
+
+
 def test_two_regions_merge_into_one_modifier_application(tmp_path):
     config = config_file(tmp_path, regions=("knee", "shoulder"))
     with store_with([
@@ -231,11 +249,10 @@ def test_a_full_decision_wins_and_the_regional_policy_is_not_evaluated(monkeypat
 # --- dormancy --------------------------------------------------------------
 
 
-def test_the_shipped_config_never_deloads_locally():
-    """Every shipped region has policy.deload false, so the mechanism stays dormant."""
+def test_the_shipped_config_enables_the_policy_for_every_region():
+    """Both consumers are on everywhere; nothing fires without symptom data."""
     shipped = injury_signal.InjuryConfig.load()
-    assert all(not rule.deload_enabled for rule in shipped.regions.values())
+    assert all(rule.deload_enabled for rule in shipped.regions.values())
+    assert all(rule.signal_enabled for rule in shipped.regions.values())
     with store_with([("2024-01-04", SQUAT), ("2024-01-08", SQUAT)]) as store:
-        log(store.connection, "2024-01-04", 3)
-        log(store.connection, "2024-01-08", 3)
         assert deload.local_deloads(store.connection, "2024-01-12") == []

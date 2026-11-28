@@ -67,7 +67,7 @@ def test_every_configured_region_is_reported():
     with store_with() as store:
         signal = injury_signal.compute(store.connection, "2024-03-01", config=CONFIG)
 
-    assert set(signal.as_dict()["regions"]) == {"low_back", "biceps", "knee"}
+    assert len(signal.as_dict()["regions"]) == 11
 
 
 def test_a_region_names_the_patterns_it_loads_not_just_canonical_lifts():
@@ -328,22 +328,20 @@ def test_an_unknown_exercise_id_in_the_config_is_rejected(tmp_path: Path):
         injury_signal.InjuryConfig.load(path)
 
 
-def test_every_region_maps_some_exercise_and_starts_without_a_local_deload():
-    """Links are prepared for all eleven regions, but no region deloads locally yet.
+def test_every_region_maps_some_exercise_and_enables_both_consumers():
+    """All eleven regions are wired into the signal and the local deload.
 
-    The local mechanism must not begin changing prescriptions because a region was added to
-    the config: the three original regions keep the signal, and every region starts with the
-    local deload off (DEC-SYMPTOM-06).
+    The flags exist so a region can be taken out of one consumer without code changes
+    (DEC-SYMPTOM-06); the shipped matrix has both on for every region, and this test is what
+    fails if that changes by accident.
     """
     config = injury_signal.InjuryConfig.load()
     taxonomy = exercises.taxonomy()
     assert len(config.regions) == 11
     for rule in config.regions.values():
         assert injury_signal.linked_exercises(rule, taxonomy), rule.region
-        assert rule.deload_enabled is False, rule.region
-    assert {name for name, rule in config.regions.items() if rule.signal_enabled} == {
-        "low_back", "biceps", "knee",
-    }
+        assert rule.signal_enabled is True, rule.region
+        assert rule.deload_enabled is True, rule.region
 
 
 def test_a_missing_config_file_says_unknown_rather_than_fine(tmp_path: Path):

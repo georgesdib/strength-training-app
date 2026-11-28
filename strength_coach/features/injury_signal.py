@@ -269,9 +269,9 @@ def _validate_rule(rule: RegionRule) -> None:
         raise InjuryConfigError(
             f"{rule.region}: max_min_tolerated_sessions is below the base"
         )
-    # A log-only region never loads anything, because it is not in the signal and cannot
-    # trigger a deload. Requiring links for it would force an exposure model before there is
-    # evidence to build one on.
+    # A region with both consumers switched off never loads anything: it is not in the signal
+    # and cannot trigger a deload. Requiring links for it would force an exposure model before
+    # there is evidence to build one on.
     needs_links = rule.signal_enabled or rule.deload_enabled
     has_links = bool(
         rule.direct.patterns or rule.direct.muscles

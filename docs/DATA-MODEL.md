@@ -622,12 +622,11 @@ historical value needed converting and no scale marker was introduced.
 
 ### 11.7 Region policy
 
-Each region carries `policy: {signal, deload}` in `config/injuries.v1.yaml`. `signal` is
-true for the three original regions and false for the eight newer ones, so a newer region's
-reading is stored and reviewed but does not join the signal or affect selection. `deload` is
-false for **every** region: the local reactive deload is implemented but stays dormant until a
-region is reviewed and switched on, which also keeps it from stacking on the existing
-whole-session back flare response (`DEC-SYMPTOM-06`). The flags are read where the signal is built
+Each region carries `policy: {signal, deload}` in `config/injuries.v1.yaml`, and all eleven
+ship with both on. The flags exist so one consumer can be removed for one region without a code
+change (`DEC-SYMPTOM-06`): `signal: false` keeps the logs and the deload but removes the flare
+ceiling, selection penalty and review certificate; `deload: false` keeps the signal but never
+eases a prescription. The flags are read where the signal is built
 (`features/injury_signal.py`), not at the storage layer: every configured region stays
 selectable in the CLI and the web form.
 
