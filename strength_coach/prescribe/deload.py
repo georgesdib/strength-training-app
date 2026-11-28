@@ -62,6 +62,10 @@ def apply_items(
     changed_loads = 0
     capped_rir = 0
     for item in items:
+        # Scope first: a local decision leaves every item it does not name byte-identical.
+        if not decision.applies_to(item.exercise_id):
+            out.append(item)
+            continue
         if item.essential and not cfg.include_essential:
             out.append(item)
             continue
@@ -118,16 +122,34 @@ def apply_items(
             load_factor=item.load_factor * applied_ratio,
         ))
     label = "reactive deload: " if "reactive" in decision.trigger else ""
-    warning = (
-        f"MOD-DELOAD-001: {label}{decision.reason}; "
-        f"sets -{cfg.set_reduction} (floor {cfg.minimum_sets}), "
-        f"load factor {cfg.load_multiplier:.0%} (most restrictive), "
-        f"RIR +{cfg.rir_add}"
-    )
+    if decision.scope == "local":
+        # The warning is the whole safety story for an automatic scoped change: which region,
+        # which evidence, what it did, and the one action that clears it.
+        warning = (
+            f"MOD-DELOAD-001: {decision.reason}; "
+            f"in scope: {len(decision.exercise_ids)} mapped exercises "
+            f"({', '.join(decision.regions)}); "
+            f"sets -{cfg.set_reduction} (floor {cfg.minimum_sets}), "
+            f"load factor {cfg.load_multiplier:.0%} (most restrictive), "
+            f"RIR +{cfg.rir_add}; unrelated patterns unchanged. "
+            f"Log a 0-1 reading to clear it."
+        )
+    else:
+        warning = (
+            f"MOD-DELOAD-001: {label}{decision.reason}; "
+            f"sets -{cfg.set_reduction} (floor {cfg.minimum_sets}), "
+            f"load factor {cfg.load_multiplier:.0%} (most restrictive), "
+            f"RIR +{cfg.rir_add}"
+        )
     note = {
         "trigger": decision.trigger,
         "reason": decision.reason,
         "block_week": decision.block_week,
+        "scope": decision.scope,
+        "regions": list(decision.regions),
+        "patterns": list(decision.patterns),
+        "evidence": list(decision.evidence),
+        "policy": decision.policy,
         "set_reduction": cfg.set_reduction,
         "minimum_sets": cfg.minimum_sets,
         "load_multiplier": cfg.load_multiplier,

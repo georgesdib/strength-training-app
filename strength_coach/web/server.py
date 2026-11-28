@@ -5131,6 +5131,7 @@ class Handler(BaseHTTPRequestHandler):
             "readiness_score": readiness_score.compute(conn, today).as_dict(),
             "cardio": cardio,
             "injury_signal": signal,
+            "local_deloads": deload_feature.local_deloads(conn, today),
             "sessions": _session_rows(conn, 12),
             "form_evaluation": form_assessment_feature.followup(conn, as_of=today),
         }
@@ -6313,6 +6314,9 @@ class Handler(BaseHTTPRequestHandler):
             "injury_signal": injury_signal.compute(
                 conn, today, ramp_week=context.block_week_index
             ).as_dict(),
+            # Symptom-driven regional deloads that are active today. Dormant unless a region
+            # sets policy.deload in config/injuries.v1.yaml (DEC-SYMPTOM-06).
+            "local_deloads": deload_feature.local_deloads(conn, today),
             # Canonical choices for the athlete forms. The browser must not own these lists.
             "options": options_mod.canonical_options(),
         }

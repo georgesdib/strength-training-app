@@ -189,6 +189,14 @@ feedback's flare flag is true when *any* region flared in its window. Both are d
 reporting, labelled as such, and neither feeds a rule. The velocity report reads `low_back`
 pre-session explicitly and now says so in its correlation label.
 
+**The local reactive deload.** Two consecutive *relevant* flaring exposures of a region
+(weighted working sets reaching its `min_session_load`) can reduce one set, 10% load and +1
+RIR on just the exercises that region loads. It runs only for regions with `policy.deload:
+true`, which is false everywhere in the shipped config, so nothing changes today. Full-session
+triggers run first and win. An exposure with no reading is skipped, a clear reading resets the
+sequence, and the deload ends when a later non-flare reading arrives — never because time
+passed. Enabling a region is one config line, not a code change.
+
 **What is deliberately absent.** No 0–10 scale in this release, no trend field, no
 character-to-diagnosis mapping and no character-driven rule. A finer scale needs a table
 rebuild and a re-derived flare threshold, and nothing yet justifies either; the bands above

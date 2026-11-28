@@ -492,7 +492,7 @@ def _region_signal(conn, rule: RegionRule, entries: list[dict], on_date: str,
         streak_summary = f"{streak} days since the last flare (or first clean entry)"
 
     start = last_flare or str(region_entries[0]["logged_on"])
-    loaded = _loaded_dates(conn, rule, start, on_date, taxonomy)
+    loaded = loaded_dates_for(conn, rule, start, on_date, taxonomy)
     states = {day: _exposure_state(rule, region_entries, day) for day in loaded}
     tolerated = sum(1 for state in states.values() if state == "tolerated")
     flared = sum(1 for state in states.values() if state == "flared")
@@ -546,9 +546,14 @@ def _region_signal(conn, rule: RegionRule, entries: list[dict], on_date: str,
     )
 
 
-def _loaded_dates(conn, rule: RegionRule, start: str, on_date: str,
-                  taxonomy: exercises.Taxonomy) -> dict[str, int]:
-    """Region load per training date: sum of (working sets x exercise weight)."""
+def loaded_dates_for(conn, rule: RegionRule, start: str, on_date: str,
+                     taxonomy: exercises.Taxonomy) -> dict[str, int]:
+    """Region load per training date: sum of (working sets x exercise weight).
+
+    Public because the local deload policy needs the same exposure model: a session counts as
+    an exposure for a region only when the weighted working sets reach ``min_session_load``.
+    Two implementations of "which session loaded this region" would eventually disagree.
+    """
     rows = conn.execute(
         "SELECT occurred_on, exercise_id, COUNT(*) AS n FROM clean_set "
         "WHERE occurred_on >= ? AND occurred_on <= ? AND is_working_set = 1 "

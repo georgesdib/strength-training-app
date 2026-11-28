@@ -219,6 +219,25 @@ function applyHashRoute() {
 window.addEventListener("hashchange", applyHashRoute);
 
 /* --- dashboard ---------------------------------------------------------- */
+function renderLocalDeloads(rows) {
+  // The programme banner says what a regional deload is doing; the dashboard card only says
+  // which region. Nothing here decides policy — the rows come from Python.
+  const target = document.getElementById("programme-deload-banner");
+  if (!target) return;
+  if (!rows || !rows.length) {
+    target.innerHTML = "";
+    return;
+  }
+  const detail = rows.map((row) => {
+    const exposures = (row.exposures || [])
+      .map((entry) => entry.exposure_on + " level " + entry.level).join(", ");
+    return esc(row.label) + " (" + esc(exposures) + ")";
+  }).join("; ");
+  target.innerHTML = "<div class='warnbox'><strong>Local deload active: " + detail +
+    "</strong><p class='muted'>Only the exercises mapped to that region are reduced. Log a " +
+    "0-1 reading for the region to clear it; a stale reading keeps it and is flagged.</p></div>";
+}
+
 async function loadOverview() {
   try {
     const data = await api("/api/overview");
@@ -253,9 +272,15 @@ async function loadOverview() {
           + (data.cardio.reference_max ?? "unknown")
           + " · " + (data.cardio.sessions ?? "unknown") + " session(s)" : "no entry"],
     ];
+    const locals = data.local_deloads || [];
+    if (locals.length) {
+      cards.push(["Local deload", locals.map((row) => row.label).join(" · "),
+        "symptom-driven; mapped exercises reduced — log a 0-1 reading to clear"]);
+    }
     $("#cards").innerHTML = cards.map(([label, value, sub]) => `
       <div class="card"><div class="label">${esc(label)}</div>
       <div class="value">${esc(value)}</div><div class="sub">${esc(sub)}</div></div>`).join("");
+    renderLocalDeloads(locals);
     renderProgrammeHeader(data.programme_header);
     renderFormFollowup(formEval);
     renderRecent(data.sessions);
@@ -2627,7 +2652,15 @@ async function loadState() {
       coverageTable + "</div>";
     renderStateForms(data);
     loadExposureStatus();
-    $("#state-summary").innerHTML = `
+    const localRows = data.local_deloads || [];
+    const localNote = localRows.length
+      ? "<div class='warnbox'><strong>Local deload active: " +
+        localRows.map((row) => esc(row.label)).join(", ") +
+        "</strong><p class='muted'>Mapped exercises are reduced one set at 90% load with +1 " +
+        "RIR; unrelated patterns are unchanged. Log a 0-1 reading for the region to clear " +
+        "it.</p></div>"
+      : "";
+    $("#state-summary").innerHTML = localNote + `
         <p>${esc(data.injury_signal?.summary || "")}</p>
         ${injuryRows}
         ${attributionBlock}

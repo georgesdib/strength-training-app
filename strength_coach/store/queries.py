@@ -504,6 +504,25 @@ def scheduled_deload_postponement_by_operation(conn, operation_id: str) -> dict 
     return dict(row) if row is not None else None
 
 
+def latest_region_symptom(conn, on_or_before: str, *, region: str) -> dict | None:
+    """The most recent entry for a region at or before a date, at **any** timing.
+
+    The regional deload policy reads this: a flare logged after a session is still an active
+    flare, so looking only at pre-session rows would let a post-session or next-morning
+    reading go unseen. The back rules keep their stricter pre-session reading
+    (``latest_symptom``); this is deliberately a second, wider question, not a replacement.
+    """
+    row = conn.execute(
+        """
+        SELECT * FROM symptom_log
+         WHERE logged_on <= ? AND region = ?
+         ORDER BY logged_on DESC, log_id DESC LIMIT 1
+        """,
+        (str(on_or_before), region),
+    ).fetchone()
+    return dict(row) if row is not None else None
+
+
 def symptom_entries(conn, *, since: str | None = None,
                     region: str | None = None) -> list[dict]:
     clauses: list[str] = []

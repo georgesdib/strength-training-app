@@ -24,6 +24,15 @@ reactive:
   consecutive_flares: 2
   # Existing triggers: two consecutive weeks over the spinal cap, or two consecutive flares.
   # They stay available even when the scheduled calendar is disabled.
+  #
+  # The local reactive deload (per region) reads the same consecutive_flares count. It only
+  # evaluates regions whose `policy.deload` is true in config/injuries.v1.yaml, and every
+  # region starts false: this mechanism is dormant until a region is reviewed and switched on.
+  local:
+    enabled: true
+    # How far back a flaring exposure still counts. Bounded on purpose: a long layoff ends the
+    # sequence rather than keeping a deload attached to training that is no longer happening.
+    lookback_days: 21
 
 prescription:
   # Reduce one set from each item, including main lifts. The session remains a real stimulus.
